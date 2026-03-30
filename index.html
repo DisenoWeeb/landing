@@ -3,773 +3,1113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Landing Page - Scroll Effects</title>
+    <title>STRVCT — Agencia Digital</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800;900&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        *, *::before, *::after {
+            margin: 0; padding: 0; box-sizing: border-box;
         }
 
         :root {
-            --bg-dark: #0a0a0a;
-            --bg-light: #f5f5f5;
-            --text-dark: #1a1a1a;
-            --text-light: #ffffff;
-            --accent: #ff3333;
-            --gray: #888888;
+            --ink: #08070d;
+            --paper: #f0ede8;
+            --void: #0d0c17;
+            --lime: #c8ff00;
+            --electric: #6b4cff;
+            --neon: #00ffe0;
+            --blood: #ff2b55;
+            --text: #f0ede8;
+            --mute: rgba(240,237,232,0.35);
+            --border: rgba(240,237,232,0.12);
+            --mono: 'Space Mono', monospace;
+            --display: 'Syne', sans-serif;
         }
 
-        html {
-            scroll-behavior: auto;
-        }
+        html { scroll-behavior: auto; }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-light);
+            font-family: var(--display);
+            background: var(--void);
+            color: var(--text);
             overflow-x: hidden;
+            cursor: none;
         }
 
-        /* Navegación */
-        nav {
+        /* ── CURSOR ── */
+        .cursor {
             position: fixed;
-            top: 0;
-            width: 100%;
-            padding: 2rem 5%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1000;
+            width: 12px; height: 12px;
+            background: var(--lime);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
             mix-blend-mode: difference;
+            transition: transform 0.15s ease, width 0.3s ease, height 0.3s ease;
+            transform: translate(-50%, -50%);
+        }
+        .cursor-ring {
+            position: fixed;
+            width: 40px; height: 40px;
+            border: 1px solid rgba(200,255,0,0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+            transform: translate(-50%, -50%);
+            transition: transform 0.4s ease, width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+        }
+        body:hover .cursor { opacity: 1; }
+
+        /* ── NOISE OVERLAY ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+            opacity: 0.035;
+            pointer-events: none;
+            z-index: 9997;
         }
 
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: -0.02em;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-        }
-
-        .nav-links a {
-            color: var(--text-light);
-            text-decoration: none;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            transition: opacity 0.3s;
-        }
-
-        .nav-links a:hover {
-            opacity: 0.6;
-        }
-
-        /* Hero Section - Full height con pinning */
-        .hero {
-            height: 100vh;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 0 5%;
-            position: relative;
+        /* ── GRADIENT MESH BG ── */
+        .mesh-bg {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
             overflow: hidden;
         }
-
-        .hero-content {
-            max-width: 900px;
+        .mesh-bg::before {
+            content: '';
+            position: absolute;
+            width: 800px; height: 800px;
+            background: radial-gradient(circle, rgba(107,76,255,0.18) 0%, transparent 70%);
+            top: -200px; left: -200px;
+            animation: drift1 18s ease-in-out infinite alternate;
         }
+        .mesh-bg::after {
+            content: '';
+            position: absolute;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(0,255,224,0.12) 0%, transparent 70%);
+            bottom: -100px; right: -100px;
+            animation: drift2 22s ease-in-out infinite alternate;
+        }
+        @keyframes drift1 { from { transform: translate(0,0) scale(1); } to { transform: translate(200px,150px) scale(1.2); } }
+        @keyframes drift2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-150px,-100px) scale(1.3); } }
 
-        .hero-label {
-            font-size: 0.8rem;
+        /* ── NAVIGATION ── */
+        nav {
+            position: fixed; top: 0; width: 100%;
+            padding: 1.8rem 4%;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 1000;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            background: rgba(13,12,23,0.7);
+        }
+        .logo {
+            font-family: var(--display);
+            font-size: 1.4rem; font-weight: 900;
+            letter-spacing: -0.04em;
+            color: var(--text);
+        }
+        .logo span { color: var(--lime); }
+        .nav-links {
+            display: flex; gap: 2.5rem; list-style: none; align-items: center;
+        }
+        .nav-links a {
+            font-family: var(--mono);
+            color: var(--mute);
+            text-decoration: none;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: color 0.3s;
+            position: relative;
+        }
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px; left: 0;
+            width: 0; height: 1px;
+            background: var(--lime);
+            transition: width 0.3s ease;
+        }
+        .nav-links a:hover { color: var(--text); }
+        .nav-links a:hover::after { width: 100%; }
+        .nav-cta {
+            font-family: var(--mono);
+            background: var(--lime);
+            color: var(--ink) !important;
+            padding: 0.6rem 1.4rem;
+            font-size: 0.72rem !important;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-decoration: none;
+            text-transform: uppercase;
+            transition: all 0.3s ease !important;
+        }
+        .nav-cta::after { display: none !important; }
+        .nav-cta:hover { background: var(--neon) !important; color: var(--ink) !important; }
+
+        /* ── HERO ── */
+        .hero {
+            min-height: 100vh;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            padding: 0 4% 5rem;
+            position: relative; z-index: 1;
+            overflow: hidden;
+        }
+        .hero-eyebrow {
+            font-family: var(--mono);
+            font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.2em;
-            color: var(--accent);
+            color: var(--lime);
             margin-bottom: 1.5rem;
             opacity: 0;
             transform: translateY(20px);
+            display: flex; align-items: center; gap: 1rem;
         }
-
+        .hero-eyebrow::before {
+            content: '';
+            display: inline-block;
+            width: 40px; height: 1px;
+            background: var(--lime);
+        }
         .hero h1 {
-            font-size: clamp(3rem, 8vw, 7rem);
-            font-weight: 800;
-            line-height: 1;
-            letter-spacing: -0.03em;
-            margin-bottom: 2rem;
-        }
-
-        .hero h1 span {
-            display: block;
-            color: var(--gray);
-        }
-
-        .hero-description {
-            font-size: 1.25rem;
-            line-height: 1.8;
-            color: var(--gray);
-            max-width: 600px;
+            font-family: var(--display);
+            font-size: clamp(4rem, 11vw, 10rem);
+            font-weight: 900;
+            line-height: 0.9;
+            letter-spacing: -0.04em;
             margin-bottom: 3rem;
+            overflow: hidden;
         }
-
-        .hero-description strong {
-            color: var(--text-light);
-            font-weight: 600;
+        .hero-line {
+            display: block; overflow: hidden;
         }
+        .hero-line-inner {
+            display: block;
+            transform: translateY(110%);
+        }
+        .hero-line-inner.muted { color: var(--mute); }
+        .hero-line-inner.accent { color: var(--lime); }
 
-        .cta-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1.2rem 2.5rem;
-            background: var(--text-light);
-            color: var(--bg-dark);
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 0.9rem;
+        .hero-bottom {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 3rem; align-items: end;
+            border-top: 1px solid var(--border);
+            padding-top: 2rem;
+            opacity: 0;
+        }
+        .hero-desc {
+            font-size: 1rem;
+            line-height: 1.8;
+            color: var(--mute);
+            max-width: 480px;
+        }
+        .hero-desc strong { color: var(--text); font-weight: 700; }
+        .hero-stats {
+            display: flex; gap: 3rem;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-num {
+            font-size: 2.5rem; font-weight: 900;
+            color: var(--lime); line-height: 1;
+            display: block;
+        }
+        .stat-label {
+            font-family: var(--mono);
+            font-size: 0.65rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            transition: all 0.4s ease;
+            letter-spacing: 0.1em;
+            color: var(--mute);
+            margin-top: 0.4rem;
+            display: block;
         }
 
-        .cta-button:hover {
-            gap: 1.5rem;
-            background: var(--accent);
-            color: var(--text-light);
-        }
-
-        /* Sección con pinning (como Several.pro) */
-        .pinned-section {
-            height: 100vh;
+        /* ── MARQUEE ── */
+        .marquee-wrap {
             width: 100%;
-            display: flex;
-            align-items: center;
-            padding: 0 5%;
-            position: relative;
-            background: var(--bg-dark);
+            overflow: hidden;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 1.2rem 0;
+            background: var(--void);
+            position: relative; z-index: 2;
         }
+        .marquee-track {
+            display: flex; gap: 0;
+            animation: marquee 20s linear infinite;
+            white-space: nowrap;
+            width: max-content;
+        }
+        .marquee-item {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--mute);
+            padding: 0 3rem;
+            display: flex; align-items: center; gap: 1.5rem;
+        }
+        .marquee-item::after {
+            content: '●';
+            color: var(--lime);
+            font-size: 0.5rem;
+        }
+        @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-        .pinned-content {
+        /* ── ABOUT / PINNED ── */
+        .about-section {
+            min-height: 100vh;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 5rem;
-            align-items: center;
-            width: 100%;
-            max-width: 1400px;
-            margin: 0 auto;
+            position: relative; z-index: 1;
         }
-
-        .pinned-text h2 {
-            font-size: clamp(2.5rem, 5vw, 4rem);
-            font-weight: 800;
-            line-height: 1.1;
+        .about-left {
+            padding: 8rem 4%;
+            display: flex; flex-direction: column; justify-content: center;
+            border-right: 1px solid var(--border);
+            position: relative;
+        }
+        .about-left::before {
+            content: '— 01';
+            position: absolute; top: 4rem; left: 4%;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--mute);
+            letter-spacing: 0.1em;
+        }
+        .about-tag {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--lime);
             margin-bottom: 2rem;
         }
-
-        .pinned-text p {
-            font-size: 1.1rem;
-            line-height: 1.9;
-            color: var(--gray);
-            margin-bottom: 1.5rem;
+        .about-left h2 {
+            font-size: clamp(2.2rem, 4vw, 3.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 2.5rem;
         }
-
-        .pinned-image {
-            height: 70vh;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+        .about-left h2 em {
+            font-style: normal;
+            color: var(--electric);
             position: relative;
-            overflow: hidden;
         }
-
-        .pinned-image::after {
-            content: '01';
+        .about-left p {
+            font-size: 1rem;
+            line-height: 1.9;
+            color: var(--mute);
+            margin-bottom: 1.2rem;
+        }
+        .about-left p strong { color: var(--text); }
+        .about-right {
+            position: relative; overflow: hidden;
+            background: linear-gradient(135deg, #0d0c17 0%, #161128 50%, #0d1a2e 100%);
+        }
+        .about-right-inner {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .about-visual {
+            position: relative; width: 320px; height: 320px;
+        }
+        .about-circle {
             position: absolute;
-            bottom: 2rem;
-            right: 2rem;
-            font-size: 8rem;
+            border-radius: 50%;
+            border: 1px solid;
+        }
+        .about-circle:nth-child(1) {
+            width: 320px; height: 320px;
+            border-color: rgba(107,76,255,0.3);
+            animation: spin 20s linear infinite;
+            top: 0; left: 0;
+        }
+        .about-circle:nth-child(2) {
+            width: 220px; height: 220px;
+            border-color: rgba(0,255,224,0.2);
+            animation: spin 15s linear infinite reverse;
+            top: 50px; left: 50px;
+        }
+        .about-circle:nth-child(3) {
+            width: 120px; height: 120px;
+            border-color: rgba(200,255,0,0.4);
+            animation: spin 10s linear infinite;
+            top: 100px; left: 100px;
+        }
+        .about-dot {
+            position: absolute;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--lime);
+            top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            box-shadow: 0 0 20px var(--lime), 0 0 60px rgba(200,255,0,0.3);
+        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .about-num {
+            position: absolute;
+            bottom: 3rem; right: 3rem;
+            font-size: 10rem;
             font-weight: 900;
             color: rgba(255,255,255,0.03);
+            line-height: 1;
+            font-family: var(--display);
         }
 
-        /* Scroll Horizontal Section (como "Últimas noticias") */
-        .horizontal-section {
+        /* ── HORIZONTAL SCROLL ── */
+        .h-section {
             height: 100vh;
             overflow: hidden;
-            background: var(--bg-light);
-            color: var(--text-dark);
+            position: relative; z-index: 1;
+            background: var(--paper);
         }
-
-        .horizontal-wrapper {
-            display: flex;
-            flex-wrap: nowrap;
+        .h-wrapper {
+            display: flex; flex-wrap: nowrap;
             height: 100%;
             will-change: transform;
         }
-
-        .horizontal-panel {
+        .h-panel {
             height: 100vh;
             min-width: 100vw;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 0 5%;
+            display: flex; flex-direction: column; justify-content: center;
+            padding: 0 4%;
+            color: var(--ink);
             position: relative;
         }
-
-        .horizontal-title {
-            font-size: clamp(3rem, 10vw, 8rem);
-            font-weight: 800;
-            white-space: nowrap;
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 2rem;
+        .h-panel-label {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: rgba(8,7,13,0.4);
+            margin-bottom: 1rem;
         }
-
-        .horizontal-title img {
-            height: 80px;
-            width: auto;
+        .h-panel-title {
+            font-size: clamp(3.5rem, 9vw, 7.5rem);
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            line-height: 0.9;
+            margin-bottom: 3rem;
+            color: var(--ink);
         }
-
-        .horizontal-content {
+        .h-panel-title span { color: var(--electric); }
+        .project-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 2rem;
-            max-width: 1200px;
+            gap: 1.5px;
+            background: rgba(8,7,13,0.1);
+            max-width: 900px;
         }
-
-        .card {
-            background: white;
-            padding: 2rem;
-            border-radius: 0;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            transform: translateY(50px);
+        .project-card {
+            background: var(--paper);
+            padding: 2rem 1.8rem;
+            transform: translateY(40px);
             opacity: 0;
-        }
-
-        .card h3 {
-            font-size: 1.3rem;
-            margin-bottom: 1rem;
-            font-weight: 700;
-        }
-
-        .card p {
-            color: var(--gray);
-            line-height: 1.6;
-        }
-
-        /* Sección de servicios con parallax */
-        .services-section {
-            min-height: 100vh;
-            padding: 10rem 5%;
-            background: var(--bg-dark);
-            position: relative;
-        }
-
-        .services-header {
-            text-align: center;
-            margin-bottom: 6rem;
-        }
-
-        .services-header h2 {
-            font-size: clamp(2rem, 4vw, 3.5rem);
-            font-weight: 800;
-            margin-bottom: 1rem;
-        }
-
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .service-card {
-            padding: 3rem 2rem;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: all 0.4s ease;
+            transition: background 0.3s ease;
             position: relative;
             overflow: hidden;
         }
-
-        .service-card::before {
+        .project-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: var(--accent);
+            top: 0; left: 0;
+            width: 100%; height: 2px;
+            background: var(--electric);
             transform: scaleX(0);
             transform-origin: left;
             transition: transform 0.4s ease;
         }
-
-        .service-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .service-card:hover {
-            background: rgba(255,255,255,0.06);
-            transform: translateY(-10px);
-        }
-
-        .service-number {
-            font-size: 0.8rem;
-            color: var(--accent);
-            font-weight: 700;
+        .project-card:hover::before { transform: scaleX(1); }
+        .project-card:hover { background: #e8e4de; }
+        .project-num {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: rgba(8,7,13,0.35);
+            letter-spacing: 0.1em;
             margin-bottom: 1rem;
+            display: block;
+        }
+        .project-card h3 {
+            font-size: 1.1rem; font-weight: 800;
+            margin-bottom: 0.7rem;
+            letter-spacing: -0.02em;
+            color: var(--ink);
+        }
+        .project-card p {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: rgba(8,7,13,0.55);
+        }
+        .project-tag {
+            display: inline-block;
+            margin-top: 1.2rem;
+            font-family: var(--mono);
+            font-size: 0.6rem;
             text-transform: uppercase;
             letter-spacing: 0.1em;
+            color: var(--electric);
+            border: 1px solid var(--electric);
+            padding: 0.2rem 0.6rem;
         }
 
-        .service-card h3 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
+        /* ── SERVICES ── */
+        .services-section {
+            padding: 8rem 4%;
+            background: var(--void);
+            position: relative; z-index: 1;
         }
-
-        .service-card p {
-            color: var(--gray);
-            line-height: 1.8;
-            font-size: 0.95rem;
+        .services-top {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: end;
+            margin-bottom: 5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 4rem;
         }
-
-        /* Footer */
-        footer {
-            padding: 5rem 5%;
-            background: var(--bg-dark);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            text-align: center;
-        }
-
-        .footer-content {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .footer-content h3 {
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 2rem;
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 3rem;
-            margin-top: 3rem;
-        }
-
-        .footer-links a {
-            color: var(--gray);
-            text-decoration: none;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 0.1em;
-            transition: color 0.3s;
-        }
-
-        .footer-links a:hover {
-            color: var(--text-light);
-        }
-
-        /* Indicador de scroll */
-        .scroll-indicator {
-            position: fixed;
-            bottom: 2rem;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.5rem;
-            opacity: 0.6;
-            transition: opacity 0.3s;
-        }
-
-        .scroll-indicator.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .scroll-indicator span {
+        .services-tag {
+            font-family: var(--mono);
             font-size: 0.7rem;
             text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--lime);
+            margin-bottom: 1.5rem;
+        }
+        .services-top h2 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 900;
+            line-height: 1.05;
+            letter-spacing: -0.04em;
+        }
+        .services-top p {
+            color: var(--mute);
+            line-height: 1.8;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+        .text-link {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
             letter-spacing: 0.1em;
+            color: var(--lime);
+            text-decoration: none;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            border-bottom: 1px solid var(--lime);
+            padding-bottom: 2px;
+            transition: gap 0.3s ease;
+        }
+        .text-link:hover { gap: 1rem; }
+
+        .services-list {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border-top: 1px solid var(--border);
+        }
+        .service-item {
+            padding: 3rem 2.5rem;
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            transition: background 0.4s ease;
+            overflow: hidden;
+        }
+        .service-item:hover { background: rgba(107,76,255,0.06); }
+        .service-item::after {
+            content: attr(data-num);
+            position: absolute;
+            bottom: -1rem; right: 1.5rem;
+            font-size: 6rem; font-weight: 900;
+            color: rgba(255,255,255,0.025);
+            line-height: 1;
+        }
+        .service-item:nth-child(3n) { border-right: none; }
+        .service-icon {
+            width: 48px; height: 48px;
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1.8rem;
+            font-size: 1.2rem;
+            transition: border-color 0.3s, background 0.3s;
+        }
+        .service-item:hover .service-icon {
+            border-color: var(--lime);
+            background: rgba(200,255,0,0.1);
+        }
+        .service-item h3 {
+            font-size: 1.2rem; font-weight: 800;
+            margin-bottom: 0.8rem;
+            letter-spacing: -0.02em;
+        }
+        .service-item p {
+            font-size: 0.88rem;
+            line-height: 1.8;
+            color: var(--mute);
         }
 
-        .scroll-arrow {
-            width: 30px;
-            height: 30px;
-            border: 2px solid currentColor;
-            border-radius: 50%;
+        /* ── CTA BAND ── */
+        .cta-band {
+            background: var(--lime);
+            padding: 5rem 4%;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            animation: bounce 2s infinite;
+            gap: 3rem;
+            position: relative; z-index: 1;
+            overflow: hidden;
+        }
+        .cta-band::before {
+            content: 'START';
+            position: absolute;
+            right: -2rem; top: 50%;
+            transform: translateY(-50%);
+            font-size: 18rem; font-weight: 900;
+            color: rgba(8,7,13,0.04);
+            line-height: 1;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .cta-band h2 {
+            font-size: clamp(2rem, 4.5vw, 3.8rem);
+            font-weight: 900;
+            color: var(--ink);
+            letter-spacing: -0.04em;
+            line-height: 1.1;
+            max-width: 600px;
+        }
+        .cta-band h2 em {
+            font-style: normal;
+            color: var(--electric);
+        }
+        .cta-btn {
+            display: inline-flex; align-items: center; gap: 1rem;
+            padding: 1.3rem 2.8rem;
+            background: var(--ink);
+            color: var(--lime);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+            position: relative; z-index: 1;
+        }
+        .cta-btn:hover { background: var(--electric); color: var(--paper); gap: 1.5rem; }
+
+        /* ── FOOTER ── */
+        footer {
+            padding: 5rem 4% 3rem;
+            background: var(--ink);
+            position: relative; z-index: 1;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .footer-top {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 1fr;
+            gap: 3rem;
+            margin-bottom: 4rem;
+            padding-bottom: 4rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .footer-brand .logo { font-size: 1.6rem; display: block; margin-bottom: 1rem; }
+        .footer-brand p {
+            font-size: 0.85rem; line-height: 1.7;
+            color: rgba(240,237,232,0.4);
+            max-width: 240px;
+        }
+        .footer-col h4 {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--lime);
+            margin-bottom: 1.5rem;
+        }
+        .footer-col ul { list-style: none; }
+        .footer-col ul li { margin-bottom: 0.8rem; }
+        .footer-col ul a {
+            color: rgba(240,237,232,0.45);
+            text-decoration: none;
+            font-size: 0.88rem;
+            transition: color 0.3s;
+        }
+        .footer-col ul a:hover { color: var(--text); }
+        .footer-bottom {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .footer-copy {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: rgba(240,237,232,0.25);
+            letter-spacing: 0.05em;
+        }
+        .footer-made {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: rgba(240,237,232,0.25);
+            letter-spacing: 0.05em;
+        }
+        .footer-made span { color: var(--blood); }
+
+        /* ── SCROLL INDICATOR ── */
+        .scroll-indicator {
+            position: fixed; bottom: 2rem; right: 2rem;
+            z-index: 100;
+            display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+            transition: opacity 0.4s;
+        }
+        .scroll-indicator.hidden { opacity: 0; pointer-events: none; }
+        .scroll-line {
+            width: 1px; height: 50px;
+            background: linear-gradient(to bottom, transparent, var(--lime));
+            animation: scrollline 1.5s ease-in-out infinite;
+        }
+        .scroll-label {
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--mute);
+            writing-mode: vertical-rl;
+        }
+        @keyframes scrollline {
+            0% { transform: scaleY(0); transform-origin: top; }
+            50% { transform: scaleY(1); transform-origin: top; }
+            51% { transform-origin: bottom; }
+            100% { transform: scaleY(0); transform-origin: bottom; }
         }
 
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
+        /* ── PROGRESS BAR ── */
+        .progress-bar {
+            position: fixed; top: 0; left: 0;
+            height: 2px;
+            background: linear-gradient(to right, var(--electric), var(--lime));
+            z-index: 9996;
+            transform-origin: left;
+            transform: scaleX(0);
         }
 
-        /* Responsive */
+        /* ── RESPONSIVE ── */
         @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-
-            .pinned-content {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
-
-            .pinned-image {
-                height: 40vh;
-                order: -1;
-            }
-
-            .horizontal-content {
-                grid-template-columns: 1fr;
-            }
-
-            .services-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .horizontal-title {
-                font-size: 2.5rem;
-            }
-
-            .horizontal-title img {
-                height: 40px;
-            }
+            .nav-links { display: none; }
+            .hero h1 { font-size: 3.5rem; }
+            .hero-bottom { grid-template-columns: 1fr; }
+            .hero-stats { gap: 2rem; }
+            .about-section { grid-template-columns: 1fr; }
+            .about-right { height: 50vh; }
+            .project-grid { grid-template-columns: 1fr; }
+            .services-top { grid-template-columns: 1fr; }
+            .services-list { grid-template-columns: 1fr; }
+            .service-item { border-right: none; }
+            .cta-band { flex-direction: column; }
+            .footer-top { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
 <body>
 
+    <!-- Cursor personalizado -->
+    <div class="cursor" id="cursor"></div>
+    <div class="cursor-ring" id="cursorRing"></div>
+
+    <!-- Barra de progreso -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Fondo mesh -->
+    <div class="mesh-bg"></div>
+
     <!-- Navegación -->
     <nav>
-        <div class="logo">TU MARCA</div>
+        <div class="logo">STR<span>V</span>CT</div>
         <ul class="nav-links">
             <li><a href="#inicio">Inicio</a></li>
             <li><a href="#nosotros">Nosotros</a></li>
+            <li><a href="#proyectos">Proyectos</a></li>
             <li><a href="#servicios">Servicios</a></li>
-            <li><a href="#contacto">Contacto</a></li>
+            <li><a href="#contacto" class="nav-cta">Contacto →</a></li>
         </ul>
     </nav>
 
-    <!-- Hero Section -->
+    <!-- ── HERO ── -->
     <section class="hero" id="inicio">
-        <div class="hero-content">
-            <div class="hero-label">Agencia Digital</div>
-            <h1>
-                Diseñamos
-                <span>experiencias digitales</span>
-            </h1>
-            <p class="hero-description">
+        <div class="hero-eyebrow">Agencia Digital — 2025</div>
+        <h1>
+            <span class="hero-line"><span class="hero-line-inner">Diseñamos</span></span>
+            <span class="hero-line"><span class="hero-line-inner muted">experiencias</span></span>
+            <span class="hero-line"><span class="hero-line-inner accent">digitales.</span></span>
+        </h1>
+        <div class="hero-bottom">
+            <p class="hero-desc">
                 Nuestra pasión por el diseño y la innovación se refleja en cada proyecto. 
-                <strong>Estamos comprometidos en ser tu socio estratégico</strong>, ayudándote a construir 
-                una identidad sólida y una presencia digital que impulse tu marca al siguiente nivel.
+                <strong>Somos tu socio estratégico</strong>, construyendo identidades sólidas 
+                y presencias digitales que impulsan marcas al siguiente nivel.
             </p>
-            <a href="#contacto" class="cta-button">
-                Empieza tu proyecto →
-            </a>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-num">80+</span>
+                    <span class="stat-label">Proyectos</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-num">6</span>
+                    <span class="stat-label">Años</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-num">98%</span>
+                    <span class="stat-label">Satisfacción</span>
+                </div>
+            </div>
         </div>
     </section>
 
-    <!-- Sección Pinneada 1 -->
-    <section class="pinned-section" id="nosotros">
-        <div class="pinned-content">
-            <div class="pinned-text">
-                <h2>Tu socio estratégico en el mundo digital</h2>
-                <p>
-                    Somos un equipo multidisciplinario de diseñadores, desarrolladores y estrategas 
-                    apasionados por crear productos digitales excepcionales.
-                </p>
-                <p>
-                    <strong>Nuestra metodología combina creatividad y análisis de datos</strong> 
-                    para entregar soluciones que no solo se ven bien, sino que funcionan y generan 
-                    resultados tangibles para tu negocio.
-                </p>
+    <!-- Marquee -->
+    <div class="marquee-wrap">
+        <div class="marquee-track">
+            <span class="marquee-item">Diseño Web</span>
+            <span class="marquee-item">Branding</span>
+            <span class="marquee-item">Desarrollo</span>
+            <span class="marquee-item">UX / UI</span>
+            <span class="marquee-item">Marketing</span>
+            <span class="marquee-item">SEO / SEM</span>
+            <span class="marquee-item">Motion Design</span>
+            <span class="marquee-item">Consultoría</span>
+            <span class="marquee-item">Diseño Web</span>
+            <span class="marquee-item">Branding</span>
+            <span class="marquee-item">Desarrollo</span>
+            <span class="marquee-item">UX / UI</span>
+            <span class="marquee-item">Marketing</span>
+            <span class="marquee-item">SEO / SEM</span>
+            <span class="marquee-item">Motion Design</span>
+            <span class="marquee-item">Consultoría</span>
+        </div>
+    </div>
+
+    <!-- ── ABOUT ── -->
+    <section class="about-section" id="nosotros">
+        <div class="about-left">
+            <div class="about-tag">— Sobre Nosotros</div>
+            <h2>Tu socio en el mundo <em>digital</em></h2>
+            <p>
+                Somos un equipo multidisciplinario de diseñadores, desarrolladores 
+                y estrategas apasionados por crear productos digitales excepcionales.
+            </p>
+            <p>
+                <strong>Nuestra metodología combina creatividad y datos</strong> para 
+                entregar soluciones que funcionan y generan resultados tangibles.
+            </p>
+        </div>
+        <div class="about-right">
+            <div class="about-right-inner">
+                <div class="about-visual">
+                    <div class="about-circle"></div>
+                    <div class="about-circle"></div>
+                    <div class="about-circle"></div>
+                    <div class="about-dot"></div>
+                </div>
             </div>
-            <div class="pinned-image"></div>
+            <div class="about-num">01</div>
         </div>
     </section>
 
-    <!-- Scroll Horizontal (como "Últimas noticias" de Several) -->
-    <section class="horizontal-section" id="proyectos">
-        <div class="horizontal-wrapper">
-            <div class="horizontal-panel">
-                <div class="horizontal-title">
-                    Últimos Proyectos
-                    <img src="https://several.pro/wp-content/uploads/2022/08/puntos_felices.svg" alt="decoración">
-                </div>
-                <div class="horizontal-content">
-                    <div class="card">
-                        <h3>Proyecto Uno</h3>
-                        <p>Diseño y desarrollo web completo para marca de lujo.</p>
+    <!-- ── SCROLL HORIZONTAL ── -->
+    <section class="h-section" id="proyectos">
+        <div class="h-wrapper">
+            <div class="h-panel">
+                <div class="h-panel-label">— 02 / Proyectos</div>
+                <div class="h-panel-title">Últimos<br><span>proyectos</span></div>
+                <div class="project-grid">
+                    <div class="project-card">
+                        <span class="project-num">001</span>
+                        <h3>Marca de Lujo</h3>
+                        <p>Diseño y desarrollo web completo para marca premium.</p>
+                        <span class="project-tag">Branding</span>
                     </div>
-                    <div class="card">
-                        <h3>Proyecto Dos</h3>
-                        <p>Branding integral y estrategia digital para startup.</p>
+                    <div class="project-card">
+                        <span class="project-num">002</span>
+                        <h3>Startup Tech</h3>
+                        <p>Identidad digital y estrategia de crecimiento.</p>
+                        <span class="project-tag">Estrategia</span>
                     </div>
-                    <div class="card">
-                        <h3>Proyecto Tres</h3>
-                        <p>E-commerce con experiencia de usuario premiada.</p>
+                    <div class="project-card">
+                        <span class="project-num">003</span>
+                        <h3>E-Commerce</h3>
+                        <p>Tienda online con experiencia de usuario premiada.</p>
+                        <span class="project-tag">UX/UI</span>
                     </div>
                 </div>
             </div>
-            <div class="horizontal-panel">
-                <div class="horizontal-title">
-                    Trabajos Creativos
-                    <img src="https://several.pro/wp-content/uploads/2022/08/puntos_felices.svg" alt="decoración">
-                </div>
-                <div class="horizontal-content">
-                    <div class="card">
-                        <h3>Campaña Integral</h3>
-                        <p>Marketing 360° para lanzamiento de producto.</p>
+            <div class="h-panel">
+                <div class="h-panel-label">— 03 / Creatividad</div>
+                <div class="h-panel-title">Trabajos<br><span>creativos</span></div>
+                <div class="project-grid">
+                    <div class="project-card">
+                        <span class="project-num">004</span>
+                        <h3>Campaña 360°</h3>
+                        <p>Marketing integral para lanzamiento de producto.</p>
+                        <span class="project-tag">Marketing</span>
                     </div>
-                    <div class="card">
-                        <h3>App Móvil</h3>
-                        <p>Diseño UX/UI para aplicación fintech.</p>
+                    <div class="project-card">
+                        <span class="project-num">005</span>
+                        <h3>App Fintech</h3>
+                        <p>Diseño UX/UI para aplicación financiera.</p>
+                        <span class="project-tag">UX/UI</span>
                     </div>
-                    <div class="card">
+                    <div class="project-card">
+                        <span class="project-num">006</span>
                         <h3>Motion Design</h3>
                         <p>Animaciones y video para redes sociales.</p>
+                        <span class="project-tag">Motion</span>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Servicios con Parallax -->
+    <!-- ── SERVICES ── -->
     <section class="services-section" id="servicios">
-        <div class="services-header">
-            <div class="hero-label" style="color: var(--accent);">Nuestros Servicios</div>
-            <h2>Áreas de especialización</h2>
+        <div class="services-top">
+            <div>
+                <div class="services-tag">— Nuestros Servicios</div>
+                <h2>Áreas de<br>especialización</h2>
+            </div>
+            <div>
+                <p>Combinamos estrategia, diseño y tecnología para crear experiencias digitales que conectan con las personas y generan resultados de negocio reales.</p>
+                <a href="#contacto" class="text-link">Ver todos los servicios →</a>
+            </div>
         </div>
-        <div class="services-grid">
-            <div class="service-card">
-                <div class="service-number">01</div>
+        <div class="services-list">
+            <div class="service-item" data-num="01">
+                <div class="service-icon">◈</div>
                 <h3>Diseño Web</h3>
-                <p>Creamos experiencias digitales únicas que combinan estética y funcionalidad.</p>
+                <p>Experiencias digitales que combinan estética y funcionalidad con propósito.</p>
             </div>
-            <div class="service-card">
-                <div class="service-number">02</div>
+            <div class="service-item" data-num="02">
+                <div class="service-icon">◎</div>
                 <h3>Branding</h3>
-                <p>Desarrollamos identidades de marca sólidas y memorables.</p>
+                <p>Identidades de marca sólidas, memorables y con carácter propio.</p>
             </div>
-            <div class="service-card">
-                <div class="service-number">03</div>
+            <div class="service-item" data-num="03">
+                <div class="service-icon">⬡</div>
                 <h3>Marketing</h3>
                 <p>Estrategias digitales integrales para hacer crecer tu negocio.</p>
             </div>
-            <div class="service-card">
-                <div class="service-number">04</div>
+            <div class="service-item" data-num="04">
+                <div class="service-icon">⟨/⟩</div>
                 <h3>Desarrollo</h3>
-                <p>Tecnología a medida con código limpio y escalable.</p>
+                <p>Tecnología a medida con código limpio, rápido y escalable.</p>
             </div>
-            <div class="service-card">
-                <div class="service-number">05</div>
-                <h3>SEO/SEM</h3>
-                <p>Posicionamiento estratégico para aumentar tu visibilidad.</p>
+            <div class="service-item" data-num="05">
+                <div class="service-icon">↗</div>
+                <h3>SEO / SEM</h3>
+                <p>Posicionamiento estratégico para aumentar visibilidad y tráfico.</p>
             </div>
-            <div class="service-card">
-                <div class="service-number">06</div>
+            <div class="service-item" data-num="06">
+                <div class="service-icon">◷</div>
                 <h3>Consultoría</h3>
                 <p>Asesoramiento experto para optimizar tu presencia digital.</p>
             </div>
         </div>
     </section>
 
-    <!-- Footer -->
-    <footer id="contacto">
-        <div class="footer-content">
-            <h2>¿Hablamos de tu proyecto?</h2>
-            <p>Cuéntanos qué necesitas y te ayudaremos a hacerlo realidad.</p>
-            <a href="mailto:hola@tumarca.com" class="cta-button">hola@tumarca.com</a>
-            <div class="footer-links">
-                <a href="#">Instagram</a>
-                <a href="#">LinkedIn</a>
-                <a href="#">Behance</a>
-                <a href="#">Twitter</a>
+    <!-- ── CTA BAND ── -->
+    <section class="cta-band" id="contacto">
+        <h2>¿Listo para llevar tu marca al <em>siguiente nivel</em>?</h2>
+        <a href="mailto:hola@strvct.com" class="cta-btn">Empezar proyecto →</a>
+    </section>
+
+    <!-- ── FOOTER ── -->
+    <footer>
+        <div class="footer-top">
+            <div class="footer-brand">
+                <span class="logo">STR<span>V</span>CT</span>
+                <p>Diseñamos experiencias digitales que conectan marcas con personas.</p>
             </div>
+            <div class="footer-col">
+                <h4>Servicios</h4>
+                <ul>
+                    <li><a href="#">Diseño Web</a></li>
+                    <li><a href="#">Branding</a></li>
+                    <li><a href="#">Desarrollo</a></li>
+                    <li><a href="#">Marketing</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Empresa</h4>
+                <ul>
+                    <li><a href="#">Nosotros</a></li>
+                    <li><a href="#">Proyectos</a></li>
+                    <li><a href="#">Blog</a></li>
+                    <li><a href="#">Carreras</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Social</h4>
+                <ul>
+                    <li><a href="#">Instagram</a></li>
+                    <li><a href="#">LinkedIn</a></li>
+                    <li><a href="#">Behance</a></li>
+                    <li><a href="#">Twitter / X</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span class="footer-copy">© 2025 STRVCT. Todos los derechos reservados.</span>
+            <span class="footer-made">Hecho con <span>♥</span> en Argentina</span>
         </div>
     </footer>
 
-    <!-- Indicador de scroll -->
-    <div class="scroll-indicator">
-        <span>Scroll</span>
-        <div class="scroll-arrow">↓</div>
+    <!-- Scroll indicator -->
+    <div class="scroll-indicator" id="scrollIndicator">
+        <span class="scroll-label">scroll</span>
+        <div class="scroll-line"></div>
     </div>
 
     <script>
-        // Registrar ScrollTrigger
-        gsap.registerPlugin(ScrollTrigger);
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
-        // Animación inicial del Hero
-        const heroTl = gsap.timeline();
-        heroTl.to('.hero-label', { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' })
-              .from('.hero h1', { y: 100, opacity: 0, duration: 1, ease: 'power3.out' }, '-=0.4')
-              .from('.hero-description', { y: 50, opacity: 0, duration: 0.8, ease: 'power2.out' }, '-=0.6')
-              .from('.cta-button', { y: 30, opacity: 0, duration: 0.6, ease: 'power2.out' }, '-=0.4');
+        // ── CURSOR ──
+        const cursor = document.getElementById('cursor');
+        const cursorRing = document.getElementById('cursorRing');
+        let mouseX = 0, mouseY = 0;
+        let ringX = 0, ringY = 0;
 
-        // Pinning de la sección "Nosotros" (como Several.pro)
-        ScrollTrigger.create({
-            trigger: '.pinned-section',
-            start: 'top top',
-            end: '+=150%',
-            pin: true,
-            pinSpacing: true,
-            onUpdate: (self) => {
-                // Parallax suave en la imagen mientras se hace scroll
-                gsap.to('.pinned-image', {
-                    y: self.progress * 100,
-                    duration: 0.1,
-                    ease: 'none'
-                });
-            }
+        document.addEventListener('mousemove', e => {
+            mouseX = e.clientX; mouseY = e.clientY;
+            cursor.style.left = mouseX + 'px';
+            cursor.style.top = mouseY + 'px';
         });
 
-        // Animación de entrada del contenido pinned
-        gsap.from('.pinned-text', {
-            scrollTrigger: {
-                trigger: '.pinned-section',
-                start: 'top 80%',
-                end: 'top 30%',
-                scrub: 1
-            },
-            x: -100,
-            opacity: 0
+        // Ring lag
+        (function animRing() {
+            ringX += (mouseX - ringX) * 0.12;
+            ringY += (mouseY - ringY) * 0.12;
+            cursorRing.style.left = ringX + 'px';
+            cursorRing.style.top = ringY + 'px';
+            requestAnimationFrame(animRing);
+        })();
+
+        document.querySelectorAll('a, button').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                cursor.style.transform = 'translate(-50%,-50%) scale(2.5)';
+                cursorRing.style.opacity = '0';
+            });
+            el.addEventListener('mouseleave', () => {
+                cursor.style.transform = 'translate(-50%,-50%) scale(1)';
+                cursorRing.style.opacity = '1';
+            });
         });
 
-        gsap.from('.pinned-image', {
-            scrollTrigger: {
-                trigger: '.pinned-section',
-                start: 'top 80%',
-                end: 'top 30%',
-                scrub: 1
-            },
-            x: 100,
-            opacity: 0,
-            scale: 0.9
+        // ── PROGRESS BAR ──
+        const progressBar = document.getElementById('progressBar');
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.body.scrollHeight - window.innerHeight;
+            const progress = scrollTop / docHeight;
+            progressBar.style.transform = `scaleX(${progress})`;
         });
 
-        // Scroll Horizontal (efecto "Últimas noticias" de Several)
-        const horizontalSection = document.querySelector('.horizontal-section');
-        const horizontalWrapper = document.querySelector('.horizontal-wrapper');
-        
-        // Calcular el ancho total para el scroll
-        const getScrollAmount = () => {
-            return -(horizontalWrapper.scrollWidth - window.innerWidth);
-        };
+        // ── HERO ANIMATIONS ──
+        const heroTl = gsap.timeline({ delay: 0.3 });
+        heroTl
+            .to('.hero-eyebrow', { opacity: 1, y: 0, duration: 0.7, ease: 'power2.out' })
+            .to('.hero-line-inner', {
+                y: '0%', duration: 1.1, stagger: 0.12,
+                ease: 'power4.out'
+            }, '-=0.3')
+            .to('.hero-bottom', { opacity: 1, duration: 0.8, ease: 'power2.out' }, '-=0.4');
 
-        // Animación horizontal
-        gsap.to(horizontalWrapper, {
-            x: getScrollAmount,
+        // ── ABOUT SECTION ──
+        gsap.from('.about-left > *', {
+            scrollTrigger: { trigger: '.about-section', start: 'top 75%', toggleActions: 'play none none reverse' },
+            y: 50, opacity: 0, duration: 0.8, stagger: 0.15, ease: 'power2.out'
+        });
+
+        // ── HORIZONTAL SCROLL ──
+        const hSection = document.querySelector('.h-section');
+        const hWrapper = document.querySelector('.h-wrapper');
+
+        gsap.to(hWrapper, {
+            x: () => -(hWrapper.scrollWidth - window.innerWidth),
             ease: 'none',
             scrollTrigger: {
-                trigger: horizontalSection,
+                trigger: hSection,
                 start: 'top top',
-                end: () => `+=${horizontalWrapper.scrollWidth - window.innerWidth}`,
-                pin: true,
-                scrub: 1,
-                invalidateOnRefresh: true,
-                anticipatePin: 1
+                end: () => `+=${hWrapper.scrollWidth - window.innerWidth}`,
+                pin: true, scrub: 1,
+                invalidateOnRefresh: true
             }
         });
 
-        // Animar las cards cuando entran en vista
-        gsap.utils.toArray('.card').forEach((card, i) => {
-            gsap.to(card, {
-                scrollTrigger: {
+        // Cards reveal
+        document.querySelectorAll('.project-card').forEach((card, i) => {
+            setTimeout(() => {
+                ScrollTrigger.create({
                     trigger: card,
-                    containerAnimation: gsap.getById && gsap.getById('horizontal'),
-                    start: 'left 80%',
-                    end: 'left 20%',
-                    scrub: 1
-                },
-                y: 0,
-                opacity: 1,
-                duration: 0.5
+                    start: 'top 90%',
+                    onEnter: () => gsap.to(card, { y: 0, opacity: 1, duration: 0.6, ease: 'power2.out' })
+                });
+            }, i * 80);
+        });
+
+        // ── SERVICES ──
+        gsap.from('.services-top > *', {
+            scrollTrigger: { trigger: '.services-top', start: 'top 80%', toggleActions: 'play none none reverse' },
+            y: 40, opacity: 0, duration: 0.7, stagger: 0.1
+        });
+
+        document.querySelectorAll('.service-item').forEach((item, i) => {
+            gsap.from(item, {
+                scrollTrigger: { trigger: item, start: 'top 88%', toggleActions: 'play none none reverse' },
+                y: 40, opacity: 0, duration: 0.6, delay: i * 0.07, ease: 'power2.out'
             });
         });
 
-        // Sección de servicios - animación escalonada
-        gsap.utils.toArray('.service-card').forEach((card, i) => {
-            gsap.from(card, {
-                scrollTrigger: {
-                    trigger: card,
-                    start: 'top 85%',
-                    toggleActions: 'play none none reverse'
-                },
-                y: 60,
-                opacity: 0,
-                duration: 0.6,
-                delay: i * 0.1,
-                ease: 'power2.out'
-            });
+        // ── CTA BAND ──
+        gsap.from('.cta-band > *', {
+            scrollTrigger: { trigger: '.cta-band', start: 'top 80%', toggleActions: 'play none none reverse' },
+            y: 30, opacity: 0, duration: 0.7, stagger: 0.15
         });
 
-        // Parallax en el header de servicios
-        gsap.to('.services-header', {
-            scrollTrigger: {
-                trigger: '.services-section',
-                start: 'top bottom',
-                end: 'bottom top',
-                scrub: 1
-            },
-            y: -50
-        });
-
-        // Ocultar indicador de scroll después de scrollear
+        // ── SCROLL INDICATOR ──
         ScrollTrigger.create({
             start: 100,
-            onUpdate: (self) => {
-                if (self.scroll() > 100) {
-                    document.querySelector('.scroll-indicator').classList.add('hidden');
-                } else {
-                    document.querySelector('.scroll-indicator').classList.remove('hidden');
-                }
+            onUpdate(self) {
+                const ind = document.getElementById('scrollIndicator');
+                if (self.scroll() > 100) ind.classList.add('hidden');
+                else ind.classList.remove('hidden');
             }
         });
 
-        // Smooth scroll para los links de navegación
+        // ── SMOOTH SCROLL ──
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
+            anchor.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                if (href === '#') return;
                 e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
+                const target = document.querySelector(href);
                 if (target) {
-                    gsap.to(window, {
-                        duration: 1,
-                        scrollTo: { y: target, offsetY: 0 },
-                        ease: 'power2.inOut'
-                    });
+                    gsap.to(window, { duration: 1.2, scrollTo: { y: target, offsetY: 0 }, ease: 'power3.inOut' });
                 }
             });
         });
 
-        // Refrescar ScrollTrigger en resize
-        window.addEventListener('resize', () => {
-            ScrollTrigger.refresh();
-        });
+        window.addEventListener('resize', () => ScrollTrigger.refresh());
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
 </body>
 </html>
