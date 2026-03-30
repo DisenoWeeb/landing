@@ -625,6 +625,42 @@
     transform: scaleX(1);
     transform-origin: left;
 }
+
+        .project-card {
+    display: block; /* Porque ahora es <a> */
+    text-decoration: none;
+    color: inherit;
+    /* el resto de tus estilos actuales se mantienen */
+}
+
+.project-card:hover {
+    transform: translateY(-5px); /* Efecto sutil de elevación */
+    box-shadow: 0 20px 40px rgba(8,7,13,0.1);
+}
+
+.project-card h3 {
+    color: var(--ink); /* Forzar color oscuro */
+}
+
+.project-card p {
+    color: rgba(8,7,13,0.6); /* Forzar color gris */
+}
+
+        .project-card::after {
+    content: '↗';
+    position: absolute;
+    top: 1.6rem;
+    right: 1.4rem;
+    font-size: 1.2rem;
+    opacity: 0;
+    transform: translate(-5px, 5px);
+    transition: all 0.3s ease;
+}
+
+.project-card:hover::after {
+    opacity: 1;
+    transform: translate(0, 0);
+}
     </style>
 <base target="_blank">
 </head>
