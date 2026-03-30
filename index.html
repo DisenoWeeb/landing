@@ -573,7 +573,7 @@
     gap: 1rem;
     padding: 0.6rem 1.8rem 0.6rem 0.6rem;
     background: transparent;
-    color: var(--ink);
+    color: var(--ink) !important;
     font-family: var(--mono);
     font-size: 0.72rem;
     font-weight: 700;
@@ -585,7 +585,7 @@
     position: relative;
     overflow: hidden;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 1;
+    z-index: 2;
 }
 
 .btn-avatar {
@@ -1028,10 +1028,10 @@
         });
 
         /* ── CTA ── */
-        gsap.from('.cta-band > *', {
-            scrollTrigger:{ trigger:'.cta-band', start:'top 82%', toggleActions:'play none none reverse' },
-            y:22, opacity:0, duration:.55, stagger:.12
-        });
+      gsap.from('.cta-band > *:not(a)', {
+    scrollTrigger:{ trigger:'.cta-band', start:'top 82%', toggleActions:'play none none reverse' },
+    y:22, opacity:0, duration:.55, stagger:.12
+});
 
         /* ── SCROLL INDICATOR ── */
         ScrollTrigger.create({
