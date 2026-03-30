@@ -193,6 +193,7 @@
             height:100%;
             z-index:-1;
             overflow:hidden;
+            background: var(--void);
         }
 
         .hero-video {
@@ -201,14 +202,30 @@
             object-fit:cover;
             transform:scale(1);
             will-change:transform;
+            /* BLUE COLOR FILTER */
+            filter: grayscale(40%) brightness(0.7) sepia(100%) hue-rotate(180deg) saturate(200%);
+            opacity: 0.9;
         }
 
-        /* Dark overlay for text readability */
+        /* Enhanced Blue Overlay */
         .hero-video-overlay {
             position:absolute;
             inset:0;
-            background:linear-gradient(to bottom, rgba(13,12,23,0.3) 0%, rgba(13,12,23,0.7) 70%, rgba(13,12,23,0.95) 100%);
+            background: 
+                linear-gradient(135deg, rgba(13,12,23,0.4) 0%, transparent 50%),
+                linear-gradient(to bottom, rgba(13,12,23,0.2) 0%, rgba(13,12,23,0.8) 70%, rgba(13,12,23,0.98) 100%),
+                rgba(107,76,255,0.15);
             z-index:1;
+            mix-blend-mode: multiply;
+        }
+
+        /* Additional blue tint layer */
+        .hero-video-overlay::after {
+            content:'';
+            position:absolute;
+            inset:0;
+            background: linear-gradient(to right, rgba(0,100,255,0.1), transparent 60%);
+            z-index:2;
         }
 
         .hero-eyebrow {
@@ -216,7 +233,7 @@
             letter-spacing:.2em; color:var(--lime); margin-bottom:1.2rem;
             opacity:0; transform:translateY(20px);
             display:flex; align-items:center; gap:1rem;
-            position:relative; z-index:2;
+            position:relative; z-index:3;
         }
         .hero-eyebrow::before {
             content:''; display:inline-block; width:30px; height:1px; background:var(--lime);
@@ -228,7 +245,7 @@
             font-size:clamp(2.2rem,11vw,8rem);
             font-weight:900; line-height:.95;
             letter-spacing:-.04em; margin-bottom:2.5rem;
-            position:relative; z-index:2;
+            position:relative; z-index:3;
         }
 
         .hero-line { display:block; overflow:hidden; }
@@ -239,12 +256,13 @@
         .hero-bottom {
             display:grid; grid-template-columns:1fr auto;
             gap:2rem; align-items:end;
-            border-top:1px solid var(--border); padding-top:1.8rem;
+            border-top:1px solid var(--border); 
             opacity:0;
-            position:relative; z-index:2;
-            background:linear-gradient(to top, rgba(13,12,23,0.8), transparent);
+            position:relative; z-index:3;
+            background:linear-gradient(to top, rgba(13,12,23,0.95) 0%, rgba(13,12,23,0.7) 50%, transparent 100%);
             margin:0 -5% -4rem;
             padding:1.8rem 5% 4rem;
+            backdrop-filter: blur(10px);
         }
         .hero-desc {
             font-size:.93rem; line-height:1.85; color:var(--mute);
@@ -542,7 +560,7 @@
 
     <!-- ══ NAV ══ -->
     <nav>
-        <a href="#inicio" class="logo">ram<span>studio</span></a>
+        <a href="#inicio" class="logo">weeb<span>studio</span></a>
         <ul class="nav-links" id="navLinks">
             <li><a href="#inicio">Inicio</a></li>
             <li><a href="#nosotros">Nosotros</a></li>
@@ -734,7 +752,7 @@
     <footer>
         <div class="footer-top">
             <div class="footer-brand">
-                <span class="logo">Studio<span>WEEB</span></span>
+                <span class="logo">weeb<span>studio</span></span>
                 <p>Diseñamos experiencias digitales que conectan marcas con personas.</p>
             </div>
             <div class="footer-col">
