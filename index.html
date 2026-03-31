@@ -632,63 +632,105 @@
     z-index: 1;
 }
 
-        .cta-btn-whatsapp {
+       .cta-btn-whatsapp {
     display: inline-flex;
     align-items: center;
     gap: 1rem;
     padding: 0.6rem 1.8rem 0.6rem 0.6rem;
+
     background: transparent;
     color: var(--ink) !important;
+
     font-family: var(--mono);
     font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
+
     text-decoration: none;
     border: 1.5px solid var(--ink);
     border-radius: 50px;
+
     position: relative;
     overflow: hidden;
+
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 2;
+
+    /* 🔥 mejora visual */
+    backdrop-filter: blur(6px);
 }
 
+/* avatar */
 .btn-avatar {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
+
     object-fit: cover;
+    object-position: center 60%;
+
     border: 2px solid var(--ink);
+
     transition: all 0.3s ease;
+
+    /* 🔥 profundidad */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 
+/* hover avatar */
 .cta-btn-whatsapp:hover .btn-avatar {
     border-color: var(--lime);
-    transform: scale(1.05);
+    transform: scale(1.08);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
 }
 
-/* El resto del efecto hover igual */
+/* fondo animado */
 .cta-btn-whatsapp::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: var(--ink);
+
+    background: linear-gradient(135deg, var(--ink), #000);
+
     transform: scaleX(0);
     transform-origin: right;
+
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: -1;
     border-radius: 50px;
 }
 
-.cta-btn-whatsapp:hover {
-    color: var(--lime);
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(8, 7, 13, 0.15);
+/* ✨ brillo sutil */
+.cta-btn-whatsapp::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.15), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: -1;
 }
 
+/* hover general */
+.cta-btn-whatsapp:hover {
+    color: var(--lime);
+    transform: translateY(-3px) scale(1.01);
+
+    box-shadow: 
+        0 10px 30px rgba(8, 7, 13, 0.2),
+        0 0 0 1px rgba(255,255,255,0.05) inset;
+}
+
+/* animación fondo */
 .cta-btn-whatsapp:hover::before {
     transform: scaleX(1);
     transform-origin: left;
+}
+
+/* aparece brillo */
+.cta-btn-whatsapp:hover::after {
+    opacity: 1;
 }
 
         .project-card {
@@ -944,14 +986,7 @@ para equipos de veteranos de rugby.</p>
 
         <img src="https://i.ibb.co/tp7NtKBb/Chat-GPT-Image-31-mar-2026-09-05-54.png" 
              alt="Ronaldo" 
-             class="btn-avatar"
-             style="
-                width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        object-fit: cover;
-        object-position: center 60%;
-             ">
+             class="btn-avatar">
 
         <span class="btn-text">Contanos la idea y lo construimos juntos.</span>
     </a>
