@@ -77,13 +77,13 @@
         .loader-sheep-svg {
             width: clamp(90px, 20vw, 140px);
             height: auto;
-            animation: sheepBob 0.6s ease-in-out infinite alternate;
+            animation: sheepBob 0.15s ease-in-out infinite alternate;
             filter: drop-shadow(0 0 18px rgba(200,255,0,0.35));
         }
 
         @keyframes sheepBob {
-            from { transform: translateY(0px) rotate(-2deg); }
-            to   { transform: translateY(-8px) rotate(2deg); }
+            from { transform: rotate(-2deg) scale(1); }
+    to   { transform: rotate(2deg) scale(1); }
         }
 
         .loader-weeb-text {
@@ -91,7 +91,7 @@
             font-size: clamp(1.8rem, 6vw, 3rem);
             font-weight: 900;
             letter-spacing: .1em;
-            color: var(--lime);
+            color: #ffffff;
             overflow: hidden;
             white-space: nowrap;
             text-align: center;
