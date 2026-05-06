@@ -1537,20 +1537,41 @@
        HORIZONTAL SCROLL
     ══════════════════════════ */
     function initHorizontal() {
-        if (isMobile()) return;
+        ScrollTrigger.getById('projects-horizontal')?.kill();
+        gsap.killTweensOf('#hWrapper');
+
+        if (isMobile()) {
+            gsap.set('#hWrapper', { clearProps: 'transform' });
+            return;
+        }
+
         const hSection = document.querySelector('.h-section');
         const hWrapper = document.getElementById('hWrapper');
+        if (!hSection || !hWrapper) return;
+
+        const travel = hWrapper.scrollWidth - window.innerWidth;
+        if (travel <= 0) return;
+
         gsap.to(hWrapper, {
-            x: () => -(hWrapper.scrollWidth - window.innerWidth),
+            x: () => -travel,
             ease:'none',
             scrollTrigger:{
-                trigger:hSection, start:'top top',
-                end: () => `+=${hWrapper.scrollWidth - window.innerWidth}`,
-                pin:true, scrub:1, invalidateOnRefresh:true
+                id:'projects-horizontal',
+                trigger:hSection,
+                start:'top top',
+                end: () => `+=${travel}`,
+                pin:true,
+                scrub:1,
+                invalidateOnRefresh:true
             }
         });
     }
     initHorizontal();
+
+    window.addEventListener('resize', () => {
+        initHorizontal();
+        ScrollTrigger.refresh();
+    });
 
     document.querySelectorAll('.project-card').forEach((card, i) => {
         if (isMobile()) {
