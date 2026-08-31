@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scroll Experience</title>
+
+<!-- ==========================================================
+     Tipografías. Cambiá estas familias si tu client.config
+     usa otras (deben coincidir con fonts.display / fonts.body).
+     ========================================================== -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Inter:wght@300;400;500&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+  :root {
+    --brand-accent: #d9a441;
+    --brand-accent-2: #6ee7c9;
+    --color-bg: #05070a;
+    --color-text: #f4f1ea;
+    --color-text-muted: rgba(244, 241, 234, 0.6);
+    --font-display: "Fraunces", serif;
+    --font-body: "Inter", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    overflow-x: hidden;
+  }
+
+  #root { width: 100%; }
+
+  .app-root {
+    position: relative;
+    width: 100%;
+  }
+
+  /* -------- Escenario 3D fijo -------- */
+  .canvas-stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  .canvas-stage--ready { opacity: 1; }
+  .canvas-stage canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  /* -------- Textos por escena -------- */
+  .scene-text-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .scene-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8vw;
+    max-width: 720px;
+    will-change: opacity, transform;
+  }
+  .scene-text--left    { align-items: flex-start; text-align: left; }
+  .scene-text--center  { align-items: center; text-align: center; left: 50%; transform: translateX(-50%); max-width: 640px; }
+  .scene-text--right   { align-items: flex-end; text-align: right; margin-left: auto; }
+
+  .scene-text__eyebrow {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--brand-accent);
+    margin-bottom: 0.75rem;
+    display: inline-block;
+  }
+  .scene-text__title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(2rem, 5vw, 4rem);
+    line-height: 1.05;
+    margin: 0 0 0.75rem 0;
+    color: var(--color-text);
+  }
+  .scene-text__subtitle {
+    font-family: var(--font-body);
+    font-weight: 300;
+    font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    margin: 0;
+    max-width: 46ch;
+  }
+
+  /* -------- CTA -------- */
+  .cta-layer {
+    position: absolute;
+    bottom: 8vh;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    will-change: opacity, transform;
+  }
+  .cta-button {
+    display: inline-block;
+    padding: 0.9rem 2.2rem;
+    border-radius: 999px;
+    background: var(--brand-accent);
+    color: #0a0a0a;
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    box-shadow: 0 8px 30px rgba(217, 164, 65, 0.35);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 36px rgba(217, 164, 65, 0.5);
+  }
+
+  /* -------- Barra de progreso -------- */
+  .progress-rail {
+    position: fixed;
+    top: 50%;
+    right: 3vw;
+    transform: translateY(-50%);
+    height: 28vh;
+    z-index: 6;
+  }
+  .progress-rail__track {
+    position: relative;
+    width: 2px;
+    height: 100%;
+    background: rgba(244, 241, 234, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-rail__fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%;
+    background: var(--brand-accent);
+    border-radius: 2px;
+    transition: height 0.05s linear;
+  }
+
+  /* -------- Marca -------- */
+  .brand-mark {
+    position: fixed;
+    top: 3vh;
+    left: 3vw;
+    z-index: 6;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    color: var(--color-text);
+  }
+
+  /* -------- Hint de scroll -------- */
+  .scroll-hint {
+    position: fixed;
+    bottom: 4vh;
+    left: 3vw;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    opacity: 0.7;
+  }
+  .scroll-hint__line {
+    width: 1px;
+    height: 32px;
+    background: linear-gradient(to bottom, var(--color-text-muted), transparent);
+    animation: scrollHintPulse 2s ease-in-out infinite;
+  }
+  @keyframes scrollHintPulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 1; }
+  }
+
+  .scroll-spacer { width: 100%; }
+
+  /* Oculta el hint una vez que se empezó a scrollear (clase agregada por JS) */
+  .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- ==========================================================
+     Import map: todas las dependencias se cargan como ESM desde
+     esm.sh, fijadas a versiones compatibles entre sí para evitar
+     instancias duplicadas de React/Three (parámetro ?deps=...).
+     ========================================================== -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "three": "https://esm.sh/three@0.160.0",
+    "zustand": "https://esm.sh/zustand@4.5.5?deps=react@18.3.1",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?deps=react@18.3.1,react-dom@18.3.1,three@0.160.0",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?deps=react@18.3.1,react-dom@18.3.1,three@0.160.0,@react-three/fiber@8.17.10",
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?deps=react@18.3.1,three@0.160.0,@react-three/fiber@8.17.10"
+  }
+}
+</script>
+
+<!-- Babel standalone: transforma JSX en el navegador (sin build step) -->
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<script type="text/babel" data-type="module" data-presets="react">
+
+import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { createRoot } from "react-dom/client";
+import { create } from "zustand";
+import * as THREE from "three";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, MeshDistortMaterial } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+
+/* ============================================================
+   CONFIG: client.config
+   Ajustá acá colores de marca, tipografías, CTA, partículas y
+   la ruta de tu modelo GLTF/GLB (si no hay, se usa un objeto
+   procedural como placeholder).
+   ============================================================ */
+const clientConfig = {
+  brand: { name: "Studio" },
+  colors: {
+    accent: "#d9a441",
+    accentSecondary: "#6ee7c9",
+    background: "#05070a",
+    textPrimary: "#f4f1ea",
+    textMuted: "rgba(244, 241, 234, 0.6)",
+  },
+  fonts: {
+    display: "'Fraunces', serif",
+    body: "'Inter', sans-serif",
+  },
+  model: {
+    // Poné acá la ruta a tu .glb dentro de /assets/models/, ej: "./assets/models/hero.glb"
+    modelPath: null,
+    scale: 1,
+  },
+  particles: {
+    count: 900,
+    color: "#d9a441",
+    size: 0.015,
+  },
+  cta: {
+    href: "#contacto",
+    label: "Empezar",
+  },
+};
+
+/* ============================================================
+   CONFIG: scenes.config
+   Cada keyframe define un "beat" narrativo entre progress 0..1.
+   blendScenes() interpola linealmente entre el keyframe anterior
+   y el siguiente según el scroll.
+   ============================================================ */
+const scenes = [
+  {
+    id: "intro",
+    progress: 0,
+    camera: { position: [0, 0.2, 6.5], lookAt: [0, 0, 0], fov: 35 },
+    object: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 },
+    particles: { spread: 1, opacity: 0.35 },
+    light: { color: "#ffffff", intensity: 0.4, rimColor: "#d9a441", rimIntensity: 1.2 },
+    fog: { color: "#05070a", far: 18 },
+    background: "#05070a",
+    text: {
+      eyebrow: "Bienvenido",
+      title: "Una historia que se cuenta scrolleando",
+      subtitle: "Cada movimiento de cámara y cada luz responde a dónde estás en la página.",
+      align: "left",
+    },
+  },
+  {
+    id: "explora",
+    progress: 0.33,
+    camera: { position: [2.2, 0.6, 4.5], lookAt: [0, 0.2, 0], fov: 32 },
+    object: { position: [0, 0.3, 0], rotation: [0, Math.PI * 0.6, 0], scale: 1.15 },
+    particles: { spread: 1.6, opacity: 0.55 },
+    light: { color: "#ffe9c7", intensity: 0.6, rimColor: "#6ee7c9", rimIntensity: 1.6 },
+    fog: { color: "#0a0d12", far: 14 },
+    background: "#0a0d12",
+    text: {
+      eyebrow: "Explorá",
+      title: "Detalles que cobran vida",
+      subtitle: "El objeto central reacciona a la profundidad del recorrido.",
+      align: "right",
+    },
+  },
+  {
+    id: "profundidad",
+    progress: 0.66,
+    camera: { position: [-2.4, -0.3, 3.6], lookAt: [0, -0.1, 0], fov: 30 },
+    object: { position: [0, -0.2, 0], rotation: [0, Math.PI * 1.3, 0.1], scale: 1.35 },
+    particles: { spread: 2.2, opacity: 0.7 },
+    light: { color: "#c9d8ff", intensity: 0.5, rimColor: "#d9a441", rimIntensity: 2.0 },
+    fog: { color: "#05060a", far: 10 },
+    background: "#05060a",
+    text: {
+      eyebrow: "Profundidad",
+      title: "El ambiente cambia con vos",
+      subtitle: "Niebla, luces y partículas se funden en cada transición.",
+      align: "center",
+    },
+  },
+  {
+    id: "cierre",
+    progress: 1,
+    camera: { position: [0, 0.1, 3.0], lookAt: [0, 0, 0], fov: 28 },
+    object: { position: [0, 0, 0], rotation: [0, Math.PI * 2, 0], scale: 1.5 },
+    particles: { spread: 1.2, opacity: 0.3 },
+    light: { color: "#ffffff", intensity: 0.7, rimColor: "#6ee7c9", rimIntensity: 2.4 },
+    fog: { color: "#000000", far: 8 },
+    background: "#000000",
+    showCTA: true,
+    text: {
+      eyebrow: "Listo",
+      title: "Sumate a la experiencia",
+      subtitle: "",
+      align: "center",
+    },
+  },
+];
+
+const SCROLL_LENGTH_VH = 500;
+
+/* ============================================================
+   UTILS: easing.ts
+   ============================================================ */
+function damp(current, target, lambda, dt) {
+  return current + (target - current) * (1 - Math.exp(-lambda * dt));
+}
+function clamp(value, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value));
+}
+
+/* ============================================================
+   UTILS: device.ts
+   ============================================================ */
+function getDeviceProfile() {
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  return {
+    isMobile,
+    dpr: isMobile ? [1, 1.5] : [1, 2],
+    particleMultiplier: isMobile ? 0.4 : 1,
+    enablePostProcessing: !isMobile,
+  };
+}
+
+/* ============================================================
+   UTILS: interpolate.ts
+   ============================================================ */
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+function lerpVec3(a, b, t) {
+  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+}
+function lerpColor(a, b, t) {
+  const ca = new THREE.Color(a);
+  const cb = new THREE.Color(b);
+  ca.lerp(cb, t);
+  return "#" + ca.getHexString();
+}
+
+function sceneToState(kf) {
+  return {
+    camera: kf.camera,
+    object: kf.object,
+    particles: kf.particles,
+    light: kf.light,
+    fog: kf.fog,
+    background: kf.background,
+  };
+}
+
+function blendScenes(list, rawProgress) {
+  const progress = clamp(rawProgress, 0, 1);
+  if (progress <= list[0].progress) return sceneToState(list[0]);
+  const last = list[list.length - 1];
+  if (progress >= last.progress) return sceneToState(last);
+
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < progress) i++;
+  const a = list[i];
+  const b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((progress - a.progress) / span);
+
+  return {
+    camera: {
+      position: lerpVec3(a.camera.position, b.camera.position, t),
+      lookAt: lerpVec3(a.camera.lookAt, b.camera.lookAt, t),
+      fov: lerp(a.camera.fov, b.camera.fov, t),
+    },
+    object: {
+      position: lerpVec3(a.object.position, b.object.position, t),
+      rotation: lerpVec3(a.object.rotation, b.object.rotation, t),
+      scale: lerp(a.object.scale, b.object.scale, t),
+    },
+    particles: {
+      spread: lerp(a.particles.spread, b.particles.spread, t),
+      opacity: lerp(a.particles.opacity, b.particles.opacity, t),
+    },
+    light: {
+      color: lerpColor(a.light.color, b.light.color, t),
+      intensity: lerp(a.light.intensity, b.light.intensity, t),
+      rimColor: lerpColor(a.light.rimColor, b.light.rimColor, t),
+      rimIntensity: lerp(a.light.rimIntensity, b.light.rimIntensity, t),
+    },
+    fog: {
+      color: lerpColor(a.fog.color, b.fog.color, t),
+      far: lerp(a.fog.far, b.fog.far, t),
+    },
+    background: lerpColor(a.background, b.background, t),
+  };
+}
+
+function textWeight(kf, progress, window_ = 0.14) {
+  const d = Math.abs(progress - kf.progress);
+  return clamp(1 - d / window_);
+}
+
+/* ============================================================
+   STORE: scroll/scrollStore.ts
+   ============================================================ */
+const useScrollStore = create((set) => ({
+  progress: 0,
+  smoothProgress: 0,
+  setProgress: (p) => set({ progress: p }),
+  setSmoothProgress: (p) => set({ smoothProgress: p }),
+}));
+
+/* ============================================================
+   HOOK: scroll/useScrollProgress.ts
+   Traduce el alto del spacer + scrollY del documento en un
+   progreso 0..1 crudo, guardado en el store.
+   ============================================================ */
+function useScrollProgress(spacerRef) {
+  useEffect(() => {
+    const compute = () => {
+      const el = spacerRef.current;
+      if (!el) return;
+      const total = el.offsetHeight - window.innerHeight;
+      const raw = total > 0 ? window.scrollY / total : 0;
+      const p = clamp(raw, 0, 1);
+      useScrollStore.getState().setProgress(p);
+      document.body.classList.toggle("app-root--scrolled", window.scrollY > 20);
+    };
+    compute();
+    window.addEventListener("scroll", compute, { passive: true });
+    window.addEventListener("resize", compute);
+    return () => {
+      window.removeEventListener("scroll", compute);
+      window.removeEventListener("resize", compute);
+    };
+  }, [spacerRef]);
+}
+
+/* ============================================================
+   COMPONENT (dentro de <Canvas>): scroll/ScrollSmoother.tsx
+   Amortigua smoothProgress hacia progress cuadro a cuadro.
+   ============================================================ */
+function ScrollSmoother() {
+  useFrame((_, delta) => {
+    const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
+    setSmoothProgress(damp(smoothProgress, progress, 4, delta));
+  });
+  return null;
+}
+
+/* ============================================================
+   HOOK: engine/utils/useMouseParallax.ts
+   ============================================================ */
+function useMouseParallax() {
+  const mouse = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    const onMove = (e) => {
+      if (e.pointerType !== "mouse") return;
+      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+  return mouse;
+}
+
+/* ============================================================
+   three/CameraRig.jsx
+   ============================================================ */
+function CameraRig({ mouse, parallaxStrength = 0.18 }) {
+  const { camera } = useThree();
+  const lookAtTarget = useRef(new THREE.Vector3());
+  const currentLookAt = useRef(new THREE.Vector3());
+
+  useFrame((_, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    const [px, py, pz] = state.camera.position;
+    const [lx, ly, lz] = state.camera.lookAt;
+    const mx = mouse.current?.x ?? 0;
+    const my = mouse.current?.y ?? 0;
+
+    camera.position.x = damp(camera.position.x, px + mx * parallaxStrength, 6, delta);
+    camera.position.y = damp(camera.position.y, py - my * parallaxStrength * 0.6, 6, delta);
+    camera.position.z = damp(camera.position.z, pz, 6, delta);
+
+    lookAtTarget.current.set(lx + mx * 0.05, ly - my * 0.05, lz);
+    currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-6 * delta));
+    camera.lookAt(currentLookAt.current);
+
+    if ("fov" in camera) {
+      camera.fov = damp(camera.fov, state.camera.fov, 5, delta);
+      camera.updateProjectionMatrix();
+    }
+  });
+
+  return null;
+}
+
+/* ============================================================
+   three/CentralObject.jsx
+   ============================================================ */
+function GLTFObject({ path }) {
+  const { scene } = useGLTF(path);
+  return <primitive object={scene} />;
+}
+
+function ProceduralObject() {
+  const meshRef = useRef(null);
+  useFrame((state) => {
+    if (!meshRef.current) return;
+    const t = state.clock.getElapsedTime();
+    meshRef.current.position.y += Math.sin(t * 0.6) * 0.0004;
+  });
+  return (
+    <mesh ref={meshRef} castShadow receiveShadow>
+      <icosahedronGeometry args={[1, 6]} />
+      <MeshDistortMaterial
+        color={clientConfig.colors.accent}
+        roughness={0.15}
+        metalness={0.7}
+        distort={0.28}
+        speed={1.4}
+        envMapIntensity={1.2}
+      />
+    </mesh>
+  );
+}
+
+function CentralObject() {
+  const groupRef = useRef(null);
+  const { modelPath, scale } = clientConfig.model;
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    const [px, py, pz] = state.object.position;
+    const [rx, ry, rz] = state.object.rotation;
+
+    groupRef.current.position.set(
+      damp(groupRef.current.position.x, px, 6, delta),
+      damp(groupRef.current.position.y, py, 6, delta),
+      damp(groupRef.current.position.z, pz, 6, delta)
+    );
+    groupRef.current.rotation.set(rx, ry, rz);
+
+    const targetScale = state.object.scale * scale;
+    groupRef.current.scale.setScalar(damp(groupRef.current.scale.x, targetScale, 6, delta));
+  });
+
+  return (
+    <group ref={groupRef}>
+      <Suspense fallback={null}>
+        {modelPath ? <GLTFObject path={modelPath} /> : <ProceduralObject />}
+      </Suspense>
+    </group>
+  );
+}
+
+/* ============================================================
+   three/Particles.jsx
+   ============================================================ */
+function Particles({ device }) {
+  const pointsRef = useRef(null);
+  const materialRef = useRef(null);
+  const count = Math.round(clientConfig.particles.count * device.particleMultiplier);
+
+  const positions = useMemo(() => {
+    const arr = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      arr[i * 3] = (Math.random() - 0.5) * 2;
+      arr[i * 3 + 1] = (Math.random() - 0.5) * 2;
+      arr[i * 3 + 2] = (Math.random() - 0.5) * 2;
+    }
+    return arr;
+  }, [count]);
+
+  useFrame((state, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const blended = blendScenes(scenes, progress);
+    if (pointsRef.current) {
+      const targetScale = blended.particles.spread;
+      pointsRef.current.scale.setScalar(damp(pointsRef.current.scale.x, targetScale, 3, delta));
+      pointsRef.current.rotation.y += delta * 0.02;
+    }
+    if (materialRef.current) {
+      materialRef.current.opacity = damp(materialRef.current.opacity, blended.particles.opacity, 4, delta);
+    }
+    void state;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        ref={materialRef}
+        color={clientConfig.particles.color}
+        size={clientConfig.particles.size}
+        transparent
+        opacity={0.4}
+        depthWrite={false}
+        sizeAttenuation
+      />
+    </points>
+  );
+}
+
+/* ============================================================
+   three/Lighting.jsx
+   ============================================================ */
+function Lighting() {
+  const keyRef = useRef(null);
+  const rimRef = useRef(null);
+
+  useFrame((_, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    if (keyRef.current) {
+      keyRef.current.color.set(state.light.color);
+      keyRef.current.intensity = damp(keyRef.current.intensity, state.light.intensity, 4, delta);
+    }
+    if (rimRef.current) {
+      rimRef.current.color.set(state.light.rimColor);
+      rimRef.current.intensity = damp(rimRef.current.intensity, state.light.rimIntensity, 4, delta);
+    }
+  });
+
+  return (
+    <>
+      <ambientLight intensity={0.12} />
+      <directionalLight ref={keyRef} position={[3, 4, 5]} intensity={0.4} />
+      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.2} distance={12} />
+    </>
+  );
+}
+
+/* ============================================================
+   three/SceneEnvironment.jsx
+   ============================================================ */
+function SceneEnvironment() {
+  const { scene } = useThree();
+  const fog = useRef(new THREE.FogExp2("#05070a", 0.12));
+  const bgColor = useRef(new THREE.Color("#05070a"));
+
+  useEffect(() => {
+    scene.fog = fog.current;
+    scene.background = bgColor.current;
+  }, [scene]);
+
+  useFrame(() => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    fog.current.color.set(state.fog.color);
+    fog.current.density = 1 / Math.max(state.fog.far, 1);
+    bgColor.current.set(state.background);
+  });
+
+  return null;
+}
+
+/* ============================================================
+   three/Experience.jsx
+   ============================================================ */
+function Experience({ device }) {
+  const mouse = useMouseParallax();
+  return (
+    <>
+      <ScrollSmoother />
+      <SceneEnvironment />
+      <CameraRig mouse={mouse} />
+      <Lighting />
+      <Suspense fallback={null}>
+        <CentralObject />
+      </Suspense>
+      <Particles device={device} />
+      {device.enablePostProcessing && (
+        <EffectComposer multisampling={0}>
+          <Bloom intensity={0.55} luminanceThreshold={0.2} luminanceSmoothing={0.9} mipmapBlur />
+          <Vignette eskil={false} offset={0.15} darkness={0.7} />
+        </EffectComposer>
+      )}
+    </>
+  );
+}
+
+/* ============================================================
+   ui/SceneText.jsx
+   ============================================================ */
+function SceneText() {
+  const refs = useRef([]);
+
+  useEffect(() => {
+    const update = (progress) => {
+      scenes.forEach((kf, i) => {
+        const el = refs.current[i];
+        if (!el || !kf.text) return;
+        const weight = textWeight(kf, progress);
+        el.style.opacity = String(weight);
+        el.style.transform =
+          kf.text.align === "center"
+            ? `translateX(-50%) translateY(${(1 - weight) * 24}px)`
+            : `translateY(${(1 - weight) * 24}px)`;
+        el.style.pointerEvents = weight > 0.5 ? "auto" : "none";
+      });
+    };
+    update(useScrollStore.getState().smoothProgress);
+    const unsubscribe = useScrollStore.subscribe((s) => update(s.smoothProgress));
+    return unsubscribe;
+  }, []);
+
+  return (
+    <div className="scene-text-layer">
+      {scenes.map((kf, i) =>
+        kf.text ? (
+          <div
+            key={kf.id}
+            ref={(el) => { refs.current[i] = el; }}
+            className={`scene-text scene-text--${kf.text.align}`}
+            style={{ opacity: 0 }}
+          >
+            {kf.text.eyebrow && <span className="scene-text__eyebrow">{kf.text.eyebrow}</span>}
+            <h2 className="scene-text__title">{kf.text.title}</h2>
+            {kf.text.subtitle && <p className="scene-text__subtitle">{kf.text.subtitle}</p>}
+          </div>
+        ) : null
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   ui/CTAButton.jsx
+   ============================================================ */
+const CTA_START = scenes.find((s) => s.showCTA)?.progress ?? 1;
+const FADE_WINDOW = 0.06;
+
+function CTAButton() {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (!ref.current) return;
+      const weight = clamp((progress - (CTA_START - FADE_WINDOW)) / FADE_WINDOW);
+      ref.current.style.opacity = String(weight);
+      ref.current.style.transform = `translateX(-50%) translateY(${(1 - weight) * 16}px)`;
+      ref.current.style.pointerEvents = weight > 0.6 ? "auto" : "none";
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div ref={ref} className="cta-layer" style={{ opacity: 0 }}>
+      <a className="cta-button" href={clientConfig.cta.href}>
+        {clientConfig.cta.label}
+      </a>
+    </div>
+  );
+}
+
+/* ============================================================
+   ui/ProgressIndicator.jsx
+   ============================================================ */
+function ProgressIndicator() {
+  const fillRef = useRef(null);
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (fillRef.current) fillRef.current.style.height = `${progress * 100}%`;
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div className="progress-rail" aria-hidden="true">
+      <div className="progress-rail__track">
+        <div ref={fillRef} className="progress-rail__fill" />
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   App.jsx
+   ============================================================ */
+function App() {
+  const spacerRef = useRef(null);
+  useScrollProgress(spacerRef);
+  const device = useMemo(() => getDeviceProfile(), []);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div
+      className="app-root"
+      style={{
+        "--brand-accent": clientConfig.colors.accent,
+        "--brand-accent-2": clientConfig.colors.accentSecondary,
+        "--color-bg": clientConfig.colors.background,
+        "--color-text": clientConfig.colors.textPrimary,
+        "--color-text-muted": clientConfig.colors.textMuted,
+        "--font-display": clientConfig.fonts.display,
+        "--font-body": clientConfig.fonts.body,
+      }}
+    >
+      <div className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
+        <Canvas
+          dpr={device.dpr}
+          gl={{ antialias: true, powerPreference: "high-performance" }}
+          camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
+        >
+          <Experience device={device} />
+        </Canvas>
+        <SceneText />
+        <CTAButton />
+        <ProgressIndicator />
+        <header className="brand-mark">
+          <span>{clientConfig.brand.name}</span>
+        </header>
+        <div className="scroll-hint" aria-hidden="true">
+          <span>Scroll</span>
+          <div className="scroll-hint__line" />
+        </div>
+      </div>
+      <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<App />);
+
+</script>
+</body>
+</html>
