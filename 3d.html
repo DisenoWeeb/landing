@@ -265,7 +265,7 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, useAnimations, Environment } from "@react-three/drei";
+import { useGLTF, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 
 /* ============================================================
@@ -299,18 +299,25 @@ const clientConfig = {
 };
 
 /* ============================================================
-   CONFIG: personaje 3D animado (GLB con esqueleto real)
+   CONFIG: personaje 3D animado (GLB con esqueleto, sin clips)
    Poné el .glb en tu repo (ej: assets/models/weeb.glb) y apuntá
    CHARACTER_MODEL_URL ahí — GitHub Pages lo sirve como estático.
-   La animación se "scrubbea" con el scroll: el progreso 0..1
-   dentro de la ventana [CHAR_SEQ_START, CHAR_SEQ_END] controla
-   directamente el tiempo del clip, como arrastrar el cabezal de
-   un video.
+   Como este modelo no trae animaciones grabadas, el movimiento
+   es 100% procedural: rotamos el personaje entero con el scroll
+   (para que se vea el logo de la mochila en algún punto), le
+   sumamos una respiración/balanceo constante, y un saludo con
+   el brazo derecho que aparece y desaparece en una ventana
+   puntual del scroll.
    ============================================================ */
 const CHARACTER_MODEL_URL = "./assets/models/weeb.glb";
-const CHARACTER_ANIMATION = "preset:biped:greet_04"; // la otra disponible: "preset:biped:agree"
-const CHAR_SEQ_START = 0.1;
-const CHAR_SEQ_END = 0.85;
+
+// Vueltas completas que da el personaje a lo largo de TODO el scroll.
+const CHARACTER_SPINS = 1.25;
+
+// Ventana de scroll (0..1) donde aparece el gesto de saludo,
+// como una "campana": sube, se mantiene, baja.
+const WAVE_CENTER = 0.55;
+const WAVE_WIDTH = 0.16;
 
 /* ============================================================
    CONFIG: scenes.config
@@ -620,35 +627,108 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
 /* ============================================================
    three/AnimatedCharacter.jsx
-   Personaje 3D real (GLB con esqueleto) cuya animación se
-   controla por scroll: en vez de reproducirse sola en el
-   tiempo, su clock interno avanza según smoothProgress.
+   Personaje 3D real (GLB con esqueleto, sin clips grabados).
+   Todo el movimiento es procedural, hueso por hueso:
+   - El grupo entero rota con el scroll (revela todos los
+     ángulos, incluida la mochila con el logo).
+   - Respiración/balanceo constante en la columna, para que
+     nunca se sienta "estatua muerta".
+   - La cabeza sigue levemente al mouse.
+   - El brazo derecho saluda en una ventana puntual del scroll,
+     con un pequeño vaivén de muñeca mientras dura el saludo.
+   NOTA: los ángulos de "levantar el brazo" son un primer
+   intento — como no hay forma de previsualizar el rig acá,
+   puede que el sentido/eje de alguna rotación necesite
+   ajustarse una vez que se vea en vivo.
    ============================================================ */
-function AnimatedCharacter() {
+function AnimatedCharacter({ mouse }) {
   const groupRef = useRef(null);
-  const { scene, animations } = useGLTF(CHARACTER_MODEL_URL);
-  const { actions, mixer } = useAnimations(animations, groupRef);
-  const actionRef = useRef(null);
+  const { scene } = useGLTF(CHARACTER_MODEL_URL);
+  const bonesRef = useRef({});
+  const restRef = useRef({});
+  const clockRef = useRef(0);
 
   useEffect(() => {
-    const names = Object.keys(actions);
-    const action = actions[CHARACTER_ANIMATION] || actions[names[0]];
-    if (!action) return;
-    action.reset().play();
-    action.paused = true; // lo pausamos: el tiempo lo va a mover el scroll, no el reloj interno
-    actionRef.current = action;
-  }, [actions]);
+    const names = {
+      spine1: "Spine01",
+      spine2: "Spine02",
+      head: "Head",
+      neck: "NeckTwist01",
+      rClavicle: "R_Clavicle",
+      rUpperarm: "R_Upperarm",
+      rForearm: "R_Forearm",
+      rHand: "R_Hand",
+    };
+    const bones = {};
+    const rest = {};
+    Object.entries(names).forEach(([key, boneName]) => {
+      const bone = scene.getObjectByName(boneName);
+      if (bone) {
+        bones[key] = bone;
+        rest[key] = bone.rotation.clone();
+      }
+    });
+    bonesRef.current = bones;
+    restRef.current = rest;
+  }, [scene]);
 
-  useFrame(() => {
-    const action = actionRef.current;
-    if (!action || !mixer) return;
+  useFrame((_, delta) => {
+    clockRef.current += delta;
+    const t = clockRef.current;
     const progress = useScrollStore.getState().smoothProgress;
-    const t = clamp((progress - CHAR_SEQ_START) / (CHAR_SEQ_END - CHAR_SEQ_START));
-    action.time = t * action.getClip().duration;
-    mixer.update(0);
+    const bones = bonesRef.current;
+    const rest = restRef.current;
+
+    // Rotación completa del personaje atada al scroll (con un poquito
+    // de lag para que se sienta fluida, no un dial rígido).
+    if (groupRef.current) {
+      const targetY = progress * Math.PI * 2 * CHARACTER_SPINS;
+      groupRef.current.rotation.y = damp(groupRef.current.rotation.y, targetY, 3, delta);
+    }
+
+    // Respiración/balanceo: siempre activo, independiente del scroll.
+    const breathe = Math.sin(t * 1.1) * 0.02;
+    const sway = Math.sin(t * 0.7) * 0.015;
+
+    if (bones.spine1) {
+      bones.spine1.rotation.x = rest.spine1.x + breathe;
+      bones.spine1.rotation.z = rest.spine1.z + sway;
+    }
+    if (bones.spine2) {
+      bones.spine2.rotation.x = rest.spine2.x + breathe * 0.6;
+    }
+
+    // Cabeza siguiendo levemente al mouse (mismo ref que usa la cámara).
+    const mx = mouse?.current?.x ?? 0;
+    const my = mouse?.current?.y ?? 0;
+    if (bones.head) {
+      bones.head.rotation.y = damp(bones.head.rotation.y, rest.head.y + mx * 0.2, 4, delta);
+      bones.head.rotation.x = damp(bones.head.rotation.x, rest.head.x - my * 0.12, 4, delta);
+    }
+    if (bones.neck) {
+      bones.neck.rotation.y = damp(bones.neck.rotation.y, rest.neck.y + mx * 0.08, 4, delta);
+    }
+
+    // Saludo: una "campana" de peso 0→1→0 centrada en WAVE_CENTER.
+    const waveWeight = clamp(1 - Math.abs(progress - WAVE_CENTER) / WAVE_WIDTH);
+    const wiggle = Math.sin(t * 7) * 0.18 * waveWeight;
+
+    if (bones.rClavicle) {
+      bones.rClavicle.rotation.z = rest.rClavicle.z - waveWeight * 0.3;
+    }
+    if (bones.rUpperarm) {
+      bones.rUpperarm.rotation.z = rest.rUpperarm.z - waveWeight * 1.9;
+      bones.rUpperarm.rotation.x = rest.rUpperarm.x + waveWeight * 0.3;
+    }
+    if (bones.rForearm) {
+      bones.rForearm.rotation.z = rest.rForearm.z - waveWeight * 0.9 + wiggle;
+    }
+    if (bones.rHand) {
+      bones.rHand.rotation.z = rest.rHand.z + wiggle * 1.4;
+    }
   });
 
-  return <primitive ref={groupRef} object={scene} position={[0, -0.55, 0]} scale={1.7} />;
+  return <primitive ref={groupRef} object={scene} position={[0, -0.5, 0]} scale={1.7} />;
 }
 useGLTF.preload(CHARACTER_MODEL_URL);
 
@@ -833,7 +913,7 @@ function Experience({ device }) {
       <Lighting />
       <Environment preset="city" background={false} />
       <Suspense fallback={null}>
-        <AnimatedCharacter />
+        <AnimatedCharacter mouse={mouse} />
       </Suspense>
       <SpeedLines />
       <Particles device={device} />
