@@ -260,11 +260,12 @@
 
 <script type="text/babel" data-type="module" data-presets="react">
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, useAnimations } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 
 /* ============================================================
@@ -298,79 +299,18 @@ const clientConfig = {
 };
 
 /* ============================================================
-   CONFIG: character.config
-   4 fotos del personaje (mismo mundo 3D, mismo mascot) usadas
-   como "poses clave". En vez de un flipbook de 36 frames, cada
-   foto vive en un punto del scroll y se hace crossfade con la
-   siguiente — el mismo truco que ya usa el texto de cada escena.
-
-   Pegá tus 4 URLs de Cloudinary tal cual las subiste; optimizeCloudinaryUrl()
-   le agrega w_900,q_auto,f_auto automáticamente para achicar el peso.
-   El orden de "progress" define en qué parte del recorrido aparece cada una.
+   CONFIG: personaje 3D animado (GLB con esqueleto real)
+   Poné el .glb en tu repo (ej: assets/models/weeb.glb) y apuntá
+   CHARACTER_MODEL_URL ahí — GitHub Pages lo sirve como estático.
+   La animación se "scrubbea" con el scroll: el progreso 0..1
+   dentro de la ventana [CHAR_SEQ_START, CHAR_SEQ_END] controla
+   directamente el tiempo del clip, como arrastrar el cabezal de
+   un video.
    ============================================================ */
-function optimizeCloudinaryUrl(url) {
-  if (!url) return "";
-  if (!url.includes("/upload/")) return url;
-  if (/\/upload\/[a-z]/.test(url) === false) return url;
-  return url.replace("/upload/", "/upload/w_1200,q_auto,f_auto/");
-}
-
-const CHARACTER_IMAGES = [
-  {
-    id: "hero",
-    progress: 0,
-    // Pose de espaldas, mochila al hombro — primera impresión, "arranca el viaje".
-    url: optimizeCloudinaryUrl("https://res.cloudinary.com/dwgwbdtud/image/upload/v1788216474/mhw55yosrahcyrqr2lj7.png"),
-  },
-  {
-    id: "approach",
-    progress: 0.3,
-    // Caminando de perfil con la caja al hombro — en movimiento, se acerca.
-    url: optimizeCloudinaryUrl("https://res.cloudinary.com/dwgwbdtud/image/upload/v1788216474/mhw55yosrahcyrqr2lj7.png"),
-  },
-  {
-    id: "servicios",
-    progress: 0.65,
-    // Saltando y saludando — el momento de mayor energía, coincide con "Servicios".
-    url: optimizeCloudinaryUrl("https://res.cloudinary.com/dwgwbdtud/image/upload/v1788216474/mhw55yosrahcyrqr2lj7.png"),
-  },
-  {
-    id: "cierre",
-    progress: 1,
-    // De frente, mostrando la caja a cámara — el gesto de "entrega", coincide con el CTA.
-    url: optimizeCloudinaryUrl("https://res.cloudinary.com/dwgwbdtud/image/upload/v1788216474/mhw55yosrahcyrqr2lj7.png"),
-  },
-];
-
-// Devuelve, para un progreso 0..1 dado, cuánto "pesa" (0..1) cada imagen.
-// Entre dos keyframes se hace un crossfade lineal; fuera del rango, la
-// imagen de punta queda sola. Es el mismo patrón que blendScenes/textWeight
-// pero devolviendo un peso por imagen en vez de valores interpolados.
-function imageWeights(rawProgress) {
-  const progress = clamp(rawProgress, 0, 1);
-  const n = CHARACTER_IMAGES.length;
-  const weights = new Array(n).fill(0);
-
-  if (progress <= CHARACTER_IMAGES[0].progress) {
-    weights[0] = 1;
-    return weights;
-  }
-  const lastIdx = n - 1;
-  if (progress >= CHARACTER_IMAGES[lastIdx].progress) {
-    weights[lastIdx] = 1;
-    return weights;
-  }
-
-  let i = 0;
-  while (i < n - 1 && CHARACTER_IMAGES[i + 1].progress < progress) i++;
-  const a = CHARACTER_IMAGES[i];
-  const b = CHARACTER_IMAGES[i + 1];
-  const span = b.progress - a.progress || 1;
-  const t = clamp((progress - a.progress) / span);
-  weights[i] = 1 - t;
-  weights[i + 1] = t;
-  return weights;
-}
+const CHARACTER_MODEL_URL = "./assets/models/weeb.glb";
+const CHARACTER_ANIMATION = "preset:biped:greet_04"; // la otra disponible: "preset:biped:agree"
+const CHAR_SEQ_START = 0.1;
+const CHAR_SEQ_END = 0.85;
 
 /* ============================================================
    CONFIG: scenes.config
@@ -646,130 +586,6 @@ function useMouseParallax() {
 }
 
 /* ============================================================
-   HOOK: engine/utils/useCharacterTextures.ts
-   Carga las 4 fotos como texturas de three.js. Si una URL viene
-   vacía (todavía no la pegaste en CHARACTER_IMAGES), simplemente
-   no la carga — esa pose no aparece, pero el resto de la
-   experiencia (partículas, texto, cámara) sigue funcionando.
-   ============================================================ */
-function useCharacterTextures(urls) {
-  const [textures, setTextures] = useState(() => urls.map(() => null));
-
-  useEffect(() => {
-    let cancelled = false;
-    const loader = new THREE.TextureLoader();
-    loader.setCrossOrigin("anonymous");
-
-    urls.forEach((url, i) => {
-      if (!url) return;
-      loader.load(
-        url,
-        (tex) => {
-          if (cancelled) return;
-          if ("colorSpace" in tex) tex.colorSpace = THREE.SRGBColorSpace;
-          tex.anisotropy = 4;
-          setTextures((prev) => {
-            const next = prev.slice();
-            next[i] = tex;
-            return next;
-          });
-        },
-        undefined,
-        (err) => console.warn("No se pudo cargar la imagen del personaje:", url, err)
-      );
-    });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urls.join("|")]);
-
-  return textures;
-}
-
-/* ============================================================
-   three/CharacterImages.jsx
-   Las 4 fotos del personaje montadas como planos superpuestos en
-   el mismo punto del espacio. Comparten posición/rotación/escala
-   (siguen el mismo camino que antes seguía el logo, vía
-   blendScenes), pero cada una tiene su propia opacidad:
-   imageWeights() decide cuál está "al frente" en cada momento del
-   scroll y arma el crossfade entre pose y pose. El giro sobre el
-   eje Y es sutil (mucho más suave que el que tenía el logo
-   original) para que la foto no gire como un cartel, solo respire.
-   ============================================================ */
-function CharacterImages() {
-  const groupRef = useRef(null);
-  const meshRefs = useRef([]);
-  const imageUrls = useMemo(() => CHARACTER_IMAGES.map((c) => c.url), []);
-  const textures = useCharacterTextures(imageUrls);
-
-  useFrame((_, delta) => {
-    const progress = useScrollStore.getState().smoothProgress;
-    const state = blendScenes(scenes, progress);
-    const weights = imageWeights(progress);
-    const [px, py, pz] = state.object.position;
-    const [rx, , rz] = state.object.rotation;
-    const spin = state.object.spinSpeed;
-
-    if (groupRef.current) {
-      groupRef.current.position.set(
-        damp(groupRef.current.position.x, px, 6, delta),
-        damp(groupRef.current.position.y, py, 6, delta),
-        damp(groupRef.current.position.z, pz, 6, delta)
-      );
-      groupRef.current.rotation.x = damp(groupRef.current.rotation.x, rx, 6, delta);
-      groupRef.current.rotation.z = damp(groupRef.current.rotation.z, rz, 6, delta);
-      // Giro propio mucho más sutil que el del logo original: una foto
-      // girando rápido se ve rota, no "viva".
-      groupRef.current.rotation.y += spin * delta * 0.12;
-
-      const targetScale = state.object.scale;
-      const nextScale = damp(groupRef.current.scale.x || targetScale, targetScale, 6, delta);
-      groupRef.current.scale.setScalar(nextScale);
-    }
-
-    meshRefs.current.forEach((mesh, i) => {
-      if (!mesh) return;
-      const targetOpacity = weights[i] ?? 0;
-      mesh.material.opacity = damp(mesh.material.opacity, targetOpacity, 5, delta);
-      mesh.visible = mesh.material.opacity > 0.01;
-    });
-  });
-
-  return (
-    <group ref={groupRef}>
-      {CHARACTER_IMAGES.map((cfg, i) => {
-        const tex = textures[i];
-        if (!tex || !tex.image) return null;
-        // Respeta el aspect ratio real de cada foto en vez de forzar un cuadrado.
-        const aspect = tex.image.height / tex.image.width;
-        return (
-          <mesh
-            key={cfg.id}
-            ref={(el) => {
-              meshRefs.current[i] = el;
-            }}
-            position={[0, 0, i * 0.001]}
-          >
-            <planeGeometry args={[1, aspect]} />
-            <meshBasicMaterial
-              map={tex}
-              transparent
-              opacity={0}
-              toneMapped={false}
-              side={THREE.DoubleSide}
-              depthWrite={false}
-            />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
-
-/* ============================================================
    three/CameraRig.jsx
    ============================================================ */
 function CameraRig({ mouse, parallaxStrength = 0.18 }) {
@@ -801,6 +617,40 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
   return null;
 }
+
+/* ============================================================
+   three/AnimatedCharacter.jsx
+   Personaje 3D real (GLB con esqueleto) cuya animación se
+   controla por scroll: en vez de reproducirse sola en el
+   tiempo, su clock interno avanza según smoothProgress.
+   ============================================================ */
+function AnimatedCharacter() {
+  const groupRef = useRef(null);
+  const { scene, animations } = useGLTF(CHARACTER_MODEL_URL);
+  const { actions, mixer } = useAnimations(animations, groupRef);
+  const actionRef = useRef(null);
+
+  useEffect(() => {
+    const names = Object.keys(actions);
+    const action = actions[CHARACTER_ANIMATION] || actions[names[0]];
+    if (!action) return;
+    action.reset().play();
+    action.paused = true; // lo pausamos: el tiempo lo va a mover el scroll, no el reloj interno
+    actionRef.current = action;
+  }, [actions]);
+
+  useFrame(() => {
+    const action = actionRef.current;
+    if (!action || !mixer) return;
+    const progress = useScrollStore.getState().smoothProgress;
+    const t = clamp((progress - CHAR_SEQ_START) / (CHAR_SEQ_END - CHAR_SEQ_START));
+    action.time = t * action.getClip().duration;
+    mixer.update(0);
+  });
+
+  return <primitive ref={groupRef} object={scene} position={[0, -0.55, 0]} scale={1.7} />;
+}
+useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
    three/SpeedLines.jsx
@@ -980,7 +830,9 @@ function Experience({ device }) {
       <SceneEnvironment />
       <CameraRig mouse={mouse} />
       <Lighting />
-      <CharacterImages />
+      <Suspense fallback={null}>
+        <AnimatedCharacter />
+      </Suspense>
       <SpeedLines />
       <Particles device={device} />
       {device.enablePostProcessing && (
