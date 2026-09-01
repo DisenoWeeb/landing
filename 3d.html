@@ -265,7 +265,7 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, useAnimations } from "@react-three/drei";
+import { useGLTF, useAnimations, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 
 /* ============================================================
@@ -788,9 +788,10 @@ function Lighting() {
 
   return (
     <>
-      <ambientLight intensity={0.12} />
-      <directionalLight ref={keyRef} position={[3, 4, 5]} intensity={0.4} />
-      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.2} distance={12} />
+      <ambientLight intensity={0.25} />
+      <directionalLight ref={keyRef} position={[3, 4, 5]} intensity={0.9} />
+      <directionalLight position={[-3, 2, -2]} intensity={0.35} />
+      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
     </>
   );
 }
@@ -830,6 +831,7 @@ function Experience({ device }) {
       <SceneEnvironment />
       <CameraRig mouse={mouse} />
       <Lighting />
+      <Environment preset="city" background={false} />
       <Suspense fallback={null}>
         <AnimatedCharacter />
       </Suspense>
