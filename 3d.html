@@ -447,7 +447,6 @@ function lerpColor(a, b, t) {
 function sceneToState(kf) {
   return {
     camera: kf.camera,
-    object: kf.object,
     particles: kf.particles,
     light: kf.light,
     fog: kf.fog,
@@ -475,12 +474,7 @@ function blendScenes(list, rawProgress) {
       lookAt: lerpVec3(a.camera.lookAt, b.camera.lookAt, t),
       fov: lerp(a.camera.fov, b.camera.fov, t),
     },
-    object: {
-      position: lerpVec3(a.object.position, b.object.position, t),
-      rotation: lerpVec3(a.object.rotation, b.object.rotation, t),
-      scale: lerp(a.object.scale, b.object.scale, t),
-      spinSpeed: lerp(a.object.spinSpeed ?? 0.2, b.object.spinSpeed ?? 0.2, t),
-    },
+    
     particles: {
       spread: lerp(a.particles.spread, b.particles.spread, t),
       opacity: lerp(a.particles.opacity, b.particles.opacity, t),
