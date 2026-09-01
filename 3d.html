@@ -302,95 +302,114 @@ const clientConfig = {
    CONFIG: personaje 3D animado (GLB con esqueleto, sin clips)
    Poné el .glb en tu repo (ej: assets/models/weeb.glb) y apuntá
    CHARACTER_MODEL_URL ahí — GitHub Pages lo sirve como estático.
-   Coreografía 100% procedural, en 4 fases a lo largo del scroll:
-     1) FLOTAR   — de frente, quieto en cámara, movimiento suave
-     2) ACERCAR  — se acerca un poco a la pantalla
-     3) GIRAR    — gira y cae "de cabeza" (se ve la suela)
-     4) CAER     — se aleja, gira sin control en todos los ejes
-   Los huesos de brazos/piernas nunca están del todo quietos:
-   siempre hay un balanceo suave encima de cualquier otra pose.
+   Como este modelo no trae animaciones grabadas, el movimiento
+   es 100% procedural: rotamos el personaje entero con el scroll
+   (para que se vea el logo de la mochila en algún punto), le
+   sumamos una respiración/balanceo constante, y un saludo con
+   el brazo derecho que aparece y desaparece en una ventana
+   puntual del scroll.
    ============================================================ */
 const CHARACTER_MODEL_URL = "./assets/models/weeb.glb";
-const CHARACTER_SPINS = 2;
-const WAVE_CENTER = 0.08;
-const WAVE_WIDTH = 0.06;
-     
-const PH_FLOAT_END = 0.15; // hasta acá: flota de frente, quieto en cámara
-const PH_APPROACH_END = 0.24; // hasta acá: se acerca un poco
-const PH_FLIP_END = 0.4; // hasta acá: termina de girar boca abajo
-const PH_TUMBLE_END = 0.88; // hasta acá: cae dando vueltas sin control
 
-// Curva suave tipo "ease" para que toda transición sea fluida,
-// nunca lineal/brusca.
-function smoothstep(edge0, edge1, x) {
-  const t = clamp((x - edge0) / (edge1 - edge0));
-  return t * t * (3 - 2 * t);
-}
+// Vueltas completas que da el personaje a lo largo de TODO el scroll.
+const CHARACTER_SPINS = 1.25;
+
+// Ventana de scroll (0..1) donde aparece el gesto de saludo,
+// como una "campana": sube, se mantiene, baja.
+const WAVE_CENTER = 0.55;
+const WAVE_WIDTH = 0.16;
 
 /* ============================================================
    CONFIG: scenes.config
    Cada keyframe define un "beat" narrativo entre progress 0..1.
    blendScenes() interpola linealmente entre el keyframe anterior
-   y el siguiente según el scroll. Ahora solo maneja cámara,
-   luz, niebla y partículas — la coreografía del personaje vive
-   en AnimatedCharacter. Ningún keyframe lleva texto salvo el
-   primero (manejado aparte por HeroText) y el último (CTA).
+   y el siguiente según el scroll.
    ============================================================ */
 const scenes = [
   {
-    id: "float",
+    id: "hero",
     progress: 0,
-    camera: { position: [0, 0.1, 4.3], lookAt: [0, 0, 0], fov: 30 },
+    camera: { position: [0, 0.1, 6.5], lookAt: [0, 0, 0], fov: 32 },
+    object: { position: [0, 0, -1], rotation: [0, 0, 0], scale: 0.35, spinSpeed: 0.15 },
     particles: { spread: 1, opacity: 0.3 },
-    light: { color: "#ffffff", intensity: 0.5, rimColor: "#c8ff00", rimIntensity: 1.2 },
+    light: { color: "#ffffff", intensity: 0.35, rimColor: "#c8ff00", rimIntensity: 1.0 },
     fog: { color: "#0f0f1a", far: 20 },
     background: "#0f0f1a",
     tunnelIntensity: 0,
+    text: {
+      eyebrow: "weeb studio",
+      title: "Diseño & arquitectura digital.",
+      subtitle: "Construimos la estructura detrás de las marcas que crecen.",
+      align: "left",
+    },
   },
   {
     id: "approach",
-    progress: 0.24,
-    camera: { position: [0, 0.08, 3.7], lookAt: [0, 0, 0], fov: 29 },
-    particles: { spread: 1.1, opacity: 0.35 },
-    light: { color: "#ffffff", intensity: 0.5, rimColor: "#c8ff00", rimIntensity: 1.3 },
-    fog: { color: "#0f0f1a", far: 18 },
-    background: "#0f0f1a",
+    progress: 0.2,
+    camera: { position: [0.6, 0.15, 4.8], lookAt: [0, 0.05, 0], fov: 30 },
+    object: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.85, spinSpeed: 0.35 },
+    particles: { spread: 1.3, opacity: 0.4 },
+    light: { color: "#ffffff", intensity: 0.45, rimColor: "#c8ff00", rimIntensity: 1.4 },
+    fog: { color: "#12121f", far: 16 },
+    background: "#12121f",
     tunnelIntensity: 0.05,
+    text: {
+      eyebrow: "Acercate",
+      title: "Cada detalle, con propósito.",
+      subtitle: "Diseño, desarrollo y estrategia funcionando como un solo sistema.",
+      align: "right",
+    },
   },
   {
-    id: "flip",
-    progress: 0.4,
-    camera: { position: [0.2, 0, 4.2], lookAt: [0, -0.1, 0], fov: 32 },
-    particles: { spread: 1.4, opacity: 0.45 },
-    light: { color: "#ffffff", intensity: 0.45, rimColor: "#7dfff0", rimIntensity: 1.8 },
-    fog: { color: "#0a0a14", far: 12 },
-    background: "#0a0a14",
-    tunnelIntensity: 0.3,
+    id: "tunnel-in",
+    progress: 0.34,
+    camera: { position: [0, 0, 1.6], lookAt: [0, 0, 0], fov: 62 },
+    object: { position: [0, 0, 0.4], rotation: [0, 0, 0.05], scale: 2.6, spinSpeed: 1.8 },
+    particles: { spread: 0.5, opacity: 0.12 },
+    light: { color: "#ffffff", intensity: 0.6, rimColor: "#7dfff0", rimIntensity: 2.2 },
+    fog: { color: "#05050a", far: 6 },
+    background: "#05050a",
+    tunnelIntensity: 1,
   },
   {
-    id: "tumble-mid",
-    progress: 0.62,
-    camera: { position: [-0.3, 0.05, 4.6], lookAt: [0, 0, 0], fov: 34 },
-    particles: { spread: 2, opacity: 0.6 },
-    light: { color: "#ffffff", intensity: 0.4, rimColor: "#7dfff0", rimIntensity: 2.2 },
-    fog: { color: "#050508", far: 8 },
-    background: "#050508",
-    tunnelIntensity: 0.8,
-  },
-  {
-    id: "tumble-end",
-    progress: 0.88,
-    camera: { position: [0, 0, 5.2], lookAt: [0, 0, 0], fov: 30 },
-    particles: { spread: 1.2, opacity: 0.3 },
+    id: "tunnel-out",
+    progress: 0.46,
+    camera: { position: [-0.8, 0.1, 5.5], lookAt: [0, 0, 0], fov: 30 },
+    object: { position: [0.4, 0, -1.5], rotation: [0, 0, -0.05], scale: 0.5, spinSpeed: 0.5 },
+    particles: { spread: 1.4, opacity: 0.4 },
     light: { color: "#ffffff", intensity: 0.5, rimColor: "#c8ff00", rimIntensity: 1.5 },
-    fog: { color: "#000000", far: 12 },
-    background: "#000000",
-    tunnelIntensity: 0.1,
+    fog: { color: "#0d0d18", far: 18 },
+    background: "#0d0d18",
+    tunnelIntensity: 0.05,
+    text: {
+      eyebrow: "Explorá",
+      title: "Una experiencia, no una web más.",
+      subtitle: "Scroll, movimiento y narrativa al servicio de tu marca.",
+      align: "left",
+    },
+  },
+  {
+    id: "servicios",
+    progress: 0.7,
+    camera: { position: [1.0, -0.1, 4.6], lookAt: [-0.2, 0, 0], fov: 28 },
+    object: { position: [-0.3, 0.1, 0], rotation: [0, 0, 0], scale: 0.7, spinSpeed: 0.25 },
+    particles: { spread: 1.8, opacity: 0.5 },
+    light: { color: "#ffffff", intensity: 0.55, rimColor: "#7dfff0", rimIntensity: 1.7 },
+    fog: { color: "#0a0a14", far: 14 },
+    background: "#0a0a14",
+    tunnelIntensity: 0,
+    text: {
+      eyebrow: "Servicios",
+      title: "Diseño Web · Branding · Desarrollo",
+      subtitle: "Marketing · SEO/SEM · Consultoría — todo bajo un mismo criterio.",
+      align: "center",
+    },
   },
   {
     id: "cierre",
     progress: 1,
-    camera: { position: [0, 0, 5.2], lookAt: [0, 0, 0], fov: 28 },
+    camera: { position: [0, 0, 3.2], lookAt: [0, 0, 0], fov: 26 },
+    object: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.9, spinSpeed: 0.15 },
     particles: { spread: 1, opacity: 0.25 },
     light: { color: "#ffffff", intensity: 0.6, rimColor: "#c8ff00", rimIntensity: 1.8 },
     fog: { color: "#000000", far: 10 },
@@ -406,7 +425,7 @@ const scenes = [
   },
 ];
 
-const SCROLL_LENGTH_VH = 950;
+const SCROLL_LENGTH_VH = 650;
 
 /* ============================================================
    UTILS: easing.ts
@@ -450,6 +469,7 @@ function lerpColor(a, b, t) {
 function sceneToState(kf) {
   return {
     camera: kf.camera,
+    object: kf.object,
     particles: kf.particles,
     light: kf.light,
     fog: kf.fog,
@@ -477,7 +497,12 @@ function blendScenes(list, rawProgress) {
       lookAt: lerpVec3(a.camera.lookAt, b.camera.lookAt, t),
       fov: lerp(a.camera.fov, b.camera.fov, t),
     },
-    
+    object: {
+      position: lerpVec3(a.object.position, b.object.position, t),
+      rotation: lerpVec3(a.object.rotation, b.object.rotation, t),
+      scale: lerp(a.object.scale, b.object.scale, t),
+      spinSpeed: lerp(a.object.spinSpeed ?? 0.2, b.object.spinSpeed ?? 0.2, t),
+    },
     particles: {
       spread: lerp(a.particles.spread, b.particles.spread, t),
       opacity: lerp(a.particles.opacity, b.particles.opacity, t),
