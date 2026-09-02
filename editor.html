@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bone Inspector — weeb.glb</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0f0f1a; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+  #root { width: 100%; height: 100%; position: relative; }
+  canvas { display: block; }
+  .panel {
+    position: fixed; top: 0; right: 0; width: 320px; height: 100%;
+    background: rgba(10,10,16,0.92); color: #f5f6f2; overflow-y: auto;
+    padding: 16px; box-sizing: border-box; font-size: 13px;
+    border-left: 1px solid rgba(200,255,0,0.3);
+  }
+  .panel h1 { font-size: 15px; margin: 0 0 4px; color: #c8ff00; }
+  .panel p.hint { color: rgba(245,246,242,0.6); font-size: 11.5px; margin: 0 0 16px; line-height: 1.4; }
+  .bone-block { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .bone-block.missing { opacity: 0.4; }
+  .bone-name { font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+  .bone-name .status { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(200,255,0,0.15); color: #c8ff00; }
+  .bone-name .status.missing-tag { background: rgba(255,80,80,0.15); color: #ff8080; }
+  .axis-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .axis-row label { width: 14px; color: rgba(245,246,242,0.7); }
+  .axis-row input[type=range] { flex: 1; }
+  .axis-row .val { width: 42px; text-align: right; font-variant-numeric: tabular-nums; color: rgba(245,246,242,0.8); }
+  .reset-all { width: 100%; padding: 8px; margin: 10px 0 4px; background: #c8ff00; color: #0a0a0a; border: none;
+    border-radius: 6px; font-weight: 600; cursor: pointer; }
+  .reset-bone { font-size: 10px; padding: 2px 6px; background: transparent; color: rgba(245,246,242,0.6);
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; }
+  .top-controls { position: fixed; top: 12px; left: 12px; z-index: 5; color: rgba(245,246,242,0.6); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="top-controls">Arrastrá para orbitar la cámara • Scroll para zoom</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react/jsx-dev-runtime": "https://esm.sh/react@18.3.1/jsx-dev-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "three": "https://esm.sh/three@0.160.0",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber"
+  }
+}
+</script>
+
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<script type="text/babel" data-type="module" data-presets="react">
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import * as THREE from "three";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useGLTF, OrbitControls, Environment, Grid } from "@react-three/drei";
+
+// Poné acá el mismo GLB que estás usando en index.html.
+const MODEL_URL = "./assets/models/weeb.glb";
+
+// Huesos que probamos — mismos nombres que usa AnimatedCharacter.
+const BONE_NAMES = [
+  "Spine01", "Spine02", "NeckTwist01", "Head",
+  "L_Clavicle", "R_Clavicle",
+  "L_Upperarm", "R_Upperarm",
+  "L_Forearm", "R_Forearm",
+  "L_Hand", "R_Hand",
+  "L_Thigh", "R_Thigh",
+  "L_Calf", "R_Calf",
+  "L_Foot", "R_Foot",
+];
+
+const deg = (r) => (r * 180) / Math.PI;
+const rad = (d) => (d * Math.PI) / 180;
+
+function Character({ boneValues, onBonesFound }) {
+  const { scene } = useGLTF(MODEL_URL);
+  const bonesRef = useRef({});
+  const restRef = useRef({});
+  const foundOnce = useRef(false);
+
+  useEffect(() => {
+    const bones = {};
+    const rest = {};
+    const found = {};
+    BONE_NAMES.forEach((name) => {
+      const bone = scene.getObjectByName(name);
+      if (bone) {
+        bones[name] = bone;
+        rest[name] = bone.quaternion.clone();
+        found[name] = true;
+      } else {
+        found[name] = false;
+      }
+    });
+    bonesRef.current = bones;
+    restRef.current = rest;
+    if (!foundOnce.current) {
+      foundOnce.current = true;
+      onBonesFound(found);
+    }
+  }, [scene]);
+
+  useFrame(() => {
+    const bones = bonesRef.current;
+    const rest = restRef.current;
+    Object.entries(boneValues).forEach(([name, xyz]) => {
+      const bone = bones[name];
+      const r = rest[name];
+      if (!bone || !r) return;
+      const dq = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(rad(xyz.x), rad(xyz.y), rad(xyz.z), "XYZ")
+      );
+      bone.quaternion.copy(r).multiply(dq);
+    });
+  });
+
+  return <primitive object={scene} position={[0, -0.9, 0]} scale={1.7} />;
+}
+useGLTF.preload(MODEL_URL);
+
+function Scene({ boneValues, onBonesFound }) {
+  return (
+    <>
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[3, 4, 5]} intensity={1} />
+      <directionalLight position={[-3, 2, -2]} intensity={0.4} />
+      <Environment preset="city" background={false} />
+      <Grid args={[10, 10]} position={[0, -0.02, 0]} cellColor="#333" sectionColor="#555" />
+      <Character boneValues={boneValues} onBonesFound={onBonesFound} />
+      <OrbitControls target={[0, 0.5, 0]} />
+    </>
+  );
+}
+
+function App() {
+  const [boneValues, setBoneValues] = useState(() =>
+    Object.fromEntries(BONE_NAMES.map((n) => [n, { x: 0, y: 0, z: 0 }]))
+  );
+  const [foundMap, setFoundMap] = useState({});
+
+  const setAxis = (name, axis, value) => {
+    setBoneValues((prev) => ({ ...prev, [name]: { ...prev[name], [axis]: value } }));
+  };
+  const resetBone = (name) => {
+    setBoneValues((prev) => ({ ...prev, [name]: { x: 0, y: 0, z: 0 } }));
+  };
+  const resetAll = () => {
+    setBoneValues(Object.fromEntries(BONE_NAMES.map((n) => [n, { x: 0, y: 0, z: 0 }])));
+  };
+
+  return (
+    <div id="root">
+      <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }}>
+        <Scene boneValues={boneValues} onBonesFound={setFoundMap} />
+      </Canvas>
+      <div className="panel">
+        <h1>Bone Inspector</h1>
+        <p className="hint">
+          Movés un slider, mirás qué pasa con la malla en cámara. "OK" = el hueso existe en el archivo.
+          "FALTA" = no se encontró con ese nombre exacto. Si un slider grande no mueve nada visible (o
+          mueve un pedazo suelto de la malla), ese hueso tiene los pesos de piel rotos.
+        </p>
+        <button className="reset-all" onClick={resetAll}>Resetear todo</button>
+        {BONE_NAMES.map((name) => {
+          const found = foundMap[name];
+          const v = boneValues[name];
+          return (
+            <div key={name} className={`bone-block ${found === false ? "missing" : ""}`}>
+              <div className="bone-name">
+                <span>{name}</span>
+                <span className={`status ${found === false ? "missing-tag" : ""}`}>
+                  {found === undefined ? "…" : found ? "OK" : "FALTA"}
+                </span>
+              </div>
+              {["x", "y", "z"].map((axis) => (
+                <div className="axis-row" key={axis}>
+                  <label>{axis.toUpperCase()}</label>
+                  <input
+                    type="range"
+                    min={-180}
+                    max={180}
+                    value={v[axis]}
+                    onChange={(e) => setAxis(name, axis, Number(e.target.value))}
+                  />
+                  <span className="val">{v[axis]}°</span>
+                </div>
+              ))}
+              <button className="reset-bone" onClick={() => resetBone(name)}>reset</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
