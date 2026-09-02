@@ -227,21 +227,6 @@
     mix-blend-mode: screen;
   }
 
-  /* -------- Línea de acento que se dibuja al scrollear -------- */
-  .scroll-line-accent {
-    position: fixed;
-    inset: 0;
-    z-index: 3;
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.1s linear;
-    will-change: opacity, transform;
-  }
-  .scroll-line-accent svg { width: 100%; height: 100%; }
-  .scroll-line-accent path {
-    filter: drop-shadow(0 0 8px var(--brand-accent));
-  }
-
   .scroll-spacer { width: 100%; }
 
   /* Oculta el hint una vez que se empezó a scrollear (clase agregada por JS) */
@@ -649,9 +634,7 @@ function AnimatedCharacter({ mouse }) {
       spine2: "Spine02",
       head: "Head",
       neck: "NeckTwist01",
-      lUpperarm: "L_Upperarm",
       lForearm: "L_Forearm",
-      rUpperarm: "R_Upperarm",
       rForearm: "R_Forearm",
       lThigh: "L_Thigh",
       lCalf: "L_Calf",
@@ -729,16 +712,8 @@ function AnimatedCharacter({ mouse }) {
     const limbBoost = 1 + tumbleW * 2;
     const wob = (freq, phase, amp) => Math.sin(t * freq + phase) * amp * limbBoost;
 
-    if (bones.lUpperarm) {
-      bones.lUpperarm.rotation.x = rest.lUpperarm.x + wob(1.1, 0, 0.35);
-      bones.lUpperarm.rotation.z = rest.lUpperarm.z + wob(0.9, 0.8, 0.3);
-    }
-    if (bones.rUpperarm) {
-      bones.rUpperarm.rotation.x = rest.rUpperarm.x + wob(1.15, 1.6, 0.35);
-      bones.rUpperarm.rotation.z = rest.rUpperarm.z - wob(0.95, 2.3, 0.3);
-    }
-    if (bones.lForearm) bones.lForearm.rotation.x = rest.lForearm.x + wob(1.8, 0.6, 0.28);
-    if (bones.rForearm) bones.rForearm.rotation.x = rest.rForearm.x + wob(1.7, 2.0, 0.28);
+    if (bones.lForearm) bones.lForearm.rotation.x = rest.lForearm.x + wob(1.8, 0.6, 0.32);
+    if (bones.rForearm) bones.rForearm.rotation.x = rest.rForearm.x + wob(1.7, 2.0, 0.32);
     if (bones.lThigh) {
       bones.lThigh.rotation.x = rest.lThigh.x + wob(0.85, 2.4, 0.25);
       bones.lThigh.rotation.z = rest.lThigh.z + wob(0.7, 1.0, 0.12);
@@ -1258,57 +1233,6 @@ function CursorTrail() {
 }
 
 /* ============================================================
-   ui/ScrollLineAccent.jsx
-   Línea (SVG) que se va "dibujando" a medida que se scrollea
-   (stroke-dashoffset), hace un rulo, y después continúa
-   deslizándose fuera de pantalla — un acento narrativo fijo,
-   independiente del cursor.
-   ============================================================ */
-function ScrollLineAccent() {
-  const pathRef = useRef(null);
-  const groupRef = useRef(null);
-  const LINE_START = 0.04;
-  const LINE_END = 0.22;
-  const EXIT_END = 0.34;
-
-  useEffect(() => {
-    const path = pathRef.current;
-    if (!path) return;
-    const length = path.getTotalLength();
-    path.style.strokeDasharray = String(length);
-    path.style.strokeDashoffset = String(length);
-
-    const update = (progress) => {
-      const reveal = clamp((progress - LINE_START) / (LINE_END - LINE_START));
-      path.style.strokeDashoffset = String(length * (1 - reveal));
-
-      const exit = clamp((progress - LINE_END) / (EXIT_END - LINE_END));
-      if (groupRef.current) {
-        groupRef.current.style.opacity = String(reveal * (1 - exit));
-        groupRef.current.style.transform = `translateX(${exit * 60}vw)`;
-      }
-    };
-    update(useScrollStore.getState().smoothProgress);
-    return useScrollStore.subscribe((s) => update(s.smoothProgress));
-  }, []);
-
-  return (
-    <div ref={groupRef} className="scroll-line-accent" aria-hidden="true">
-      <svg viewBox="0 0 1000 800" preserveAspectRatio="none">
-        <path
-          ref={pathRef}
-          d="M -80 620 C 120 420 260 760 480 560 C 620 430 560 250 420 300 C 300 340 320 480 460 470 C 620 460 760 300 1150 120"
-          fill="none"
-          stroke={clientConfig.colors.accent}
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
-    </div>
-  );
-}
-
-/* ============================================================
    App.jsx
    ============================================================ */
 function App() {
@@ -1343,7 +1267,6 @@ function App() {
         >
           <Experience device={device} />
         </Canvas>
-        <ScrollLineAccent />
         <CursorTrail />
         <HeroText />
         <SceneText />
