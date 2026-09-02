@@ -215,20 +215,6 @@
     mix-blend-mode: screen;
   }
 
-  .scroll-line-accent {
-    position: fixed;
-    inset: 0;
-    z-index: 3;
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.1s linear;
-    will-change: opacity, transform;
-  }
-  .scroll-line-accent svg { width: 100%; height: 100%; }
-  .scroll-line-accent path {
-    filter: drop-shadow(0 0 8px var(--brand-accent));
-  }
-
   .scroll-spacer { width: 100%; }
 
   .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
@@ -416,6 +402,48 @@ function damp(current, target, lambda, dt) {
 }
 function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
+}
+
+/* ============================================================
+   UTILS: physics/spring.ts
+   Integrador de resorte amortiguado (damped harmonic oscillator):
+     aceleración = (target - valor) * rigidez  -  velocidad * amortiguación
+   Con dampingRatio < 1 el valor se "pasa" un poco antes de
+   estabilizarse (igual que un cuerpo real con inercia); con
+   dampingRatio >= 1 llega sin rebote. Esto reemplaza los damp()
+   instantáneos como motor PRINCIPAL de movimiento del personaje:
+   así el giro tiene aceleración/desaceleración real en vez de
+   "rotation = progress * PI", y es 100% reversible si el scroll
+   vuelve hacia atrás (es solo una integración numérica del
+   target actual, no un timeline que solo avanza).
+   ============================================================ */
+function makeSpring(initial = 0) {
+  return { v: initial, vel: 0 };
+}
+function stepSpring(state, target, angularFreq, dampingRatio, dt) {
+  // clamp dt para que un frame largo (tab en background, etc.) no
+  // haga explotar la integración.
+  const step = Math.min(dt, 1 / 30);
+  const k = angularFreq * angularFreq;
+  const c = 2 * dampingRatio * angularFreq;
+  const accel = (target - state.v) * k - state.vel * c;
+  state.vel += accel * step;
+  state.v += state.vel * step;
+  return state.v;
+}
+
+// Curva de "anticipación": antes de comprometerse con el giro
+// principal, retrocede levemente (como cuando alguien toma
+// impulso antes de girar) y después acelera hacia adelante.
+function anticipateEase(t) {
+  t = clamp(t);
+  const WIND_UP = 0.22; // fracción del tramo dedicada al "wind-up"
+  if (t < WIND_UP) {
+    const local = t / WIND_UP;
+    return -0.12 * Math.sin(local * Math.PI); // dip suave: 0 -> -0.12 -> 0
+  }
+  const local = (t - WIND_UP) / (1 - WIND_UP);
+  return smoothstep(0, 1, local);
 }
 function lerp(a, b, t) {
   return a + (b - a) * t;
@@ -1188,53 +1216,6 @@ function CursorTrail() {
 }
 
 /* ============================================================
-   ui/ScrollLineAccent.jsx
-   ============================================================ */
-function ScrollLineAccent() {
-  const pathRef = useRef(null);
-  const groupRef = useRef(null);
-  const LINE_START = 0.04;
-  const LINE_END = 0.22;
-  const EXIT_END = 0.34;
-
-  useEffect(() => {
-    const path = pathRef.current;
-    if (!path) return;
-    const length = path.getTotalLength();
-    path.style.strokeDasharray = String(length);
-    path.style.strokeDashoffset = String(length);
-
-    const update = (progress) => {
-      const reveal = clamp((progress - LINE_START) / (LINE_END - LINE_START));
-      path.style.strokeDashoffset = String(length * (1 - reveal));
-
-      const exit = clamp((progress - LINE_END) / (EXIT_END - LINE_END));
-      if (groupRef.current) {
-        groupRef.current.style.opacity = String(reveal * (1 - exit));
-        groupRef.current.style.transform = `translateX(${exit * 60}vw)`;
-      }
-    };
-    update(useScrollStore.getState().smoothProgress);
-    return useScrollStore.subscribe((s) => update(s.smoothProgress));
-  }, []);
-
-  return (
-    <div ref={groupRef} className="scroll-line-accent" aria-hidden="true">
-      <svg viewBox="0 0 1000 800" preserveAspectRatio="none">
-        <path
-          ref={pathRef}
-          d="M -80 620 C 120 420 260 760 480 560 C 620 430 560 250 420 300 C 300 340 320 480 460 470 C 620 460 760 300 1150 120"
-          fill="none"
-          stroke={clientConfig.colors.accent}
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
-    </div>
-  );
-}
-
-/* ============================================================
    App.jsx
    ============================================================ */
 function App() {
@@ -1269,7 +1250,6 @@ function App() {
         >
           <Experience device={device} />
         </Canvas>
-        <ScrollLineAccent />
         <CursorTrail />
         <HeroText />
         <SceneText />
