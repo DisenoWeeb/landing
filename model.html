@@ -629,6 +629,20 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 const CHAR_CENTER_Y = 0.52;
 const CHAR_SCALE = 1.7;
 
+// Aplica una rotación EXTRA (en radianes, ejes locales del hueso)
+// por ENCIMA de su pose de reposo, componiendo por cuaterniones.
+// Esto es matemáticamente correcto sin importar qué tan "rara" sea
+// la pose de reposo — sumar componentes de Euler directamente NO
+// funciona bien cuando el reposo ya es una rotación grande (como
+// pasa en este rig: brazos/piernas vienen con ~90-180° de fábrica).
+const _deltaEuler = new THREE.Euler();
+const _deltaQuat = new THREE.Quaternion();
+function applyLocalDelta(bone, restQuat, ex, ey, ez) {
+  _deltaEuler.set(ex, ey, ez, "XYZ");
+  _deltaQuat.setFromEuler(_deltaEuler);
+  bone.quaternion.copy(restQuat).multiply(_deltaQuat);
+}
+
 function AnimatedCharacter({ mouse }) {
   const outerRef = useRef(null); // posición en el mundo (dolly/caída)
   const pivotRef = useRef(null); // rotación alrededor del centro de masa
@@ -676,7 +690,7 @@ function AnimatedCharacter({ mouse }) {
       const bone = scene.getObjectByName(boneName);
       if (bone) {
         bones[key] = bone;
-        rest[key] = bone.rotation.clone();
+        rest[key] = bone.quaternion.clone(); // cuaternión, no Euler
       }
     });
     bonesRef.current = bones;
@@ -777,70 +791,80 @@ function AnimatedCharacter({ mouse }) {
     const idleAmp = 1 - turnW * 0.6;
     const idle = (freq, phase, amp) => Math.sin(t * freq + phase) * amp * idleAmp;
 
-    if (bones.spine1) {
-      bones.spine1.rotation.y = rest.spine1.y + spineLag;
-      bones.spine1.rotation.x = rest.spine1.x + idle(1.1, 0, 0.02) + poseW * 0.12;
-    }
-    if (bones.spine2) {
-      bones.spine2.rotation.y = rest.spine2.y + chestLag;
-      bones.spine2.rotation.x = rest.spine2.x + poseW * 0.18;
-    }
-    if (bones.neck) bones.neck.rotation.y = rest.neck.y + headLag * 0.5;
+    // Spine/Head/Neck: la pose de reposo acá SÍ es identidad (0,0,0),
+    // así que asignar Euler directo es seguro (no hay pose extraña
+    // de base que rompa la composición).
+    if (bones.spine1) bones.spine1.rotation.set(idle(1.1, 0, 0.06) + poseW * 0.12, spineLag, 0);
+    if (bones.spine2) bones.spine2.rotation.set(poseW * 0.18, chestLag, 0);
+    if (bones.neck) bones.neck.rotation.y = headLag * 0.5;
     if (bones.head) {
       const headFollow = 1 - turnW; // sigue al mouse solo de frente
       const mx = (mouse?.current?.x ?? 0) * headFollow;
       const my = (mouse?.current?.y ?? 0) * headFollow;
-      bones.head.rotation.y = damp(bones.head.rotation.y, rest.head.y + headLag * 0.5 + mx * 0.15, 5, delta);
-      bones.head.rotation.x = damp(bones.head.rotation.x, rest.head.x - my * 0.1 + idle(0.9, 4, 0.02), 5, delta);
+      bones.head.rotation.y = damp(bones.head.rotation.y, headLag * 0.5 + mx * 0.2, 5, delta);
+      bones.head.rotation.x = damp(bones.head.rotation.x, -my * 0.15 + idle(0.9, 4, 0.05), 5, delta);
     }
 
     // Hombros: se usa la clavícula (pesos de piel confiables) en
     // vez del brazo superior. Lleva brazo hacia adelante en la
     // postura de caída, más el retraso de la cadena de giro.
+    // A partir de acá TODO se compone por cuaterniones sobre la
+    // pose de reposo (ver applyLocalDelta más arriba) — es lo que
+    // corrige que antes no se viera ningún movimiento.
     if (bones.lClavicle) {
-      bones.lClavicle.rotation.x = rest.lClavicle.x - armForward * 0.5 + idle(0.9, 0, 0.03);
-      bones.lClavicle.rotation.y = rest.lClavicle.y + shoulderLag * 0.6;
+      applyLocalDelta(bones.lClavicle, rest.lClavicle, -armForward * 0.9 + idle(0.9, 0, 0.18), shoulderLag * 0.6, 0);
     }
     if (bones.rClavicle) {
-      bones.rClavicle.rotation.x = rest.rClavicle.x - armForward * 0.5 + idle(0.95, 1.2, 0.03);
-      bones.rClavicle.rotation.y = rest.rClavicle.y + shoulderLag * 0.6;
+      applyLocalDelta(bones.rClavicle, rest.rClavicle, -armForward * 0.9 + idle(0.95, 1.2, 0.18), shoulderLag * 0.6, 0);
     }
 
     // Antebrazo: dobla el codo y lleva la mano hacia adelante/abajo.
     if (bones.lForearm) {
-      bones.lForearm.rotation.x = rest.lForearm.x - elbowBend + idle(1.6, 0.6, 0.06);
+      applyLocalDelta(bones.lForearm, rest.lForearm, -elbowBend + idle(1.6, 0.6, 0.3), 0, 0);
     }
     if (bones.rForearm) {
-      bones.rForearm.rotation.x = rest.rForearm.x - elbowBend + idle(1.5, 2.0, 0.06);
+      applyLocalDelta(bones.rForearm, rest.rForearm, -elbowBend + idle(1.5, 2.0, 0.3), 0, 0);
     }
 
     // Manos: palma hacia abajo durante la caída (rotación de
     // muñeca). Si en tu rig la palma queda mirando para otro lado,
     // es cuestión de invertir el signo de este eje puntual.
-    if (bones.lHand) bones.lHand.rotation.x = rest.lHand.x + palmDown * 0.9;
-    if (bones.rHand) bones.rHand.rotation.x = rest.rHand.x + palmDown * 0.9;
+    if (bones.lHand) applyLocalDelta(bones.lHand, rest.lHand, palmDown * 1.1, 0, 0);
+    if (bones.rHand) applyLocalDelta(bones.rHand, rest.rHand, palmDown * 1.1, 0, 0);
 
     // Piernas: acompañan el giro (retraso de cadena) + se
     // extienden/separan levemente en la postura de caída.
     if (bones.lThigh) {
-      bones.lThigh.rotation.y = rest.lThigh.y + thighLag * 0.5;
-      bones.lThigh.rotation.z = rest.lThigh.z + legSpread + idle(0.8, 2.4, 0.04);
-      bones.lThigh.rotation.x = rest.lThigh.x + legExtend * 0.3;
+      applyLocalDelta(
+        bones.lThigh,
+        rest.lThigh,
+        legExtend * 0.4 + idle(0.8, 2.4, 0.15),
+        thighLag * 0.5,
+        legSpread
+      );
     }
     if (bones.rThigh) {
-      bones.rThigh.rotation.y = rest.rThigh.y + thighLag * 0.5;
-      bones.rThigh.rotation.z = rest.rThigh.z - legSpread - idle(0.85, 0.3, 0.04);
-      bones.rThigh.rotation.x = rest.rThigh.x + legExtend * 0.3;
+      applyLocalDelta(
+        bones.rThigh,
+        rest.rThigh,
+        legExtend * 0.4 + idle(0.85, 0.3, 0.15),
+        thighLag * 0.5,
+        -legSpread
+      );
     }
-    if (bones.lCalf) bones.lCalf.rotation.x = rest.lCalf.x + legExtend * 0.4 + idle(1.3, 1.5, 0.05) + calfLag * 0.3;
-    if (bones.rCalf) bones.rCalf.rotation.x = rest.rCalf.x + legExtend * 0.4 + idle(1.25, 3.0, 0.05) + calfLag * 0.3;
+    if (bones.lCalf) {
+      applyLocalDelta(bones.lCalf, rest.lCalf, legExtend * 0.5 + idle(1.3, 1.5, 0.2) + calfLag * 0.3, 0, 0);
+    }
+    if (bones.rCalf) {
+      applyLocalDelta(bones.rCalf, rest.rCalf, legExtend * 0.5 + idle(1.25, 3.0, 0.2) + calfLag * 0.3, 0, 0);
+    }
 
     // Pies: acompañan la pierna (no rotan solos, sin relación con
     // la pierna) — el resultado de esta cadena, sumado a la
     // inclinación general del cuerpo, es lo que expone la suela
     // hacia cámara durante la caída.
-    if (bones.lFoot) bones.lFoot.rotation.x = rest.lFoot.x + footLag * 0.4 + poseW * 0.25;
-    if (bones.rFoot) bones.rFoot.rotation.x = rest.rFoot.x + footLag * 0.4 + poseW * 0.25;
+    if (bones.lFoot) applyLocalDelta(bones.lFoot, rest.lFoot, footLag * 0.4 + poseW * 0.3, 0, 0);
+    if (bones.rFoot) applyLocalDelta(bones.rFoot, rest.rFoot, footLag * 0.4 + poseW * 0.3, 0, 0);
 
     void inTurn;
     void approachW;
