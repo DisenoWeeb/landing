@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -228,21 +227,6 @@
     mix-blend-mode: screen;
   }
 
-  /* -------- Línea de acento que se dibuja al scrollear -------- */
-  .scroll-line-accent {
-    position: fixed;
-    inset: 0;
-    z-index: 3;
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.1s linear;
-    will-change: opacity, transform;
-  }
-  .scroll-line-accent svg { width: 100%; height: 100%; }
-  .scroll-line-accent path {
-    filter: drop-shadow(0 0 8px var(--brand-accent));
-  }
-
   .scroll-spacer { width: 100%; }
 
   /* Oculta el hint una vez que se empezó a scrollear (clase agregada por JS) */
@@ -319,22 +303,81 @@ const clientConfig = {
 
 /* ============================================================
    CONFIG: personaje 3D animado (GLB con esqueleto, sin clips)
-   Poné el .glb en tu repo (ej: assets/models/weeb.glb) y apuntá
-   CHARACTER_MODEL_URL ahí — GitHub Pages lo sirve como estático.
-   Coreografía 100% procedural, en 4 fases a lo largo del scroll:
-     1) FLOTAR   — de frente, quieto en cámara, movimiento suave
-     2) ACERCAR  — se acerca un poco a la pantalla
-     3) GIRAR    — gira y cae "de cabeza" (se ve la suela)
-     4) CAER     — se aleja, gira sin control en todos los ejes
-   Los huesos de brazos/piernas nunca están del todo quietos:
-   siempre hay un balanceo suave encima de cualquier otra pose.
-   ============================================================ */
-const CHARACTER_MODEL_URL = "./assets/models/weeb.glb";
+   ------------------------------------------------------------
+   FÍSICA DEL PERSONAJE — CÓMO FUNCIONA (leer antes de tocar)
+   ------------------------------------------------------------
+   En vez de aplicar rotaciones directas (rotation = progress*PI)
+   o mover cada hueso con un Math.sin() independiente, el cuerpo
+   se modela como una CADENA DE MASAS-RESORTE (spring-damper):
 
-const PH_FLOAT_END = 0.15; // hasta acá: flota de frente, quieto en cámara
-const PH_APPROACH_END = 0.24; // hasta acá: se acerca un poco
-const PH_FLIP_END = 0.4; // hasta acá: termina de girar boca abajo
-const PH_TUMBLE_END = 0.88; // hasta acá: cae dando vueltas sin control
+     torso  →  hombro/cadera  →  brazo/muslo  →  antebrazo/gemelo  →  mano/pie
+
+   1. Existe un "objetivo de rotación del cuerpo" (bodyTargetEuler)
+      que es una FUNCIÓN PURA del progreso de scroll (0..1). No
+      depende del tiempo, así que es 100% reversible: si el
+      usuario vuelve hacia arriba, el objetivo baja exactamente
+      por el mismo camino, sin saltos.
+
+   2. Ese objetivo no se aplica directamente al modelo. En cambio,
+      cada "tier" (torso, hombros, brazos, antebrazos, manos) es
+      un spring-damper independiente que PERSIGUE al tier anterior
+      (no al objetivo final). Un resorte crítica/sub-amortiguado
+      genera automáticamente: aceleración, velocidad máxima,
+      desaceleración y un pequeño "pasarse" (overshoot) antes de
+      estabilizarse — exactamente la curva que pedía el brief,
+      sin tener que animarla a mano.
+
+   3. Como cada tier persigue al anterior con menor rigidez
+      (STIFFNESS), el torso se mueve primero, los hombros lo
+      siguen con un pequeño retraso, los brazos más, los
+      antebrazos más, y las manos son las últimas en "enterarse"
+      del movimiento. Eso es inercia real, no una ola sinusoidal.
+
+   4. La diferencia entre el valor actual de un tier y el
+      anterior (su "atraso") se usa como magnitud de swing para
+      los huesos de esa extremidad — así el brazo se abre/cierra
+      según cuánto está atrasado respecto al torso, en vez de
+      seguir una curva prefijada.
+
+   5. Un pequeño balanceo residual (idle sway), con frecuencias
+      irracionales entre sí y desfasadas entre izquierda/derecha,
+      se suma SIEMPRE por encima de todo lo anterior — así el
+      personaje nunca queda 100% congelado ni 100% simétrico.
+      Esta capa es la única que depende del tiempo real (no del
+      progreso), y su amplitud se atenúa automáticamente durante
+      las fases de mayor energía (giro/caída) para no ensuciar el
+      movimiento principal.
+
+   Podés ajustar la intensidad de todo el sistema desde el bloque
+   PHYSICS_TUNABLES más abajo.
+   ============================================================ */
+const CHARACTER_MODEL_URL = "./assets/models/weeb2.glb";
+
+// ---- Fases narrativas del scroll (0..1) ----
+const PH_FLOAT_END = 0.15;    // hasta acá: suspensión, casi sin desplazamiento de cámara
+const PH_APPROACH_END = 0.24; // hasta acá: acercamiento (dolly-in)
+const PH_FLIP_END = 0.4;      // hasta acá: impulso — gira 180° (queda boca abajo)
+const PH_TUMBLE_END = 0.88;   // hasta acá: caída con giro libre en varios ejes
+// de PH_TUMBLE_END a 1: asentamiento — la energía decae y vuelve el idle sway
+
+/* ---- Parámetros ajustables de la física visual ----
+   Subí STIFFNESS para menos retraso entre articulaciones (más
+   "rígido"); bajalo para más inercia/pesadez. DAMPING controla
+   cuánto "overshoot" (rebote) hay antes de estabilizarse: valores
+   más bajos = más rebote; valores más altos = más seco. */
+const PHYSICS_TUNABLES = {
+  tierStiffness: { torso: 170, shoulder: 78, upper: 44, fore: 27, hand: 17 },
+  tierDamping:   { torso: 21,  shoulder: 13, upper: 9.2, fore: 7,  hand: 5.4 },
+  armSwingGain: 0.62,      // cuánto abren/cierran los brazos según el atraso
+  legSwingGain: 0.5,       // ídem piernas
+  handFlopGain: 0.85,      // ídem manos/pies (más sueltos, al final de la cadena)
+  twistGain: 0.32,         // huesos *Twist* (torsión) — fracción del segmento padre
+  idleSwayAmplitude: 1.0,  // multiplicador global del balanceo residual
+  extraSpinsX: 1.05,       // vueltas extra en X durante la caída (además del giro de 180°)
+  extraSpinsY: 0.45,       // vueltas extra en Y durante la caída
+  extraSpinsZ: 0.65,       // vueltas extra en Z durante la caída
+  overshootDamping: 0.82,  // <1 = sub-amortiguado (rebota un poco), 1 = crítico (sin rebote)
+};
 
 // Curva suave tipo "ease" para que toda transición sea fluida,
 // nunca lineal/brusca.
@@ -347,9 +390,9 @@ function smoothstep(edge0, edge1, x) {
    CONFIG: scenes.config
    Cada keyframe define un "beat" narrativo entre progress 0..1.
    blendScenes() interpola linealmente entre el keyframe anterior
-   y el siguiente según el scroll. Ahora solo maneja cámara,
-   luz, niebla y partículas — la coreografía del personaje vive
-   en AnimatedCharacter. Ningún keyframe lleva texto salvo el
+   y el siguiente según el scroll. Maneja cámara, luz, niebla y
+   partículas — la coreografía del personaje vive en
+   AnimatedCharacter. Ningún keyframe lleva texto salvo el
    primero (manejado aparte por HeroText) y el último (CTA).
    ============================================================ */
 const scenes = [
@@ -432,6 +475,32 @@ function damp(current, target, lambda, dt) {
 }
 function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
+}
+
+/* ============================================================
+   UTILS: spring.ts
+   Spring-damper vectorial (x,y,z) para simular inercia real
+   entre "tiers" del cuerpo. Ver comentario grande arriba.
+   ============================================================ */
+class Spring3 {
+  constructor(stiffness = 120, damping = 14) {
+    this.x = 0; this.y = 0; this.z = 0;
+    this.vx = 0; this.vy = 0; this.vz = 0;
+    this.stiffness = stiffness;
+    this.damping = damping;
+  }
+  snap(x, y, z) {
+    this.x = x; this.y = y; this.z = z;
+    this.vx = this.vy = this.vz = 0;
+  }
+  update(tx, ty, tz, dt) {
+    const dtc = Math.min(dt, 1 / 30); // clamp para estabilidad si el tab pierde foco
+    const ax = (tx - this.x) * this.stiffness - this.vx * this.damping;
+    const ay = (ty - this.y) * this.stiffness - this.vy * this.damping;
+    const az = (tz - this.z) * this.stiffness - this.vz * this.damping;
+    this.vx += ax * dtc; this.vy += ay * dtc; this.vz += az * dtc;
+    this.x += this.vx * dtc; this.y += this.vy * dtc; this.z += this.vz * dtc;
+  }
 }
 
 /* ============================================================
@@ -518,6 +587,31 @@ function textWeight(kf, progress, window_ = 0.14) {
 }
 
 /* ============================================================
+   PHYSICS: bodyTargetEuler(progress)
+   Objetivo de rotación del "torso líder" — función PURA del
+   progreso de scroll (sin dependencia del tiempo), por eso es
+   perfectamente reversible ante scroll hacia atrás. El giro de
+   180° ocurre durante IMPULSO; los giros extra (tumbling) se
+   siguen acumulando de forma determinística según el progreso
+   durante CAÍDA, y se congelan naturalmente al llegar a
+   PH_TUMBLE_END (ahí termina de crecer el objetivo, así que el
+   resorte lo alcanza y se asienta solo — sin necesidad de un
+   "freno" manual).
+   ============================================================ */
+function bodyTargetEuler(progress) {
+  const approachW = smoothstep(PH_FLOAT_END, PH_APPROACH_END, progress);
+  const flipW = smoothstep(PH_APPROACH_END, PH_FLIP_END, progress);
+  const tumbleW = smoothstep(PH_FLIP_END, PH_TUMBLE_END, progress);
+  const settleW = smoothstep(PH_TUMBLE_END, 1, progress);
+
+  const x = flipW * Math.PI + tumbleW * PHYSICS_TUNABLES.extraSpinsX * Math.PI * 2;
+  const y = tumbleW * PHYSICS_TUNABLES.extraSpinsY * Math.PI * 2;
+  const z = tumbleW * PHYSICS_TUNABLES.extraSpinsZ * Math.PI * 2;
+
+  return { x, y, z, approachW, flipW, tumbleW, settleW };
+}
+
+/* ============================================================
    STORE: scroll/scrollStore.ts
    ============================================================ */
 const useScrollStore = create((set) => ({
@@ -555,7 +649,10 @@ function useScrollProgress(spacerRef) {
 
 /* ============================================================
    COMPONENT (dentro de <Canvas>): scroll/ScrollSmoother.tsx
-   Amortigua smoothProgress hacia progress cuadro a cuadro.
+   Amortigua smoothProgress hacia progress cuadro a cuadro. Esto
+   separa conceptualmente "intención de scroll" (progress, puede
+   saltar) de "estado físico" (smoothProgress, siempre continuo)
+   — así un scroll brusco nunca produce un salto instantáneo.
    ============================================================ */
 function ScrollSmoother() {
   useFrame((_, delta) => {
@@ -584,13 +681,26 @@ function useMouseParallax() {
 
 /* ============================================================
    three/CameraRig.jsx
+   Cámara cinematográfica: además de seguir el keyframe de la
+   escena (posición/FOV/lookAt), suma:
+     - microderiva orgánica constante (nunca 100% estática)
+     - un "impulso" de anticipación justo antes del giro (se
+       retrasa levemente, como tomando aire) y empuje durante él
+     - un leve dutch-angle (roll) proporcional a la velocidad
+       angular real del torso (tomada directo del spring), para
+       que la cámara "sienta" el giro en vez de solo mostrarlo
+     - parallax de mouse muy sutil, ya existente
    ============================================================ */
-function CameraRig({ mouse, parallaxStrength = 0.18 }) {
+function CameraRig({ mouse, torsoAngVelRef }) {
   const { camera } = useThree();
   const lookAtTarget = useRef(new THREE.Vector3());
   const currentLookAt = useRef(new THREE.Vector3());
+  const clockRef = useRef(0);
+  const rollRef = useRef(0);
 
   useFrame((_, delta) => {
+    clockRef.current += delta;
+    const t = clockRef.current;
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
     const [px, py, pz] = state.camera.position;
@@ -598,18 +708,34 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
     const mx = mouse.current?.x ?? 0;
     const my = mouse.current?.y ?? 0;
 
-    camera.position.x = damp(camera.position.x, px + mx * parallaxStrength, 6, delta);
-    camera.position.y = damp(camera.position.y, py - my * parallaxStrength * 0.6, 6, delta);
-    camera.position.z = damp(camera.position.z, pz, 6, delta);
+    // Anticipación: justo antes del impulso la cámara se retrasa
+    // un poco (se aleja levemente) y luego empuja al entrar al giro.
+    const anticipation = smoothstep(PH_APPROACH_END - 0.05, PH_APPROACH_END + 0.01, progress) *
+      (1 - smoothstep(PH_APPROACH_END + 0.01, PH_FLIP_END * 0.6, progress));
+    const zAnticip = anticipation * 0.18;
+
+    // Microderiva orgánica permanente (frecuencias no relacionadas).
+    const driftX = Math.sin(t * 0.17) * 0.035 + Math.sin(t * 0.071 + 1.4) * 0.02;
+    const driftY = Math.cos(t * 0.13 + 0.6) * 0.025;
+
+    camera.position.x = damp(camera.position.x, px + mx * 0.18 + driftX, 6, delta);
+    camera.position.y = damp(camera.position.y, py - my * 0.11 + driftY, 6, delta);
+    camera.position.z = damp(camera.position.z, pz + zAnticip, 5, delta);
 
     lookAtTarget.current.set(lx + mx * 0.05, ly - my * 0.05, lz);
     currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-6 * delta));
     camera.lookAt(currentLookAt.current);
 
     if ("fov" in camera) {
-      camera.fov = damp(camera.fov, state.camera.fov, 5, delta);
+      const fovKick = anticipation * -1.2; // se "cierra" levemente antes de empujar
+      camera.fov = damp(camera.fov, state.camera.fov + fovKick, 5, delta);
       camera.updateProjectionMatrix();
     }
+
+    // Dutch-angle sutil ligado a la velocidad angular real del torso.
+    const angVel = torsoAngVelRef?.current ?? 0;
+    rollRef.current = damp(rollRef.current, clamp(angVel * 0.018, -0.12, 0.12), 5, delta);
+    camera.rotation.z = rollRef.current;
   });
 
   return null;
@@ -617,51 +743,76 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
 /* ============================================================
    three/AnimatedCharacter.jsx
-   Personaje 3D real (GLB con esqueleto, sin clips grabados).
-   Coreografía procedural en 4 fases (ver constantes PH_* arriba):
-     1) FLOTAR   — de frente a cámara, con vaivén suave de brazos
-                   y piernas, como flotando en el aire.
-     2) ACERCAR  — se acerca un poco a la pantalla (dolly in).
-     3) GIRAR    — gira 180° en X: pasa de estar de frente a
-                   quedar boca abajo, "cayendo de cabeza" (se
-                   empieza a ver la suela de los zapatos).
-     4) CAER     — sigue alejándose (más chico) mientras gira
-                   sin control en varios ejes a la vez, con el
-                   torso encorvándose hacia adelante para vender
-                   la sensación de caída real.
-   En todo momento, brazos y piernas tienen un balanceo propio
-   independiente — nunca quedan del todo quietos.
-   NOTA: como no hay forma de previsualizar el rig desde acá, el
-   sentido exacto de cada eje (¿"boca abajo" es +X o -X en este
-   rig?) es un primer intento — avisame qué se ve mal y ajusto
-   signos/ejes con precisión quirúrgica.
+   Personaje 3D real (GLB con esqueleto propio, sin clips
+   grabados). Ver el bloque de comentarios grande más arriba
+   ("FÍSICA DEL PERSONAJE") para el diseño general.
+
+   Jerarquía real detectada en el GLB (weeb2.glb):
+     Hip → Pelvis → L_Thigh/R_Thigh → L_Calf/R_Calf → L_Foot/R_Foot
+     Hip → Waist → Spine01 → Spine02 → NeckTwist01 → NeckTwist02 → Head
+                             → L_Clavicle → L_Upperarm → L_Forearm → L_Hand
+                             → R_Clavicle → R_Upperarm → R_Forearm → R_Hand
+   más huesos *Twist* intermedios (torsión), que se detectan y
+   usan automáticamente si existen (ver detección de huesos
+   secundarios más abajo).
    ============================================================ */
-function AnimatedCharacter({ mouse }) {
+const PRIMARY_BONE_NAMES = {
+  spine1: "Spine01",
+  spine2: "Spine02",
+  head: "Head",
+  neck1: "NeckTwist01",
+  neck2: "NeckTwist02",
+  lClavicle: "L_Clavicle",
+  rClavicle: "R_Clavicle",
+  lUpperarm: "L_Upperarm",
+  lForearm: "L_Forearm",
+  lHand: "L_Hand",
+  rUpperarm: "R_Upperarm",
+  rForearm: "R_Forearm",
+  rHand: "R_Hand",
+  lThigh: "L_Thigh",
+  lCalf: "L_Calf",
+  lFoot: "L_Foot",
+  rThigh: "R_Thigh",
+  rCalf: "R_Calf",
+  rFoot: "R_Foot",
+};
+
+// Patrones para detectar huesos secundarios (torsión) automáticamente,
+// sin necesidad de listarlos uno por uno — punto 18 del brief.
+const TWIST_PATTERN = /Twist/i;
+
+function AnimatedCharacter({ mouse, torsoAngVelRef }) {
   const groupRef = useRef(null);
   const { scene } = useGLTF(CHARACTER_MODEL_URL);
   const bonesRef = useRef({});
   const restRef = useRef({});
+  const twistBonesRef = useRef([]); // [{ bone, rest, parentKey }]
   const clockRef = useRef(0);
-  const tumbleRef = useRef({ x: 0, y: 0, z: 0 });
+
+  // Tiers del spring-damper (cadena torso → hombro → brazo → antebrazo → mano)
+  const torsoSpring = useRef(new Spring3(
+    PHYSICS_TUNABLES.tierStiffness.torso, PHYSICS_TUNABLES.tierDamping.torso
+  )).current;
+  const shoulderSpring = useRef(new Spring3(
+    PHYSICS_TUNABLES.tierStiffness.shoulder, PHYSICS_TUNABLES.tierDamping.shoulder
+  )).current;
+  const upperSpring = useRef(new Spring3(
+    PHYSICS_TUNABLES.tierStiffness.upper, PHYSICS_TUNABLES.tierDamping.upper
+  )).current;
+  const foreSpring = useRef(new Spring3(
+    PHYSICS_TUNABLES.tierStiffness.fore, PHYSICS_TUNABLES.tierDamping.fore
+  )).current;
+  const handSpring = useRef(new Spring3(
+    PHYSICS_TUNABLES.tierStiffness.hand, PHYSICS_TUNABLES.tierDamping.hand
+  )).current;
+
+  const prevTorsoX = useRef(0);
 
   useEffect(() => {
-    const names = {
-      spine1: "Spine01",
-      spine2: "Spine02",
-      head: "Head",
-      neck: "NeckTwist01",
-      lUpperarm: "L_Upperarm",
-      lForearm: "L_Forearm",
-      rUpperarm: "R_Upperarm",
-      rForearm: "R_Forearm",
-      lThigh: "L_Thigh",
-      lCalf: "L_Calf",
-      rThigh: "R_Thigh",
-      rCalf: "R_Calf",
-    };
     const bones = {};
     const rest = {};
-    Object.entries(names).forEach(([key, boneName]) => {
+    Object.entries(PRIMARY_BONE_NAMES).forEach(([key, boneName]) => {
       const bone = scene.getObjectByName(boneName);
       if (bone) {
         bones[key] = bone;
@@ -670,9 +821,36 @@ function AnimatedCharacter({ mouse }) {
     });
     bonesRef.current = bones;
     restRef.current = rest;
+
+    // Detección automática de huesos de torsión (*Twist*) — se
+    // asocian por cercanía de nombre al segmento primario más
+    // parecido (ej: L_ForearmTwist01 → lForearm).
+    const twists = [];
+    scene.traverse((obj) => {
+      if (!obj.isBone && !obj.isObject3D) return;
+      if (!TWIST_PATTERN.test(obj.name || "")) return;
+      const lower = obj.name.toLowerCase();
+      let parentKey = null;
+      if (lower.includes("forearm")) parentKey = lower.startsWith("l_") || lower.includes("l_forearm") ? "lForearm" : "rForearm";
+      else if (lower.includes("upperarm")) parentKey = lower.includes("l_") ? "lUpperarm" : "rUpperarm";
+      else if (lower.includes("thigh")) parentKey = lower.includes("l_") ? "lThigh" : "rThigh";
+      else if (lower.includes("calf")) parentKey = lower.includes("l_") ? "lCalf" : "rCalf";
+      if (parentKey) {
+        twists.push({ bone: obj, rest: obj.rotation.clone(), parentKey });
+      }
+    });
+    twistBonesRef.current = twists;
+
+    // "Snap" inicial de los springs a un estado neutro coherente.
+    torsoSpring.snap(0, 0, 0);
+    shoulderSpring.snap(0, 0, 0);
+    upperSpring.snap(0, 0, 0);
+    foreSpring.snap(0, 0, 0);
+    handSpring.snap(0, 0, 0);
   }, [scene]);
 
-  useFrame((_, delta) => {
+  useFrame((_, deltaRaw) => {
+    const delta = Math.min(deltaRaw, 1 / 30);
     clockRef.current += delta;
     const t = clockRef.current;
     const progress = useScrollStore.getState().smoothProgress;
@@ -681,76 +859,149 @@ function AnimatedCharacter({ mouse }) {
     const group = groupRef.current;
     if (!group) return;
 
-    // Pesos de cada fase (0..1), con transición suave (smoothstep)
-    // en vez de cortes duros entre una fase y la siguiente.
-    const approachW = smoothstep(PH_FLOAT_END, PH_APPROACH_END, progress);
-    const flipW = smoothstep(PH_APPROACH_END, PH_FLIP_END, progress);
-    const tumbleW = smoothstep(PH_FLIP_END, PH_TUMBLE_END, progress);
-    const settleW = smoothstep(PH_TUMBLE_END, 1, progress);
+    const { x, y, z, approachW, flipW, tumbleW, settleW } = bodyTargetEuler(progress);
 
-    // Posición: flota → se acerca (menor z) → se aleja cayendo (mayor -z).
+    // ---- Cadena de resortes: cada tier persigue al anterior ----
+    torsoSpring.update(x, y, z, delta);
+    shoulderSpring.update(torsoSpring.x, torsoSpring.y, torsoSpring.z, delta);
+    upperSpring.update(shoulderSpring.x, shoulderSpring.y, shoulderSpring.z, delta);
+    foreSpring.update(upperSpring.x, upperSpring.y, upperSpring.z, delta);
+    handSpring.update(foreSpring.x, foreSpring.y, foreSpring.z, delta);
+
+    // Velocidad angular real del torso (para la cámara / vórtice).
+    const angVel = (torsoSpring.x - prevTorsoX.current) / Math.max(delta, 1e-4);
+    prevTorsoX.current = torsoSpring.x;
+    if (torsoAngVelRef) torsoAngVelRef.current = angVel;
+
+    // ---- Idle sway residual: siempre presente, nunca 0 ----
+    // Se atenúa durante las fases de más energía para no ensuciar
+    // el movimiento principal, y vuelve con fuerza al asentarse.
+    const idleGain = PHYSICS_TUNABLES.idleSwayAmplitude *
+      clamp(1 - flipW * 0.9 - tumbleW * 0.75 + settleW * 0.5);
+    const idleX = (Math.sin(t * 0.9) * 0.55 + Math.sin(t * 0.233 + 1.7) * 0.45) * 0.045 * idleGain;
+    const idleY = (Math.sin(t * 0.61 + 0.4) * 0.5 + Math.sin(t * 0.157 + 2.9) * 0.5) * 0.035 * idleGain;
+    const idleZ = Math.sin(t * 0.41 + 2.2) * 0.03 * idleGain;
+
+    // ---- Posición: flota → se acerca → se aleja cayendo ----
     const zFloat = -1.4;
     const zApproach = -0.6;
-    const zFar = -6.5;
+    const zFar = -6.2;
     let targetZ;
     if (progress < PH_FLIP_END) {
       targetZ = zFloat + (zApproach - zFloat) * approachW;
     } else {
-      targetZ = zApproach + (zFar - zApproach) * tumbleW * (1 - settleW * 0.3);
+      targetZ = zApproach + (zFar - zApproach) * tumbleW;
     }
-    group.position.z = damp(group.position.z, targetZ, 2.5, delta);
-    group.position.y = -0.5 + Math.sin(t * 0.8) * 0.06; // flote constante
+    group.position.z = damp(group.position.z, targetZ, 2.2, delta);
+    group.position.y = -0.5 + idleY * 0.6 + Math.sin(t * 0.8) * 0.045 * idleGain;
 
-    // Rotación X: de frente (0) → boca abajo (PI) durante GIRAR,
-    // y sigue acumulando vueltas erráticas durante CAER.
-    const flipRotation = flipW * Math.PI;
-    if (progress < PH_FLIP_END) {
-      group.rotation.x = damp(group.rotation.x, flipRotation, 4, delta);
-      group.rotation.y = damp(group.rotation.y, 0, 4, delta);
-      group.rotation.z = damp(group.rotation.z, Math.sin(t * 0.4) * 0.05, 4, delta);
-    } else {
-      // Tumbling: cada eje gira a su propia velocidad errática,
-      // para que se sienta "sin control" y no una vuelta prolija.
-      const tumbleSpeed = tumbleW * (1 - settleW * 0.85);
-      tumbleRef.current.x += delta * tumbleSpeed * (2.2 + Math.sin(t * 0.5) * 0.6);
-      tumbleRef.current.y += delta * tumbleSpeed * (1.4 + Math.sin(t * 0.33) * 0.9);
-      tumbleRef.current.z += delta * tumbleSpeed * (1.8 + Math.cos(t * 0.41) * 0.7);
-      group.rotation.x = Math.PI + tumbleRef.current.x;
-      group.rotation.y = tumbleRef.current.y;
-      group.rotation.z = tumbleRef.current.z;
+    // ---- Rotación principal del grupo = tier "torso" (líder) ----
+    group.rotation.x = torsoSpring.x + idleX;
+    group.rotation.y = torsoSpring.y + idleY * 0.4;
+    group.rotation.z = torsoSpring.z + idleZ;
+
+    // ---- Atrasos entre tiers (magnitud del "follow-through") ----
+    const dShoulder = {
+      x: torsoSpring.x - shoulderSpring.x,
+      y: torsoSpring.y - shoulderSpring.y,
+      z: torsoSpring.z - shoulderSpring.z,
+    };
+    const dUpper = {
+      x: shoulderSpring.x - upperSpring.x,
+      y: shoulderSpring.y - upperSpring.y,
+      z: shoulderSpring.z - upperSpring.z,
+    };
+    const dFore = {
+      x: upperSpring.x - foreSpring.x,
+      y: upperSpring.y - foreSpring.y,
+      z: upperSpring.z - foreSpring.z,
+    };
+    const dHand = {
+      x: foreSpring.x - handSpring.x,
+      y: foreSpring.y - handSpring.y,
+      z: foreSpring.z - handSpring.z,
+    };
+
+    const armGain = PHYSICS_TUNABLES.armSwingGain;
+    const legGain = PHYSICS_TUNABLES.legSwingGain;
+    const flopGain = PHYSICS_TUNABLES.handFlopGain;
+
+    // Pequeña asimetría izquierda/derecha: distintas ganancias y
+    // fases, para que ningún lado se mueva exactamente igual.
+    const asymL = 1.0;
+    const asymR = 0.9;
+    const phL = 0;
+    const phR = 1.15;
+
+    // ---- Clavículas: apenas se mueven, pero no están muertas ----
+    if (bones.lClavicle) bones.lClavicle.rotation.z = rest.lClavicle.z + dShoulder.x * 0.12 * asymL + Math.sin(t * 1.1) * 0.01 * idleGain;
+    if (bones.rClavicle) bones.rClavicle.rotation.z = rest.rClavicle.z - dShoulder.x * 0.12 * asymR - Math.sin(t * 1.05 + phR) * 0.01 * idleGain;
+
+    // ---- Brazos: swing principal por atraso del tier "upper" ----
+    if (bones.lUpperarm) {
+      bones.lUpperarm.rotation.z = rest.lUpperarm.z + dUpper.x * armGain * asymL + Math.sin(t * 1.3 + phL) * 0.05 * idleGain;
+      bones.lUpperarm.rotation.x = rest.lUpperarm.x + dUpper.z * armGain * 0.5;
     }
+    if (bones.rUpperarm) {
+      bones.rUpperarm.rotation.z = rest.rUpperarm.z - dUpper.x * armGain * asymR - Math.sin(t * 1.5 + phR) * 0.05 * idleGain;
+      bones.rUpperarm.rotation.x = rest.rUpperarm.x - dUpper.z * armGain * 0.5;
+    }
+    if (bones.lForearm) bones.lForearm.rotation.x = rest.lForearm.x + dFore.x * armGain * 0.9 * asymL + Math.sin(t * 1.8 + phL) * 0.045 * idleGain;
+    if (bones.rForearm) bones.rForearm.rotation.x = rest.rForearm.x + dFore.x * armGain * 0.9 * asymR + Math.sin(t * 1.7 + phR) * 0.045 * idleGain;
 
-    // Balanceo de extremidades: SIEMPRE activo, con más amplitud
-    // ("flailing") a medida que crece el tumbling.
-    const limbBoost = 1 + tumbleW * 2.2;
-    const wob = (freq, phase, amp) => Math.sin(t * freq + phase) * amp * limbBoost;
+    // ---- Manos: último eslabón, el más "suelto" ----
+    if (bones.lHand) bones.lHand.rotation.x = rest.lHand.x + dHand.x * flopGain * asymL;
+    if (bones.rHand) bones.rHand.rotation.x = rest.rHand.x + dHand.x * flopGain * asymR;
 
-    if (bones.lUpperarm) bones.lUpperarm.rotation.z = rest.lUpperarm.z + wob(1.3, 0, 0.22);
-    if (bones.rUpperarm) bones.rUpperarm.rotation.z = rest.rUpperarm.z - wob(1.5, 1.1, 0.22);
-    if (bones.lForearm) bones.lForearm.rotation.x = rest.lForearm.x + wob(1.8, 0.6, 0.2);
-    if (bones.rForearm) bones.rForearm.rotation.x = rest.rForearm.x + wob(1.7, 2.0, 0.2);
-    if (bones.lThigh) bones.lThigh.rotation.x = rest.lThigh.x + wob(1.1, 2.4, 0.15);
-    if (bones.rThigh) bones.rThigh.rotation.x = rest.rThigh.x + wob(1.2, 0.3, 0.15);
-    if (bones.lCalf) bones.lCalf.rotation.x = rest.lCalf.x + wob(1.6, 1.5, 0.18);
-    if (bones.rCalf) bones.rCalf.rotation.x = rest.rCalf.x + wob(1.4, 3.0, 0.18);
+    // ---- Piernas: mismos tiers, ganancia y ejes propios ----
+    if (bones.lThigh) {
+      bones.lThigh.rotation.x = rest.lThigh.x + dUpper.x * legGain * asymL + Math.sin(t * 1.1 + phL + 2.4) * 0.035 * idleGain;
+      bones.lThigh.rotation.z = rest.lThigh.z + dUpper.z * legGain * 0.4;
+    }
+    if (bones.rThigh) {
+      bones.rThigh.rotation.x = rest.rThigh.x + dUpper.x * legGain * asymR + Math.sin(t * 1.2 + phR + 0.3) * 0.035 * idleGain;
+      bones.rThigh.rotation.z = rest.rThigh.z - dUpper.z * legGain * 0.4;
+    }
+    if (bones.lCalf) bones.lCalf.rotation.x = rest.lCalf.x + dFore.x * legGain * 0.85 * asymL + Math.sin(t * 1.6 + phL + 1.5) * 0.03 * idleGain;
+    if (bones.rCalf) bones.rCalf.rotation.x = rest.rCalf.x + dFore.x * legGain * 0.85 * asymR + Math.sin(t * 1.4 + phR + 3.0) * 0.03 * idleGain;
+    if (bones.lFoot) bones.lFoot.rotation.x = rest.lFoot.x + dHand.x * flopGain * 0.6 * asymL;
+    if (bones.rFoot) bones.rFoot.rotation.x = rest.rFoot.x + dHand.x * flopGain * 0.6 * asymR;
 
-    // Torso encorvado hacia adelante durante la caída (más creíble).
-    const curl = tumbleW * 0.35;
-    if (bones.spine1) bones.spine1.rotation.x = rest.spine1.x + curl * 0.5 + Math.sin(t * 1.1) * 0.02;
-    if (bones.spine2) bones.spine2.rotation.x = rest.spine2.x + curl * 0.7;
+    // ---- Torso: además del liderazgo del grupo, un curl propio
+    // hacia adelante durante la caída (postura de caída libre). ----
+    const curl = tumbleW * 0.32;
+    if (bones.spine1) bones.spine1.rotation.x = rest.spine1.x + curl * 0.45 + dShoulder.x * 0.08 + Math.sin(t * 1.05) * 0.018 * idleGain;
+    if (bones.spine2) bones.spine2.rotation.x = rest.spine2.x + curl * 0.65 + dShoulder.x * 0.05;
 
-    // Cabeza: sigue el mouse mientras flota de frente; durante la
-    // caída, se suma al balanceo general en vez de "corregir" la mirada.
-    const headFollow = 1 - flipW;
-    const mx = (mouse?.current?.x ?? 0) * headFollow;
-    const my = (mouse?.current?.y ?? 0) * headFollow;
+    // ---- Cabeza/cuello: sigue el mouse mientras flota, y suma
+    // su propio desfase de "independencia" durante el giro/caída. ----
+    const headFollow = 1 - flipW - tumbleW * 0.6;
+    const mx = (mouse?.current?.x ?? 0) * clamp(headFollow);
+    const my = (mouse?.current?.y ?? 0) * clamp(headFollow);
+    if (bones.neck1) bones.neck1.rotation.y = damp(bones.neck1.rotation.y, rest.neck1.y + dShoulder.x * 0.1 + mx * 0.06, 5, delta);
+    if (bones.neck2) bones.neck2.rotation.x = damp(bones.neck2.rotation.x, rest.neck2.x + dUpper.x * 0.06, 5, delta);
     if (bones.head) {
-      bones.head.rotation.y = damp(bones.head.rotation.y, rest.head.y + mx * 0.2 + wob(0.9, 4, 0.05), 4, delta);
-      bones.head.rotation.x = damp(bones.head.rotation.x, rest.head.x - my * 0.12, 4, delta);
+      bones.head.rotation.y = damp(bones.head.rotation.y, rest.head.y + mx * 0.22 + dHand.x * 0.07 + Math.sin(t * 0.85 + 4) * 0.04 * idleGain, 5, delta);
+      bones.head.rotation.x = damp(bones.head.rotation.x, rest.head.x - my * 0.13 + Math.sin(t * 0.6 + 1) * 0.02 * idleGain, 5, delta);
     }
-    if (bones.neck) {
-      bones.neck.rotation.y = damp(bones.neck.rotation.y, rest.neck.y + mx * 0.08, 4, delta);
-    }
+
+    // ---- Huesos de torsión detectados automáticamente: cada uno
+    // recibe una fracción de la rotación de su segmento padre, en
+    // sentido contrario, simulando una torsión de tejido real. ----
+    const segmentDeltas = {
+      lForearm: dFore.x * armGain * 0.9 * asymL,
+      rForearm: dFore.x * armGain * 0.9 * asymR,
+      lUpperarm: dUpper.x * armGain * asymL,
+      rUpperarm: dUpper.x * armGain * asymR,
+      lThigh: dUpper.x * legGain * asymL,
+      rThigh: dUpper.x * legGain * asymR,
+      lCalf: dFore.x * legGain * 0.85 * asymL,
+      rCalf: dFore.x * legGain * 0.85 * asymR,
+    };
+    twistBonesRef.current.forEach(({ bone, rest: r, parentKey }) => {
+      const src = segmentDeltas[parentKey] ?? 0;
+      bone.rotation.x = r.x - src * PHYSICS_TUNABLES.twistGain;
+    });
   });
 
   return <primitive ref={groupRef} object={scene} position={[0, -0.5, -1.4]} scale={1.7} />;
@@ -760,13 +1011,20 @@ useGLTF.preload(CHARACTER_MODEL_URL);
 /* ============================================================
    three/SpeedLines.jsx
    Líneas radiales tipo "warp speed" que aparecen durante el
-   beat de túnel (tunnelIntensity 0→1→0), dando sensación de
-   velocidad al atravesar el logo.
+   giro/caída. A diferencia de la versión anterior, ahora
+   reaccionan tanto al beat narrativo (tunnelIntensity de la
+   escena) COMO a la velocidad angular real del torso — así se
+   sienten producidas por el movimiento del personaje y no un
+   efecto decorativo pegado detrás. Se integran a la profundidad
+   (viven detrás del personaje, escalan con la cámara) y jamás
+   compiten con él: su opacidad máxima está deliberadamente
+   limitada.
    ============================================================ */
-function SpeedLines() {
-  const LINE_COUNT = 40;
+function SpeedLines({ torsoAngVelRef }) {
+  const LINE_COUNT = 36;
   const groupRef = useRef(null);
   const materialRef = useRef(null);
+  const velSmoothed = useRef(0);
 
   const positions = useMemo(() => {
     const arr = new Float32Array(LINE_COUNT * 2 * 3);
@@ -791,15 +1049,19 @@ function SpeedLines() {
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
-    const intensity = state.tunnelIntensity;
+    const rawVel = clamp(Math.abs(torsoAngVelRef?.current ?? 0) / 6, 0, 1);
+    velSmoothed.current = damp(velSmoothed.current, rawVel, 4, delta);
+    const intensity = clamp(state.tunnelIntensity * 0.6 + velSmoothed.current * 0.5, 0, 1);
 
     if (groupRef.current) {
-      groupRef.current.rotation.z += delta * (0.3 + intensity * 0.6);
-      const s = 0.6 + intensity * 2.4;
+      groupRef.current.rotation.z += delta * (0.25 + intensity * 0.9);
+      const s = 0.6 + intensity * 2.2;
       groupRef.current.scale.setScalar(damp(groupRef.current.scale.x, s, 5, delta));
     }
     if (materialRef.current) {
-      materialRef.current.opacity = damp(materialRef.current.opacity, intensity * 0.75, 5, delta);
+      // Techo de opacidad deliberadamente bajo: nunca debe robarle
+      // protagonismo al personaje (punto 9 / 14 del brief).
+      materialRef.current.opacity = damp(materialRef.current.opacity, intensity * 0.6, 5, delta);
     }
   });
 
@@ -823,8 +1085,12 @@ function SpeedLines() {
 
 /* ============================================================
    three/Particles.jsx
+   Además del spread/opacidad ya ligados a la escena, ahora la
+   rotación del sistema y una leve "elongación" radial reaccionan
+   a la velocidad angular real del personaje, para dar sensación
+   de velocidad durante la caída sin agregar más partículas.
    ============================================================ */
-function Particles({ device }) {
+function Particles({ device, torsoAngVelRef }) {
   const pointsRef = useRef(null);
   const materialRef = useRef(null);
   const count = Math.round(clientConfig.particles.count * device.particleMultiplier);
@@ -842,10 +1108,12 @@ function Particles({ device }) {
   useFrame((state, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
     const blended = blendScenes(scenes, progress);
+    const speedBoost = clamp(Math.abs(torsoAngVelRef?.current ?? 0) / 8, 0, 1);
     if (pointsRef.current) {
-      const targetScale = blended.particles.spread;
+      const targetScale = blended.particles.spread * (1 + speedBoost * 0.25);
       pointsRef.current.scale.setScalar(damp(pointsRef.current.scale.x, targetScale, 3, delta));
-      pointsRef.current.rotation.y += delta * 0.02;
+      pointsRef.current.rotation.y += delta * (0.02 + speedBoost * 0.08);
+      pointsRef.current.rotation.z += delta * speedBoost * 0.05;
     }
     if (materialRef.current) {
       materialRef.current.opacity = damp(materialRef.current.opacity, blended.particles.opacity, 4, delta);
@@ -930,18 +1198,24 @@ function SceneEnvironment() {
    ============================================================ */
 function Experience({ device }) {
   const mouse = useMouseParallax();
+  // Velocidad angular real del torso, compartida entre el
+  // personaje, la cámara, el vórtice y las partículas — así todo
+  // reacciona al MISMO movimiento físico en vez de tener cada
+  // efecto su propia curva inventada.
+  const torsoAngVelRef = useRef(0);
+
   return (
     <>
       <ScrollSmoother />
       <SceneEnvironment />
-      <CameraRig mouse={mouse} />
+      <CameraRig mouse={mouse} torsoAngVelRef={torsoAngVelRef} />
       <Lighting />
       <Environment preset="city" background={false} />
       <Suspense fallback={null}>
-        <AnimatedCharacter mouse={mouse} />
+        <AnimatedCharacter mouse={mouse} torsoAngVelRef={torsoAngVelRef} />
       </Suspense>
-      <SpeedLines />
-      <Particles device={device} />
+      <SpeedLines torsoAngVelRef={torsoAngVelRef} />
+      <Particles device={device} torsoAngVelRef={torsoAngVelRef} />
       {device.enablePostProcessing && (
         <EffectComposer multisampling={0}>
           <Bloom intensity={0.55} luminanceThreshold={0.2} luminanceSmoothing={0.9} mipmapBlur />
@@ -1166,57 +1440,6 @@ function CursorTrail() {
 }
 
 /* ============================================================
-   ui/ScrollLineAccent.jsx
-   Línea (SVG) que se va "dibujando" a medida que se scrollea
-   (stroke-dashoffset), hace un rulo, y después continúa
-   deslizándose fuera de pantalla — un acento narrativo fijo,
-   independiente del cursor.
-   ============================================================ */
-function ScrollLineAccent() {
-  const pathRef = useRef(null);
-  const groupRef = useRef(null);
-  const LINE_START = 0.04;
-  const LINE_END = 0.22;
-  const EXIT_END = 0.34;
-
-  useEffect(() => {
-    const path = pathRef.current;
-    if (!path) return;
-    const length = path.getTotalLength();
-    path.style.strokeDasharray = String(length);
-    path.style.strokeDashoffset = String(length);
-
-    const update = (progress) => {
-      const reveal = clamp((progress - LINE_START) / (LINE_END - LINE_START));
-      path.style.strokeDashoffset = String(length * (1 - reveal));
-
-      const exit = clamp((progress - LINE_END) / (EXIT_END - LINE_END));
-      if (groupRef.current) {
-        groupRef.current.style.opacity = String(reveal * (1 - exit));
-        groupRef.current.style.transform = `translateX(${exit * 60}vw)`;
-      }
-    };
-    update(useScrollStore.getState().smoothProgress);
-    return useScrollStore.subscribe((s) => update(s.smoothProgress));
-  }, []);
-
-  return (
-    <div ref={groupRef} className="scroll-line-accent" aria-hidden="true">
-      <svg viewBox="0 0 1000 800" preserveAspectRatio="none">
-        <path
-          ref={pathRef}
-          d="M -80 620 C 120 420 260 760 480 560 C 620 430 560 250 420 300 C 300 340 320 480 460 470 C 620 460 760 300 1150 120"
-          fill="none"
-          stroke={clientConfig.colors.accent}
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
-    </div>
-  );
-}
-
-/* ============================================================
    App.jsx
    ============================================================ */
 function App() {
@@ -1251,7 +1474,6 @@ function App() {
         >
           <Experience device={device} />
         </Canvas>
-        <ScrollLineAccent />
         <CursorTrail />
         <HeroText />
         <SceneText />
