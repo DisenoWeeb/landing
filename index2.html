@@ -324,10 +324,12 @@ const PH_TUMBLE_END = 0.88;
 const YAW_SIGN = -1;
 
 // Ángulo de inclinación "de cabeza" una vez que terminó de girar (rad).
-const DIVE_TILT = 0.5;
+// ~1.1 rad ≈ 63°: bien inclinado hacia adelante, casi horizontal.
+const DIVE_TILT = 1.1;
 
-// Velocidad del giro continuo y controlado durante la caída (CAER).
-const FALL_SPIN_SPEED = 0.55;
+// Vueltas completas que da durante la caída (CAER). Se "desenrolla"
+// de nuevo hacia el final en vez de frenar en un ángulo random.
+const FALL_SPINS = 1.5;
 
 function smoothstep(edge0, edge1, x) {
   const t = clamp((x - edge0) / (edge1 - edge0));
@@ -571,7 +573,6 @@ function AnimatedCharacter({ mouse }) {
   const bonesRef = useRef({});
   const restRef = useRef({});
   const clockRef = useRef(0);
-  const spinRef = useRef(0);
 
   useEffect(() => {
     const names = {
@@ -614,6 +615,8 @@ function AnimatedCharacter({ mouse }) {
     const flipW = smoothstep(PH_APPROACH_END, PH_FLIP_END, progress);
     const tumbleW = smoothstep(PH_FLIP_END, PH_TUMBLE_END, progress);
     const settleW = smoothstep(PH_TUMBLE_END, 1, progress);
+    // pose activa: sube durante el giro, se mantiene, y se relaja al reacomodarse.
+    const poseW = flipW * (1 - settleW);
 
     // ---- Posición: flota -> se acerca -> se aleja cayendo ----
     const zFloat = -1.4;
@@ -628,68 +631,79 @@ function AnimatedCharacter({ mouse }) {
     group.position.z = damp(group.position.z, targetZ, 2.5, delta);
     group.position.y = -0.5 + Math.sin(t * 0.8) * 0.06;
 
-    // ---- Rotación: gira hasta quedar de espaldas + inclina de cabeza ----
-    group.rotation.y = damp(group.rotation.y, YAW_SIGN * flipW * Math.PI, 3, delta);
-    const targetTilt = flipW * DIVE_TILT + tumbleW * 0.12; // se inclina un poco más al caer
-    group.rotation.x = damp(group.rotation.x, targetTilt, 3, delta);
+    // ---- Rotación: gira hasta quedar de espaldas + inclina de cabeza,
+    // y se REACOMODA (vuelve a 0) al final en vez de quedar tirado en
+    // cualquier ángulo. Todo depende de poseW, que sube y BAJA de nuevo.
+    group.rotation.y = damp(group.rotation.y, YAW_SIGN * poseW * Math.PI, 3, delta);
+    group.rotation.x = damp(group.rotation.x, poseW * DIVE_TILT, 3, delta);
 
-    // Giro continuo y controlado durante la caída (no caótico): un
-    // único eje de "corkscrew" que se frena suave al llegar al final.
-    spinRef.current += delta * FALL_SPIN_SPEED * tumbleW * (1 - settleW);
-    group.rotation.z = spinRef.current;
+    // Giro de caída: una curva que SUBE y vuelve a bajar a un múltiplo
+    // de 2π (o sea, a 0 visualmente) hacia el final — nunca se corta
+    // en un ángulo al azar. tumbleW ya es 0→1→(se mantiene en 1); lo
+    // que hace que vuelva a 0 es multiplicar por (1 - settleW).
+    const spinProgress = tumbleW * (1 - settleW);
+    group.rotation.z = spinProgress * FALL_SPINS * Math.PI * 2 * (1 - settleW);
 
-    // ---- Pose de caída libre ("skydive arch"): brazos y piernas
-    // se abren y flexionan a medida que gira (flipW), y se mantienen
-    // así durante la caída. Con oscilación suave encima para que
-    // nunca se vea "de plástico".
-    const wob = (freq, phase, amp, boost = 1) => Math.sin(t * freq + phase) * amp * boost;
-    const liveliness = 1 + tumbleW * 0.5; // un poco más de vida mientras cae
+    // ---- Movimiento de brazos/piernas ----
+    // SIEMPRE hay oscilación (flotando de entrada, "peleando" contra
+    // el giro durante la caída) — nunca queda estático.
+    const wob = (freq, phase, amp) => Math.sin(t * freq + phase) * amp;
 
-    const ARM_OUT = 0.85;     // cuánto se abren los brazos hacia los costados
-    const FOREARM_BEND = 0.9; // flexión del codo hacia arriba
-    const THIGH_OUT = 0.35;   // apertura de piernas
-    const CALF_BEND = 0.7;    // flexión de rodilla
+    // Amplitud base de flotación (bien visible, no sutil-invisible) +
+    // más energía mientras cae (tumbleW) simulando que reacciona a la
+    // rotación en el aire, y se calma al reacomodarse (settleW).
+    const energy = (0.55 + tumbleW * 0.9) * (1 - settleW * 0.7);
+
+    // "Arrastre" centrífugo: cuanto más rápido gira sobre su eje (z),
+    // los brazos/piernas tienden a abrirse hacia afuera por inercia,
+    // como reaccionando a la fuerza del giro en el aire.
+    const spinKick = Math.min(spinProgress, 1) * 0.5;
+
+    const ARM_OUT = 0.9;      // apertura de brazos hacia los costados (pose)
+    const FOREARM_BEND = 0.8; // flexión de codo (pose)
+    const THIGH_OUT = 0.3;    // apertura de piernas (pose)
+    const CALF_BEND = 0.6;    // flexión de rodilla (pose)
 
     if (bones.lUpperarm) {
-      bones.lUpperarm.rotation.z = rest.lUpperarm.z + ARM_OUT * flipW + wob(1.1, 0, 0.1, liveliness);
+      bones.lUpperarm.rotation.z =
+        rest.lUpperarm.z + ARM_OUT * poseW + spinKick + wob(1.6, 0, 0.28 * energy);
     }
     if (bones.rUpperarm) {
-      bones.rUpperarm.rotation.z = rest.rUpperarm.z - ARM_OUT * flipW - wob(1.1, Math.PI, 0.1, liveliness);
+      bones.rUpperarm.rotation.z =
+        rest.rUpperarm.z - ARM_OUT * poseW - spinKick - wob(1.6, Math.PI, 0.28 * energy);
     }
-    // Antebrazos con leve retraso de fase respecto al brazo (efecto
-    // "látigo"/follow-through en vez de moverse todo rígido y junto).
     if (bones.lForearm) {
-      bones.lForearm.rotation.x = rest.lForearm.x + FOREARM_BEND * flipW + wob(1.4, 0.5, 0.13, liveliness);
+      bones.lForearm.rotation.x =
+        rest.lForearm.x + FOREARM_BEND * poseW + wob(2.1, 0.5, 0.3 * energy);
     }
     if (bones.rForearm) {
-      bones.rForearm.rotation.x = rest.rForearm.x + FOREARM_BEND * flipW + wob(1.4, Math.PI + 0.5, 0.13, liveliness);
+      bones.rForearm.rotation.x =
+        rest.rForearm.x + FOREARM_BEND * poseW + wob(2.1, Math.PI + 0.5, 0.3 * energy);
     }
 
     if (bones.lThigh) {
-      bones.lThigh.rotation.z = rest.lThigh.z - THIGH_OUT * flipW;
-      bones.lThigh.rotation.x = rest.lThigh.x + wob(1.0, 0.9, 0.08, liveliness);
+      bones.lThigh.rotation.z = rest.lThigh.z - THIGH_OUT * poseW - spinKick * 0.4;
+      bones.lThigh.rotation.x = rest.lThigh.x + wob(1.3, 0.9, 0.2 * energy);
     }
     if (bones.rThigh) {
-      bones.rThigh.rotation.z = rest.rThigh.z + THIGH_OUT * flipW;
-      bones.rThigh.rotation.x = rest.rThigh.x + wob(1.0, 0.9 + Math.PI, 0.08, liveliness);
+      bones.rThigh.rotation.z = rest.rThigh.z + THIGH_OUT * poseW + spinKick * 0.4;
+      bones.rThigh.rotation.x = rest.rThigh.x + wob(1.3, 0.9 + Math.PI, 0.2 * energy);
     }
     if (bones.lCalf) {
-      bones.lCalf.rotation.x = rest.lCalf.x - CALF_BEND * flipW + wob(1.3, 1.3, 0.1, liveliness);
+      bones.lCalf.rotation.x = rest.lCalf.x - CALF_BEND * poseW + wob(1.9, 1.3, 0.22 * energy);
     }
     if (bones.rCalf) {
-      bones.rCalf.rotation.x = rest.rCalf.x - CALF_BEND * flipW + wob(1.3, 1.3 + Math.PI, 0.1, liveliness);
+      bones.rCalf.rotation.x = rest.rCalf.x - CALF_BEND * poseW + wob(1.9, 1.3 + Math.PI, 0.22 * energy);
     }
 
-    // Torso: leve arqueo hacia atrás (típico de la pose de caída
-    // libre, pecho hacia el "suelo") en vez de encorvarse hacia
-    // adelante. Sumale un balanceo mínimo para que respire.
-    const arch = flipW * 0.18;
-    if (bones.spine1) bones.spine1.rotation.x = rest.spine1.x - arch * 0.5 + wob(0.9, 0, 0.02);
-    if (bones.spine2) bones.spine2.rotation.x = rest.spine2.x - arch * 0.8;
+    // Torso: leve arqueo hacia atrás durante la pose + balanceo propio.
+    const arch = poseW * 0.18;
+    if (bones.spine1) bones.spine1.rotation.x = rest.spine1.x - arch * 0.5 + wob(1.1, 0, 0.05 * energy);
+    if (bones.spine2) bones.spine2.rotation.x = rest.spine2.x - arch * 0.8 + wob(1.1, 0.3, 0.04 * energy);
 
     // Cabeza: sigue el mouse mientras flota de frente; durante el
     // giro/caída se suelta y solo le queda un balanceo propio.
-    const headFollow = 1 - flipW;
+    const headFollow = 1 - poseW;
     const mx = (mouse?.current?.x ?? 0) * headFollow;
     const my = (mouse?.current?.y ?? 0) * headFollow;
     if (bones.head) {
