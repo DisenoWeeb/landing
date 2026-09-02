@@ -305,20 +305,23 @@ const clientConfig = {
    CONFIG: personaje 3D animado (GLB con esqueleto, sin clips)
    Poné el .glb en tu repo (ej: assets/models/weeb.glb) y apuntá
    CHARACTER_MODEL_URL ahí — GitHub Pages lo sirve como estático.
-   Coreografía 100% procedural, en 4 fases a lo largo del scroll:
-     1) FLOTAR   — de frente, quieto en cámara, movimiento suave
-     2) ACERCAR  — se acerca un poco a la pantalla
-     3) GIRAR    — gira y cae "de cabeza" (se ve la suela)
-     4) CAER     — se aleja, gira sin control en todos los ejes
-   Los huesos de brazos/piernas nunca están del todo quietos:
-   siempre hay un balanceo suave encima de cualquier otra pose.
+
+   Máquina de estados narrativa (ver AnimatedCharacter):
+     FRONT_IDLE → APPROACH → TURN → FALL_POSE → FALL
+   Los breakpoints son sobre smoothProgress (0..1):
+     0.00 → de frente, flotando
+     0.25 → termina el acercamiento
+     0.50 → arranca el giro corporal
+     0.70 → termina el giro (se estabiliza)
+     0.80 → adoptó la postura de caída
+     1.00 → caída completa
    ============================================================ */
 const CHARACTER_MODEL_URL = "./assets/models/weeb.glb";
 
-const PH_FLOAT_END = 0.15; // hasta acá: flota de frente, quieto en cámara
-const PH_APPROACH_END = 0.24; // hasta acá: se acerca un poco
-const PH_FLIP_END = 0.4; // hasta acá: termina de girar boca abajo
-const PH_TUMBLE_END = 0.88; // hasta acá: cae dando vueltas sin control
+const ST_FRONT_END = 0.25;
+const ST_APPROACH_END = 0.5;
+const ST_TURN_END = 0.7;
+const ST_FALLPOSE_END = 0.8;
 
 // Curva suave tipo "ease" para que toda transición sea fluida,
 // nunca lineal/brusca.
@@ -329,73 +332,56 @@ function smoothstep(edge0, edge1, x) {
 
 /* ============================================================
    CONFIG: scenes.config
-   Cada keyframe define un "beat" narrativo entre progress 0..1.
-   blendScenes() interpola linealmente entre el keyframe anterior
-   y el siguiente según el scroll. Ahora solo maneja cámara,
-   luz, niebla y partículas — la coreografía del personaje vive
-   en AnimatedCharacter. Ningún keyframe lleva texto salvo el
-   primero (manejado aparte por HeroText) y el último (CTA).
+   Solo cámara, luz, niebla y partículas — sin efectos decorativos
+   girando alrededor del personaje. La cámara acompaña cada etapa
+   (dolly-in en el acercamiento, se acomoda para el giro y la
+   caída) pero el protagonista del movimiento es el personaje.
    ============================================================ */
 const scenes = [
   {
-    id: "float",
+    id: "front-idle",
     progress: 0,
-    camera: { position: [0, 0.1, 4.3], lookAt: [0, 0, 0], fov: 30 },
-    particles: { spread: 1, opacity: 0.3 },
+    camera: { position: [0, 0.05, 4.6], lookAt: [0, 0.1, 0], fov: 28 },
+    particles: { spread: 1, opacity: 0.28 },
     light: { color: "#ffffff", intensity: 0.5, rimColor: "#c8ff00", rimIntensity: 1.2 },
     fog: { color: "#0f0f1a", far: 20 },
     background: "#0f0f1a",
-    tunnelIntensity: 0,
   },
   {
     id: "approach",
-    progress: 0.24,
-    camera: { position: [0, 0.08, 3.7], lookAt: [0, 0, 0], fov: 29 },
-    particles: { spread: 1.1, opacity: 0.35 },
-    light: { color: "#ffffff", intensity: 0.5, rimColor: "#c8ff00", rimIntensity: 1.3 },
+    progress: 0.25,
+    camera: { position: [0, 0.05, 3.1], lookAt: [0, 0.1, 0], fov: 26 },
+    particles: { spread: 1.1, opacity: 0.32 },
+    light: { color: "#ffffff", intensity: 0.55, rimColor: "#c8ff00", rimIntensity: 1.3 },
     fog: { color: "#0f0f1a", far: 18 },
     background: "#0f0f1a",
-    tunnelIntensity: 0.05,
   },
   {
-    id: "flip",
-    progress: 0.4,
-    camera: { position: [0.2, 0, 4.2], lookAt: [0, -0.1, 0], fov: 32 },
-    particles: { spread: 1.4, opacity: 0.45 },
-    light: { color: "#ffffff", intensity: 0.45, rimColor: "#7dfff0", rimIntensity: 1.8 },
-    fog: { color: "#0a0a14", far: 12 },
+    id: "turn",
+    progress: 0.5,
+    camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
+    particles: { spread: 1.2, opacity: 0.35 },
+    light: { color: "#ffffff", intensity: 0.5, rimColor: "#7dfff0", rimIntensity: 1.6 },
+    fog: { color: "#0d0d18", far: 16 },
+    background: "#0d0d18",
+  },
+  {
+    id: "fall-pose",
+    progress: 0.7,
+    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, -0.1, 0], fov: 30 },
+    particles: { spread: 1.3, opacity: 0.4 },
+    light: { color: "#ffffff", intensity: 0.5, rimColor: "#7dfff0", rimIntensity: 1.7 },
+    fog: { color: "#0a0a14", far: 14 },
     background: "#0a0a14",
-    tunnelIntensity: 0.3,
   },
   {
-    id: "tumble-mid",
-    progress: 0.62,
-    camera: { position: [-0.3, 0.05, 4.6], lookAt: [0, 0, 0], fov: 34 },
-    particles: { spread: 2, opacity: 0.6 },
-    light: { color: "#ffffff", intensity: 0.4, rimColor: "#7dfff0", rimIntensity: 2.2 },
-    fog: { color: "#050508", far: 8 },
-    background: "#050508",
-    tunnelIntensity: 0.8,
-  },
-  {
-    id: "tumble-end",
-    progress: 0.88,
-    camera: { position: [0, 0, 5.2], lookAt: [0, 0, 0], fov: 30 },
-    particles: { spread: 1.2, opacity: 0.3 },
-    light: { color: "#ffffff", intensity: 0.5, rimColor: "#c8ff00", rimIntensity: 1.5 },
-    fog: { color: "#000000", far: 12 },
-    background: "#000000",
-    tunnelIntensity: 0.1,
-  },
-  {
-    id: "cierre",
+    id: "fall",
     progress: 1,
-    camera: { position: [0, 0, 5.2], lookAt: [0, 0, 0], fov: 28 },
-    particles: { spread: 1, opacity: 0.25 },
-    light: { color: "#ffffff", intensity: 0.6, rimColor: "#c8ff00", rimIntensity: 1.8 },
-    fog: { color: "#000000", far: 10 },
+    camera: { position: [0, 0.4, 4.2], lookAt: [0, -0.6, 0], fov: 32 },
+    particles: { spread: 1.5, opacity: 0.45 },
+    light: { color: "#ffffff", intensity: 0.45, rimColor: "#c8ff00", rimIntensity: 1.6 },
+    fog: { color: "#000000", far: 11 },
     background: "#000000",
-    tunnelIntensity: 0,
     showCTA: true,
     text: {
       eyebrow: "¿Charlamos?",
@@ -454,7 +440,6 @@ function sceneToState(kf) {
     light: kf.light,
     fog: kf.fog,
     background: kf.background,
-    tunnelIntensity: kf.tunnelIntensity ?? 0,
   };
 }
 
@@ -492,7 +477,6 @@ function blendScenes(list, rawProgress) {
       far: lerp(a.fog.far, b.fog.far, t),
     },
     background: lerpColor(a.background, b.background, t),
-    tunnelIntensity: lerp(a.tunnelIntensity ?? 0, b.tunnelIntensity ?? 0, t),
   };
 }
 
@@ -601,32 +585,71 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
 /* ============================================================
    three/AnimatedCharacter.jsx
-   Personaje 3D real (GLB con esqueleto, sin clips grabados).
-   Coreografía procedural en 4 fases (ver constantes PH_* arriba):
-     1) FLOTAR   — de frente a cámara, con vaivén suave de brazos
-                   y piernas, como flotando en el aire.
-     2) ACERCAR  — se acerca un poco a la pantalla (dolly in).
-     3) GIRAR    — gira 180° en X: pasa de estar de frente a
-                   quedar boca abajo, "cayendo de cabeza" (se
-                   empieza a ver la suela de los zapatos).
-     4) CAER     — sigue alejándose (más chico) mientras gira
-                   sin control en varios ejes a la vez, con el
-                   torso encorvándose hacia adelante para vender
-                   la sensación de caída real.
-   En todo momento, brazos y piernas tienen un balanceo propio
-   independiente — nunca quedan del todo quietos.
-   NOTA: como no hay forma de previsualizar el rig desde acá, el
-   sentido exacto de cada eje (¿"boca abajo" es +X o -X en este
-   rig?) es un primer intento — avisame qué se ve mal y ajusto
-   signos/ejes con precisión quirúrgica.
+   Personaje 3D suspendido en el aire — NO un muñeco girando
+   sobre sus pies. Arquitectura:
+
+   1) PIVOT EN EL CENTRO DE MASA
+      El modelo tiene su origen (0,0,0) en los pies (típico de
+      un rig biped). Para que las rotaciones ocurran alrededor
+      del centro del cuerpo (pelvis) y no de los pies, el
+      <primitive> se desplaza hacia abajo dentro de un grupo, de
+      modo que el pivote del grupo (lo que rota) coincide con la
+      altura de la pelvis, no con el piso.
+
+   2) MÁQUINA DE ESTADOS (ver ST_* arriba)
+      FRONT_IDLE → APPROACH → TURN → FALL_POSE → FALL
+      Cada estado tiene su propio target de posición/rotación;
+      se interpola con smoothstep entre estados, nunca de golpe.
+
+   3) CADENA DE HUESOS CON RETRASO (no todo rota como una pieza)
+      Durante TURN, el giro no se aplica de una sola vez a todo
+      el cuerpo: la pelvis (el grupo entero) lidera, la columna
+      la sigue con un poco de retraso, los hombros después, la
+      cabeza al final — igual con las piernas hacia abajo. Cada
+      hueso solo aplica la DIFERENCIA entre su objetivo y el de
+      su padre en la cadena (así no se duplica la rotación).
+
+   NOTA HONESTA: "R_Upperarm"/"L_Upperarm" tienen pesos de piel
+   mal distribuidos en este GLB (ver conversación anterior — al
+   rotarlos se desprendía un pedazo de tela). Por eso el "hombro"
+   de la cadena se resuelve con la clavícula (Clavicle) en vez
+   del brazo superior, y el movimiento visible del brazo viene
+   del antebrazo (Forearm) hacia abajo. Si en tu modelo el brazo
+   superior sí tiene buenos pesos, avisame y lo sumo de nuevo.
+
+   Como no hay forma de previsualizar el rig desde acá, los
+   signos exactos de cada eje son la mejor estimación posible —
+   contame puntualmente qué se ve mal (ej: "gira al revés",
+   "las palmas miran para arriba") y lo corrijo con precisión.
    ============================================================ */
+
+// Altura aproximada (en unidades del propio modelo, no escaladas)
+// del centro de masa/pelvis, medida desde los pies. Si el
+// personaje "flota" muy alto o muy bajo en pantalla, ajustar acá.
+const CHAR_CENTER_Y = 0.52;
+const CHAR_SCALE = 1.7;
+
 function AnimatedCharacter({ mouse }) {
-  const groupRef = useRef(null);
+  const outerRef = useRef(null); // posición en el mundo (dolly/caída)
+  const pivotRef = useRef(null); // rotación alrededor del centro de masa
   const { scene } = useGLTF(CHARACTER_MODEL_URL);
   const bonesRef = useRef({});
   const restRef = useRef({});
   const clockRef = useRef(0);
-  const tumbleRef = useRef({ x: 0, y: 0, z: 0 });
+
+  // Ángulos acumulados de cada eslabón de la cadena (mundo, no
+  // relativos) — así cada uno puede perseguir al anterior con su
+  // propio retraso ("follow-through").
+  const chainRef = useRef({
+    pelvis: 0,
+    spine: 0,
+    chest: 0,
+    shoulder: 0,
+    head: 0,
+    thigh: 0,
+    calf: 0,
+    foot: 0,
+  });
 
   useEffect(() => {
     const names = {
@@ -634,12 +657,18 @@ function AnimatedCharacter({ mouse }) {
       spine2: "Spine02",
       head: "Head",
       neck: "NeckTwist01",
+      lClavicle: "L_Clavicle",
+      rClavicle: "R_Clavicle",
       lForearm: "L_Forearm",
       rForearm: "R_Forearm",
+      lHand: "L_Hand",
+      rHand: "R_Hand",
       lThigh: "L_Thigh",
-      lCalf: "L_Calf",
       rThigh: "R_Thigh",
+      lCalf: "L_Calf",
       rCalf: "R_Calf",
+      lFoot: "L_Foot",
+      rFoot: "R_Foot",
     };
     const bones = {};
     const rest = {};
@@ -660,235 +689,174 @@ function AnimatedCharacter({ mouse }) {
     const progress = useScrollStore.getState().smoothProgress;
     const bones = bonesRef.current;
     const rest = restRef.current;
-    const group = groupRef.current;
-    if (!group) return;
+    const outer = outerRef.current;
+    const pivot = pivotRef.current;
+    if (!outer || !pivot) return;
 
-    // Pesos de cada fase (0..1), con transición suave (smoothstep)
-    // en vez de cortes duros entre una fase y la siguiente.
-    const approachW = smoothstep(PH_FLOAT_END, PH_APPROACH_END, progress);
-    const flipW = smoothstep(PH_APPROACH_END, PH_FLIP_END, progress);
-    const tumbleW = smoothstep(PH_FLIP_END, PH_TUMBLE_END, progress);
-    const settleW = smoothstep(PH_TUMBLE_END, 1, progress);
+    // ---- Pesos de cada estado (0..1), transición suave ----
+    const approachW = smoothstep(0, ST_FRONT_END, progress); // 0→1 en FRONT_IDLE
+    const dollyW = smoothstep(ST_FRONT_END, ST_APPROACH_END, progress); // acercamiento
+    const turnW = smoothstep(ST_APPROACH_END, ST_TURN_END, progress); // giro corporal
+    const poseW = smoothstep(ST_TURN_END, ST_FALLPOSE_END, progress); // adopta postura de caída
+    const fallW = smoothstep(ST_FALLPOSE_END, 1, progress); // caída libre
+    const inTurn = progress >= ST_APPROACH_END && progress < ST_TURN_END;
 
-    // Posición: flota → se acerca (menor z) → se aleja cayendo (mayor -z).
-    const zFloat = -1.4;
-    const zApproach = -0.6;
-    const zFar = -6.5;
-    let targetZ;
-    if (progress < PH_FLIP_END) {
-      targetZ = zFloat + (zApproach - zFloat) * approachW;
-    } else {
-      targetZ = zApproach + (zFar - zApproach) * tumbleW * (1 - settleW * 0.3);
+    // ---- POSICIÓN: acercamiento (dolly) → caída acelerada ----
+    const zFront = -1.3;
+    const zClose = -0.55;
+    const targetZ = zFront + (zClose - zFront) * dollyW;
+    outer.position.z = damp(outer.position.z, targetZ, 2.5, delta);
+
+    // Caída: cuadrática (empieza lenta, acelera) — puramente atada
+    // al scroll, no al reloj, para que siga siendo "scrubbable".
+    const fallDrop = fallW * fallW * 7.5;
+    outer.position.y = -fallDrop;
+
+    // Suspendido: nunca hay un "piso" — solo un flote idle sutil,
+    // que se atenúa a medida que la caída toma el control.
+    const idleFloat = Math.sin(t * 0.8) * 0.05 * (1 - fallW * 0.6);
+    outer.position.y += idleFloat;
+
+    // ---- ROTACIÓN: cadena con retraso, alrededor del centro ----
+    // Objetivo de yaw (girar) durante TURN, y de pitch (clavado)
+    // durante FALL_POSE/FALL. Un tirabuzón MUY lento se suma
+    // durante la caída, sin ser el protagonista del movimiento.
+    const YAW_TARGET = -Math.PI; // da la vuelta completa
+    const PITCH_TARGET = -1.15; // inclinación de clavado (~66°)
+    const corkscrew = fallW * t * 0.12; // tirabuzón lento y continuo
+
+    const pelvisYawTarget = YAW_TARGET * turnW;
+    const pelvisPitchTarget = PITCH_TARGET * poseW + corkscrew;
+
+    // La pelvis (el pivote entero) lidera el movimiento — responde
+    // más rápido que el resto de la cadena.
+    pivot.rotation.y = damp(pivot.rotation.y, pelvisYawTarget, 4.5, delta);
+    pivot.rotation.x = damp(pivot.rotation.x, pelvisPitchTarget, 4.5, delta);
+    pivot.rotation.z = damp(
+      pivot.rotation.z,
+      Math.sin(t * 0.35) * 0.04 + fallW * Math.sin(t * 0.2) * 0.06,
+      4,
+      delta
+    );
+
+    // Cadena hacia arriba: columna → pecho → hombros → cabeza,
+    // cada uno persiguiendo al anterior con más retraso (lambda
+    // más baja = más lag = llega después).
+    const chain = chainRef.current;
+    chain.pelvis = pivot.rotation.y;
+    chain.spine = damp(chain.spine, chain.pelvis, 7, delta);
+    chain.chest = damp(chain.chest, chain.spine, 5.5, delta);
+    chain.shoulder = damp(chain.shoulder, chain.chest, 4.2, delta);
+    chain.head = damp(chain.head, chain.shoulder, 3.2, delta);
+
+    // Cadena hacia abajo: pelvis → muslo → pantorrilla → pie.
+    chain.thigh = damp(chain.thigh, chain.pelvis, 6, delta);
+    chain.calf = damp(chain.calf, chain.thigh, 5, delta);
+    chain.foot = damp(chain.foot, chain.calf, 4, delta);
+
+    // Cada hueso solo aplica la DIFERENCIA con su padre en la
+    // cadena — el padre ya aporta su propia rotación al heredarla.
+    const spineLag = chain.spine - chain.pelvis;
+    const chestLag = chain.chest - chain.spine;
+    const shoulderLag = chain.shoulder - chain.chest;
+    const headLag = chain.head - chain.shoulder;
+    const thighLag = chain.thigh - chain.pelvis;
+    const calfLag = chain.calf - chain.thigh;
+    const footLag = chain.foot - chain.calf;
+
+    // ---- Postura de caída: brazos adelante, palmas abajo ----
+    // (se suma progresivamente durante FALL_POSE, se mantiene en FALL)
+    const armForward = poseW * 1.0; // codo/hombro hacia adelante
+    const elbowBend = poseW * 1.1; // antebrazo doblado
+    const palmDown = poseW * 1.3; // giro de muñeca para palma-abajo
+    const legSpread = poseW * 0.18; // piernas separándose levemente
+    const legExtend = poseW * 0.35; // piernas extendiéndose
+
+    // Balanceo idle sutil, siempre presente, MUY leve — se apaga
+    // un poco durante el giro para que la cadena se note limpia.
+    const idleAmp = 1 - turnW * 0.6;
+    const idle = (freq, phase, amp) => Math.sin(t * freq + phase) * amp * idleAmp;
+
+    if (bones.spine1) {
+      bones.spine1.rotation.y = rest.spine1.y + spineLag;
+      bones.spine1.rotation.x = rest.spine1.x + idle(1.1, 0, 0.02) + poseW * 0.12;
     }
-    group.position.z = damp(group.position.z, targetZ, 2.5, delta);
-    group.position.y = -0.5 + Math.sin(t * 0.8) * 0.06; // flote constante
-
-    // Rotación: gira hacia la izquierda (yaw) mientras se inclina
-    // hacia adelante como un clavado — NO es una voltereta completa,
-    // queda de espaldas e inclinado, no boca abajo del todo.
-    const YAW_TARGET = -Math.PI * 1.05; // gira a la izquierda, algo más de media vuelta
-    const PITCH_TARGET = -1.25; // inclinación tipo clavado (radianes, ~72°)
-    if (progress < PH_FLIP_END) {
-      group.rotation.y = damp(group.rotation.y, YAW_TARGET * flipW, 3.2, delta);
-      group.rotation.x = damp(group.rotation.x, PITCH_TARGET * flipW, 3.2, delta);
-      group.rotation.z = damp(group.rotation.z, Math.sin(t * 0.4) * 0.05, 4, delta);
-    } else {
-      // Tumbling: sigue desde la orientación de clavado, cada eje
-      // gira a su propia velocidad errática ("sin control").
-      const tumbleSpeed = tumbleW * (1 - settleW * 0.85);
-      tumbleRef.current.x += delta * tumbleSpeed * (1.6 + Math.sin(t * 0.5) * 0.5);
-      tumbleRef.current.y += delta * tumbleSpeed * (1.1 + Math.sin(t * 0.33) * 0.7);
-      tumbleRef.current.z += delta * tumbleSpeed * (1.4 + Math.cos(t * 0.41) * 0.6);
-      group.rotation.x = PITCH_TARGET + tumbleRef.current.x;
-      group.rotation.y = YAW_TARGET + tumbleRef.current.y;
-      group.rotation.z = tumbleRef.current.z;
+    if (bones.spine2) {
+      bones.spine2.rotation.y = rest.spine2.y + chestLag;
+      bones.spine2.rotation.x = rest.spine2.x + poseW * 0.18;
+    }
+    if (bones.neck) bones.neck.rotation.y = rest.neck.y + headLag * 0.5;
+    if (bones.head) {
+      const headFollow = 1 - turnW; // sigue al mouse solo de frente
+      const mx = (mouse?.current?.x ?? 0) * headFollow;
+      const my = (mouse?.current?.y ?? 0) * headFollow;
+      bones.head.rotation.y = damp(bones.head.rotation.y, rest.head.y + headLag * 0.5 + mx * 0.15, 5, delta);
+      bones.head.rotation.x = damp(bones.head.rotation.x, rest.head.x - my * 0.1 + idle(0.9, 4, 0.02), 5, delta);
     }
 
-    // Balanceo de extremidades: SIEMPRE bien visible desde el arranque
-    // (sensación de estar flotando/nadando), con más amplitud durante
-    // el tumbling. Se mueve en más de un eje a la vez porque no hay
-    // forma de saber acá qué eje es "torsión invisible" en este rig
-    // — así, sea cual sea el eje correcto, el movimiento se nota.
-    const limbBoost = 1 + tumbleW * 2;
-    const wob = (freq, phase, amp) => Math.sin(t * freq + phase) * amp * limbBoost;
+    // Hombros: se usa la clavícula (pesos de piel confiables) en
+    // vez del brazo superior. Lleva brazo hacia adelante en la
+    // postura de caída, más el retraso de la cadena de giro.
+    if (bones.lClavicle) {
+      bones.lClavicle.rotation.x = rest.lClavicle.x - armForward * 0.5 + idle(0.9, 0, 0.03);
+      bones.lClavicle.rotation.y = rest.lClavicle.y + shoulderLag * 0.6;
+    }
+    if (bones.rClavicle) {
+      bones.rClavicle.rotation.x = rest.rClavicle.x - armForward * 0.5 + idle(0.95, 1.2, 0.03);
+      bones.rClavicle.rotation.y = rest.rClavicle.y + shoulderLag * 0.6;
+    }
 
-    if (bones.lForearm) bones.lForearm.rotation.x = rest.lForearm.x + wob(1.8, 0.6, 0.32);
-    if (bones.rForearm) bones.rForearm.rotation.x = rest.rForearm.x + wob(1.7, 2.0, 0.32);
+    // Antebrazo: dobla el codo y lleva la mano hacia adelante/abajo.
+    if (bones.lForearm) {
+      bones.lForearm.rotation.x = rest.lForearm.x - elbowBend + idle(1.6, 0.6, 0.06);
+    }
+    if (bones.rForearm) {
+      bones.rForearm.rotation.x = rest.rForearm.x - elbowBend + idle(1.5, 2.0, 0.06);
+    }
+
+    // Manos: palma hacia abajo durante la caída (rotación de
+    // muñeca). Si en tu rig la palma queda mirando para otro lado,
+    // es cuestión de invertir el signo de este eje puntual.
+    if (bones.lHand) bones.lHand.rotation.x = rest.lHand.x + palmDown * 0.9;
+    if (bones.rHand) bones.rHand.rotation.x = rest.rHand.x + palmDown * 0.9;
+
+    // Piernas: acompañan el giro (retraso de cadena) + se
+    // extienden/separan levemente en la postura de caída.
     if (bones.lThigh) {
-      bones.lThigh.rotation.x = rest.lThigh.x + wob(0.85, 2.4, 0.25);
-      bones.lThigh.rotation.z = rest.lThigh.z + wob(0.7, 1.0, 0.12);
+      bones.lThigh.rotation.y = rest.lThigh.y + thighLag * 0.5;
+      bones.lThigh.rotation.z = rest.lThigh.z + legSpread + idle(0.8, 2.4, 0.04);
+      bones.lThigh.rotation.x = rest.lThigh.x + legExtend * 0.3;
     }
     if (bones.rThigh) {
-      bones.rThigh.rotation.x = rest.rThigh.x + wob(0.9, 0.3, 0.25);
-      bones.rThigh.rotation.z = rest.rThigh.z - wob(0.75, 1.9, 0.12);
+      bones.rThigh.rotation.y = rest.rThigh.y + thighLag * 0.5;
+      bones.rThigh.rotation.z = rest.rThigh.z - legSpread - idle(0.85, 0.3, 0.04);
+      bones.rThigh.rotation.x = rest.rThigh.x + legExtend * 0.3;
     }
-    if (bones.lCalf) bones.lCalf.rotation.x = rest.lCalf.x + wob(1.4, 1.5, 0.22);
-    if (bones.rCalf) bones.rCalf.rotation.x = rest.rCalf.x + wob(1.3, 3.0, 0.22);
+    if (bones.lCalf) bones.lCalf.rotation.x = rest.lCalf.x + legExtend * 0.4 + idle(1.3, 1.5, 0.05) + calfLag * 0.3;
+    if (bones.rCalf) bones.rCalf.rotation.x = rest.rCalf.x + legExtend * 0.4 + idle(1.25, 3.0, 0.05) + calfLag * 0.3;
 
-    // Torso encorvado hacia adelante durante la caída (más creíble).
-    const curl = tumbleW * 0.35;
-    if (bones.spine1) bones.spine1.rotation.x = rest.spine1.x + curl * 0.5 + Math.sin(t * 1.1) * 0.02;
-    if (bones.spine2) bones.spine2.rotation.x = rest.spine2.x + curl * 0.7;
+    // Pies: acompañan la pierna (no rotan solos, sin relación con
+    // la pierna) — el resultado de esta cadena, sumado a la
+    // inclinación general del cuerpo, es lo que expone la suela
+    // hacia cámara durante la caída.
+    if (bones.lFoot) bones.lFoot.rotation.x = rest.lFoot.x + footLag * 0.4 + poseW * 0.25;
+    if (bones.rFoot) bones.rFoot.rotation.x = rest.rFoot.x + footLag * 0.4 + poseW * 0.25;
 
-    // Cabeza: sigue el mouse mientras flota de frente; durante la
-    // caída, se suma al balanceo general en vez de "corregir" la mirada.
-    const headFollow = 1 - flipW;
-    const mx = (mouse?.current?.x ?? 0) * headFollow;
-    const my = (mouse?.current?.y ?? 0) * headFollow;
-    if (bones.head) {
-      bones.head.rotation.y = damp(bones.head.rotation.y, rest.head.y + mx * 0.2 + wob(0.9, 4, 0.05), 4, delta);
-      bones.head.rotation.x = damp(bones.head.rotation.x, rest.head.x - my * 0.12, 4, delta);
-    }
-    if (bones.neck) {
-      bones.neck.rotation.y = damp(bones.neck.rotation.y, rest.neck.y + mx * 0.08, 4, delta);
-    }
+    void inTurn;
+    void approachW;
   });
 
-  return <primitive ref={groupRef} object={scene} position={[0, -0.5, -1.4]} scale={1.7} />;
+  return (
+    <group ref={outerRef} position={[0, 0.05, -1.3]}>
+      <group ref={pivotRef}>
+        <primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} />
+      </group>
+    </group>
+  );
 }
 useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
-   three/SpeedLines.jsx
-   Líneas radiales tipo "warp speed" que aparecen durante el
-   beat de túnel (tunnelIntensity 0→1→0), dando sensación de
-   velocidad al atravesar el logo.
-   ============================================================ */
-function SpeedLines() {
-  const LINE_COUNT = 40;
-  const groupRef = useRef(null);
-  const materialRef = useRef(null);
-
-  const positions = useMemo(() => {
-    const arr = new Float32Array(LINE_COUNT * 2 * 3);
-    for (let i = 0; i < LINE_COUNT; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 0.4 + Math.random() * 1.6;
-      const length = 0.6 + Math.random() * 1.8;
-      const x1 = Math.cos(angle) * radius;
-      const y1 = Math.sin(angle) * radius;
-      const x2 = Math.cos(angle) * (radius + length);
-      const y2 = Math.sin(angle) * (radius + length);
-      arr[i * 6 + 0] = x1;
-      arr[i * 6 + 1] = y1;
-      arr[i * 6 + 2] = 0;
-      arr[i * 6 + 3] = x2;
-      arr[i * 6 + 4] = y2;
-      arr[i * 6 + 5] = 0;
-    }
-    return arr;
-  }, []);
-
-  useFrame((_, delta) => {
-    const progress = useScrollStore.getState().smoothProgress;
-    const state = blendScenes(scenes, progress);
-    const intensity = state.tunnelIntensity;
-
-    if (groupRef.current) {
-      groupRef.current.rotation.z += delta * (0.3 + intensity * 0.6);
-      const s = 0.6 + intensity * 2.4;
-      groupRef.current.scale.setScalar(damp(groupRef.current.scale.x, s, 5, delta));
-    }
-    if (materialRef.current) {
-      materialRef.current.opacity = damp(materialRef.current.opacity, intensity * 0.75, 5, delta);
-    }
-  });
-
-  return (
-    <group ref={groupRef} position={[0, 0, 2]}>
-      <lineSegments>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        </bufferGeometry>
-        <lineBasicMaterial
-          ref={materialRef}
-          color={clientConfig.colors.accent}
-          transparent
-          opacity={0}
-          toneMapped={false}
-        />
-      </lineSegments>
-    </group>
-  );
-}
-
-/* ============================================================
-   three/TunnelRings.jsx
-   El "agujero infinito que gira": anillos concéntricos que se
-   alejan en Z en loop (nunca se acaban) y giran en espiral,
-   cada vez más rápido a medida que crece tunnelIntensity — da
-   la sensación de caer atravesando un túnel que gira, en vez de
-   simples líneas planas.
-   ============================================================ */
-function TunnelRings() {
-  const RING_COUNT = 12;
-  const SEGMENTS = 28;
-  const RING_SPACING = 2.4;
-  const TOTAL_DEPTH = RING_COUNT * RING_SPACING;
-
-  const groupRef = useRef(null);
-  const geomRef = useRef(null);
-  const materialRef = useRef(null);
-  const flowRef = useRef(0);
-
-  const radii = useMemo(() => new Array(RING_COUNT).fill(0).map((_, i) => 1.3 + i * 0.06), []);
-  const positions = useMemo(() => new Float32Array(RING_COUNT * SEGMENTS * 2 * 3), []);
-
-  useFrame((_, delta) => {
-    const progress = useScrollStore.getState().smoothProgress;
-    const state = blendScenes(scenes, progress);
-    const intensity = state.tunnelIntensity;
-
-    flowRef.current += delta * (0.5 + intensity * 3.5);
-    const arr = positions;
-
-    for (let r = 0; r < RING_COUNT; r++) {
-      const radius = radii[r];
-      const z = -(((r * RING_SPACING + flowRef.current * 1.8) % TOTAL_DEPTH));
-      const twist = r * 0.4 + flowRef.current * 0.6;
-      for (let s = 0; s < SEGMENTS; s++) {
-        const a0 = (s / SEGMENTS) * Math.PI * 2 + twist;
-        const a1 = ((s + 1) / SEGMENTS) * Math.PI * 2 + twist;
-        const idx = (r * SEGMENTS + s) * 6;
-        arr[idx + 0] = Math.cos(a0) * radius;
-        arr[idx + 1] = Math.sin(a0) * radius;
-        arr[idx + 2] = z;
-        arr[idx + 3] = Math.cos(a1) * radius;
-        arr[idx + 4] = Math.sin(a1) * radius;
-        arr[idx + 5] = z;
-      }
-    }
-    if (geomRef.current) {
-      geomRef.current.attributes.position.needsUpdate = true;
-    }
-    if (materialRef.current) {
-      materialRef.current.opacity = damp(materialRef.current.opacity, intensity * 0.55, 5, delta);
-    }
-    if (groupRef.current) {
-      groupRef.current.rotation.z += delta * (0.15 + intensity * 0.9);
-    }
-  });
-
-  return (
-    <group ref={groupRef} position={[0, 0, 1.5]}>
-      <lineSegments>
-        <bufferGeometry ref={geomRef}>
-          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        </bufferGeometry>
-        <lineBasicMaterial
-          ref={materialRef}
-          color={clientConfig.colors.accentSecondary}
-          transparent
-          opacity={0}
-          toneMapped={false}
-        />
-      </lineSegments>
-    </group>
-  );
-}
-
-/* ============================================================
-   three/Particles.jsx
    ============================================================ */
 function Particles({ device }) {
   const pointsRef = useRef(null);
@@ -1006,8 +974,6 @@ function Experience({ device }) {
       <Suspense fallback={null}>
         <AnimatedCharacter mouse={mouse} />
       </Suspense>
-      <SpeedLines />
-      <TunnelRings />
       <Particles device={device} />
       {device.enablePostProcessing && (
         <EffectComposer multisampling={0}>
@@ -1035,7 +1001,7 @@ function HeroText() {
     const update = (progress) => {
       if (!ref.current) return;
       const fadeIn = smoothstep(0, FADE_IN_END, progress);
-      const zoomOut = smoothstep(PH_APPROACH_END, PH_FLIP_END, progress);
+      const zoomOut = smoothstep(ST_APPROACH_END, ST_TURN_END, progress);
       const scale = 1 + zoomOut * 14;
       const opacity = fadeIn * (1 - zoomOut);
       ref.current.style.opacity = String(opacity);
