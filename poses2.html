@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scroll Experience</title>
+
+<!-- ==========================================================
+     Tipografías. Cambiá estas familias si tu client.config
+     usa otras (deben coincidir con fonts.display / fonts.body).
+     ========================================================== -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Inter:wght@300;400;500&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+  :root {
+    --brand-accent: #d9a441;
+    --brand-accent-2: #6ee7c9;
+    --color-bg: #05070a;
+    --color-text: #f4f1ea;
+    --color-text-muted: rgba(244, 241, 234, 0.6);
+    --font-display: "Fraunces", serif;
+    --font-body: "Inter", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    overflow-x: hidden;
+  }
+
+  #root { width: 100%; }
+
+  .app-root {
+    position: relative;
+    width: 100%;
+  }
+
+  /* -------- Escenario 3D fijo -------- */
+  .canvas-stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  .canvas-stage--ready { opacity: 1; }
+  .canvas-stage canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  /* -------- Texto de entrada (Scroll Experience) -------- */
+  .hero-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transform-origin: center center;
+    z-index: 5;
+    pointer-events: none;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.8rem, 4.5vw, 3.2rem);
+    letter-spacing: 0.02em;
+    color: var(--color-text);
+    white-space: nowrap;
+    will-change: opacity, transform;
+  }
+
+  /* -------- Textos por escena -------- */
+  .scene-text-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .scene-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8vw;
+    max-width: 720px;
+    will-change: opacity, transform;
+  }
+  .scene-text--left    { align-items: flex-start; text-align: left; }
+  .scene-text--center  { align-items: center; text-align: center; left: 50%; transform: translateX(-50%); max-width: 640px; }
+  .scene-text--right   { align-items: flex-end; text-align: right; margin-left: auto; }
+
+  .scene-text__eyebrow {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--brand-accent);
+    margin-bottom: 0.75rem;
+    display: inline-block;
+  }
+  .scene-text__title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(2rem, 5vw, 4rem);
+    line-height: 1.05;
+    margin: 0 0 0.75rem 0;
+    color: var(--color-text);
+  }
+  .scene-text__subtitle {
+    font-family: var(--font-body);
+    font-weight: 300;
+    font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    margin: 0;
+    max-width: 46ch;
+  }
+
+  /* -------- CTA -------- */
+  .cta-layer {
+    position: absolute;
+    bottom: 8vh;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    will-change: opacity, transform;
+  }
+  .cta-button {
+    display: inline-block;
+    padding: 0.9rem 2.2rem;
+    border-radius: 999px;
+    background: var(--brand-accent);
+    color: #0a0a0a;
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    box-shadow: 0 8px 30px rgba(200, 255, 0, 0.35);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 36px rgba(200, 255, 0, 0.5);
+  }
+
+  /* -------- Barra de progreso -------- */
+  .progress-rail {
+    position: fixed;
+    top: 50%;
+    right: 3vw;
+    transform: translateY(-50%);
+    height: 28vh;
+    z-index: 6;
+  }
+  .progress-rail__track {
+    position: relative;
+    width: 2px;
+    height: 100%;
+    background: rgba(244, 241, 234, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-rail__fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%;
+    background: var(--brand-accent);
+    border-radius: 2px;
+    transition: height 0.05s linear;
+  }
+
+  /* -------- Marca -------- */
+  .brand-mark {
+    position: fixed;
+    top: 3vh;
+    left: 3vw;
+    z-index: 6;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    color: var(--color-text);
+  }
+
+  /* -------- Hint de scroll -------- */
+  .scroll-hint {
+    position: fixed;
+    bottom: 4vh;
+    left: 3vw;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    opacity: 0.7;
+  }
+  .scroll-hint__line {
+    width: 1px;
+    height: 32px;
+    background: linear-gradient(to bottom, var(--color-text-muted), transparent);
+    animation: scrollHintPulse 2s ease-in-out infinite;
+  }
+  @keyframes scrollHintPulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 1; }
+  }
+
+  /* -------- Cursor / touch trail -------- */
+  .cursor-trail-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  .scroll-spacer { width: 100%; }
+
+  /* Oculta el hint una vez que se empezó a scrollear (clase agregada por JS) */
+  .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- ==========================================================
+     Import map: todas las dependencias se cargan como ESM desde
+     esm.sh, fijadas a versiones compatibles entre sí para evitar
+     instancias duplicadas de React/Three (parámetro ?deps=...).
+     ========================================================== -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react/jsx-dev-runtime": "https://esm.sh/react@18.3.1/jsx-dev-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "three": "https://esm.sh/three@0.160.0",
+    "zustand": "https://esm.sh/zustand@4.5.5?external=react",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber"
+  }
+}
+</script>
+
+<!-- Babel standalone: transforma JSX en el navegador (sin build step) -->
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<script type="text/babel" data-type="module" data-presets="react">
+
+import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { createRoot } from "react-dom/client";
+import { create } from "zustand";
+import * as THREE from "three";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, Environment } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+
+/* ============================================================
+   CONFIG: client.config
+   Ajustá acá colores de marca, tipografías, CTA, partículas y
+   la ruta de tu modelo GLTF/GLB (si no hay, se usa un objeto
+   procedural como placeholder).
+   ============================================================ */
+const clientConfig = {
+  brand: { name: "weeb studio" },
+  colors: {
+    accent: "#c8ff00",
+    accentSecondary: "#7dfff0",
+    background: "#0f0f1a",
+    textPrimary: "#f5f6f2",
+    textMuted: "rgba(245, 246, 242, 0.6)",
+  },
+  fonts: {
+    display: "'Fraunces', serif",
+    body: "'Inter', sans-serif",
+  },
+  particles: {
+    count: 900,
+    color: "#c8ff00",
+    size: 0.015,
+  },
+  cta: {
+    href: "https://wa.me/5493435020970?text=Hola%20weebStudio,%20quiero%20una%20Scroll%20Experience",
+    label: "Hablar por WhatsApp",
+  },
+};
+
+/* ============================================================
+   CONFIG: personaje 3D animado (GLB con esqueleto, sin clips)
+   Poné el .glb en tu repo (ej: assets/models/weeb.glb) y apuntá
+   CHARACTER_MODEL_URL ahí — GitHub Pages lo sirve como estático.
+
+   Máquina de estados narrativa (ver AnimatedCharacter):
+     FRONT_IDLE → APPROACH → TURN → FALL_POSE → FALL
+   Los breakpoints son sobre smoothProgress (0..1):
+     0.00 → de frente, flotando
+     0.25 → termina el acercamiento (dolly) — ACÁ YA ARRANCA EL GIRO,
+            se solapa con el acercamiento en vez de esperar a que
+            termine (pedido: "empiece a girar ni bien se acerca")
+     0.50 → arranca el zoom del texto inicial — ACÁ YA ARRANCA
+            TAMBIÉN LA CAÍDA (alejamiento en profundidad), para dar
+            sensación de profundidad mientras gira, en vez de
+            esperar a que termine toda la pose de caída
+     0.70 → termina el giro (se estabiliza)
+     0.80 → adoptó la postura de caída (brazos/piernas)
+     1.00 → caída completa
+   ============================================================ */
+const CHARACTER_MODEL_URL = "./assets/models/weeb.glb";
+
+const ST_FRONT_END = 0.25;
+const ST_APPROACH_END = 0.5;
+const ST_TURN_END = 0.7;
+const ST_FALLPOSE_END = 0.8;
+
+// Curva suave tipo "ease" para que toda transición sea fluida,
+// nunca lineal/brusca.
+function smoothstep(edge0, edge1, x) {
+  const t = clamp((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+/* ============================================================
+   EDICIÓN — PAUSAS DE SCROLL: scroll/scrollPauses.ts
+   Hasta ahora "cuánto scrolleaste" (progreso crudo, 0..1) y
+   "en qué parte de la historia estás" eran lo mismo: la
+   secuencia entera (aparece → acerca → gira → cae) pasaba sin
+   respiro. Acá se separan ambos conceptos:
+
+   - `progress` / `smoothProgress` (arriba) siguen siendo el
+     scroll CRUDO: cuánto bajaste la página, 0 a 1.
+   - `storyProgress` (nuevo, ver useScrollStore/ScrollSmoother
+     más abajo) es el progreso de la HISTORIA: en qué parte de
+     "aparece/acerca/gira/cae" estamos. Es el que usan la cámara,
+     el personaje y los textos para animarse.
+
+   `applyScrollPauses` es la función que traduce uno en el otro.
+   Definís tramos de PAUSA en términos de scroll crudo
+   (`rawStart`/`rawEnd`): mientras el usuario scrollea dentro de
+   esos tramos, `storyProgress` se queda CLAVADO en el valor
+   `story` indicado (nada se mueve), aunque el scroll crudo siga
+   avanzando. Fuera de esos tramos, `storyProgress` avanza
+   normalmente interpolando hacia el próximo hito.
+
+   Para mover o alargar/acortar una pausa, tocá `rawStart` y
+   `rawEnd` de cada entrada. Para que la pausa caiga justo
+   "después de girar" o "después de tomar la pose de caída",
+   `story` apunta a ST_TURN_END / ST_FALLPOSE_END (así si el día
+   de mañana cambiás esos hitos, las pausas los siguen).
+   ============================================================ */
+const SCROLL_PAUSES = [
+  // Pausa 1: ya terminó de girar (yaw completo) — un respiro antes
+  // de que arranque a tomar la postura de caída.
+  { rawStart: 0.40, rawEnd: 0.50, story: ST_TURN_END },
+  // Pausa 2: ya está en postura de caída — un respiro antes de que
+  // se aleje/hunda de verdad en la profundidad y desaparezca.
+  { rawStart: 0.70, rawEnd: 0.80, story: ST_FALLPOSE_END },
+];
+
+function applyScrollPauses(raw) {
+  const p = clamp(raw, 0, 1);
+  let rawCursor = 0;
+  let storyCursor = 0;
+  for (const pause of SCROLL_PAUSES) {
+    if (p < pause.rawStart) {
+      // Tramo activo ANTES de esta pausa: interpola el progreso de
+      // historia entre donde terminó el tramo anterior y el punto
+      // de historia en el que esta pausa se mantiene fija.
+      const t = clamp((p - rawCursor) / (pause.rawStart - rawCursor || 1));
+      return lerp(storyCursor, pause.story, t);
+    }
+    if (p < pause.rawEnd) {
+      // Dentro de la pausa: la historia no avanza, aunque sigas scrolleando.
+      return pause.story;
+    }
+    rawCursor = pause.rawEnd;
+    storyCursor = pause.story;
+  }
+  // Último tramo activo, después de la última pausa y hasta el final.
+  const t = clamp((p - rawCursor) / (1 - rawCursor || 1));
+  return lerp(storyCursor, 1, t);
+}
+
+/* ============================================================
+   EDICIÓN — ALTURA DEL PERSONAJE: three/charHeight.ts
+   El personaje ya no se queda quieto en Y: arranca escondido
+   (solo torso hacia arriba visible, la cintura para abajo queda
+   fuera de cuadro), sube durante el acercamiento (se lo empieza
+   a ver hasta más o menos las rodillas) y recién termina de
+   subir a su altura normal —de cuerpo entero, centrado— cuando
+   termina de girar. Mismo patrón de "lista de keyframes +
+   interpolación suave" que ya se usa en BONE_POSE_KEYFRAMES más
+   abajo, pero para un solo número (Y) en vez de huesos.
+
+   Los valores de "y" son una primera aproximación — si en tu
+   pantalla no corta exactamente a la altura que querés, ajustá
+   estos tres números (más negativo = más escondido/abajo).
+   ============================================================ */
+const CHAR_Y_KEYFRAMES = [
+  { progress: 0, y: -1.15 }, // aparece: solo torso para arriba, cintura para abajo fuera de cuadro
+  { progress: ST_APPROACH_END, y: -0.55 }, // termina de acercarse: se ve aprox. hasta las rodillas
+  { progress: ST_TURN_END, y: 0.05 }, // termina de girar: cuerpo entero, altura normal/centrada
+];
+
+function sampleCharY(progress) {
+  const list = CHAR_Y_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  if (p <= list[0].progress) return list[0].y;
+  const last = list[list.length - 1];
+  if (p >= last.progress) return last.y;
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const t = smoothstep(a.progress, b.progress, p);
+  return lerp(a.y, b.y, t);
+}
+
+/* ============================================================
+   CONFIG: scenes.config
+   Solo cámara, luz, niebla y partículas — sin efectos decorativos
+   girando alrededor del personaje. La cámara acompaña cada etapa
+   (dolly-in en el acercamiento, se acomoda para el giro y la
+   caída) pero el protagonista del movimiento es el personaje.
+   ============================================================ */
+const scenes = [
+  {
+    id: "front-idle",
+    progress: 0,
+    camera: { position: [0, 0.05, 4.6], lookAt: [0, 0.1, 0], fov: 28 },
+    particles: { spread: 1, opacity: 0.28 },
+    light: { color: "#ffffff", intensity: 0.5, rimColor: "#c8ff00", rimIntensity: 1.2 },
+    fog: { color: "#0f0f1a", far: 20 },
+    background: "#0f0f1a",
+  },
+  {
+    id: "approach",
+    progress: 0.25,
+    camera: { position: [0, 0.05, 3.1], lookAt: [0, 0.1, 0], fov: 26 },
+    particles: { spread: 1.1, opacity: 0.32 },
+    light: { color: "#ffffff", intensity: 0.55, rimColor: "#c8ff00", rimIntensity: 1.3 },
+    fog: { color: "#0f0f1a", far: 18 },
+    background: "#0f0f1a",
+  },
+  {
+    id: "turn",
+    progress: 0.5,
+    camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
+    particles: { spread: 1.2, opacity: 0.35 },
+    light: { color: "#ffffff", intensity: 0.5, rimColor: "#7dfff0", rimIntensity: 1.6 },
+    fog: { color: "#0d0d18", far: 16 },
+    background: "#0d0d18",
+  },
+  {
+    // EDICIÓN: lookAt.y bajado de -0.1 a 0.05 en esta escena y de -0.6
+    // a 0 en "fall" (más abajo). El personaje (grupo `outer` en
+    // AnimatedCharacter) se queda siempre a una altura ~0.05, casi sin
+    // moverse en Y. Si la cámara apunta (lookAt) muy por debajo de esa
+    // altura, el personaje queda "arriba" en el encuadre — y ese
+    // corrimiento se nota cada vez más a medida que se aleja en Z
+    // durante la caída. Al acercar el lookAt a la altura real del
+    // personaje, se mantiene centrado mientras se aleja.
+    id: "fall-pose",
+    progress: 0.7,
+    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
+    particles: { spread: 1.3, opacity: 0.4 },
+    light: { color: "#ffffff", intensity: 0.5, rimColor: "#7dfff0", rimIntensity: 1.7 },
+    fog: { color: "#0a0a14", far: 14 },
+    background: "#0a0a14",
+  },
+  {
+    id: "fall",
+    progress: 1,
+    camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
+    particles: { spread: 1.5, opacity: 0.45 },
+    light: { color: "#ffffff", intensity: 0.45, rimColor: "#c8ff00", rimIntensity: 1.6 },
+    fog: { color: "#000000", far: 11 },
+    background: "#000000",
+    // EDICIÓN: se quitó "showCTA" y "text" a pedido — la escena final
+    // ya no muestra el texto de cierre ni el botón de WhatsApp. SceneText
+    // solo renderiza texto para keyframes que tengan la propiedad `text`
+    // (ver función SceneText más abajo), así que con solo sacarla de acá
+    // alcanza para que no aparezca nada en esta escena.
+  },
+];
+
+
+     const BONE_POSE_KEYFRAMES = [
+  {
+    id: "front-idle",
+    progress: 0,
+    bones: {
+        lForearm: [0.4363, 0.0524, 1.4312],
+        rForearm: [0.2967, -0.3491, 1.1519],
+        lHand: [0.3665, 1.1694, 0.0000],
+        rHand: [0.2094, -1.3788, -0.3665],
+        rThigh: [-0.4887, -0.0524, 0.0175],
+        lCalf: [-0.5760, 0.3316, 0.0000],
+        rCalf: [-0.6458, 0.0000, 0.0000],
+    },
+  },
+  {
+    id: "approach",
+    progress: 0.25,
+    bones: {
+        spine2: [0.0000, -0.3665, 0.0000],
+        head: [0.0000, -0.3491, 0.0000],
+        lForearm: [0.4363, 0.0524, 1.4312],
+        rForearm: [0.2967, -0.3491, 1.1519],
+        lHand: [0.3665, 0.3840, 0.0000],
+        rHand: [0.2094, -0.7679, -0.3665],
+        rThigh: [-0.1571, -0.0524, 0.0175],
+        lCalf: [-0.1571, 0.3316, 0.0000],
+        rCalf: [-0.6458, 0.0000, 0.0000],
+    },
+  },
+  {
+    id: "turn",
+    progress: 0.5,
+    bones: {
+        spine2: [0.0000, -0.3665, 0.0000],
+        head: [0.5236, 0.1571, 0.0000],
+        lForearm: [0.4363, 0.3142, 0.4363],
+        rForearm: [0.2967, -0.7156, -0.2793],
+        lHand: [0.3665, 0.3840, 0.4189],
+        rHand: [0.2094, -0.0349, -0.3665],
+        rThigh: [-0.1571, -0.0524, 0.0175],
+        lCalf: [-0.8203, 0.3142, 0.0000],
+        rCalf: [-0.9076, 0.0000, 0.0000],
+        lFoot: [-0.6458, 0.0873, 0.0000],
+        rFoot: [-0.3142, 0.0000, 0.0000],
+    },
+  },
+  {
+    id: "fall-pose",
+    progress: 0.7,
+    bones: {
+        spine1: [0.1571, 0.3665, 0.0524],
+        spine2: [0.0000, -0.3665, 0.0000],
+        head: [0.5585, -0.0524, 0.0000],
+        lClavicle: [0.1920, -0.6632, 0.3142],
+        rClavicle: [0.2094, 0.2269, -0.1222],
+        lForearm: [0.1047, 0.0873, 1.2915],
+        rForearm: [0.2967, -0.3316, -0.9250],
+        lHand: [-0.4189, 0.3840, 0.4189],
+        rHand: [0.2094, -0.0349, -0.3665],
+        lThigh: [0.4014, -0.1222, -0.0524],
+        rThigh: [-0.4712, -0.0524, 0.0175],
+        lCalf: [-1.0996, 0.2793, -0.1222],
+        rCalf: [-1.3265, -0.1745, 0.0000],
+        lFoot: [-0.6458, 0.0873, 0.0000],
+        rFoot: [-0.3142, 0.0000, 0.0000],
+    },
+  },
+  {
+    id: "fall",
+    progress: 1,
+    bones: {
+        spine1: [0.1571, 0.3665, 0.0524],
+        spine2: [0.0000, -0.3665, 0.0000],
+        head: [0.5585, -0.0524, 0.0000],
+        lClavicle: [0.1920, -0.6632, 0.3142],
+        rClavicle: [0.2094, 0.2269, -0.1222],
+        lForearm: [0.1047, 0.0873, 1.2915],
+        rForearm: [0.2967, -0.3316, -0.9250],
+        lHand: [-0.4189, 0.3840, 0.4189],
+        rHand: [0.2094, -0.0349, -0.3665],
+        lThigh: [0.0524, -0.1222, -0.0524],
+        rThigh: [0.6109, -0.0524, 0.0175],
+        lCalf: [-0.7505, 0.2793, -0.1222],
+        rCalf: [-0.9425, -0.1745, 0.0000],
+        lFoot: [-0.6458, 0.3316, 0.0000],
+        rFoot: [-0.5061, 0.0000, 0.0000],
+    },
+  },
+];
+
+// Interpola linealmente entre los dos keyframes que rodean `progress`
+// (idéntica lógica a blendScenes, pero por hueso).
+function sampleBonePose(progress) {
+  const list = BONE_POSE_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  const pick = (kf) => kf.bones;
+  if (p <= list[0].progress) return pick(list[0]);
+  const last = list[list.length - 1];
+  if (p >= last.progress) return pick(last);
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((p - a.progress) / span);
+  const out = {};
+  const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
+  keys.forEach((k) => {
+    const va = a.bones[k] || [0, 0, 0];
+    const vb = b.bones[k] || [0, 0, 0];
+    out[k] = [lerp(va[0], vb[0], t), lerp(va[1], vb[1], t), lerp(va[2], vb[2], t)];
+  });
+  return out;
+}
+
+
+const SCROLL_LENGTH_VH = 950;
+
+/* ============================================================
+   UTILS: easing.ts
+   ============================================================ */
+function damp(current, target, lambda, dt) {
+  return current + (target - current) * (1 - Math.exp(-lambda * dt));
+}
+function clamp(value, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value));
+}
+
+/* ============================================================
+   UTILS: device.ts
+   ============================================================ */
+function getDeviceProfile() {
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  return {
+    isMobile,
+    dpr: isMobile ? [1, 1.5] : [1, 2],
+    particleMultiplier: isMobile ? 0.4 : 1,
+    enablePostProcessing: !isMobile,
+  };
+}
+
+/* ============================================================
+   UTILS: interpolate.ts
+   ============================================================ */
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+function lerpVec3(a, b, t) {
+  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+}
+function lerpColor(a, b, t) {
+  const ca = new THREE.Color(a);
+  const cb = new THREE.Color(b);
+  ca.lerp(cb, t);
+  return "#" + ca.getHexString();
+}
+
+function sceneToState(kf) {
+  return {
+    camera: kf.camera,
+    particles: kf.particles,
+    light: kf.light,
+    fog: kf.fog,
+    background: kf.background,
+  };
+}
+
+function blendScenes(list, rawProgress) {
+  const progress = clamp(rawProgress, 0, 1);
+  if (progress <= list[0].progress) return sceneToState(list[0]);
+  const last = list[list.length - 1];
+  if (progress >= last.progress) return sceneToState(last);
+
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < progress) i++;
+  const a = list[i];
+  const b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((progress - a.progress) / span);
+
+  return {
+    camera: {
+      position: lerpVec3(a.camera.position, b.camera.position, t),
+      lookAt: lerpVec3(a.camera.lookAt, b.camera.lookAt, t),
+      fov: lerp(a.camera.fov, b.camera.fov, t),
+    },
+    particles: {
+      spread: lerp(a.particles.spread, b.particles.spread, t),
+      opacity: lerp(a.particles.opacity, b.particles.opacity, t),
+    },
+    light: {
+      color: lerpColor(a.light.color, b.light.color, t),
+      intensity: lerp(a.light.intensity, b.light.intensity, t),
+      rimColor: lerpColor(a.light.rimColor, b.light.rimColor, t),
+      rimIntensity: lerp(a.light.rimIntensity, b.light.rimIntensity, t),
+    },
+    fog: {
+      color: lerpColor(a.fog.color, b.fog.color, t),
+      far: lerp(a.fog.far, b.fog.far, t),
+    },
+    background: lerpColor(a.background, b.background, t),
+  };
+}
+
+function textWeight(kf, progress, window_ = 0.14) {
+  const d = Math.abs(progress - kf.progress);
+  return clamp(1 - d / window_);
+}
+
+/* ============================================================
+   STORE: scroll/scrollStore.ts
+   ============================================================ */
+const useScrollStore = create((set) => ({
+  progress: 0,
+  smoothProgress: 0,
+  setProgress: (p) => set({ progress: p }),
+  setSmoothProgress: (p) => set({ smoothProgress: p }),
+}));
+
+/* ============================================================
+   HOOK: scroll/useScrollProgress.ts
+   Traduce el alto del spacer + scrollY del documento en un
+   progreso 0..1 crudo, guardado en el store.
+   ============================================================ */
+function useScrollProgress(spacerRef) {
+  useEffect(() => {
+    const compute = () => {
+      const el = spacerRef.current;
+      if (!el) return;
+      const total = el.offsetHeight - window.innerHeight;
+      const raw = total > 0 ? window.scrollY / total : 0;
+      const p = clamp(raw, 0, 1);
+      useScrollStore.getState().setProgress(p);
+      document.body.classList.toggle("app-root--scrolled", window.scrollY > 20);
+    };
+    compute();
+    window.addEventListener("scroll", compute, { passive: true });
+    window.addEventListener("resize", compute);
+    return () => {
+      window.removeEventListener("scroll", compute);
+      window.removeEventListener("resize", compute);
+    };
+  }, [spacerRef]);
+}
+
+/* ============================================================
+   COMPONENT (dentro de <Canvas>): scroll/ScrollSmoother.tsx
+   Amortigua smoothProgress hacia progress cuadro a cuadro.
+   ============================================================ */
+function ScrollSmoother() {
+  useFrame((_, delta) => {
+    const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
+    setSmoothProgress(damp(smoothProgress, progress, 4, delta));
+  });
+  return null;
+}
+
+/* ============================================================
+   HOOK: engine/utils/useMouseParallax.ts
+   ============================================================ */
+function useMouseParallax() {
+  const mouse = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    const onMove = (e) => {
+      if (e.pointerType !== "mouse") return;
+      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+  return mouse;
+}
+
+/* ============================================================
+   three/CameraRig.jsx
+   ============================================================ */
+function CameraRig({ mouse, parallaxStrength = 0.18 }) {
+  const { camera } = useThree();
+  const lookAtTarget = useRef(new THREE.Vector3());
+  const currentLookAt = useRef(new THREE.Vector3());
+
+  useFrame((_, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    const [px, py, pz] = state.camera.position;
+    const [lx, ly, lz] = state.camera.lookAt;
+    const mx = mouse.current?.x ?? 0;
+    const my = mouse.current?.y ?? 0;
+
+    camera.position.x = damp(camera.position.x, px + mx * parallaxStrength, 6, delta);
+    camera.position.y = damp(camera.position.y, py - my * parallaxStrength * 0.6, 6, delta);
+    camera.position.z = damp(camera.position.z, pz, 6, delta);
+
+    lookAtTarget.current.set(lx + mx * 0.05, ly - my * 0.05, lz);
+    currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-6 * delta));
+    camera.lookAt(currentLookAt.current);
+
+    if ("fov" in camera) {
+      camera.fov = damp(camera.fov, state.camera.fov, 5, delta);
+      camera.updateProjectionMatrix();
+    }
+  });
+
+  return null;
+}
+
+/* ============================================================
+   three/AnimatedCharacter.jsx
+   Personaje 3D suspendido en el aire — NO un muñeco girando
+   sobre sus pies. Arquitectura:
+
+   1) PIVOT EN EL CENTRO DE MASA
+      El modelo tiene su origen (0,0,0) en los pies (típico de
+      un rig biped). Para que las rotaciones ocurran alrededor
+      del centro del cuerpo (pelvis) y no de los pies, el
+      <primitive> se desplaza hacia abajo dentro de un grupo, de
+      modo que el pivote del grupo (lo que rota) coincide con la
+      altura de la pelvis, no con el piso.
+
+   2) MÁQUINA DE ESTADOS (ver ST_* arriba)
+      FRONT_IDLE → APPROACH → TURN → FALL_POSE → FALL
+      Cada estado tiene su propio target de posición/rotación;
+      se interpola con smoothstep entre estados, nunca de golpe.
+
+   3) CADENA DE HUESOS CON RETRASO (no todo rota como una pieza)
+      Durante TURN, el giro no se aplica de una sola vez a todo
+      el cuerpo: la pelvis (el grupo entero) lidera, la columna
+      la sigue con un poco de retraso, los hombros después, la
+      cabeza al final — igual con las piernas hacia abajo. Cada
+      hueso solo aplica la DIFERENCIA entre su objetivo y el de
+      su padre en la cadena (así no se duplica la rotación).
+
+   NOTA HONESTA: "R_Upperarm"/"L_Upperarm" tienen pesos de piel
+   mal distribuidos en este GLB (ver conversación anterior — al
+   rotarlos se desprendía un pedazo de tela). Por eso el "hombro"
+   de la cadena se resuelve con la clavícula (Clavicle) en vez
+   del brazo superior, y el movimiento visible del brazo viene
+   del antebrazo (Forearm) hacia abajo. Si en tu modelo el brazo
+   superior sí tiene buenos pesos, avisame y lo sumo de nuevo.
+
+   Como no hay forma de previsualizar el rig desde acá, los
+   signos exactos de cada eje son la mejor estimación posible —
+   contame puntualmente qué se ve mal (ej: "gira al revés",
+   "las palmas miran para arriba") y lo corrijo con precisión.
+
+   4) CAÍDA = ALEJAMIENTO EN PROFUNDIDAD (no en Y)
+      En vez de desplomarse hacia abajo, el personaje se aleja de
+      la cámara sobre el eje Z durante la fase FALL, hasta perderse
+      en la niebla/fondo negro de la escena "fall". La altura (Y)
+      se mantiene estable, con solo el flote idle de siempre.
+   ============================================================ */
+
+// Altura aproximada (en unidades del propio modelo, no escaladas)
+// del centro de masa/pelvis, medida desde los pies. Si el
+// personaje "flota" muy alto o muy bajo en pantalla, ajustar acá.
+const CHAR_CENTER_Y = 0.52;
+const CHAR_SCALE = 1.7;
+
+// Aplica una rotación EXTRA (en radianes, ejes locales del hueso)
+// por ENCIMA de su pose de reposo, componiendo por cuaterniones.
+// Esto es matemáticamente correcto sin importar qué tan "rara" sea
+// la pose de reposo — sumar componentes de Euler directamente NO
+// funciona bien cuando el reposo ya es una rotación grande (como
+// pasa en este rig: brazos/piernas vienen con ~90-180° de fábrica).
+const _deltaEuler = new THREE.Euler();
+const _deltaQuat = new THREE.Quaternion();
+function applyLocalDelta(bone, restQuat, ex, ey, ez) {
+  _deltaEuler.set(ex, ey, ez, "XYZ");
+  _deltaQuat.setFromEuler(_deltaEuler);
+  bone.quaternion.copy(restQuat).multiply(_deltaQuat);
+}
+
+function AnimatedCharacter({ mouse }) {
+  const outerRef = useRef(null); // posición en el mundo (dolly/alejamiento)
+  const pivotRef = useRef(null); // rotación alrededor del centro de masa
+  const { scene } = useGLTF(CHARACTER_MODEL_URL);
+  const bonesRef = useRef({});
+  const restRef = useRef({});
+  const clockRef = useRef(0);
+
+  // Ángulos acumulados de cada eslabón de la cadena (mundo, no
+  // relativos) — así cada uno puede perseguir al anterior con su
+  // propio retraso ("follow-through").
+  const chainRef = useRef({
+    pelvis: 0,
+    spine: 0,
+    chest: 0,
+    shoulder: 0,
+    head: 0,
+    thigh: 0,
+    calf: 0,
+    foot: 0,
+  });
+
+  useEffect(() => {
+    const names = {
+      spine1: "Spine01",
+      spine2: "Spine02",
+      head: "Head",
+      neck: "NeckTwist01",
+      lClavicle: "L_Clavicle",
+      rClavicle: "R_Clavicle",
+      lForearm: "L_Forearm",
+      rForearm: "R_Forearm",
+      lHand: "L_Hand",
+      rHand: "R_Hand",
+      lThigh: "L_Thigh",
+      rThigh: "R_Thigh",
+      lCalf: "L_Calf",
+      rCalf: "R_Calf",
+      lFoot: "L_Foot",
+      rFoot: "R_Foot",
+    };
+    const bones = {};
+    const rest = {};
+    Object.entries(names).forEach(([key, boneName]) => {
+      const bone = scene.getObjectByName(boneName);
+      if (bone) {
+        bones[key] = bone;
+        rest[key] = bone.quaternion.clone(); // cuaternión, no Euler
+      }
+    });
+    bonesRef.current = bones;
+    restRef.current = rest;
+  }, [scene]);
+
+  useFrame((_, delta) => {
+    clockRef.current += delta;
+    const t = clockRef.current;
+    const progress = useScrollStore.getState().smoothProgress;
+    const bones = bonesRef.current;
+    const rest = restRef.current;
+    const outer = outerRef.current;
+    const pivot = pivotRef.current;
+    if (!outer || !pivot) return;
+
+    // ---- Pesos de cada estado (0..1), transición suave ----
+    const approachW = smoothstep(0, ST_FRONT_END, progress); // 0→1 en FRONT_IDLE
+    const dollyW = smoothstep(ST_FRONT_END, ST_APPROACH_END, progress); // acercamiento
+    // EDICIÓN: turnW ahora empieza en ST_FRONT_END (no en ST_APPROACH_END),
+    // así el giro corporal se solapa con el acercamiento y arranca "ni bien
+    // se acerca" en vez de esperar a que el dolly termine.
+    const turnW = smoothstep(ST_FRONT_END, ST_TURN_END, progress); // giro corporal
+    const poseW = smoothstep(ST_TURN_END, ST_FALLPOSE_END, progress); // adopta postura de caída
+    // EDICIÓN: fallW ahora empieza en ST_APPROACH_END (mismo punto donde
+    // HeroText arranca su zoom, ver HeroText más abajo) en lugar de
+    // ST_FALLPOSE_END. Así el alejamiento en profundidad (la "caída")
+    // arranca junto con el giro/zoom, en vez de esperar a que termine
+    // toda la pose — es lo que da la sensación de profundidad pedida.
+    const fallW = smoothstep(ST_APPROACH_END, 1, progress); // caída/alejamiento
+    const inTurn = progress >= ST_APPROACH_END && progress < ST_TURN_END;
+
+    // ---- POSICIÓN: acercamiento (dolly) → alejamiento en profundidad ----
+    // La "caída" ya no es un desplome en Y: el personaje se aleja en Z
+    // (se hunde en la profundidad de la escena) hasta perderse en la
+    // niebla/fondo negro de la escena "fall". Cuadrática (empieza lenta,
+    // acelera) y puramente atada al scroll, no al reloj, para que siga
+    // siendo "scrubbable".
+    const zFront = -1.3;
+    const zClose = -0.55;
+    const FALL_DEPTH = 9; // cuánto se aleja en Z durante la caída, hasta desaparecer
+    const dollyTargetZ = zFront + (zClose - zFront) * dollyW;
+    // EDICIÓN: antes se usaba fallW*fallW (curva "ease-in": arranca lenta
+    // y ACELERA todo el trayecto, quedando más rápida justo al final).
+    // Ahora se usa una curva "ease-out" (1 - (1-fallW)^2): arranca rápida
+    // y se va FRENANDO a medida que se acerca al final — así la última
+    // parte de la caída queda un poco más lenta, como se pidió.
+    const fallEase = 1 - (1 - fallW) * (1 - fallW);
+    const targetZ = dollyTargetZ - fallEase * FALL_DEPTH;
+    // Lambda un poco más baja (2.5 → 2.0) = seguimiento más "pesado"/suave,
+    // acompaña la sensación de frenado hacia el final de la caída.
+    outer.position.z = damp(outer.position.z, targetZ, 2.0, delta);
+
+    // Ya no hay caída en Y: se mantiene a la misma altura, solo con
+    // el flote idle sutil de siempre (se atenúa a medida que se aleja).
+    const idleFloat = Math.sin(t * 0.8) * 0.05 * (1 - fallW * 0.6);
+    outer.position.y = idleFloat;
+
+    // ---- ROTACIÓN: cadena con retraso, alrededor del centro ----
+    // Objetivo de yaw (girar) durante TURN, y de pitch (clavado)
+    // durante FALL_POSE/FALL.
+    const YAW_TARGET = -Math.PI; // da la vuelta completa
+    const PITCH_TARGET = -1.15; // inclinación de clavado (~66°), se mantiene fija
+
+    // EDICIÓN — BUG FIX: el "corkscrew" anterior era `fallW * t * 0.12`,
+    // donde `t` es el reloj interno que crece para siempre mientras la
+    // página esté abierta (no se resetea ni depende del scroll). Eso
+    // hacía que, con el tiempo, ese valor terminara CANCELANDO la
+    // inclinación hacia adelante (PITCH_TARGET es negativo, corkscrew
+    // positivo y creciente → el personaje "se paraba") y, si seguía
+    // creciendo, terminaba dando vueltas completas (pasaba de cancelar
+    // la inclinación a invertirla una y otra vez). Por eso pasaba sobre
+    // todo si scrolleabas fuerte y quedabas un rato en la fase de caída.
+    //
+    // Ahora es una oscilación acotada con Math.sin(): nunca se acumula,
+    // así que da un balanceo leve y constante ("como flotando") sin
+    // nunca cancelar ni invertir la inclinación principal.
+    const corkscrewWobble = fallW * Math.sin(t * 0.6) * 0.12;
+
+    const pelvisYawTarget = YAW_TARGET * turnW;
+    const pelvisPitchTarget = PITCH_TARGET * poseW + corkscrewWobble;
+
+    // La pelvis (el pivote entero) lidera el movimiento — responde
+    // más rápido que el resto de la cadena.
+    pivot.rotation.y = damp(pivot.rotation.y, pelvisYawTarget, 4.5, delta);
+    pivot.rotation.x = damp(pivot.rotation.x, pelvisPitchTarget, 4.5, delta);
+    pivot.rotation.z = damp(
+      pivot.rotation.z,
+      Math.sin(t * 0.35) * 0.04 + fallW * Math.sin(t * 0.2) * 0.06,
+      4,
+      delta
+    );
+
+    // Cadena hacia arriba: columna → pecho → hombros → cabeza,
+    // cada uno persiguiendo al anterior con más retraso (lambda
+    // más baja = más lag = llega después).
+    const chain = chainRef.current;
+    chain.pelvis = pivot.rotation.y;
+    chain.spine = damp(chain.spine, chain.pelvis, 7, delta);
+    chain.chest = damp(chain.chest, chain.spine, 5.5, delta);
+    chain.shoulder = damp(chain.shoulder, chain.chest, 4.2, delta);
+    chain.head = damp(chain.head, chain.shoulder, 3.2, delta);
+
+    // Cadena hacia abajo: pelvis → muslo → pantorrilla → pie.
+    chain.thigh = damp(chain.thigh, chain.pelvis, 6, delta);
+    chain.calf = damp(chain.calf, chain.thigh, 5, delta);
+    chain.foot = damp(chain.foot, chain.calf, 4, delta);
+
+    // Cada hueso solo aplica la DIFERENCIA con su padre en la
+    // cadena — el padre ya aporta su propia rotación al heredarla.
+    const spineLag = chain.spine - chain.pelvis;
+    const chestLag = chain.chest - chain.spine;
+    const shoulderLag = chain.shoulder - chain.chest;
+    const headLag = chain.head - chain.shoulder;
+    const thighLag = chain.thigh - chain.pelvis;
+    const calfLag = chain.calf - chain.thigh;
+    const footLag = chain.foot - chain.calf;
+
+    // EDICIÓN — flote sin gravedad: micro-oscilaciones continuas en
+    // brazos y piernas, activas TODO el tiempo (no dependen de en qué
+    // fase del scroll estamos), para que el personaje nunca se vea
+    // rígido/estático — como si no hubiera gravedad tirando de sus
+    // extremidades. Cada hueso tiene su propia frecuencia y fase para
+    // que no se muevan todos sincronizados (eso se vería mecánico).
+    // Amplitudes chicas (radianes) para que sea "leve", no una danza.
+    const idleAmp = 1 - turnW * 0.35; // se atenúa un poco durante el giro, nunca a cero
+    const floatArm = 0.05 * idleAmp;
+    const floatLeg = 0.035 * idleAmp;
+    const limbFloat = {
+      lForearm: [0, 0, Math.sin(t * 0.9 + 0.0) * floatArm],
+      rForearm: [0, 0, Math.sin(t * 0.85 + 1.4) * floatArm],
+      lHand: [Math.sin(t * 1.1 + 0.6) * floatArm * 0.6, 0, 0],
+      rHand: [Math.sin(t * 1.05 + 2.1) * floatArm * 0.6, 0, 0],
+      lThigh: [Math.sin(t * 0.6 + 0.3) * floatLeg, 0, 0],
+      rThigh: [Math.sin(t * 0.65 + 1.8) * floatLeg, 0, 0],
+      lCalf: [Math.sin(t * 0.7 + 1.0) * floatLeg * 0.7, 0, 0],
+      rCalf: [Math.sin(t * 0.75 + 2.4) * floatLeg * 0.7, 0, 0],
+      lFoot: [0, 0, Math.sin(t * 0.8 + 0.2) * floatLeg * 0.5],
+      rFoot: [0, 0, Math.sin(t * 0.78 + 1.6) * floatLeg * 0.5],
+    };
+
+    // Spine/Head/Neck: la pose de reposo acá SÍ es identidad (0,0,0),
+    // así que asignar Euler directo es seguro (no hay pose extraña
+    // de base que rompa la composición).
+const _pose = sampleBonePose(progress);
+Object.entries(_pose).forEach(([key, [ex, ey, ez]]) => {
+  const bone = bones[key];
+  const r = rest[key];
+  if (!bone || !r) return;
+  // Si el hueso tiene flote definido, se lo sumamos a la pose base
+  // del keyframe (por eso es aditivo y no reemplaza nada de lo que
+  // ya estaba armado en BONE_POSE_KEYFRAMES).
+  const f = limbFloat[key];
+  const fx = f ? ex + f[0] : ex;
+  const fy = f ? ey + f[1] : ey;
+  const fz = f ? ez + f[2] : ez;
+  applyLocalDelta(bone, r, fx, fy, fz);
+});
+    void inTurn;
+    void approachW;
+  });
+
+  return (
+    <group ref={outerRef} position={[0, 0.05, -1.3]}>
+      <group ref={pivotRef}>
+        <primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} />
+      </group>
+    </group>
+  );
+}
+useGLTF.preload(CHARACTER_MODEL_URL);
+
+/* ============================================================
+   ============================================================ */
+function Particles({ device }) {
+  const pointsRef = useRef(null);
+  const materialRef = useRef(null);
+  const count = Math.round(clientConfig.particles.count * device.particleMultiplier);
+
+  const positions = useMemo(() => {
+    const arr = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      arr[i * 3] = (Math.random() - 0.5) * 2;
+      arr[i * 3 + 1] = (Math.random() - 0.5) * 2;
+      arr[i * 3 + 2] = (Math.random() - 0.5) * 2;
+    }
+    return arr;
+  }, [count]);
+
+  useFrame((state, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const blended = blendScenes(scenes, progress);
+    if (pointsRef.current) {
+      const targetScale = blended.particles.spread;
+      pointsRef.current.scale.setScalar(damp(pointsRef.current.scale.x, targetScale, 3, delta));
+      pointsRef.current.rotation.y += delta * 0.02;
+    }
+    if (materialRef.current) {
+      materialRef.current.opacity = damp(materialRef.current.opacity, blended.particles.opacity, 4, delta);
+    }
+    void state;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        ref={materialRef}
+        color={clientConfig.particles.color}
+        size={clientConfig.particles.size}
+        transparent
+        opacity={0.4}
+        depthWrite={false}
+        sizeAttenuation
+      />
+    </points>
+  );
+}
+
+/* ============================================================
+   three/Lighting.jsx
+   ============================================================ */
+function Lighting() {
+  const keyRef = useRef(null);
+  const rimRef = useRef(null);
+
+  useFrame((_, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    if (keyRef.current) {
+      keyRef.current.color.set(state.light.color);
+      keyRef.current.intensity = damp(keyRef.current.intensity, state.light.intensity, 4, delta);
+    }
+    if (rimRef.current) {
+      rimRef.current.color.set(state.light.rimColor);
+      rimRef.current.intensity = damp(rimRef.current.intensity, state.light.rimIntensity, 4, delta);
+    }
+  });
+
+  return (
+    <>
+      <ambientLight intensity={0.25} />
+      <directionalLight ref={keyRef} position={[3, 4, 5]} intensity={0.9} />
+      <directionalLight position={[-3, 2, -2]} intensity={0.35} />
+      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
+    </>
+  );
+}
+
+/* ============================================================
+   three/SceneEnvironment.jsx
+   ============================================================ */
+function SceneEnvironment() {
+  const { scene } = useThree();
+  const fog = useRef(new THREE.FogExp2("#05070a", 0.12));
+  const bgColor = useRef(new THREE.Color("#05070a"));
+
+  useEffect(() => {
+    scene.fog = fog.current;
+    scene.background = bgColor.current;
+  }, [scene]);
+
+  useFrame(() => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    fog.current.color.set(state.fog.color);
+    fog.current.density = 1 / Math.max(state.fog.far, 1);
+    bgColor.current.set(state.background);
+  });
+
+  return null;
+}
+
+/* ============================================================
+   three/Experience.jsx
+   ============================================================ */
+function Experience({ device }) {
+  const mouse = useMouseParallax();
+  return (
+    <>
+      <ScrollSmoother />
+      <SceneEnvironment />
+      <CameraRig mouse={mouse} />
+      <Lighting />
+      <Environment preset="city" background={false} />
+      <Suspense fallback={null}>
+        <AnimatedCharacter mouse={mouse} />
+      </Suspense>
+      <Particles device={device} />
+      {device.enablePostProcessing && (
+        <EffectComposer multisampling={0}>
+          <Bloom intensity={0.55} luminanceThreshold={0.2} luminanceSmoothing={0.9} mipmapBlur />
+          <Vignette eskil={false} offset={0.15} darkness={0.7} />
+        </EffectComposer>
+      )}
+    </>
+  );
+}
+
+/* ============================================================
+   ui/HeroText.jsx
+   El único texto "de entrada": aparece al principio, y cuando
+   arranca el giro/caída (fase GIRAR) se agranda hacia la
+   pantalla mientras se desvanece, hasta desaparecer del todo.
+   EDICIÓN: ya no vuelve a aparecer ningún otro texto ni CTA — se
+   quitaron ambos de la escena final a pedido.
+   ============================================================ */
+function HeroText() {
+  const ref = useRef(null);
+  const FADE_IN_END = 0.05;
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (!ref.current) return;
+      const fadeIn = smoothstep(0, FADE_IN_END, progress);
+      const zoomOut = smoothstep(ST_APPROACH_END, ST_TURN_END, progress);
+      const scale = 1 + zoomOut * 14;
+      const opacity = fadeIn * (1 - zoomOut);
+      ref.current.style.opacity = String(opacity);
+      ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
+      Scroll Experience
+    </div>
+  );
+}
+
+/* ============================================================
+   ui/SceneText.jsx
+   ============================================================ */
+function SceneText() {
+  const refs = useRef([]);
+
+  useEffect(() => {
+    const update = (progress) => {
+      scenes.forEach((kf, i) => {
+        const el = refs.current[i];
+        if (!el || !kf.text) return;
+        const weight = textWeight(kf, progress);
+        el.style.opacity = String(weight);
+        el.style.transform =
+          kf.text.align === "center"
+            ? `translateX(-50%) translateY(${(1 - weight) * 24}px)`
+            : `translateY(${(1 - weight) * 24}px)`;
+        el.style.pointerEvents = weight > 0.5 ? "auto" : "none";
+      });
+    };
+    update(useScrollStore.getState().smoothProgress);
+    const unsubscribe = useScrollStore.subscribe((s) => update(s.smoothProgress));
+    return unsubscribe;
+  }, []);
+
+  return (
+    <div className="scene-text-layer">
+      {scenes.map((kf, i) =>
+        kf.text ? (
+          <div
+            key={kf.id}
+            ref={(el) => { refs.current[i] = el; }}
+            className={`scene-text scene-text--${kf.text.align}`}
+            style={{ opacity: 0 }}
+          >
+            {kf.text.eyebrow && <span className="scene-text__eyebrow">{kf.text.eyebrow}</span>}
+            <h2 className="scene-text__title">{kf.text.title}</h2>
+            {kf.text.subtitle && <p className="scene-text__subtitle">{kf.text.subtitle}</p>}
+          </div>
+        ) : null
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   ui/CTAButton.jsx
+   ============================================================ */
+const CTA_START = scenes.find((s) => s.showCTA)?.progress ?? 1;
+const FADE_WINDOW = 0.06;
+
+function CTAButton() {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (!ref.current) return;
+      const weight = clamp((progress - (CTA_START - FADE_WINDOW)) / FADE_WINDOW);
+      ref.current.style.opacity = String(weight);
+      ref.current.style.transform = `translateX(-50%) translateY(${(1 - weight) * 16}px)`;
+      ref.current.style.pointerEvents = weight > 0.6 ? "auto" : "none";
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div ref={ref} className="cta-layer" style={{ opacity: 0 }}>
+      <a className="cta-button" href={clientConfig.cta.href}>
+        {clientConfig.cta.label}
+      </a>
+    </div>
+  );
+}
+
+/* ============================================================
+   ui/ProgressIndicator.jsx
+   ============================================================ */
+function ProgressIndicator() {
+  const fillRef = useRef(null);
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (fillRef.current) fillRef.current.style.height = `${progress * 100}%`;
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div className="progress-rail" aria-hidden="true">
+      <div className="progress-rail__track">
+        <div ref={fillRef} className="progress-rail__fill" />
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ui/CursorTrail.jsx
+   Rastro luminoso que sigue al mouse (pointermove) o al dedo
+   (touchmove) — el "touch trail / cursor trail" genérico.
+   Dibuja en un <canvas> 2D encima del canvas 3D, con blend
+   "lighter" para que el rastro brille sobre el fondo oscuro.
+   ============================================================ */
+function CursorTrail() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let points = [];
+    let rafId = 0;
+
+    const resize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+
+    const addPoint = (x, y) => {
+      points.push({ x, y, life: 1 });
+      if (points.length > 40) points.shift();
+    };
+    const onPointerMove = (e) => addPoint(e.clientX, e.clientY);
+    const onTouchMove = (e) => {
+      if (e.touches && e.touches[0]) addPoint(e.touches[0].clientX, e.touches[0].clientY);
+    };
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+      points.forEach((p) => { p.life *= 0.94; });
+      points = points.filter((p) => p.life > 0.02);
+
+      if (points.length > 1) {
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 1; i < points.length; i++) {
+          const p0 = points[i - 1];
+          const p1 = points[i];
+          const alpha = Math.min(p0.life, p1.life) * 0.55;
+          ctx.strokeStyle = clientConfig.colors.accent;
+          ctx.globalAlpha = alpha;
+          ctx.lineWidth = 1.5 + alpha * 4;
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
+      rafId = requestAnimationFrame(draw);
+    };
+    rafId = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("touchmove", onTouchMove);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" />;
+}
+
+/* ============================================================
+   App.jsx
+   ============================================================ */
+function App() {
+  const spacerRef = useRef(null);
+  useScrollProgress(spacerRef);
+  const device = useMemo(() => getDeviceProfile(), []);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div
+      className="app-root"
+      style={{
+        "--brand-accent": clientConfig.colors.accent,
+        "--brand-accent-2": clientConfig.colors.accentSecondary,
+        "--color-bg": clientConfig.colors.background,
+        "--color-text": clientConfig.colors.textPrimary,
+        "--color-text-muted": clientConfig.colors.textMuted,
+        "--font-display": clientConfig.fonts.display,
+        "--font-body": clientConfig.fonts.body,
+      }}
+    >
+      <div className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
+        <Canvas
+          dpr={device.dpr}
+          gl={{ antialias: true, powerPreference: "high-performance" }}
+          camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
+        >
+          <Experience device={device} />
+        </Canvas>
+        <CursorTrail />
+        <HeroText />
+        <SceneText />
+        {/* EDICIÓN: se quitó <CTAButton /> a pedido — ya no se muestra
+            el botón final. El componente queda definido más arriba por
+            si en el futuro se lo quiere volver a usar, simplemente no
+            se renderiza acá. */}
+        <ProgressIndicator />
+        <header className="brand-mark">
+          <span>{clientConfig.brand.name}</span>
+        </header>
+        <div className="scroll-hint" aria-hidden="true">
+          <span>Scroll</span>
+          <div className="scroll-hint__line" />
+        </div>
+      </div>
+      <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<App />);
+
+</script>
+</body>
+</html>
