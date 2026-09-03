@@ -710,6 +710,33 @@ function useScrollProgress(spacerRef) {
 }
 
 /* ============================================================
+   HOOK: scroll/useArrowKeyScroll.ts
+   EDICIÓN: las flechas arriba/abajo no estaban scrolleando la
+   página en PC. En vez de depender del comportamiento nativo del
+   navegador (que puede no dispararse si el foco queda en algún
+   elemento no-scrolleable, o directamente no actuar de forma
+   consistente entre navegadores en una página sin contenido
+   "normal" como esta), se maneja explícitamente: cada flecha
+   mueve el scroll una distancia fija, de forma suave. La rueda
+   del mouse sigue funcionando igual que siempre (scroll nativo,
+   no se toca).
+   ============================================================ */
+function useArrowKeyScroll(step = 140) {
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      // Si el foco está en un campo de texto o similar, no interferir.
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+      e.preventDefault();
+      window.scrollBy({ top: e.key === "ArrowDown" ? step : -step, behavior: "smooth" });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [step]);
+}
+
+/* ============================================================
    COMPONENT (dentro de <Canvas>): scroll/ScrollSmoother.tsx
    Amortigua smoothProgress hacia progress cuadro a cuadro.
    ============================================================ */
@@ -839,10 +866,13 @@ const CHAR_SCALE = 1.7;
 
 // EDICIÓN — offsets verticales por etapa (ver punto 5 arriba).
 // Y_LOW: solo torso visible (cintura para abajo, fuera de cuadro).
-// Y_KNEE: sube, se ve hasta las rodillas aprox.
+// Y_ANKLE: EDICIÓN — antes subía hasta mostrar las rodillas (-0.4);
+// ahora sube bastante menos ("debe ir más abajo"), quedando todavía
+// dominado por cintura-para-arriba y asomando apenas un poco de
+// pierna hasta la zona del tobillo, no más.
 // Y_CENTER: cuerpo entero, centrado — se mantiene así de ahí en más.
 const Y_LOW = -0.95;
-const Y_KNEE = -0.4;
+const Y_ANKLE = -0.65;
 const Y_CENTER = 0;
 
 // Aplica una rotación EXTRA (en radianes, ejes locales del hueso)
@@ -931,11 +961,12 @@ function AnimatedCharacter({ mouse }) {
     // quedando en 1 (sin cambios) durante las pausas y el resto.
     const turnW = smoothstep(ST_APPROACH_END, ST_TURN_END, progress); // giro corporal
     // EDICIÓN: la inclinación hacia adelante (lean) ahora arranca
-    // en el mismo tramo del giro (ST_APPROACH_END) y termina de
-    // instalarse en FALL_POSE (ST_FALLPOSE_END) — es decir, para
-    // cuando arranca PAUSA_2/FALL la inclinación ya está completa
-    // hace rato, en vez de recién empezar cuando ya se está cayendo.
-    const poseW = smoothstep(ST_APPROACH_END, ST_FALLPOSE_END, progress); // postura de caída
+    // recién cuando el giro YA terminó (ST_TURN_END) — no antes — y
+    // se sigue profundizando de forma gradual hasta progress=1, en
+    // el mismo tramo (y con la misma curva) que usa el zoom del
+    // texto "Scroll Experience" en HeroText, para que ambos arranquen
+    // juntos justo después de girar y terminen juntos al final.
+    const poseW = smoothstep(ST_TURN_END, 1, progress); // inclinación hacia adelante
     // EDICIÓN: la caída (alejamiento en Z) ahora arranca recién
     // después de PAUSA_2 (ST_PAUSE2_END), no apenas termina el
     // acercamiento — así hay un respiro real antes de irse.
@@ -962,13 +993,15 @@ function AnimatedCharacter({ mouse }) {
 
     // ---- ENCUADRE VERTICAL: cintura → rodillas → cuerpo entero ----
     // Se arma con dos tramos smoothstep encadenados (ver punto 5 del
-    // comentario de arriba): primero sube de Y_LOW a Y_KNEE durante
-    // el acercamiento, después de Y_KNEE a Y_CENTER durante el giro,
-    // y se queda fijo en Y_CENTER de ahí en adelante.
+    // comentario de arriba): primero sube de Y_LOW a Y_ANKLE durante
+    // el acercamiento (poco recorrido — sigue dominando cintura-para-
+    // arriba, solo asoma hasta el tobillo), después de Y_ANKLE a
+    // Y_CENTER durante el giro (ahí sí se termina de ver el cuerpo
+    // entero), y se queda fijo en Y_CENTER de ahí en adelante.
     const riseApproach = smoothstep(ST_FRONT_END, ST_APPROACH_END, progress);
     const riseTurn = smoothstep(ST_APPROACH_END, ST_TURN_END, progress);
     const yFrameTarget =
-      Y_LOW + (Y_KNEE - Y_LOW) * riseApproach + (Y_CENTER - Y_KNEE) * riseTurn;
+      Y_LOW + (Y_ANKLE - Y_LOW) * riseApproach + (Y_CENTER - Y_ANKLE) * riseTurn;
 
     // EDICIÓN: el flote idle (sube/baja) se atenúa bastante — antes
     // se notaba mucho el "sube y baja" del cuerpo entero; ahora es
@@ -1035,9 +1068,15 @@ function AnimatedCharacter({ mouse }) {
     // siendo chicas — un detalle, no una danza. Cada hueso tiene su
     // propia frecuencia y fase para que no se muevan todos
     // sincronizados (eso se vería mecánico).
-    const idleAmp = 1 - turnW * 0.35; // se atenúa un poco durante el giro, nunca a cero
-    const floatArm = 0.085 * idleAmp;
-    const floatLeg = 0.06 * idleAmp;
+    // EDICIÓN: amplitud subida ~3x (pedido explícito: "3 veces más"),
+    // y la atenuación durante el giro casi se eliminó (0.35 → 0.08)
+    // para que el movimiento se sienta constante en todo momento y
+    // no solo en reposo — sigue siendo el mismo tipo de oscilación
+    // ondulante (no se tocó la frecuencia/velocidad, solo cuánto se
+    // mueve).
+    const idleAmp = 1 - turnW * 0.08;
+    const floatArm = 0.26 * idleAmp;
+    const floatLeg = 0.18 * idleAmp;
     const limbFloat = {
       lForearm: [0, 0, Math.sin(t * 0.9 + 0.0) * floatArm],
       rForearm: [0, 0, Math.sin(t * 0.85 + 1.4) * floatArm],
@@ -1234,14 +1273,22 @@ function Experience({ device }) {
 function HeroText() {
   const ref = useRef(null);
   const FADE_IN_END = 0.05;
-  const ZOOM_START = ST_FALLPOSE_END; // 0.80
-  const ZOOM_END = 0.94;
+  // EDICIÓN: el zoom ya no tiene una ventana fija propia — ahora usa
+  // exactamente la misma curva que la inclinación del personaje
+  // (poseW en AnimatedCharacter: smoothstep(ST_TURN_END, 1, progress)).
+  // Arranca justo cuando terminó de girar (mismo instante en que
+  // empieza a inclinarse hacia adelante) y crece de forma proporcional
+  // al recorrido que le queda hasta el final (pausas + fall-pose +
+  // pausa + caída), terminando exactamente cuando termina todo — así
+  // el crecimiento del texto acompaña visualmente el alejamiento del
+  // personaje en vez de tener su propio timing independiente.
+  const ZOOM_START = ST_TURN_END;
 
   useEffect(() => {
     const update = (progress) => {
       if (!ref.current) return;
       const fadeIn = smoothstep(0, FADE_IN_END, progress);
-      const zoomOut = smoothstep(ZOOM_START, ZOOM_END, progress);
+      const zoomOut = smoothstep(ZOOM_START, 1, progress);
       const scale = 1 + zoomOut * 14;
       const opacity = fadeIn * (1 - zoomOut);
       ref.current.style.opacity = String(opacity);
@@ -1444,6 +1491,7 @@ function CursorTrail() {
 function App() {
   const spacerRef = useRef(null);
   useScrollProgress(spacerRef);
+  useArrowKeyScroll();
   const device = useMemo(() => getDeviceProfile(), []);
   const [ready, setReady] = useState(false);
 
