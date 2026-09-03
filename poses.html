@@ -1,9 +1,3 @@
-
-
-
-
-
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -316,10 +310,15 @@ const clientConfig = {
      FRONT_IDLE → APPROACH → TURN → FALL_POSE → FALL
    Los breakpoints son sobre smoothProgress (0..1):
      0.00 → de frente, flotando
-     0.25 → termina el acercamiento
-     0.50 → arranca el giro corporal
+     0.25 → termina el acercamiento (dolly) — ACÁ YA ARRANCA EL GIRO,
+            se solapa con el acercamiento en vez de esperar a que
+            termine (pedido: "empiece a girar ni bien se acerca")
+     0.50 → arranca el zoom del texto inicial — ACÁ YA ARRANCA
+            TAMBIÉN LA CAÍDA (alejamiento en profundidad), para dar
+            sensación de profundidad mientras gira, en vez de
+            esperar a que termine toda la pose de caída
      0.70 → termina el giro (se estabiliza)
-     0.80 → adoptó la postura de caída
+     0.80 → adoptó la postura de caída (brazos/piernas)
      1.00 → caída completa
    ============================================================ */
 const CHARACTER_MODEL_URL = "./assets/models/weeb.glb";
@@ -388,13 +387,11 @@ const scenes = [
     light: { color: "#ffffff", intensity: 0.45, rimColor: "#c8ff00", rimIntensity: 1.6 },
     fog: { color: "#000000", far: 11 },
     background: "#000000",
-    showCTA: true,
-    text: {
-      eyebrow: "¿Charlamos?",
-      title: "Llevemos tu marca a otro nivel.",
-      subtitle: "",
-      align: "center",
-    },
+    // EDICIÓN: se quitó "showCTA" y "text" a pedido — la escena final
+    // ya no muestra el texto de cierre ni el botón de WhatsApp. SceneText
+    // solo renderiza texto para keyframes que tengan la propiedad `text`
+    // (ver función SceneText más abajo), así que con solo sacarla de acá
+    // alcanza para que no aparezca nada en esta escena.
   },
 ];
 
@@ -838,9 +835,17 @@ function AnimatedCharacter({ mouse }) {
     // ---- Pesos de cada estado (0..1), transición suave ----
     const approachW = smoothstep(0, ST_FRONT_END, progress); // 0→1 en FRONT_IDLE
     const dollyW = smoothstep(ST_FRONT_END, ST_APPROACH_END, progress); // acercamiento
-    const turnW = smoothstep(ST_APPROACH_END, ST_TURN_END, progress); // giro corporal
+    // EDICIÓN: turnW ahora empieza en ST_FRONT_END (no en ST_APPROACH_END),
+    // así el giro corporal se solapa con el acercamiento y arranca "ni bien
+    // se acerca" en vez de esperar a que el dolly termine.
+    const turnW = smoothstep(ST_FRONT_END, ST_TURN_END, progress); // giro corporal
     const poseW = smoothstep(ST_TURN_END, ST_FALLPOSE_END, progress); // adopta postura de caída
-    const fallW = smoothstep(ST_FALLPOSE_END, 1, progress); // caída/alejamiento
+    // EDICIÓN: fallW ahora empieza en ST_APPROACH_END (mismo punto donde
+    // HeroText arranca su zoom, ver HeroText más abajo) en lugar de
+    // ST_FALLPOSE_END. Así el alejamiento en profundidad (la "caída")
+    // arranca junto con el giro/zoom, en vez de esperar a que termine
+    // toda la pose — es lo que da la sensación de profundidad pedida.
+    const fallW = smoothstep(ST_APPROACH_END, 1, progress); // caída/alejamiento
     const inTurn = progress >= ST_APPROACH_END && progress < ST_TURN_END;
 
     // ---- POSICIÓN: acercamiento (dolly) → alejamiento en profundidad ----
@@ -853,8 +858,16 @@ function AnimatedCharacter({ mouse }) {
     const zClose = -0.55;
     const FALL_DEPTH = 9; // cuánto se aleja en Z durante la caída, hasta desaparecer
     const dollyTargetZ = zFront + (zClose - zFront) * dollyW;
-    const targetZ = dollyTargetZ - fallW * fallW * FALL_DEPTH;
-    outer.position.z = damp(outer.position.z, targetZ, 2.5, delta);
+    // EDICIÓN: antes se usaba fallW*fallW (curva "ease-in": arranca lenta
+    // y ACELERA todo el trayecto, quedando más rápida justo al final).
+    // Ahora se usa una curva "ease-out" (1 - (1-fallW)^2): arranca rápida
+    // y se va FRENANDO a medida que se acerca al final — así la última
+    // parte de la caída queda un poco más lenta, como se pidió.
+    const fallEase = 1 - (1 - fallW) * (1 - fallW);
+    const targetZ = dollyTargetZ - fallEase * FALL_DEPTH;
+    // Lambda un poco más baja (2.5 → 2.0) = seguimiento más "pesado"/suave,
+    // acompaña la sensación de frenado hacia el final de la caída.
+    outer.position.z = damp(outer.position.z, targetZ, 2.0, delta);
 
     // Ya no hay caída en Y: se mantiene a la misma altura, solo con
     // el flote idle sutil de siempre (se atenúa a medida que se aleja).
@@ -863,14 +876,27 @@ function AnimatedCharacter({ mouse }) {
 
     // ---- ROTACIÓN: cadena con retraso, alrededor del centro ----
     // Objetivo de yaw (girar) durante TURN, y de pitch (clavado)
-    // durante FALL_POSE/FALL. Un tirabuzón MUY lento se suma
-    // durante la caída, sin ser el protagonista del movimiento.
+    // durante FALL_POSE/FALL.
     const YAW_TARGET = -Math.PI; // da la vuelta completa
-    const PITCH_TARGET = -1.15; // inclinación de clavado (~66°)
-    const corkscrew = fallW * t * 0.12; // tirabuzón lento y continuo
+    const PITCH_TARGET = -1.15; // inclinación de clavado (~66°), se mantiene fija
+
+    // EDICIÓN — BUG FIX: el "corkscrew" anterior era `fallW * t * 0.12`,
+    // donde `t` es el reloj interno que crece para siempre mientras la
+    // página esté abierta (no se resetea ni depende del scroll). Eso
+    // hacía que, con el tiempo, ese valor terminara CANCELANDO la
+    // inclinación hacia adelante (PITCH_TARGET es negativo, corkscrew
+    // positivo y creciente → el personaje "se paraba") y, si seguía
+    // creciendo, terminaba dando vueltas completas (pasaba de cancelar
+    // la inclinación a invertirla una y otra vez). Por eso pasaba sobre
+    // todo si scrolleabas fuerte y quedabas un rato en la fase de caída.
+    //
+    // Ahora es una oscilación acotada con Math.sin(): nunca se acumula,
+    // así que da un balanceo leve y constante ("como flotando") sin
+    // nunca cancelar ni invertir la inclinación principal.
+    const corkscrewWobble = fallW * Math.sin(t * 0.6) * 0.12;
 
     const pelvisYawTarget = YAW_TARGET * turnW;
-    const pelvisPitchTarget = PITCH_TARGET * poseW + corkscrew;
+    const pelvisPitchTarget = PITCH_TARGET * poseW + corkscrewWobble;
 
     // La pelvis (el pivote entero) lidera el movimiento — responde
     // más rápido que el resto de la cadena.
@@ -908,18 +934,28 @@ function AnimatedCharacter({ mouse }) {
     const calfLag = chain.calf - chain.thigh;
     const footLag = chain.foot - chain.calf;
 
-    // ---- Postura de caída: brazos adelante, palmas abajo ----
-    // (se suma progresivamente durante FALL_POSE, se mantiene en FALL)
-    const armForward = poseW * 1.0; // codo/hombro hacia adelante
-    const elbowBend = poseW * 1.1; // antebrazo doblado
-    const palmDown = poseW * 1.3; // giro de muñeca para palma-abajo
-    const legSpread = poseW * 0.18; // piernas separándose levemente
-    const legExtend = poseW * 0.35; // piernas extendiéndose
-
-    // Balanceo idle sutil, siempre presente, MUY leve — se apaga
-    // un poco durante el giro para que la cadena se note limpia.
-    const idleAmp = 1 - turnW * 0.6;
-    const idle = (freq, phase, amp) => Math.sin(t * freq + phase) * amp * idleAmp;
+    // EDICIÓN — flote sin gravedad: micro-oscilaciones continuas en
+    // brazos y piernas, activas TODO el tiempo (no dependen de en qué
+    // fase del scroll estamos), para que el personaje nunca se vea
+    // rígido/estático — como si no hubiera gravedad tirando de sus
+    // extremidades. Cada hueso tiene su propia frecuencia y fase para
+    // que no se muevan todos sincronizados (eso se vería mecánico).
+    // Amplitudes chicas (radianes) para que sea "leve", no una danza.
+    const idleAmp = 1 - turnW * 0.35; // se atenúa un poco durante el giro, nunca a cero
+    const floatArm = 0.05 * idleAmp;
+    const floatLeg = 0.035 * idleAmp;
+    const limbFloat = {
+      lForearm: [0, 0, Math.sin(t * 0.9 + 0.0) * floatArm],
+      rForearm: [0, 0, Math.sin(t * 0.85 + 1.4) * floatArm],
+      lHand: [Math.sin(t * 1.1 + 0.6) * floatArm * 0.6, 0, 0],
+      rHand: [Math.sin(t * 1.05 + 2.1) * floatArm * 0.6, 0, 0],
+      lThigh: [Math.sin(t * 0.6 + 0.3) * floatLeg, 0, 0],
+      rThigh: [Math.sin(t * 0.65 + 1.8) * floatLeg, 0, 0],
+      lCalf: [Math.sin(t * 0.7 + 1.0) * floatLeg * 0.7, 0, 0],
+      rCalf: [Math.sin(t * 0.75 + 2.4) * floatLeg * 0.7, 0, 0],
+      lFoot: [0, 0, Math.sin(t * 0.8 + 0.2) * floatLeg * 0.5],
+      rFoot: [0, 0, Math.sin(t * 0.78 + 1.6) * floatLeg * 0.5],
+    };
 
     // Spine/Head/Neck: la pose de reposo acá SÍ es identidad (0,0,0),
     // así que asignar Euler directo es seguro (no hay pose extraña
@@ -929,7 +965,14 @@ Object.entries(_pose).forEach(([key, [ex, ey, ez]]) => {
   const bone = bones[key];
   const r = rest[key];
   if (!bone || !r) return;
-  applyLocalDelta(bone, r, ex, ey, ez);
+  // Si el hueso tiene flote definido, se lo sumamos a la pose base
+  // del keyframe (por eso es aditivo y no reemplaza nada de lo que
+  // ya estaba armado en BONE_POSE_KEYFRAMES).
+  const f = limbFloat[key];
+  const fx = f ? ex + f[0] : ex;
+  const fy = f ? ey + f[1] : ey;
+  const fz = f ? ez + f[2] : ez;
+  applyLocalDelta(bone, r, fx, fy, fz);
 });
     void inTurn;
     void approachW;
@@ -1079,8 +1122,8 @@ function Experience({ device }) {
    El único texto "de entrada": aparece al principio, y cuando
    arranca el giro/caída (fase GIRAR) se agranda hacia la
    pantalla mientras se desvanece, hasta desaparecer del todo.
-   No vuelve a aparecer ningún otro texto hasta el CTA final
-   (ese lo maneja SceneText con el keyframe "cierre").
+   EDICIÓN: ya no vuelve a aparecer ningún otro texto ni CTA — se
+   quitaron ambos de la escena final a pedido.
    ============================================================ */
 function HeroText() {
   const ref = useRef(null);
@@ -1325,7 +1368,10 @@ function App() {
         <CursorTrail />
         <HeroText />
         <SceneText />
-        <CTAButton />
+        {/* EDICIÓN: se quitó <CTAButton /> a pedido — ya no se muestra
+            el botón final. El componente queda definido más arriba por
+            si en el futuro se lo quiere volver a usar, simplemente no
+            se renderiza acá. */}
         <ProgressIndicator />
         <header className="brand-mark">
           <span>{clientConfig.brand.name}</span>
