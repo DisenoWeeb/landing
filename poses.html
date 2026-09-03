@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -743,6 +742,12 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
    signos exactos de cada eje son la mejor estimación posible —
    contame puntualmente qué se ve mal (ej: "gira al revés",
    "las palmas miran para arriba") y lo corrijo con precisión.
+
+   4) CAÍDA = ALEJAMIENTO EN PROFUNDIDAD (no en Y)
+      En vez de desplomarse hacia abajo, el personaje se aleja de
+      la cámara sobre el eje Z durante la fase FALL, hasta perderse
+      en la niebla/fondo negro de la escena "fall". La altura (Y)
+      se mantiene estable, con solo el flote idle de siempre.
    ============================================================ */
 
 // Altura aproximada (en unidades del propio modelo, no escaladas)
@@ -766,7 +771,7 @@ function applyLocalDelta(bone, restQuat, ex, ey, ez) {
 }
 
 function AnimatedCharacter({ mouse }) {
-  const outerRef = useRef(null); // posición en el mundo (dolly/caída)
+  const outerRef = useRef(null); // posición en el mundo (dolly/alejamiento)
   const pivotRef = useRef(null); // rotación alrededor del centro de masa
   const { scene } = useGLTF(CHARACTER_MODEL_URL);
   const bonesRef = useRef({});
@@ -834,24 +839,26 @@ function AnimatedCharacter({ mouse }) {
     const dollyW = smoothstep(ST_FRONT_END, ST_APPROACH_END, progress); // acercamiento
     const turnW = smoothstep(ST_APPROACH_END, ST_TURN_END, progress); // giro corporal
     const poseW = smoothstep(ST_TURN_END, ST_FALLPOSE_END, progress); // adopta postura de caída
-    const fallW = smoothstep(ST_FALLPOSE_END, 1, progress); // caída libre
+    const fallW = smoothstep(ST_FALLPOSE_END, 1, progress); // caída/alejamiento
     const inTurn = progress >= ST_APPROACH_END && progress < ST_TURN_END;
 
-    // ---- POSICIÓN: acercamiento (dolly) → caída acelerada ----
+    // ---- POSICIÓN: acercamiento (dolly) → alejamiento en profundidad ----
+    // La "caída" ya no es un desplome en Y: el personaje se aleja en Z
+    // (se hunde en la profundidad de la escena) hasta perderse en la
+    // niebla/fondo negro de la escena "fall". Cuadrática (empieza lenta,
+    // acelera) y puramente atada al scroll, no al reloj, para que siga
+    // siendo "scrubbable".
     const zFront = -1.3;
     const zClose = -0.55;
-    const targetZ = zFront + (zClose - zFront) * dollyW;
+    const FALL_DEPTH = 9; // cuánto se aleja en Z durante la caída, hasta desaparecer
+    const dollyTargetZ = zFront + (zClose - zFront) * dollyW;
+    const targetZ = dollyTargetZ - fallW * fallW * FALL_DEPTH;
     outer.position.z = damp(outer.position.z, targetZ, 2.5, delta);
 
-    // Caída: cuadrática (empieza lenta, acelera) — puramente atada
-    // al scroll, no al reloj, para que siga siendo "scrubbable".
-    const fallDrop = fallW * fallW * 7.5;
-    outer.position.y = -fallDrop;
-
-    // Suspendido: nunca hay un "piso" — solo un flote idle sutil,
-    // que se atenúa a medida que la caída toma el control.
+    // Ya no hay caída en Y: se mantiene a la misma altura, solo con
+    // el flote idle sutil de siempre (se atenúa a medida que se aleja).
     const idleFloat = Math.sin(t * 0.8) * 0.05 * (1 - fallW * 0.6);
-    outer.position.y += idleFloat;
+    outer.position.y = idleFloat;
 
     // ---- ROTACIÓN: cadena con retraso, alrededor del centro ----
     // Objetivo de yaw (girar) durante TURN, y de pitch (clavado)
