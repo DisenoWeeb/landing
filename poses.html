@@ -1,3 +1,138 @@
+/* =====================================================================
+   Generado con Pose & Keyframe Code Generator.
+   Pegar dentro de <script type="text/babel"> en index.html, junto a las
+   otras constantes (por ejemplo, debajo de la definición de `scenes`).
+   Reutiliza clamp(), lerp() y applyLocalDelta() que YA existen en tu
+   index.html — no hace falta redefinirlos.
+   ===================================================================== */
+
+// Ángulos en RADIANES, como delta local sobre la pose de reposo (mismo
+// criterio que applyLocalDelta). Cada entrada usa el mismo "progress"
+// que ya usás en `scenes`.
+const BONE_POSE_KEYFRAMES = [
+  {
+    id: "front-idle",
+    progress: 0,
+    bones: {
+        head: [-0.1571, 0.0873, -0.1222],
+        lForearm: [0.2793, -0.4189, 0.2618],
+        rForearm: [0.0000, -0.5411, -0.2618],
+        lHand: [0.6109, 1.1868, 0.0175],
+        rHand: [-0.5585, -1.2043, -0.5585],
+        lThigh: [-0.2269, 0.2269, 0.0175],
+        rThigh: [0.2618, 0.0000, 0.0000],
+        lCalf: [0.1920, -0.1571, 0.0000],
+        rCalf: [0.2094, 0.2618, -0.1222],
+    },
+  },
+  {
+    id: "approach",
+    progress: 0.25,
+    bones: {
+        spine1: [0.0873, -0.2094, 0.1222],
+        spine2: [-0.1745, 0.2269, 0.1047],
+    },
+  },
+  {
+    id: "turn",
+    progress: 0.5,
+    bones: {
+        spine2: [0.1920, 0.0000, 0.0000],
+        neck: [-0.1047, 0.3665, 0.1047],
+        head: [0.1745, 0.2269, 0.0873],
+        lClavicle: [-0.4189, -0.3491, 0.1047],
+        rClavicle: [0.3840, 0.3142, -0.2443],
+        lHand: [0.1222, 0.7156, -0.4712],
+        rHand: [0.8203, -1.5533, -0.2793],
+        lThigh: [0.3316, -0.3316, 0.1745],
+        rThigh: [0.3316, -0.4538, -0.1047],
+    },
+  },
+  {
+    id: "fall-pose",
+    progress: 0.7,
+    bones: {
+        spine1: [-0.3491, -0.0349, -0.0349],
+        spine2: [-0.2618, 0.0000, 0.0000],
+        neck: [-0.3665, 0.0000, 0.0000],
+        head: [-0.3491, 0.0000, 0.0000],
+        lClavicle: [0.1047, -0.4189, -0.1396],
+        rClavicle: [0.4363, 0.0000, 0.0000],
+        lForearm: [0.5236, 0.7505, 0.0000],
+        rForearm: [0.2618, -0.6632, -0.4363],
+        lHand: [0.7330, 0.7679, 0.3316],
+        rHand: [0.6109, -0.8203, -0.6109],
+        lThigh: [1.1868, 0.2269, -0.0175],
+        rThigh: [1.1694, 0.2269, 0.0000],
+        lCalf: [-2.0595, 0.0000, -0.0524],
+        rCalf: [-2.0071, -0.2618, 0.0175],
+        lFoot: [-0.6109, 0.0000, 0.0000],
+        rFoot: [-0.5061, 0.0000, 0.0000],
+    },
+  },
+  {
+    id: "fall",
+    progress: 1,
+    bones: {
+        spine1: [-0.3491, -0.0349, -0.0349],
+        spine2: [-0.2618, 0.0000, 0.0000],
+        neck: [-0.3665, 0.0000, 0.0000],
+        head: [-0.3491, 0.0000, 0.0000],
+        lClavicle: [0.1047, -0.4189, -0.1396],
+        rClavicle: [0.4363, 0.0000, 0.0000],
+        lForearm: [0.9425, 1.5708, -0.3840],
+        rForearm: [0.0000, -1.0123, -0.2443],
+        lHand: [0.7330, 0.7679, 0.3316],
+        rHand: [0.2269, -0.8203, -0.6109],
+        lThigh: [1.5010, 0.2269, -0.0175],
+        rThigh: [1.2915, 0.2269, 0.0000],
+        lCalf: [-2.0595, 0.0000, -0.0524],
+        rCalf: [-2.0071, -0.2618, 0.0175],
+        lFoot: [-0.7679, 0.5934, -0.2793],
+        rFoot: [-0.5061, 0.0000, 0.0000],
+    },
+  },
+];
+
+// Interpola linealmente entre los dos keyframes que rodean `progress`
+// (idéntica lógica a blendScenes, pero por hueso).
+function sampleBonePose(progress) {
+  const list = BONE_POSE_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  const pick = (kf) => kf.bones;
+  if (p <= list[0].progress) return pick(list[0]);
+  const last = list[list.length - 1];
+  if (p >= last.progress) return pick(last);
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((p - a.progress) / span);
+  const out = {};
+  const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
+  keys.forEach((k) => {
+    const va = a.bones[k] || [0, 0, 0];
+    const vb = b.bones[k] || [0, 0, 0];
+    out[k] = [lerp(va[0], vb[0], t), lerp(va[1], vb[1], t), lerp(va[2], vb[2], t)];
+  });
+  return out;
+}
+
+/* ---------------------------------------------------------------------
+   Dentro de AnimatedCharacter -> useFrame, REEMPLAZAR el bloque que va
+   desde "if (bones.spine1) ..." hasta los "if (bones.rFoot) ..." por:
+   --------------------------------------------------------------------- */
+const _pose = sampleBonePose(progress);
+Object.entries(_pose).forEach(([key, [ex, ey, ez]]) => {
+  const bone = bones[key];
+  const r = rest[key];
+  if (!bone || !r) return;
+  applyLocalDelta(bone, r, ex, ey, ez);
+});
+// Si querés conservar el idle/lag procedural que ya tenías, sumalo como
+// término extra a ex/ey/ez antes de llamar a applyLocalDelta, en vez de
+// borrarlo — por ejemplo:
+//   applyLocalDelta(bones.lForearm, rest.lForearm, _pose.lForearm[0] + idle(1.6, 0.6, 0.3), _pose.lForearm[1], _pose.lForearm[2]);
 
 
       
@@ -394,48 +529,89 @@ const scenes = [
     },
   },
 ];
-const BONE_POSE_KEYFRAMES = [
+
+
+      const BONE_POSE_KEYFRAMES = [
   {
     id: "front-idle",
     progress: 0,
     bones: {
-        lHand: [0.1222, 1.3090, -0.3491],
-        rHand: [-0.3665, -1.2566, -0.3142],
+        head: [-0.1571, 0.0873, -0.1222],
+        lForearm: [0.2793, -0.4189, 0.2618],
+        rForearm: [0.0000, -0.5411, -0.2618],
+        lHand: [0.6109, 1.1868, 0.0175],
+        rHand: [-0.5585, -1.2043, -0.5585],
+        lThigh: [-0.2269, 0.2269, 0.0175],
+        rThigh: [0.2618, 0.0000, 0.0000],
+        lCalf: [0.1920, -0.1571, 0.0000],
+        rCalf: [0.2094, 0.2618, -0.1222],
     },
   },
   {
     id: "approach",
     progress: 0.25,
     bones: {
-        head: [-0.1571, -0.5760, 0.2793],
+        spine1: [0.0873, -0.2094, 0.1222],
+        spine2: [-0.1745, 0.2269, 0.1047],
     },
   },
   {
     id: "turn",
     progress: 0.5,
     bones: {
-      // (sin cambios respecto al rest pose)
+        spine2: [0.1920, 0.0000, 0.0000],
+        neck: [-0.1047, 0.3665, 0.1047],
+        head: [0.1745, 0.2269, 0.0873],
+        lClavicle: [-0.4189, -0.3491, 0.1047],
+        rClavicle: [0.3840, 0.3142, -0.2443],
+        lHand: [0.1222, 0.7156, -0.4712],
+        rHand: [0.8203, -1.5533, -0.2793],
+        lThigh: [0.3316, -0.3316, 0.1745],
+        rThigh: [0.3316, -0.4538, -0.1047],
     },
   },
   {
     id: "fall-pose",
     progress: 0.7,
     bones: {
-        spine1: [0.1571, 0.0000, 0.0000],
-        head: [0.7505, 0.0000, 0.0000],
-        lClavicle: [0.0000, -0.7505, 0.5236],
-        rClavicle: [0.0000, 0.9425, -0.5061],
-        lHand: [-0.1571, 0.8029, 0.1920],
-        rHand: [-0.3316, -1.0472, -0.0698],
-        lCalf: [-0.7156, 0.0000, 0.0000],
-        rCalf: [-0.8203, -0.2094, 0.0000],
+        spine1: [-0.3491, -0.0349, -0.0349],
+        spine2: [-0.2618, 0.0000, 0.0000],
+        neck: [-0.3665, 0.0000, 0.0000],
+        head: [-0.3491, 0.0000, 0.0000],
+        lClavicle: [0.1047, -0.4189, -0.1396],
+        rClavicle: [0.4363, 0.0000, 0.0000],
+        lForearm: [0.5236, 0.7505, 0.0000],
+        rForearm: [0.2618, -0.6632, -0.4363],
+        lHand: [0.7330, 0.7679, 0.3316],
+        rHand: [0.6109, -0.8203, -0.6109],
+        lThigh: [1.1868, 0.2269, -0.0175],
+        rThigh: [1.1694, 0.2269, 0.0000],
+        lCalf: [-2.0595, 0.0000, -0.0524],
+        rCalf: [-2.0071, -0.2618, 0.0175],
+        lFoot: [-0.6109, 0.0000, 0.0000],
+        rFoot: [-0.5061, 0.0000, 0.0000],
     },
   },
   {
     id: "fall",
     progress: 1,
     bones: {
-      // (sin cambios respecto al rest pose)
+        spine1: [-0.3491, -0.0349, -0.0349],
+        spine2: [-0.2618, 0.0000, 0.0000],
+        neck: [-0.3665, 0.0000, 0.0000],
+        head: [-0.3491, 0.0000, 0.0000],
+        lClavicle: [0.1047, -0.4189, -0.1396],
+        rClavicle: [0.4363, 0.0000, 0.0000],
+        lForearm: [0.9425, 1.5708, -0.3840],
+        rForearm: [0.0000, -1.0123, -0.2443],
+        lHand: [0.7330, 0.7679, 0.3316],
+        rHand: [0.2269, -0.8203, -0.6109],
+        lThigh: [1.5010, 0.2269, -0.0175],
+        rThigh: [1.2915, 0.2269, 0.0000],
+        lCalf: [-2.0595, 0.0000, -0.0524],
+        rCalf: [-2.0071, -0.2618, 0.0175],
+        lFoot: [-0.7679, 0.5934, -0.2793],
+        rFoot: [-0.5061, 0.0000, 0.0000],
     },
   },
 ];
@@ -463,6 +639,7 @@ function sampleBonePose(progress) {
   });
   return out;
 }
+
 
 const SCROLL_LENGTH_VH = 950;
 
