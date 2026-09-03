@@ -1,0 +1,96 @@
+/* =====================================================================
+   Generado con Pose & Keyframe Code Generator.
+   Pegar dentro de <script type="text/babel"> en index.html, junto a las
+   otras constantes (por ejemplo, debajo de la definición de `scenes`).
+   Reutiliza clamp(), lerp() y applyLocalDelta() que YA existen en tu
+   index.html — no hace falta redefinirlos.
+   ===================================================================== */
+
+// Ángulos en RADIANES, como delta local sobre la pose de reposo (mismo
+// criterio que applyLocalDelta). Cada entrada usa el mismo "progress"
+// que ya usás en `scenes`.
+const BONE_POSE_KEYFRAMES = [
+  {
+    id: "front-idle",
+    progress: 0,
+    bones: {
+        lHand: [0.1222, 1.3090, -0.3491],
+        rHand: [-0.3665, -1.2566, -0.3142],
+    },
+  },
+  {
+    id: "approach",
+    progress: 0.25,
+    bones: {
+        head: [-0.1571, -0.5760, 0.2793],
+    },
+  },
+  {
+    id: "turn",
+    progress: 0.5,
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "fall-pose",
+    progress: 0.7,
+    bones: {
+        spine1: [0.1571, 0.0000, 0.0000],
+        head: [0.7505, 0.0000, 0.0000],
+        lClavicle: [0.0000, -0.7505, 0.5236],
+        rClavicle: [0.0000, 0.9425, -0.5061],
+        lHand: [-0.1571, 0.8029, 0.1920],
+        rHand: [-0.3316, -1.0472, -0.0698],
+        lCalf: [-0.7156, 0.0000, 0.0000],
+        rCalf: [-0.8203, -0.2094, 0.0000],
+    },
+  },
+  {
+    id: "fall",
+    progress: 1,
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+];
+
+// Interpola linealmente entre los dos keyframes que rodean `progress`
+// (idéntica lógica a blendScenes, pero por hueso).
+function sampleBonePose(progress) {
+  const list = BONE_POSE_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  const pick = (kf) => kf.bones;
+  if (p <= list[0].progress) return pick(list[0]);
+  const last = list[list.length - 1];
+  if (p >= last.progress) return pick(last);
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((p - a.progress) / span);
+  const out = {};
+  const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
+  keys.forEach((k) => {
+    const va = a.bones[k] || [0, 0, 0];
+    const vb = b.bones[k] || [0, 0, 0];
+    out[k] = [lerp(va[0], vb[0], t), lerp(va[1], vb[1], t), lerp(va[2], vb[2], t)];
+  });
+  return out;
+}
+
+/* ---------------------------------------------------------------------
+   Dentro de AnimatedCharacter -> useFrame, REEMPLAZAR el bloque que va
+   desde "if (bones.spine1) ..." hasta los "if (bones.rFoot) ..." por:
+   --------------------------------------------------------------------- */
+const _pose = sampleBonePose(progress);
+Object.entries(_pose).forEach(([key, [ex, ey, ez]]) => {
+  const bone = bones[key];
+  const r = rest[key];
+  if (!bone || !r) return;
+  applyLocalDelta(bone, r, ex, ey, ez);
+});
+// Si querés conservar el idle/lag procedural que ya tenías, sumalo como
+// término extra a ex/ey/ez antes de llamar a applyLocalDelta, en vez de
+// borrarlo — por ejemplo:
+//   applyLocalDelta(bones.lForearm, rest.lForearm, _pose.lForearm[0] + idle(1.6, 0.6, 0.3), _pose.lForearm[1], _pose.lForearm[2]);
