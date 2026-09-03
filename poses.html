@@ -371,9 +371,17 @@ const scenes = [
     background: "#0d0d18",
   },
   {
+    // EDICIÓN: lookAt.y bajado de -0.1 a 0.05 en esta escena y de -0.6
+    // a 0 en "fall" (más abajo). El personaje (grupo `outer` en
+    // AnimatedCharacter) se queda siempre a una altura ~0.05, casi sin
+    // moverse en Y. Si la cámara apunta (lookAt) muy por debajo de esa
+    // altura, el personaje queda "arriba" en el encuadre — y ese
+    // corrimiento se nota cada vez más a medida que se aleja en Z
+    // durante la caída. Al acercar el lookAt a la altura real del
+    // personaje, se mantiene centrado mientras se aleja.
     id: "fall-pose",
     progress: 0.7,
-    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, -0.1, 0], fov: 30 },
+    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
     particles: { spread: 1.3, opacity: 0.4 },
     light: { color: "#ffffff", intensity: 0.5, rimColor: "#7dfff0", rimIntensity: 1.7 },
     fog: { color: "#0a0a14", far: 14 },
@@ -382,7 +390,7 @@ const scenes = [
   {
     id: "fall",
     progress: 1,
-    camera: { position: [0, 0.4, 4.2], lookAt: [0, -0.6, 0], fov: 32 },
+    camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
     particles: { spread: 1.5, opacity: 0.45 },
     light: { color: "#ffffff", intensity: 0.45, rimColor: "#c8ff00", rimIntensity: 1.6 },
     fog: { color: "#000000", far: 11 },
