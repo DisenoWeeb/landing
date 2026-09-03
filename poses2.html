@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
-  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Inter:wght@300;400;500&display=swap"
+  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap"
   rel="stylesheet"
 />
 
@@ -23,7 +23,7 @@
     --color-bg: #05070a;
     --color-text: #f4f1ea;
     --color-text-muted: rgba(244, 241, 234, 0.6);
-    --font-display: "Fraunces", serif;
+    --font-display: "Space Grotesk", sans-serif;
     --font-body: "Inter", sans-serif;
   }
 
@@ -36,6 +36,23 @@
     color: var(--color-text);
     font-family: var(--font-body);
     overflow-x: hidden;
+  }
+
+  /* -------- Oculta la barra de scroll por defecto en PC --------
+     El scroll sigue funcionando igual (rueda del mouse, flechas
+     arriba/abajo, PageUp/PageDown, barra espaciadora, touch en
+     mobile) porque scroll-behavior nativo del documento no se
+     toca en ningún momento: solo se oculta el thumb visual. En
+     mobile no se aplica el override para no romper el look nativo
+     de los navegadores que ya lo manejan bien. */
+  @media (min-width: 769px) and (pointer: fine) {
+    html {
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE/Edge viejo */
+    }
+    html::-webkit-scrollbar {
+      display: none; /* Chrome/Safari/Edge Chromium */
+    }
   }
 
   #root { width: 100%; }
@@ -67,9 +84,9 @@
     z-index: 5;
     pointer-events: none;
     font-family: var(--font-display);
-    font-weight: 500;
+    font-weight: 600;
     font-size: clamp(1.8rem, 4.5vw, 3.2rem);
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     color: var(--color-text);
     white-space: nowrap;
     will-change: opacity, transform;
@@ -107,7 +124,7 @@
   }
   .scene-text__title {
     font-family: var(--font-display);
-    font-weight: 500;
+    font-weight: 600;
     font-size: clamp(2rem, 5vw, 4rem);
     line-height: 1.05;
     margin: 0 0 0.75rem 0;
@@ -287,7 +304,7 @@ const clientConfig = {
     textMuted: "rgba(245, 246, 242, 0.6)",
   },
   fonts: {
-    display: "'Fraunces', serif",
+    display: "'Space Grotesk', sans-serif",
     body: "'Inter', sans-serif",
   },
   particles: {
@@ -307,26 +324,46 @@ const clientConfig = {
    CHARACTER_MODEL_URL ahí — GitHub Pages lo sirve como estático.
 
    Máquina de estados narrativa (ver AnimatedCharacter):
-     FRONT_IDLE → APPROACH → TURN → FALL_POSE → FALL
-   Los breakpoints son sobre smoothProgress (0..1):
-     0.00 → de frente, flotando
-     0.25 → termina el acercamiento (dolly) — ACÁ YA ARRANCA EL GIRO,
-            se solapa con el acercamiento en vez de esperar a que
-            termine (pedido: "empiece a girar ni bien se acerca")
-     0.50 → arranca el zoom del texto inicial — ACÁ YA ARRANCA
-            TAMBIÉN LA CAÍDA (alejamiento en profundidad), para dar
-            sensación de profundidad mientras gira, en vez de
-            esperar a que termine toda la pose de caída
-     0.70 → termina el giro (se estabiliza)
-     0.80 → adoptó la postura de caída (brazos/piernas)
-     1.00 → caída completa
+     FRONT_IDLE → APPROACH → TURN → PAUSA_1 → FALL_POSE → PAUSA_2 → FALL
+
+   EDICIÓN (ajuste de timeline): se agregaron dos pausas reales
+   —tramos de scroll donde nada nuevo avanza— para que la
+   secuencia no se sienta como un único movimiento continuo:
+   una breve pausa apenas termina de girar, y otra breve pausa
+   antes de que arranque el alejamiento final. Los breakpoints
+   son sobre smoothProgress (0..1):
+     0.00 – 0.18 → FRONT_IDLE: de frente, flotando, solo se ve
+                   de la cintura para arriba (la mitad inferior
+                   queda fuera de cuadro)
+     0.18 – 0.38 → APPROACH: se acerca (dolly) y sube un poco,
+                   quedando visible aprox. hasta las rodillas
+     0.38 – 0.56 → TURN: gira; a partir de acá empieza a verse
+                   el cuerpo entero, terminando centrado en
+                   pantalla justo of finalizar el giro. La
+                   inclinación hacia adelante (lean) también
+                   arranca en este tramo.
+     0.56 – 0.64 → PAUSA 1: pequeño respiro tras el giro, sin
+                   movimiento nuevo (da tiempo a que se note que
+                   giró antes de seguir).
+     0.64 – 0.80 → FALL_POSE: termina de adoptar la postura de
+                   caída (brazos/piernas), la inclinación llega
+                   a su máximo.
+     0.80 – 0.88 → PAUSA 2: otro respiro, ya en pose de caída,
+                   antes de empezar a alejarse.
+     0.88 – 1.00 → FALL: recién acá se aleja en profundidad
+                   hasta perderse en la niebla. El texto principal
+                   todavía se está terminando de desvanecer en
+                   este tramo (no desapareció del todo cuando
+                   arranca la caída).
    ============================================================ */
 const CHARACTER_MODEL_URL = "./assets/models/weeb.glb";
 
-const ST_FRONT_END = 0.25;
-const ST_APPROACH_END = 0.5;
-const ST_TURN_END = 0.7;
-const ST_FALLPOSE_END = 0.8;
+const ST_FRONT_END = 0.18;
+const ST_APPROACH_END = 0.38;
+const ST_TURN_END = 0.56;
+const ST_PAUSE1_END = 0.64;
+const ST_FALLPOSE_END = 0.80;
+const ST_PAUSE2_END = 0.88;
 
 // Curva suave tipo "ease" para que toda transición sea fluida,
 // nunca lineal/brusca.
@@ -336,149 +373,65 @@ function smoothstep(edge0, edge1, x) {
 }
 
 /* ============================================================
-   EDICIÓN — PAUSAS DE SCROLL: scroll/scrollPauses.ts
-   Hasta ahora "cuánto scrolleaste" (progreso crudo, 0..1) y
-   "en qué parte de la historia estás" eran lo mismo: la
-   secuencia entera (aparece → acerca → gira → cae) pasaba sin
-   respiro. Acá se separan ambos conceptos:
-
-   - `progress` / `smoothProgress` (arriba) siguen siendo el
-     scroll CRUDO: cuánto bajaste la página, 0 a 1.
-   - `storyProgress` (nuevo, ver useScrollStore/ScrollSmoother
-     más abajo) es el progreso de la HISTORIA: en qué parte de
-     "aparece/acerca/gira/cae" estamos. Es el que usan la cámara,
-     el personaje y los textos para animarse.
-
-   `applyScrollPauses` es la función que traduce uno en el otro.
-   Definís tramos de PAUSA en términos de scroll crudo
-   (`rawStart`/`rawEnd`): mientras el usuario scrollea dentro de
-   esos tramos, `storyProgress` se queda CLAVADO en el valor
-   `story` indicado (nada se mueve), aunque el scroll crudo siga
-   avanzando. Fuera de esos tramos, `storyProgress` avanza
-   normalmente interpolando hacia el próximo hito.
-
-   Para mover o alargar/acortar una pausa, tocá `rawStart` y
-   `rawEnd` de cada entrada. Para que la pausa caiga justo
-   "después de girar" o "después de tomar la pose de caída",
-   `story` apunta a ST_TURN_END / ST_FALLPOSE_END (así si el día
-   de mañana cambiás esos hitos, las pausas los siguen).
-   ============================================================ */
-const SCROLL_PAUSES = [
-  // Pausa 1: ya terminó de girar (yaw completo) — un respiro antes
-  // de que arranque a tomar la postura de caída.
-  { rawStart: 0.40, rawEnd: 0.50, story: ST_TURN_END },
-  // Pausa 2: ya está en postura de caída — un respiro antes de que
-  // se aleje/hunda de verdad en la profundidad y desaparezca.
-  { rawStart: 0.70, rawEnd: 0.80, story: ST_FALLPOSE_END },
-];
-
-function applyScrollPauses(raw) {
-  const p = clamp(raw, 0, 1);
-  let rawCursor = 0;
-  let storyCursor = 0;
-  for (const pause of SCROLL_PAUSES) {
-    if (p < pause.rawStart) {
-      // Tramo activo ANTES de esta pausa: interpola el progreso de
-      // historia entre donde terminó el tramo anterior y el punto
-      // de historia en el que esta pausa se mantiene fija.
-      const t = clamp((p - rawCursor) / (pause.rawStart - rawCursor || 1));
-      return lerp(storyCursor, pause.story, t);
-    }
-    if (p < pause.rawEnd) {
-      // Dentro de la pausa: la historia no avanza, aunque sigas scrolleando.
-      return pause.story;
-    }
-    rawCursor = pause.rawEnd;
-    storyCursor = pause.story;
-  }
-  // Último tramo activo, después de la última pausa y hasta el final.
-  const t = clamp((p - rawCursor) / (1 - rawCursor || 1));
-  return lerp(storyCursor, 1, t);
-}
-
-/* ============================================================
-   EDICIÓN — ALTURA DEL PERSONAJE: three/charHeight.ts
-   El personaje ya no se queda quieto en Y: arranca escondido
-   (solo torso hacia arriba visible, la cintura para abajo queda
-   fuera de cuadro), sube durante el acercamiento (se lo empieza
-   a ver hasta más o menos las rodillas) y recién termina de
-   subir a su altura normal —de cuerpo entero, centrado— cuando
-   termina de girar. Mismo patrón de "lista de keyframes +
-   interpolación suave" que ya se usa en BONE_POSE_KEYFRAMES más
-   abajo, pero para un solo número (Y) en vez de huesos.
-
-   Los valores de "y" son una primera aproximación — si en tu
-   pantalla no corta exactamente a la altura que querés, ajustá
-   estos tres números (más negativo = más escondido/abajo).
-   ============================================================ */
-const CHAR_Y_KEYFRAMES = [
-  { progress: 0, y: -1.15 }, // aparece: solo torso para arriba, cintura para abajo fuera de cuadro
-  { progress: ST_APPROACH_END, y: -0.55 }, // termina de acercarse: se ve aprox. hasta las rodillas
-  { progress: ST_TURN_END, y: 0.05 }, // termina de girar: cuerpo entero, altura normal/centrada
-];
-
-function sampleCharY(progress) {
-  const list = CHAR_Y_KEYFRAMES;
-  const p = clamp(progress, 0, 1);
-  if (p <= list[0].progress) return list[0].y;
-  const last = list[list.length - 1];
-  if (p >= last.progress) return last.y;
-  let i = 0;
-  while (i < list.length - 1 && list[i + 1].progress < p) i++;
-  const a = list[i], b = list[i + 1];
-  const t = smoothstep(a.progress, b.progress, p);
-  return lerp(a.y, b.y, t);
-}
-
-/* ============================================================
    CONFIG: scenes.config
    Solo cámara, luz, niebla y partículas — sin efectos decorativos
    girando alrededor del personaje. La cámara acompaña cada etapa
    (dolly-in en el acercamiento, se acomoda para el giro y la
    caída) pero el protagonista del movimiento es el personaje.
+
+   EDICIÓN — luz: se subió la intensidad base de la luz clave y
+   se reacomodaron los tonos para que el personaje se lea mejor
+   en cada escena (antes quedaba bastante oscuro). El punto de
+   luz "rim" se mantiene para el contorno, pero ahora hay más
+   luz de relleno general (ver Lighting()).
    ============================================================ */
 const scenes = [
   {
     id: "front-idle",
     progress: 0,
-    camera: { position: [0, 0.05, 4.6], lookAt: [0, 0.1, 0], fov: 28 },
+    camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
     particles: { spread: 1, opacity: 0.28 },
-    light: { color: "#ffffff", intensity: 0.5, rimColor: "#c8ff00", rimIntensity: 1.2 },
+    light: { color: "#ffffff", intensity: 0.75, rimColor: "#c8ff00", rimIntensity: 1.2 },
     fog: { color: "#0f0f1a", far: 20 },
     background: "#0f0f1a",
   },
   {
     id: "approach",
-    progress: 0.25,
-    camera: { position: [0, 0.05, 3.1], lookAt: [0, 0.1, 0], fov: 26 },
-    particles: { spread: 1.1, opacity: 0.32 },
-    light: { color: "#ffffff", intensity: 0.55, rimColor: "#c8ff00", rimIntensity: 1.3 },
-    fog: { color: "#0f0f1a", far: 18 },
+    progress: 0.18,
+    camera: { position: [0, -0.05, 3.4], lookAt: [0, -0.1, 0], fov: 27 },
+    particles: { spread: 1.05, opacity: 0.3 },
+    light: { color: "#ffffff", intensity: 0.8, rimColor: "#c8ff00", rimIntensity: 1.3 },
+    fog: { color: "#0f0f1a", far: 19 },
     background: "#0f0f1a",
   },
   {
     id: "turn",
-    progress: 0.5,
+    progress: 0.47,
     camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
     particles: { spread: 1.2, opacity: 0.35 },
-    light: { color: "#ffffff", intensity: 0.5, rimColor: "#7dfff0", rimIntensity: 1.6 },
+    light: { color: "#ffffff", intensity: 0.75, rimColor: "#7dfff0", rimIntensity: 1.6 },
     fog: { color: "#0d0d18", far: 16 },
     background: "#0d0d18",
   },
   {
-    // EDICIÓN: lookAt.y bajado de -0.1 a 0.05 en esta escena y de -0.6
-    // a 0 en "fall" (más abajo). El personaje (grupo `outer` en
-    // AnimatedCharacter) se queda siempre a una altura ~0.05, casi sin
-    // moverse en Y. Si la cámara apunta (lookAt) muy por debajo de esa
-    // altura, el personaje queda "arriba" en el encuadre — y ese
-    // corrimiento se nota cada vez más a medida que se aleja en Z
-    // durante la caída. Al acercar el lookAt a la altura real del
-    // personaje, se mantiene centrado mientras se aleja.
+    id: "pause",
+    progress: 0.6,
+    camera: { position: [0.3, 0.15, 3.5], lookAt: [0, 0.08, 0], fov: 28 },
+    particles: { spread: 1.25, opacity: 0.37 },
+    light: { color: "#ffffff", intensity: 0.75, rimColor: "#7dfff0", rimIntensity: 1.65 },
+    fog: { color: "#0c0c16", far: 15 },
+    background: "#0c0c16",
+  },
+  {
+    // EDICIÓN: lookAt.y ajustado para que el personaje (grupo `outer`
+    // en AnimatedCharacter) se mantenga centrado en cuadro mientras
+    // se aleja en Z durante la caída, en vez de irse "para arriba"
+    // en el encuadre a medida que se aleja.
     id: "fall-pose",
-    progress: 0.7,
+    progress: 0.8,
     camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
     particles: { spread: 1.3, opacity: 0.4 },
-    light: { color: "#ffffff", intensity: 0.5, rimColor: "#7dfff0", rimIntensity: 1.7 },
+    light: { color: "#ffffff", intensity: 0.7, rimColor: "#7dfff0", rimIntensity: 1.7 },
     fog: { color: "#0a0a14", far: 14 },
     background: "#0a0a14",
   },
@@ -487,7 +440,7 @@ const scenes = [
     progress: 1,
     camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
     particles: { spread: 1.5, opacity: 0.45 },
-    light: { color: "#ffffff", intensity: 0.45, rimColor: "#c8ff00", rimIntensity: 1.6 },
+    light: { color: "#ffffff", intensity: 0.6, rimColor: "#c8ff00", rimIntensity: 1.6 },
     fog: { color: "#000000", far: 11 },
     background: "#000000",
     // EDICIÓN: se quitó "showCTA" y "text" a pedido — la escena final
@@ -515,7 +468,20 @@ const scenes = [
   },
   {
     id: "approach",
-    progress: 0.25,
+    progress: 0.18,
+    bones: {
+        lForearm: [0.4363, 0.0524, 1.4312],
+        rForearm: [0.2967, -0.3491, 1.1519],
+        lHand: [0.3665, 0.3840, 0.0000],
+        rHand: [0.2094, -0.7679, -0.3665],
+        rThigh: [-0.1571, -0.0524, 0.0175],
+        lCalf: [-0.1571, 0.3316, 0.0000],
+        rCalf: [-0.6458, 0.0000, 0.0000],
+    },
+  },
+  {
+    id: "turn",
+    progress: 0.38,
     bones: {
         spine2: [0.0000, -0.3665, 0.0000],
         head: [0.0000, -0.3491, 0.0000],
@@ -529,8 +495,8 @@ const scenes = [
     },
   },
   {
-    id: "turn",
-    progress: 0.5,
+    id: "turn-end",
+    progress: 0.56,
     bones: {
         spine2: [0.0000, -0.3665, 0.0000],
         head: [0.5236, 0.1571, 0.0000],
@@ -547,7 +513,7 @@ const scenes = [
   },
   {
     id: "fall-pose",
-    progress: 0.7,
+    progress: 0.8,
     bones: {
         spine1: [0.1571, 0.3665, 0.0524],
         spine2: [0.0000, -0.3665, 0.0000],
@@ -819,7 +785,7 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
       altura de la pelvis, no con el piso.
 
    2) MÁQUINA DE ESTADOS (ver ST_* arriba)
-      FRONT_IDLE → APPROACH → TURN → FALL_POSE → FALL
+      FRONT_IDLE → APPROACH → TURN → PAUSA_1 → FALL_POSE → PAUSA_2 → FALL
       Cada estado tiene su propio target de posición/rotación;
       se interpola con smoothstep entre estados, nunca de golpe.
 
@@ -849,6 +815,20 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
       la cámara sobre el eje Z durante la fase FALL, hasta perderse
       en la niebla/fondo negro de la escena "fall". La altura (Y)
       se mantiene estable, con solo el flote idle de siempre.
+
+   5) EDICIÓN — ENCUADRE VERTICAL POR ETAPA
+      Además del flote idle, ahora hay un offset vertical propio
+      de cada etapa (yFrameTarget más abajo) que controla cuánto
+      cuerpo se ve:
+        FRONT_IDLE → el personaje está bien abajo en el grupo, se
+        ve solo de la cintura para arriba (el resto queda fuera
+        de cuadro por abajo).
+        APPROACH → sube un poco, se empieza a ver hasta las
+        rodillas aprox.
+        TURN → termina de subir hasta quedar centrado con el
+        cuerpo entero visible, y así se mantiene durante las
+        pausas, FALL_POSE y FALL (la caída ya no cambia la
+        altura, solo la profundidad).
    ============================================================ */
 
 // Altura aproximada (en unidades del propio modelo, no escaladas)
@@ -856,6 +836,14 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 // personaje "flota" muy alto o muy bajo en pantalla, ajustar acá.
 const CHAR_CENTER_Y = 0.52;
 const CHAR_SCALE = 1.7;
+
+// EDICIÓN — offsets verticales por etapa (ver punto 5 arriba).
+// Y_LOW: solo torso visible (cintura para abajo, fuera de cuadro).
+// Y_KNEE: sube, se ve hasta las rodillas aprox.
+// Y_CENTER: cuerpo entero, centrado — se mantiene así de ahí en más.
+const Y_LOW = -0.95;
+const Y_KNEE = -0.4;
+const Y_CENTER = 0;
 
 // Aplica una rotación EXTRA (en radianes, ejes locales del hueso)
 // por ENCIMA de su pose de reposo, componiendo por cuaterniones.
@@ -938,17 +926,20 @@ function AnimatedCharacter({ mouse }) {
     // ---- Pesos de cada estado (0..1), transición suave ----
     const approachW = smoothstep(0, ST_FRONT_END, progress); // 0→1 en FRONT_IDLE
     const dollyW = smoothstep(ST_FRONT_END, ST_APPROACH_END, progress); // acercamiento
-    // EDICIÓN: turnW ahora empieza en ST_FRONT_END (no en ST_APPROACH_END),
-    // así el giro corporal se solapa con el acercamiento y arranca "ni bien
-    // se acerca" en vez de esperar a que el dolly termine.
-    const turnW = smoothstep(ST_FRONT_END, ST_TURN_END, progress); // giro corporal
-    const poseW = smoothstep(ST_TURN_END, ST_FALLPOSE_END, progress); // adopta postura de caída
-    // EDICIÓN: fallW ahora empieza en ST_APPROACH_END (mismo punto donde
-    // HeroText arranca su zoom, ver HeroText más abajo) en lugar de
-    // ST_FALLPOSE_END. Así el alejamiento en profundidad (la "caída")
-    // arranca junto con el giro/zoom, en vez de esperar a que termine
-    // toda la pose — es lo que da la sensación de profundidad pedida.
-    const fallW = smoothstep(ST_APPROACH_END, 1, progress); // caída/alejamiento
+    // El giro corporal ocupa todo el tramo TURN; arranca ni bien
+    // termina el acercamiento y llega a 1 al finalizar el giro,
+    // quedando en 1 (sin cambios) durante las pausas y el resto.
+    const turnW = smoothstep(ST_APPROACH_END, ST_TURN_END, progress); // giro corporal
+    // EDICIÓN: la inclinación hacia adelante (lean) ahora arranca
+    // en el mismo tramo del giro (ST_APPROACH_END) y termina de
+    // instalarse en FALL_POSE (ST_FALLPOSE_END) — es decir, para
+    // cuando arranca PAUSA_2/FALL la inclinación ya está completa
+    // hace rato, en vez de recién empezar cuando ya se está cayendo.
+    const poseW = smoothstep(ST_APPROACH_END, ST_FALLPOSE_END, progress); // postura de caída
+    // EDICIÓN: la caída (alejamiento en Z) ahora arranca recién
+    // después de PAUSA_2 (ST_PAUSE2_END), no apenas termina el
+    // acercamiento — así hay un respiro real antes de irse.
+    const fallW = smoothstep(ST_PAUSE2_END, 1, progress); // caída/alejamiento
     const inTurn = progress >= ST_APPROACH_END && progress < ST_TURN_END;
 
     // ---- POSICIÓN: acercamiento (dolly) → alejamiento en profundidad ----
@@ -961,21 +952,29 @@ function AnimatedCharacter({ mouse }) {
     const zClose = -0.55;
     const FALL_DEPTH = 9; // cuánto se aleja en Z durante la caída, hasta desaparecer
     const dollyTargetZ = zFront + (zClose - zFront) * dollyW;
-    // EDICIÓN: antes se usaba fallW*fallW (curva "ease-in": arranca lenta
-    // y ACELERA todo el trayecto, quedando más rápida justo al final).
-    // Ahora se usa una curva "ease-out" (1 - (1-fallW)^2): arranca rápida
-    // y se va FRENANDO a medida que se acerca al final — así la última
-    // parte de la caída queda un poco más lenta, como se pidió.
+    // Curva "ease-out" (1 - (1-fallW)^2): arranca rápida y se va
+    // frenando hacia el final de la caída.
     const fallEase = 1 - (1 - fallW) * (1 - fallW);
     const targetZ = dollyTargetZ - fallEase * FALL_DEPTH;
-    // Lambda un poco más baja (2.5 → 2.0) = seguimiento más "pesado"/suave,
+    // Lambda un poco más baja = seguimiento más "pesado"/suave,
     // acompaña la sensación de frenado hacia el final de la caída.
     outer.position.z = damp(outer.position.z, targetZ, 2.0, delta);
 
-    // Ya no hay caída en Y: se mantiene a la misma altura, solo con
-    // el flote idle sutil de siempre (se atenúa a medida que se aleja).
-    const idleFloat = Math.sin(t * 0.8) * 0.05 * (1 - fallW * 0.6);
-    outer.position.y = idleFloat;
+    // ---- ENCUADRE VERTICAL: cintura → rodillas → cuerpo entero ----
+    // Se arma con dos tramos smoothstep encadenados (ver punto 5 del
+    // comentario de arriba): primero sube de Y_LOW a Y_KNEE durante
+    // el acercamiento, después de Y_KNEE a Y_CENTER durante el giro,
+    // y se queda fijo en Y_CENTER de ahí en adelante.
+    const riseApproach = smoothstep(ST_FRONT_END, ST_APPROACH_END, progress);
+    const riseTurn = smoothstep(ST_APPROACH_END, ST_TURN_END, progress);
+    const yFrameTarget =
+      Y_LOW + (Y_KNEE - Y_LOW) * riseApproach + (Y_CENTER - Y_KNEE) * riseTurn;
+
+    // EDICIÓN: el flote idle (sube/baja) se atenúa bastante — antes
+    // se notaba mucho el "sube y baja" del cuerpo entero; ahora es
+    // un detalle sutil, no el movimiento principal.
+    const idleFloat = Math.sin(t * 0.8) * 0.022 * (1 - fallW * 0.6);
+    outer.position.y = damp(outer.position.y, yFrameTarget + idleFloat, 5, delta);
 
     // ---- ROTACIÓN: cadena con retraso, alrededor del centro ----
     // Objetivo de yaw (girar) durante TURN, y de pitch (clavado)
@@ -983,19 +982,9 @@ function AnimatedCharacter({ mouse }) {
     const YAW_TARGET = -Math.PI; // da la vuelta completa
     const PITCH_TARGET = -1.15; // inclinación de clavado (~66°), se mantiene fija
 
-    // EDICIÓN — BUG FIX: el "corkscrew" anterior era `fallW * t * 0.12`,
-    // donde `t` es el reloj interno que crece para siempre mientras la
-    // página esté abierta (no se resetea ni depende del scroll). Eso
-    // hacía que, con el tiempo, ese valor terminara CANCELANDO la
-    // inclinación hacia adelante (PITCH_TARGET es negativo, corkscrew
-    // positivo y creciente → el personaje "se paraba") y, si seguía
-    // creciendo, terminaba dando vueltas completas (pasaba de cancelar
-    // la inclinación a invertirla una y otra vez). Por eso pasaba sobre
-    // todo si scrolleabas fuerte y quedabas un rato en la fase de caída.
-    //
-    // Ahora es una oscilación acotada con Math.sin(): nunca se acumula,
-    // así que da un balanceo leve y constante ("como flotando") sin
-    // nunca cancelar ni invertir la inclinación principal.
+    // Oscilación acotada con Math.sin(): nunca se acumula, da un
+    // balanceo leve y constante ("como flotando") sin cancelar ni
+    // invertir la inclinación principal.
     const corkscrewWobble = fallW * Math.sin(t * 0.6) * 0.12;
 
     const pelvisYawTarget = YAW_TARGET * turnW;
@@ -1037,16 +1026,18 @@ function AnimatedCharacter({ mouse }) {
     const calfLag = chain.calf - chain.thigh;
     const footLag = chain.foot - chain.calf;
 
-    // EDICIÓN — flote sin gravedad: micro-oscilaciones continuas en
-    // brazos y piernas, activas TODO el tiempo (no dependen de en qué
-    // fase del scroll estamos), para que el personaje nunca se vea
-    // rígido/estático — como si no hubiera gravedad tirando de sus
-    // extremidades. Cada hueso tiene su propia frecuencia y fase para
-    // que no se muevan todos sincronizados (eso se vería mecánico).
-    // Amplitudes chicas (radianes) para que sea "leve", no una danza.
+    // EDICIÓN — flote sin gravedad, un poco más notorio: micro-
+    // oscilaciones continuas en brazos y piernas, activas TODO el
+    // tiempo (no dependen de en qué fase del scroll estamos), para
+    // que el personaje nunca se vea rígido/estático. Se subieron un
+    // poco las amplitudes respecto de la versión anterior (pedido:
+    // "que se note un poco más sin ser exagerado"), pero siguen
+    // siendo chicas — un detalle, no una danza. Cada hueso tiene su
+    // propia frecuencia y fase para que no se muevan todos
+    // sincronizados (eso se vería mecánico).
     const idleAmp = 1 - turnW * 0.35; // se atenúa un poco durante el giro, nunca a cero
-    const floatArm = 0.05 * idleAmp;
-    const floatLeg = 0.035 * idleAmp;
+    const floatArm = 0.085 * idleAmp;
+    const floatLeg = 0.06 * idleAmp;
     const limbFloat = {
       lForearm: [0, 0, Math.sin(t * 0.9 + 0.0) * floatArm],
       rForearm: [0, 0, Math.sin(t * 0.85 + 1.4) * floatArm],
@@ -1082,7 +1073,7 @@ Object.entries(_pose).forEach(([key, [ex, ey, ez]]) => {
   });
 
   return (
-    <group ref={outerRef} position={[0, 0.05, -1.3]}>
+    <group ref={outerRef} position={[0, Y_LOW, -1.3]}>
       <group ref={pivotRef}>
         <primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} />
       </group>
@@ -1142,6 +1133,11 @@ function Particles({ device }) {
 
 /* ============================================================
    three/Lighting.jsx
+   EDICIÓN: se sumó una hemisphereLight como relleno general
+   (simula luz de "cielo/piso") y se subió un poco la intensidad
+   base de la luz clave y de la luz de relleno trasera, para que
+   el personaje se lea mejor y no quede tan oscuro en ninguna
+   escena. La luz "rim" sigue marcando el contorno como antes.
    ============================================================ */
 function Lighting() {
   const keyRef = useRef(null);
@@ -1162,9 +1158,10 @@ function Lighting() {
 
   return (
     <>
-      <ambientLight intensity={0.25} />
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} />
+      <ambientLight intensity={0.32} />
       <directionalLight ref={keyRef} position={[3, 4, 5]} intensity={0.9} />
-      <directionalLight position={[-3, 2, -2]} intensity={0.35} />
+      <directionalLight position={[-3, 2, -2]} intensity={0.5} />
       <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
     </>
   );
@@ -1223,20 +1220,28 @@ function Experience({ device }) {
 /* ============================================================
    ui/HeroText.jsx
    El único texto "de entrada": aparece al principio, y cuando
-   arranca el giro/caída (fase GIRAR) se agranda hacia la
-   pantalla mientras se desvanece, hasta desaparecer del todo.
-   EDICIÓN: ya no vuelve a aparecer ningún otro texto ni CTA — se
-   quitaron ambos de la escena final a pedido.
+   arranca el giro/caída se agranda hacia la pantalla mientras se
+   desvanece, hasta desaparecer del todo.
+
+   EDICIÓN: el zoom-out ahora arranca más tarde (al final de
+   FALL_POSE) y se estira hasta bien entrada la fase FALL — así el
+   texto todavía se está terminando de desvanecer cuando arranca la
+   caída (no desaparece del todo antes), y en general tarda un
+   poco más en irse, como se pidió.
+   Ya no vuelve a aparecer ningún otro texto ni CTA — se quitaron
+   ambos de la escena final a pedido.
    ============================================================ */
 function HeroText() {
   const ref = useRef(null);
   const FADE_IN_END = 0.05;
+  const ZOOM_START = ST_FALLPOSE_END; // 0.80
+  const ZOOM_END = 0.94;
 
   useEffect(() => {
     const update = (progress) => {
       if (!ref.current) return;
       const fadeIn = smoothstep(0, FADE_IN_END, progress);
-      const zoomOut = smoothstep(ST_APPROACH_END, ST_TURN_END, progress);
+      const zoomOut = smoothstep(ZOOM_START, ZOOM_END, progress);
       const scale = 1 + zoomOut * 14;
       const opacity = fadeIn * (1 - zoomOut);
       ref.current.style.opacity = String(opacity);
@@ -1476,9 +1481,9 @@ function App() {
             si en el futuro se lo quiere volver a usar, simplemente no
             se renderiza acá. */}
         <ProgressIndicator />
-        <header className="brand-mark">
-          <span>{clientConfig.brand.name}</span>
-        </header>
+        {/* EDICIÓN: se quitó la marca "weeb studio" de arriba a la
+            izquierda a pedido — el <header className="brand-mark">
+            ya no se renderiza. */}
         <div className="scroll-hint" aria-hidden="true">
           <span>Scroll</span>
           <div className="scroll-hint__line" />
