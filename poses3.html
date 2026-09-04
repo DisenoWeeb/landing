@@ -386,11 +386,14 @@ function smoothstep(edge0, edge1, x) {
    luz "rim" se mantiene para el contorno, pero ahora hay más
    luz de relleno general (ver Lighting()).
    ============================================================ */
+// Reemplazá tu const scenes = [...] actual por este array completo.
+// particles/light/fog/background quedaron igual que en tu versión actual;
+// solo se tocó "camera" en cada etapa según lo que ajustaste acá.
 const scenes = [
   {
     id: "front-idle",
     progress: 0,
-    camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
+    camera: { position: [0, -0.35, 2.9], lookAt: [0, 0.75, 0], fov: 28.5 },
     particles: { spread: 1, opacity: 0.28 },
     light: { color: "#ffffff", intensity: 0.75, rimColor: "#c8ff00", rimIntensity: 1.2 },
     fog: { color: "#0f0f1a", far: 20 },
@@ -424,10 +427,6 @@ const scenes = [
     background: "#0c0c16",
   },
   {
-    // EDICIÓN: lookAt.y ajustado para que el personaje (grupo `outer`
-    // en AnimatedCharacter) se mantenga centrado en cuadro mientras
-    // se aleja en Z durante la caída, en vez de irse "para arriba"
-    // en el encuadre a medida que se aleja.
     id: "fall-pose",
     progress: 0.8,
     camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
@@ -444,14 +443,8 @@ const scenes = [
     light: { color: "#ffffff", intensity: 0.6, rimColor: "#c8ff00", rimIntensity: 1.6 },
     fog: { color: "#000000", far: 11 },
     background: "#000000",
-    // EDICIÓN: se quitó "showCTA" y "text" a pedido — la escena final
-    // ya no muestra el texto de cierre ni el botón de WhatsApp. SceneText
-    // solo renderiza texto para keyframes que tengan la propiedad `text`
-    // (ver función SceneText más abajo), así que con solo sacarla de acá
-    // alcanza para que no aparezca nada en esta escena.
   },
 ];
-
 
      // Reemplazá tu BONE_POSE_KEYFRAMES actual por este bloque completo.
 // sampleBonePose y la aplicación en useFrame NO cambian — dejalas como están.
