@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -391,7 +390,7 @@ const scenes = [
   {
     id: "front-idle",
     progress: 0,
-    camera: { position: [0, 1.7, 0.95], lookAt: [0, 0.8, 0], fov: 32.5 },
+    camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
     particles: { spread: 1, opacity: 0.28 },
     light: { color: "#ffffff", intensity: 0.75, rimColor: "#c8ff00", rimIntensity: 1.2 },
     fog: { color: "#0f0f1a", far: 20 },
@@ -400,7 +399,7 @@ const scenes = [
   {
     id: "approach",
     progress: 0.18,
-    camera: { position: [0, -0.05, 3.4], lookAt: [-0.15, -0.95, -0.25], fov: 49.5 },
+    camera: { position: [0, -0.05, 3.4], lookAt: [0, -0.1, 0], fov: 27 },
     particles: { spread: 1.05, opacity: 0.3 },
     light: { color: "#ffffff", intensity: 0.8, rimColor: "#c8ff00", rimIntensity: 1.3 },
     fog: { color: "#0f0f1a", far: 19 },
@@ -409,7 +408,7 @@ const scenes = [
   {
     id: "turn",
     progress: 0.47,
-    camera: { position: [0.5, 0.1, 1.15], lookAt: [0.8, 0.1, 0], fov: 22.5 },
+    camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
     particles: { spread: 1.2, opacity: 0.35 },
     light: { color: "#ffffff", intensity: 0.75, rimColor: "#7dfff0", rimIntensity: 1.6 },
     fog: { color: "#0d0d18", far: 16 },
@@ -425,9 +424,13 @@ const scenes = [
     background: "#0c0c16",
   },
   {
+    // EDICIÓN: lookAt.y ajustado para que el personaje (grupo `outer`
+    // en AnimatedCharacter) se mantenga centrado en cuadro mientras
+    // se aleja en Z durante la caída, en vez de irse "para arriba"
+    // en el encuadre a medida que se aleja.
     id: "fall-pose",
     progress: 0.8,
-    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 25.5 },
+    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
     particles: { spread: 1.3, opacity: 0.4 },
     light: { color: "#ffffff", intensity: 0.7, rimColor: "#7dfff0", rimIntensity: 1.7 },
     fog: { color: "#0a0a14", far: 14 },
@@ -436,22 +439,28 @@ const scenes = [
   {
     id: "fall",
     progress: 1,
-    camera: { position: [0, 0.4, 2.85], lookAt: [0, 0, 0], fov: 21.5 },
+    camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
     particles: { spread: 1.5, opacity: 0.45 },
     light: { color: "#ffffff", intensity: 0.6, rimColor: "#c8ff00", rimIntensity: 1.6 },
     fog: { color: "#000000", far: 11 },
     background: "#000000",
+    // EDICIÓN: se quitó "showCTA" y "text" a pedido — la escena final
+    // ya no muestra el texto de cierre ni el botón de WhatsApp. SceneText
+    // solo renderiza texto para keyframes que tengan la propiedad `text`
+    // (ver función SceneText más abajo), así que con solo sacarla de acá
+    // alcanza para que no aparezca nada en esta escena.
   },
 ];
 
 
-
-     const BONE_POSE_KEYFRAMES = [
+     // Reemplazá tu BONE_POSE_KEYFRAMES actual por este bloque completo.
+// sampleBonePose y la aplicación en useFrame NO cambian — dejalas como están.
+const BONE_POSE_KEYFRAMES = [
   {
     id: "front-idle",
     progress: 0,
     bones: {
-        lClavicle: [0.0000, 0.0000, 0.1571],
+        lClavicle: [0.0000, 0.0000, 0.2269],
         rClavicle: [0.0000, 0.0000, -0.2269],
         lForearm: [-0.0349, 0.7156, 0.4014],
         rForearm: [0.3142, -1.1868, -0.0175],
@@ -467,7 +476,7 @@ const scenes = [
     id: "approach",
     progress: 0.25,
     bones: {
-        head: [0.0698, 0.0000, 0.0000],
+        head: [-0.4538, 0.0000, 0.0000],
         lClavicle: [0.0000, 0.0000, 0.2269],
         rClavicle: [0.0000, 0.0000, -0.2269],
         lForearm: [-0.0349, 0.7156, 0.4014],
@@ -484,13 +493,13 @@ const scenes = [
     id: "turn",
     progress: 0.5,
     bones: {
-        head: [0.0175, 0.0349, -0.0524],
+        head: [0.0175, 0.4189, -0.0524],
         lClavicle: [0.0000, 0.0000, 0.2269],
         rClavicle: [0.0000, 0.0000, -0.2269],
         lForearm: [-0.0349, 0.5061, 0.4014],
         rForearm: [0.3142, -0.8727, -0.0175],
         lHand: [-0.3142, 0.5061, 0.3142],
-        rHand: [-0.5411, -0.3840, 0.0000],
+        rHand: [-0.5411, 0.0175, 0.0000],
         lThigh: [0.5411, 0.0000, 0.0175],
         rThigh: [0.2793, 0.0000, 0.0000],
         lCalf: [-0.6807, 0.0000, 0.0000],
@@ -501,41 +510,69 @@ const scenes = [
     id: "fall-pose",
     progress: 0.7,
     bones: {
-        spine1: [-0.2618, 0.0000, 0.0000],
-        head: [0.2618, 0.6283, -0.0524],
-        lClavicle: [0.0000, 0.0000, 0.2269],
-        rClavicle: [0.0000, 0.0000, -0.2269],
-        lForearm: [-0.0349, 0.5061, 0.4014],
-        rForearm: [0.3142, -0.8727, -0.0175],
+        spine1: [0.0524, 0.0000, 0.0000],
+        spine2: [0.0873, 0.0000, 0.0000],
+        head: [0.3840, -0.0175, -0.0524],
+        lClavicle: [0.2618, 0.0698, 0.1222],
+        rClavicle: [0.0873, 0.0524, -0.0873],
+        lForearm: [-0.0349, 1.0123, -0.4014],
+        rForearm: [-0.1745, -0.4538, 0.2793],
         lHand: [-0.3142, 0.5061, 0.3142],
-        rHand: [-0.5411, -0.3840, 0.0000],
-        lThigh: [0.5411, 0.0000, 0.0175],
+        rHand: [0.0349, -1.0297, 0.0175],
+        lThigh: [0.1745, 0.0000, 0.0175],
         rThigh: [0.2793, 0.0000, 0.0000],
-        lCalf: [-0.6807, 0.0000, 0.0000],
-        rCalf: [-0.7505, -0.1571, 0.0000],
+        lCalf: [-0.4887, -0.1222, -0.2618],
+        rCalf: [-0.4538, -0.1571, 0.0000],
+        lFoot: [-0.5760, 0.0000, 0.0000],
+        rFoot: [-0.5760, 0.0000, 0.0000],
     },
   },
   {
     id: "fall",
     progress: 1,
     bones: {
-        spine1: [-0.2967, 0.0000, 0.0000],
-        spine2: [-0.3491, 0.0000, 0.0000],
-        neck: [-0.3316, 0.0000, 0.0000],
-        head: [1.0472, 0.0524, -0.0524],
-        lClavicle: [0.0000, 0.0000, 0.2269],
-        rClavicle: [0.0000, 0.0000, -0.2269],
-        lForearm: [0.4538, -0.3142, 1.0821],
-        rForearm: [0.4887, 0.2094, -1.2392],
-        lHand: [0.0698, 0.5760, 0.1222],
-        rHand: [0.0175, -0.2269, 0.0000],
-        lThigh: [0.5411, 0.0000, 0.0175],
+        spine1: [0.5585, 0.0000, 0.0000],
+        spine2: [0.4189, 0.0000, 0.0000],
+        head: [0.4014, -0.1571, -0.0524],
+        lClavicle: [0.0000, -0.6458, 0.5411],
+        rClavicle: [-0.4363, 0.4189, -0.2269],
+        lForearm: [-0.0349, 0.5061, 0.4014],
+        rForearm: [0.3142, -0.8727, -0.0175],
+        lHand: [-0.3142, 0.5061, 0.3142],
+        rHand: [-0.5411, -0.3840, 0.0000],
+        lThigh: [0.3665, 0.0000, 0.0175],
         rThigh: [0.2793, 0.0000, 0.0000],
-        lCalf: [-0.6807, 0.0000, 0.0000],
-        rCalf: [-0.7505, -0.1571, 0.0000],
+        lCalf: [-1.3090, -0.1222, -0.2618],
+        rCalf: [-1.0821, -0.1571, 0.0000],
     },
   },
 ];
+
+// Interpola linealmente entre los dos keyframes que rodean `progress`
+// (idéntica lógica a blendScenes, pero por hueso).
+function sampleBonePose(progress) {
+  const list = BONE_POSE_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  const pick = (kf) => kf.bones;
+  if (p <= list[0].progress) return pick(list[0]);
+  const last = list[list.length - 1];
+  if (p >= last.progress) return pick(last);
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((p - a.progress) / span);
+  const out = {};
+  const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
+  keys.forEach((k) => {
+    const va = a.bones[k] || [0, 0, 0];
+    const vb = b.bones[k] || [0, 0, 0];
+    out[k] = [lerp(va[0], vb[0], t), lerp(va[1], vb[1], t), lerp(va[2], vb[2], t)];
+  });
+  return out;
+}
+
+
 
 const SCROLL_LENGTH_VH = 950;
 
