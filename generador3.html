@@ -1288,56 +1288,62 @@ function smoothstep(edge0, edge1, x) {
   return t * t * (3 - 2 * t);
 }
 
-/* ---- Etapas de POSE (huesos) — mismos breakpoints que tu index.html ---- */
-const POSE_KEYFRAMES = [
+/* ============================================================
+   UNA sola lista de "etapas" (stages) compartida por Pose, Cámara
+   y Movimiento. Antes cada sección tenía su propia lista de
+   keyframes con progress distintos (la pose iba a 0/0.25/0.5/0.7/1
+   mientras que cámara y movimiento iban a 0/0.18/0.47/0.6/0.8/1),
+   lo que hacía que la pose y la cámara/movimiento quedaran
+   desincronizadas durante el scroll. Ahora las tres comparten
+   exactamente las mismas 6 etapas.
+   ============================================================ */
+const STAGE_DEFS = [
   { id: "front-idle", label: "Frente", progress: 0 },
-  { id: "approach", label: "Acercamiento", progress: 0.25 },
-  { id: "turn", label: "Giro", progress: 0.5 },
-  { id: "fall-pose", label: "Postura caída", progress: 0.7 },
+  { id: "approach", label: "Acercamiento", progress: 0.18 },
+  { id: "turn", label: "Giro", progress: 0.47 },
+  { id: "pause", label: "Pausa", progress: 0.6 },
+  { id: "fall-pose", label: "Postura caída", progress: 0.8 },
   { id: "fall", label: "Caída", progress: 1 },
 ];
-const zeroPose = () => Object.fromEntries(BONE_KEYS.map((k) => [k, { x: 0, y: 0, z: 0 }]));
-const rEntry = (rx, ry, rz) => ({ x: deg(rx), y: deg(ry), z: deg(rz) });
 
+const zeroPose = () => Object.fromEntries(BONE_KEYS.map((k) => [k, { x: 0, y: 0, z: 0 }]));
+
+/* Todo arranca en cero / neutro: ninguna etapa tiene pose, cámara
+   ni movimiento predefinidos. Vos lo armás a gusto desde acá. */
 function initialPoses() {
-  const p = Object.fromEntries(POSE_KEYFRAMES.map((kf) => [kf.id, zeroPose()]));
-  p["front-idle"] = {
-    ...zeroPose(),
-    lClavicle: rEntry(0, 0, 0.2269), rClavicle: rEntry(0, 0, -0.2269),
-    lForearm: rEntry(-0.0349, 0.7156, 0.4014), rForearm: rEntry(0.3142, -1.1868, -0.0175),
-    lHand: rEntry(-0.3142, 0.5061, 0.3142), rHand: rEntry(-0.5411, -0.3840, 0),
-    lThigh: rEntry(0.5411, 0, 0.0175), rThigh: rEntry(0.2793, 0, 0),
-    lCalf: rEntry(-0.9774, 0, 0), rCalf: rEntry(-0.9076, 0, 0),
-  };
-  p["approach"] = { ...p["front-idle"], head: rEntry(-0.4538, 0, 0) };
-  p["turn"] = {
-    ...p["front-idle"],
-    head: rEntry(0.0175, -0.1571, -0.0524),
-    lForearm: rEntry(-0.0349, 0.5061, 0.4014), rForearm: rEntry(0.3142, -0.8727, -0.0175),
-    lCalf: rEntry(-0.6807, 0, 0), rCalf: rEntry(-0.7505, -0.1571, 0),
-  };
-  p["fall-pose"] = {
-    ...p["turn"],
-    spine1: rEntry(0.5585, 0, 0), spine2: rEntry(0.4189, 0, 0),
-    lThigh: rEntry(0.3665, 0, 0.0175),
-    lCalf: rEntry(-1.3090, -0.1222, -0.2618), rCalf: rEntry(-1.0821, -0.1571, 0),
-  };
-  p["fall"] = {
-    ...p["fall-pose"],
-    head: rEntry(0.4014, -0.1571, -0.0524),
-    lClavicle: rEntry(0, -0.6458, 0.5411), rClavicle: rEntry(-0.4363, 0.4189, -0.2269),
-  };
-  return p;
+  return Object.fromEntries(STAGE_DEFS.map((kf) => [kf.id, zeroPose()]));
 }
+function initialCameras() {
+  return Object.fromEntries(
+    STAGE_DEFS.map((kf) => [kf.id, { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30 }])
+  );
+}
+function initialMovements() {
+  return Object.fromEntries(STAGE_DEFS.map((kf) => [kf.id, { pos: [0, 0, 0], yaw: 0, pitch: 0 }]));
+}
+// Valores fijos (partículas / luz / niebla / fondo) que todavía no tienen
+// control propio en la UI: quedan neutros y parejos en todas las etapas
+// para que no cambien nada por sorpresa al descargar.
+const FIXED_SCENE_DEFAULTS = Object.fromEntries(
+  STAGE_DEFS.map((kf) => [
+    kf.id,
+    {
+      particles: { spread: 1, opacity: 0.3 },
+      light: { color: "#ffffff", intensity: 0.8, rimColor: "#ffffff", rimIntensity: 1 },
+      fog: { color: "#0f0f1a", far: 18 },
+      background: "#0f0f1a",
+    },
+  ])
+);
 
 function samplePose(posesByKf, progress) {
   const p = clamp(progress, 0, 1);
-  if (p <= POSE_KEYFRAMES[0].progress) return posesByKf[POSE_KEYFRAMES[0].id];
-  const last = POSE_KEYFRAMES[POSE_KEYFRAMES.length - 1];
+  if (p <= STAGE_DEFS[0].progress) return posesByKf[STAGE_DEFS[0].id];
+  const last = STAGE_DEFS[STAGE_DEFS.length - 1];
   if (p >= last.progress) return posesByKf[last.id];
   let i = 0;
-  while (i < POSE_KEYFRAMES.length - 1 && POSE_KEYFRAMES[i + 1].progress < p) i++;
-  const a = POSE_KEYFRAMES[i], b = POSE_KEYFRAMES[i + 1];
+  while (i < STAGE_DEFS.length - 1 && STAGE_DEFS[i + 1].progress < p) i++;
+  const a = STAGE_DEFS[i], b = STAGE_DEFS[i + 1];
   const span = b.progress - a.progress || 1;
   const t = clamp((p - a.progress) / span);
   const pa = posesByKf[a.id], pb = posesByKf[b.id];
@@ -1346,64 +1352,48 @@ function samplePose(posesByKf, progress) {
   return out;
 }
 
-/* ---- Etapas de CÁMARA — mismos breakpoints que `scenes` ---- */
-const CAMERA_KEYFRAMES = [
-  { id: "front-idle", label: "Frente", progress: 0, camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
-    fixed: { particles: { spread: 1, opacity: 0.28 }, light: { color: "#ffffff", intensity: 0.75, rimColor: "#c8ff00", rimIntensity: 1.2 }, fog: { color: "#0f0f1a", far: 20 }, background: "#0f0f1a" } },
-  { id: "approach", label: "Acercamiento", progress: 0.18, camera: { position: [0, -0.05, 3.4], lookAt: [0, -0.1, 0], fov: 27 },
-    fixed: { particles: { spread: 1.05, opacity: 0.3 }, light: { color: "#ffffff", intensity: 0.8, rimColor: "#c8ff00", rimIntensity: 1.3 }, fog: { color: "#0f0f1a", far: 19 }, background: "#0f0f1a" } },
-  { id: "turn", label: "Giro", progress: 0.47, camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
-    fixed: { particles: { spread: 1.2, opacity: 0.35 }, light: { color: "#ffffff", intensity: 0.75, rimColor: "#7dfff0", rimIntensity: 1.6 }, fog: { color: "#0d0d18", far: 16 }, background: "#0d0d18" } },
-  { id: "pause", label: "Pausa", progress: 0.6, camera: { position: [0.3, 0.15, 3.5], lookAt: [0, 0.08, 0], fov: 28 },
-    fixed: { particles: { spread: 1.25, opacity: 0.37 }, light: { color: "#ffffff", intensity: 0.75, rimColor: "#7dfff0", rimIntensity: 1.65 }, fog: { color: "#0c0c16", far: 15 }, background: "#0c0c16" } },
-  { id: "fall-pose", label: "Postura caída", progress: 0.8, camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
-    fixed: { particles: { spread: 1.3, opacity: 0.4 }, light: { color: "#ffffff", intensity: 0.7, rimColor: "#7dfff0", rimIntensity: 1.7 }, fog: { color: "#0a0a14", far: 14 }, background: "#0a0a14" } },
-  { id: "fall", label: "Caída", progress: 1, camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
-    fixed: { particles: { spread: 1.5, opacity: 0.45 }, light: { color: "#ffffff", intensity: 0.6, rimColor: "#c8ff00", rimIntensity: 1.6 }, fog: { color: "#000000", far: 11 }, background: "#000000" } },
-];
-function initialCameras() { return Object.fromEntries(CAMERA_KEYFRAMES.map((kf) => [kf.id, JSON.parse(JSON.stringify(kf.camera))])); }
 function lerpVec3(a, b, t) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
+
 function sampleCamera(camsByKf, progress) {
   const p = clamp(progress, 0, 1);
-  const list = CAMERA_KEYFRAMES;
-  if (p <= list[0].progress) return camsByKf[list[0].id];
-  const last = list[list.length - 1];
+  if (p <= STAGE_DEFS[0].progress) return camsByKf[STAGE_DEFS[0].id];
+  const last = STAGE_DEFS[STAGE_DEFS.length - 1];
   if (p >= last.progress) return camsByKf[last.id];
   let i = 0;
-  while (i < list.length - 1 && list[i + 1].progress < p) i++;
-  const a = list[i], b = list[i + 1];
+  while (i < STAGE_DEFS.length - 1 && STAGE_DEFS[i + 1].progress < p) i++;
+  const a = STAGE_DEFS[i], b = STAGE_DEFS[i + 1];
   const span = b.progress - a.progress || 1;
   const t = clamp((p - a.progress) / span);
   const ca = camsByKf[a.id], cb = camsByKf[b.id];
   return { position: lerpVec3(ca.position, cb.position, t), lookAt: lerpVec3(ca.lookAt, cb.lookAt, t), fov: lerp(ca.fov, cb.fov, t) };
 }
 
-/* ---- Etapas de MOVIMIENTO — mismos breakpoints que CÁMARA ---- */
-const MOVEMENT_KEYFRAMES = [
-  { id: "front-idle", label: "Frente", progress: 0, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
-  { id: "approach", label: "Acercamiento", progress: 0.18, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
-  { id: "turn", label: "Giro", progress: 0.47, pos: [0, -0.325, -0.55], yaw: -90, pitch: 0 },
-  { id: "pause", label: "Pausa", progress: 0.6, pos: [0, 0, -0.55], yaw: -180, pitch: -2 },
-  { id: "fall-pose", label: "Postura caída", progress: 0.8, pos: [0, 0, -0.55], yaw: -180, pitch: -37 },
-  { id: "fall", label: "Caída", progress: 1, pos: [0, 0, -9.55], yaw: -180, pitch: -66 },
-];
-function initialMovements() { return Object.fromEntries(MOVEMENT_KEYFRAMES.map((kf) => [kf.id, { pos: [...kf.pos], yaw: kf.yaw, pitch: kf.pitch }])); }
 function sampleMovement(movesByKf, progress) {
   const p = clamp(progress, 0, 1);
-  const list = MOVEMENT_KEYFRAMES;
-  if (p <= list[0].progress) return movesByKf[list[0].id];
-  const last = list[list.length - 1];
+  if (p <= STAGE_DEFS[0].progress) return movesByKf[STAGE_DEFS[0].id];
+  const last = STAGE_DEFS[STAGE_DEFS.length - 1];
   if (p >= last.progress) return movesByKf[last.id];
   let i = 0;
-  while (i < list.length - 1 && list[i + 1].progress < p) i++;
-  const a = list[i], b = list[i + 1];
+  while (i < STAGE_DEFS.length - 1 && STAGE_DEFS[i + 1].progress < p) i++;
+  const a = STAGE_DEFS[i], b = STAGE_DEFS[i + 1];
   const span = b.progress - a.progress || 1;
   const t = smoothstep(0, 1, clamp((p - a.progress) / span));
   const ma = movesByKf[a.id], mb = movesByKf[b.id];
   return { pos: lerpVec3(ma.pos, mb.pos, t), yaw: lerp(ma.yaw, mb.yaw, t), pitch: lerp(ma.pitch, mb.pitch, t) };
 }
 
-/* ---- Personaje ---- */
+/* ---- Personaje ----
+   IMPORTANTE: este componente ya no se desmonta/remonta al cambiar
+   de pestaña (antes a veces quedaba envuelto en <MovedGroup> y a
+   veces no, lo que forzaba un remount de <primitive>). Un remount
+   hacía que el useEffect volviera a "capturar" como pose de
+   referencia (rest) la pose YA deformada del frame anterior, en vez
+   del bind pose real del modelo — de ahí la deformación acumulada
+   al ir y volver entre pestañas. Ahora el personaje se monta una
+   sola vez y sólo cambian sus props. Este bug era exclusivo de esta
+   herramienta de edición: en el archivo final exportado (arriba en
+   tpl-source) el personaje siempre estuvo montado una sola vez, así
+   que la deformación NO se exporta al index.html. */
 function Character({ pose, onBonesFound }) {
   const { scene } = useGLTF(MODEL_URL);
   const bonesRef = useRef({});
@@ -1457,8 +1447,10 @@ function MovedGroup({ movement, children }) {
   return <group ref={ref}>{children}</group>;
 }
 
+/* La estructura de la escena ahora es SIEMPRE la misma (luces, grilla,
+   MovedGroup > Character, cámara, controles). Nunca cambia de forma
+   entre pestañas, así React nunca desmonta el personaje. */
 function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement }) {
-  const character = <Character pose={pose} onBonesFound={onBonesFound} />;
   return (
     <>
       <ambientLight intensity={0.4} />
@@ -1466,17 +1458,19 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       <directionalLight position={[-3, 2, -2]} intensity={0.4} />
       <Environment preset="city" background={false} />
       <Grid args={[10, 10]} position={[0, -0.02, 0]} cellColor="#333" sectionColor="#555" />
-      {movement ? <MovedGroup movement={movement}>{character}</MovedGroup> : character}
+      <MovedGroup movement={movement}>
+        <Character pose={pose} onBonesFound={onBonesFound} />
+      </MovedGroup>
       <SceneCameraDriver target={cameraTarget} active={sceneCameraActive} />
       <OrbitControls target={[0, 0.5, 0]} enabled={!sceneCameraActive} autoRotate={autoRotate && !sceneCameraActive} autoRotateSpeed={2.2} />
     </>
   );
 }
 
-/* ---- Generadores de código (formato EXACTO esperado por los marcadores) ---- */
+/* ---- Generadores de código (mismo formato que espera el template) ---- */
 function generateBoneArrayCode(posesByKf) {
   const fmt = (n) => { const r = rad(n); return (Math.abs(r) < 0.0001 ? 0 : r).toFixed(4); };
-  const kfLines = POSE_KEYFRAMES.map((kf) => {
+  const kfLines = STAGE_DEFS.map((kf) => {
     const pose = posesByKf[kf.id];
     const boneLines = BONE_KEYS.map((k) => {
       const v = pose[k];
@@ -1491,9 +1485,9 @@ function generateBoneArrayCode(posesByKf) {
 function generateScenesArrayCode(camsByKf) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
-  const kfLines = CAMERA_KEYFRAMES.map((kf) => {
+  const kfLines = STAGE_DEFS.map((kf) => {
     const cam = camsByKf[kf.id];
-    const f = kf.fixed;
+    const f = FIXED_SCENE_DEFAULTS[kf.id];
     return `  {
     id: "${kf.id}",
     progress: ${kf.progress},
@@ -1509,7 +1503,7 @@ function generateScenesArrayCode(camsByKf) {
 
 function generateMovementDefsCode(movesByKf) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
-  const kfLines = MOVEMENT_KEYFRAMES.map((kf) => {
+  const kfLines = STAGE_DEFS.map((kf) => {
     const mv = movesByKf[kf.id];
     return `  { id: "${kf.id}", progress: ${kf.progress}, pos: [${mv.pos.map(fmtNum).join(", ")}], yaw: ${fmtNum(mv.yaw)}, pitch: ${fmtNum(mv.pitch)} },`;
   }).join("\n");
@@ -1559,9 +1553,14 @@ function App() {
   const [posesByKf, setPosesByKf] = useState(initialPoses);
   const [camsByKf, setCamsByKf] = useState(initialCameras);
   const [movesByKf, setMovesByKf] = useState(initialMovements);
-  const [activePoseKf, setActivePoseKf] = useState(POSE_KEYFRAMES[0].id);
-  const [activeCamKf, setActiveCamKf] = useState(CAMERA_KEYFRAMES[0].id);
-  const [activeMoveKf, setActiveMoveKf] = useState(MOVEMENT_KEYFRAMES[0].id);
+
+  // Una sola etapa activa, compartida por Pose / Cámara / Movimiento.
+  // Así, sea cual sea la pestaña que tengas abierta, el visor de la
+  // izquierda siempre muestra la MISMA etapa con su pose + su cámara +
+  // su movimiento combinados de verdad — no hace falta ir a "Preview"
+  // para saber qué genera cada cosa.
+  const [activeStage, setActiveStage] = useState(STAGE_DEFS[0].id);
+
   const [scrub, setScrub] = useState(0);
   const [freeOrbit, setFreeOrbit] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -1569,56 +1568,60 @@ function App() {
   const [copiedWhich, setCopiedWhich] = useState(null);
   const [downloaded, setDownloaded] = useState(false);
 
+  const stageIndex = STAGE_DEFS.findIndex((s) => s.id === activeStage);
+
   const setBoneAxis = (boneKey, axis, value) => {
-    setPosesByKf((prev) => ({ ...prev, [activePoseKf]: { ...prev[activePoseKf], [boneKey]: { ...prev[activePoseKf][boneKey], [axis]: value } } }));
+    setPosesByKf((prev) => ({ ...prev, [activeStage]: { ...prev[activeStage], [boneKey]: { ...prev[activeStage][boneKey], [axis]: value } } }));
   };
   const resetBone = (boneKey) => {
-    setPosesByKf((prev) => ({ ...prev, [activePoseKf]: { ...prev[activePoseKf], [boneKey]: { x: 0, y: 0, z: 0 } } }));
+    setPosesByKf((prev) => ({ ...prev, [activeStage]: { ...prev[activeStage], [boneKey]: { x: 0, y: 0, z: 0 } } }));
   };
   const copyPoseFromPrev = () => {
-    const idx = POSE_KEYFRAMES.findIndex((k) => k.id === activePoseKf);
-    if (idx <= 0) return;
-    const prevId = POSE_KEYFRAMES[idx - 1].id;
-    setPosesByKf((prev) => ({ ...prev, [activePoseKf]: JSON.parse(JSON.stringify(prev[prevId])) }));
+    if (stageIndex <= 0) return;
+    const prevId = STAGE_DEFS[stageIndex - 1].id;
+    setPosesByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
   };
 
   const setCamField = (field, axis, value) => {
     setCamsByKf((prev) => {
-      const cam = { ...prev[activeCamKf] };
+      const cam = { ...prev[activeStage] };
       if (field === "fov") cam.fov = value;
       else { cam[field] = [...cam[field]]; cam[field]["xyz".indexOf(axis)] = value; }
-      return { ...prev, [activeCamKf]: cam };
+      return { ...prev, [activeStage]: cam };
     });
   };
   const copyCamFromPrev = () => {
-    const idx = CAMERA_KEYFRAMES.findIndex((k) => k.id === activeCamKf);
-    if (idx <= 0) return;
-    const prevId = CAMERA_KEYFRAMES[idx - 1].id;
-    setCamsByKf((prev) => ({ ...prev, [activeCamKf]: JSON.parse(JSON.stringify(prev[prevId])) }));
+    if (stageIndex <= 0) return;
+    const prevId = STAGE_DEFS[stageIndex - 1].id;
+    setCamsByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
   };
 
   const setMoveField = (field, axis, value) => {
     setMovesByKf((prev) => {
-      const mv = { ...prev[activeMoveKf] };
+      const mv = { ...prev[activeStage] };
       if (field === "yaw" || field === "pitch") mv[field] = value;
       else { mv.pos = [...mv.pos]; mv.pos["xyz".indexOf(axis)] = value; }
-      return { ...prev, [activeMoveKf]: mv };
+      return { ...prev, [activeStage]: mv };
     });
   };
   const copyMoveFromPrev = () => {
-    const idx = MOVEMENT_KEYFRAMES.findIndex((k) => k.id === activeMoveKf);
-    if (idx <= 0) return;
-    const prevId = MOVEMENT_KEYFRAMES[idx - 1].id;
-    setMovesByKf((prev) => ({ ...prev, [activeMoveKf]: JSON.parse(JSON.stringify(prev[prevId])) }));
+    if (stageIndex <= 0) return;
+    const prevId = STAGE_DEFS[stageIndex - 1].id;
+    setMovesByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
   };
   const applyYawPreset = (deg_) => setMoveField("yaw", null, deg_);
   const applyPitchPreset = (deg_) => setMoveField("pitch", null, deg_);
 
-  const previewMode = section === "preview";
-  const currentPose = previewMode ? samplePose(posesByKf, scrub) : posesByKf[activePoseKf];
-  const currentCamTarget = previewMode ? sampleCamera(camsByKf, scrub) : camsByKf[activeCamKf];
-  const currentMovement = previewMode ? sampleMovement(movesByKf, scrub) : (section === "movement" ? movesByKf[activeMoveKf] : null);
-  const sceneCameraActive = previewMode && !freeOrbit;
+  const isPreview = section === "preview";
+  // Fuera de "Preview": se muestra la etapa activa EXACTA (pose + cámara +
+  // movimiento), sin interpolar, para que edites viendo el resultado real.
+  // En "Preview": se interpola con el scrub, como una pasada de scroll real.
+  const currentPose = isPreview ? samplePose(posesByKf, scrub) : posesByKf[activeStage];
+  const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub) : camsByKf[activeStage];
+  const currentMovement = isPreview ? sampleMovement(movesByKf, scrub) : movesByKf[activeStage];
+  // La cámara de la escena manda siempre que no actives "cámara libre",
+  // sea cual sea la pestaña — así ves de entrada qué genera cada ajuste.
+  const sceneCameraActive = !freeOrbit;
 
   const boneCode = useMemo(() => generateBoneArrayCode(posesByKf), [posesByKf]);
   const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf), [camsByKf]);
@@ -1643,15 +1646,15 @@ function App() {
     setTimeout(() => setDownloaded(false), 2000);
   };
 
+  const showStageTabs = section === "pose" || section === "camera" || section === "movement";
+
   return (
     <>
       <div className="viewport">
         <div className="top-controls">
-          <span>{section === "preview" && !freeOrbit ? "Vista: cámara de escena (real)" : "Arrastrá para orbitar · Scroll para zoom"}</span>
-          {section === "preview" && (
-            <label className="toggle-row"><input type="checkbox" checked={freeOrbit} onChange={(e) => setFreeOrbit(e.target.checked)} />Cámara libre (inspeccionar)</label>
-          )}
-          {section === "preview" && freeOrbit && (
+          <span>{!freeOrbit ? "Vista: cámara de la escena (real)" : "Arrastrá para orbitar · Scroll para zoom"}</span>
+          <label className="toggle-row"><input type="checkbox" checked={freeOrbit} onChange={(e) => setFreeOrbit(e.target.checked)} />Cámara libre (inspeccionar)</label>
+          {freeOrbit && (
             <label className="toggle-row"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} />Auto-rotar vista</label>
           )}
         </div>
@@ -1663,7 +1666,7 @@ function App() {
       <div className="panel">
         <div>
           <h1>Pose, Cámara &amp; Movimiento</h1>
-          <p className="hint">Ajustá pose, cámara y traslación/giro del personaje por etapa. Arranca precargado con lo que ya tenías. Al final descargás el index.html completo, editado.</p>
+          <p className="hint">Todas las etapas arrancan en cero: sin pose, cámara fija por defecto y sin desplazamiento. Armalo a tu gusto. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento juntos, sin necesidad de ir a "Preview". Al final descargás el index.html completo, editado.</p>
         </div>
 
         <div className="section-tabs">
@@ -1673,7 +1676,18 @@ function App() {
           <div className={`section-tab ${section === "preview" ? "active" : ""}`} onClick={() => setSection("preview")}>Preview</div>
         </div>
 
-        {section === "preview" && (
+        {showStageTabs && (
+          <>
+            <div className="section-title">Etapa (compartida por Pose / Cámara / Movimiento)</div>
+            <div className="kf-tabs">
+              {STAGE_DEFS.map((kf) => (
+                <div key={kf.id} className={`kf-tab ${activeStage === kf.id ? "active" : ""}`} onClick={() => setActiveStage(kf.id)}>{kf.label}<span className="p">progress {kf.progress}</span></div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {isPreview && (
           <div className="scrub-row">
             <label style={{ fontSize: 11 }}>progress</label>
             <input type="range" min={0} max={1} step={0.001} value={scrub} onChange={(e) => setScrub(Number(e.target.value))} />
@@ -1683,16 +1697,11 @@ function App() {
 
         {section === "pose" && (
           <>
-            <div className="kf-tabs">
-              {POSE_KEYFRAMES.map((kf) => (
-                <div key={kf.id} className={`kf-tab ${activePoseKf === kf.id ? "active" : ""}`} onClick={() => setActivePoseKf(kf.id)}>{kf.label}<span className="p">progress {kf.progress}</span></div>
-              ))}
-            </div>
             <div className="btn-row"><button className="btn" onClick={copyPoseFromPrev}>Copiar etapa anterior</button></div>
             <div className="section-title">Huesos ({BONE_KEYS.length})</div>
             {BONE_DEFS.map(([key, boneName]) => {
               const found = foundMap[key];
-              const v = posesByKf[activePoseKf][key];
+              const v = posesByKf[activeStage][key];
               return (
                 <div className="bone-block" key={key} style={{ opacity: found === false ? 0.4 : 1 }}>
                   <div className="bone-name">{boneName} {found === false ? "· FALTA" : ""}</div>
@@ -1712,19 +1721,14 @@ function App() {
 
         {section === "camera" && (
           <>
-            <div className="kf-tabs">
-              {CAMERA_KEYFRAMES.map((kf) => (
-                <div key={kf.id} className={`kf-tab ${activeCamKf === kf.id ? "active" : ""}`} onClick={() => setActiveCamKf(kf.id)}>{kf.label}<span className="p">progress {kf.progress}</span></div>
-              ))}
-            </div>
             <div className="btn-row"><button className="btn" onClick={copyCamFromPrev}>Copiar etapa anterior</button></div>
             <div className="cam-group">
               <div className="cam-group-title">Posición (x, y, z)</div>
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-6} max={6} step={0.05} value={camsByKf[activeCamKf].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
-                  <span className="val">{camsByKf[activeCamKf].position[i].toFixed(2)}</span>
+                  <input type="range" min={-6} max={6} step={0.05} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
+                  <span className="val">{camsByKf[activeStage].position[i].toFixed(2)}</span>
                 </div>
               ))}
               <p className="hint">Z más grande = más lejos. Z más chico = más cerca.</p>
@@ -1734,8 +1738,8 @@ function App() {
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-3} max={3} step={0.05} value={camsByKf[activeCamKf].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
-                  <span className="val">{camsByKf[activeCamKf].lookAt[i].toFixed(2)}</span>
+                  <input type="range" min={-3} max={3} step={0.05} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
+                  <span className="val">{camsByKf[activeStage].lookAt[i].toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -1743,8 +1747,8 @@ function App() {
               <div className="cam-group-title">Zoom (FOV)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={15} max={50} step={0.5} value={camsByKf[activeCamKf].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
-                <span className="val">{camsByKf[activeCamKf].fov.toFixed(1)}</span>
+                <input type="range" min={15} max={50} step={0.5} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
+                <span className="val">{camsByKf[activeStage].fov.toFixed(1)}</span>
               </div>
             </div>
           </>
@@ -1752,11 +1756,6 @@ function App() {
 
         {section === "movement" && (
           <>
-            <div className="kf-tabs">
-              {MOVEMENT_KEYFRAMES.map((kf) => (
-                <div key={kf.id} className={`kf-tab ${activeMoveKf === kf.id ? "active" : ""}`} onClick={() => setActiveMoveKf(kf.id)}>{kf.label}<span className="p">progress {kf.progress}</span></div>
-              ))}
-            </div>
             <div className="btn-row"><button className="btn" onClick={copyMoveFromPrev}>Copiar etapa anterior</button></div>
 
             <div className="cam-group">
@@ -1764,8 +1763,8 @@ function App() {
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={axis === "z" ? -20 : -3} max={axis === "z" ? 4 : 3} step={0.05} value={movesByKf[activeMoveKf].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} />
-                  <span className="val">{movesByKf[activeMoveKf].pos[i].toFixed(2)}</span>
+                  <input type="range" min={axis === "z" ? -20 : -3} max={axis === "z" ? 4 : 3} step={0.05} value={movesByKf[activeStage].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} />
+                  <span className="val">{movesByKf[activeStage].pos[i].toFixed(2)}</span>
                 </div>
               ))}
               <p className="hint">X: izquierda/derecha (diagonal si lo combinás con Z). Y: altura en cuadro. Z: profundidad — más negativo, más al fondo/lejos.</p>
@@ -1775,8 +1774,8 @@ function App() {
               <div className="cam-group-title">Giro (yaw)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={-180} max={180} step={1} value={movesByKf[activeMoveKf].yaw} onChange={(e) => setMoveField("yaw", null, Number(e.target.value))} />
-                <span className="val">{Math.round(movesByKf[activeMoveKf].yaw)}°</span>
+                <input type="range" min={-180} max={180} step={1} value={movesByKf[activeStage].yaw} onChange={(e) => setMoveField("yaw", null, Number(e.target.value))} />
+                <span className="val">{Math.round(movesByKf[activeStage].yaw)}°</span>
               </div>
               <div className="btn-row">
                 <button className="btn" onClick={() => applyYawPreset(0)}>Frente</button>
@@ -1790,8 +1789,8 @@ function App() {
               <div className="cam-group-title">Inclinación (pitch)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={-90} max={90} step={1} value={movesByKf[activeMoveKf].pitch} onChange={(e) => setMoveField("pitch", null, Number(e.target.value))} />
-                <span className="val">{Math.round(movesByKf[activeMoveKf].pitch)}°</span>
+                <input type="range" min={-90} max={90} step={1} value={movesByKf[activeStage].pitch} onChange={(e) => setMoveField("pitch", null, Number(e.target.value))} />
+                <span className="val">{Math.round(movesByKf[activeStage].pitch)}°</span>
               </div>
               <div className="btn-row">
                 <button className="btn" onClick={() => applyPitchPreset(0)}>Neutral</button>
