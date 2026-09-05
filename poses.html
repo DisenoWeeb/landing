@@ -322,7 +322,7 @@ const scenes = [
   },
   {
     id: "approach",
-    progress: 0.2,
+    progress: 0.056,
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30 },
     particles: { spread: 1, opacity: 0.3 },
     light: { color: "#ffffff", intensity: 0.8, rimColor: "#ffffff", rimIntensity: 1 },
@@ -331,7 +331,7 @@ const scenes = [
   },
   {
     id: "turn",
-    progress: 0.4,
+    progress: 0.209,
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30 },
     particles: { spread: 1, opacity: 0.3 },
     light: { color: "#ffffff", intensity: 0.8, rimColor: "#ffffff", rimIntensity: 1 },
@@ -340,7 +340,7 @@ const scenes = [
   },
   {
     id: "pause",
-    progress: 0.6,
+    progress: 0.244,
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30 },
     particles: { spread: 1, opacity: 0.3 },
     light: { color: "#ffffff", intensity: 0.8, rimColor: "#ffffff", rimIntensity: 1 },
@@ -349,7 +349,7 @@ const scenes = [
   },
   {
     id: "fall-pose",
-    progress: 0.8,
+    progress: 0.316,
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30 },
     particles: { spread: 1, opacity: 0.3 },
     light: { color: "#ffffff", intensity: 0.8, rimColor: "#ffffff", rimIntensity: 1 },
@@ -376,10 +376,10 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "front-idle", progress: 0, pos: [0, 0, -20], yaw: 0, pitch: 0 },
-  { id: "approach", progress: 0.2, pos: [0, 0, -14.7], yaw: 106, pitch: 0 },
-  { id: "turn", progress: 0.4, pos: [0, 0, -1.8], yaw: -42, pitch: 0 },
-  { id: "pause", progress: 0.6, pos: [0, 0, -15.55], yaw: 151, pitch: 0 },
-  { id: "fall-pose", progress: 0.8, pos: [0, 0, 0], yaw: -130, pitch: 46 },
+  { id: "approach", progress: 0.056, pos: [0, 0, -14.7], yaw: 106, pitch: 0 },
+  { id: "turn", progress: 0.209, pos: [0, 0, -1.8], yaw: -42, pitch: 0 },
+  { id: "pause", progress: 0.244, pos: [0, 0, -15.55], yaw: 151, pitch: 0 },
+  { id: "fall-pose", progress: 0.316, pos: [0, 0, 0], yaw: -130, pitch: 46 },
   { id: "fall", progress: 1, pos: [0, 0, -2.8], yaw: 14, pitch: -25 },
 ];
 
@@ -413,28 +413,28 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "approach",
-    progress: 0.2,
+    progress: 0.056,
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "turn",
-    progress: 0.4,
+    progress: 0.209,
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "pause",
-    progress: 0.6,
+    progress: 0.244,
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "fall-pose",
-    progress: 0.8,
+    progress: 0.316,
     bones: {
       // (sin cambios respecto al rest pose)
     },
@@ -472,7 +472,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 4000;
+const SCROLL_LENGTH_VH = 1170;
 /*@GEN:SCROLL_LENGTH_END*/
 
 function damp(current, target, lambda, dt) {
