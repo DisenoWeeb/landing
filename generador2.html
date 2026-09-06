@@ -3,75 +3,1224 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pose &amp; Cámara Generator — weeb.glb</title>
+<title>Pose, Cámara &amp; Movimiento Generator — weeb.glb</title>
 <style>
   html, body { margin: 0; padding: 0; background: #0f0f1a; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
   #root { width: 100%; height: 100%; display: flex; }
   .viewport { flex: 1; position: relative; }
   canvas { display: block; }
-  .top-controls {
-    position: absolute; top: 12px; left: 12px; z-index: 5;
-    color: rgba(245,246,242,0.6); font-size: 11.5px; display: flex; flex-direction: column; gap: 4px;
-  }
+  .top-controls { position: absolute; top: 12px; left: 12px; z-index: 5; color: rgba(245,246,242,0.6); font-size: 11.5px; display: flex; flex-direction: column; gap: 4px; }
   .toggle-row { display: flex; align-items: center; gap: 6px; background: rgba(10,10,16,0.7); padding: 5px 8px; border-radius: 6px; }
   .toggle-row input { accent-color: #c8ff00; }
-  .panel {
-    width: 400px; height: 100%; background: rgba(10,10,16,0.96); color: #f5f6f2;
-    overflow-y: auto; padding: 16px; box-sizing: border-box; font-size: 13px;
-    border-left: 1px solid rgba(200,255,0,0.3); display: flex; flex-direction: column; gap: 14px;
-  }
+  .panel { width: 400px; height: 100%; background: rgba(10,10,16,0.96); color: #f5f6f2; overflow-y: auto; padding: 16px; box-sizing: border-box; font-size: 13px; border-left: 1px solid rgba(200,255,0,0.3); display: flex; flex-direction: column; gap: 14px; }
   h1 { font-size: 15px; margin: 0 0 2px; color: #c8ff00; }
   p.hint { color: rgba(245,246,242,0.6); font-size: 11.5px; margin: 0; line-height: 1.4; }
-
   .section-tabs { display: flex; gap: 6px; }
-  .section-tab {
-    flex: 1; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer;
-    background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 12px; font-weight: 600;
-  }
+  .section-tab { flex: 1; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 12px; font-weight: 600; }
   .section-tab.active { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; }
-
   .kf-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-  .kf-tab {
-    flex: 1 1 30%; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer;
-    background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 11px; line-height: 1.3;
-  }
+  .kf-tab { flex: 1 1 30%; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 11px; line-height: 1.3; }
   .kf-tab.active { background: rgba(200,255,0,0.15); border-color: #c8ff00; color: #c8ff00; }
   .kf-tab .p { display: block; font-size: 9.5px; color: rgba(245,246,242,0.5); }
   .kf-tab.active .p { color: rgba(200,255,0,0.7); }
-
   .scrub-row { display: flex; align-items: center; gap: 8px; }
   .scrub-row input[type=range] { flex: 1; }
   .scrub-row .val { width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
-
   .section-title { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,246,242,0.5); margin: 4px 0 -4px; }
-
   .bone-block { padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .bone-name { font-weight: 600; margin-bottom: 4px; font-size: 12px; }
   .axis-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
   .axis-row label { width: 14px; color: rgba(245,246,242,0.7); font-size: 11px; }
   .axis-row input[type=range] { flex: 1; }
   .axis-row .val { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: rgba(245,246,242,0.8); font-size: 11px; }
-
   .cam-group { padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .cam-group-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #7dfff0; }
-
   .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
-  .btn {
-    padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);
-    background: transparent; color: #f5f6f2; cursor: pointer; font-size: 11.5px;
-  }
+  .btn { padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: #f5f6f2; cursor: pointer; font-size: 11.5px; }
   .btn.primary { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; font-weight: 600; }
-
-  textarea.code {
-    width: 100%; height: 200px; resize: vertical; background: #05050a; color: #cdeb8f;
-    border: 1px solid rgba(200,255,0,0.25); border-radius: 6px; padding: 10px; font-family: ui-monospace, monospace;
-    font-size: 10px; line-height: 1.4; box-sizing: border-box;
-  }
+  textarea.code { width: 100%; height: 160px; resize: vertical; background: #05050a; color: #cdeb8f; border: 1px solid rgba(200,255,0,0.25); border-radius: 6px; padding: 10px; font-family: ui-monospace, monospace; font-size: 10px; line-height: 1.4; box-sizing: border-box; }
   .copied { color: #c8ff00; font-size: 11px; }
 </style>
 </head>
 <body>
 <div id="root"></div>
+
+<textarea id="tpl-source" style="display:none">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scroll Experience</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+  :root {
+    --brand-accent: #49d3ff;
+    --brand-accent-2: #6ee7c9;
+    --color-bg: #05070a;
+    --color-text: #ffffff8a;
+    --color-text-muted: rgba(244, 241, 234, 0.6);
+    --font-display: "Space Grotesk", sans-serif;
+    --font-body: "Inter", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    overflow-x: hidden;
+  }
+
+  @media (min-width: 769px) and (pointer: fine) {
+    html {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    html::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  #root { width: 100%; }
+
+  .app-root {
+    position: relative;
+    width: 100%;
+  }
+
+  .canvas-stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  .canvas-stage--ready { opacity: 1; }
+  .canvas-stage canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  .hero-text {
+    position: absolute;
+    top: 25%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transform-origin: center center;
+    z-index: 5;
+    pointer-events: none;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2.1rem, 4.5vw, 3.2rem);
+    letter-spacing: 0.07em;
+    color: var(--color-text);
+    white-space: nowrap;
+    will-change: opacity, transform;
+  }
+
+  .scene-text-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .scene-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8vw;
+    max-width: 720px;
+    will-change: opacity, transform;
+  }
+  .scene-text--left    { align-items: flex-start; text-align: left; }
+  .scene-text--center  { align-items: center; text-align: center; left: 50%; transform: translateX(-50%); max-width: 640px; }
+  .scene-text--right   { align-items: flex-end; text-align: right; margin-left: auto; }
+
+  .scene-text__eyebrow {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--brand-accent);
+    margin-bottom: 0.75rem;
+    display: inline-block;
+  }
+  .scene-text__title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 4rem);
+    line-height: 1.05;
+    margin: 0 0 0.75rem 0;
+    color: var(--color-text);
+  }
+  .scene-text__subtitle {
+    font-family: var(--font-body);
+    font-weight: 300;
+    font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    margin: 0;
+    max-width: 46ch;
+  }
+
+  .cta-layer {
+    position: absolute;
+    bottom: 8vh;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    will-change: opacity, transform;
+  }
+  .cta-button {
+    display: inline-block;
+    padding: 0.9rem 2.2rem;
+    border-radius: 999px;
+    background: var(--brand-accent);
+    color: #0a0a0a;
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    box-shadow: 0 8px 30px rgba(200, 255, 0, 0.35);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 36px rgba(200, 255, 0, 0.5);
+  }
+
+  .progress-rail {
+    position: fixed;
+    top: 50%;
+    right: 3vw;
+    transform: translateY(-50%);
+    height: 28vh;
+    z-index: 6;
+  }
+  .progress-rail__track {
+    position: relative;
+    width: 2px;
+    height: 100%;
+    background: rgba(244, 241, 234, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-rail__fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%;
+    background: var(--brand-accent);
+    border-radius: 2px;
+    transition: height 0.05s linear;
+  }
+
+  .brand-mark {
+    position: fixed;
+    top: 3vh;
+    left: 3vw;
+    z-index: 6;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    color: var(--color-text);
+  }
+
+  .scroll-hint {
+    position: fixed;
+    bottom: 4vh;
+    left: 3vw;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    opacity: 0.7;
+  }
+  .scroll-hint__line {
+    width: 1px;
+    height: 32px;
+    background: linear-gradient(to bottom, var(--color-text-muted), transparent);
+    animation: scrollHintPulse 2s ease-in-out infinite;
+  }
+  @keyframes scrollHintPulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 1; }
+  }
+
+  .cursor-trail-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  .scroll-spacer { width: 100%; }
+
+  .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react/jsx-dev-runtime": "https://esm.sh/react@18.3.1/jsx-dev-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "three": "https://esm.sh/three@0.160.0",
+    "zustand": "https://esm.sh/zustand@4.5.5?external=react",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber"
+  }
+}
+</script>
+
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<script type="text/babel" data-type="module" data-presets="react">
+
+import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { createRoot } from "react-dom/client";
+import { create } from "zustand";
+import * as THREE from "three";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, Environment, Stars } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+
+/* ============================================================
+   CONFIG: client.config
+   ============================================================ */
+const clientConfig = {
+  brand: { name: "weeb studio" },
+  colors: {
+    accent: "#49d3ff",
+    accentSecondary: "#7dfff0",
+    background: "#05070f",
+    textPrimary: "#f5f6f2",
+    textMuted: "rgba(245, 246, 242, 0.6)",
+  },
+  fonts: {
+    display: "'Space Grotesk', sans-serif",
+    body: "'Inter', sans-serif",
+  },
+  cta: {
+    href: "https://wa.me/5493435020970?text=Hola%20weebStudio,%20quiero%20una%20Scroll%20Experience",
+    label: "Hablar por WhatsApp",
+  },
+};
+
+const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
+
+// Modelo del universo (islas flotantes, castillo, planetas) que rodea al
+// personaje. Colocá el archivo universo.glb en assets/models/ junto al
+// del personaje. SCALE/POSITION/ROTATION se generan desde la pestaña
+// "Entorno" de la herramienta — si algo queda muy grande/chico o mal
+// ubicado, es más fácil ajustarlo ahí (con preview en vivo) que a mano.
+const UNIVERSE_MODEL_URL = "./assets/models/universo.glb";
+/*@GEN:UNIVERSE_START*/
+const UNIVERSE_SCALE = 1;
+const UNIVERSE_POSITION = [0, -2, -6];
+const UNIVERSE_ROTATION_Y = 0;
+/*@GEN:UNIVERSE_END*/
+
+// Se mantienen porque HeroText usa ST_TURN_END para sincronizar su propio
+// zoom con el fin del giro. Ya NO gobiernan el movimiento del personaje
+// (eso ahora vive en MOVEMENT_KEYFRAMES, más abajo).
+const ST_FRONT_END = 0.18;
+const ST_APPROACH_END = 0.38;
+const ST_TURN_END = 0.56;
+const ST_PAUSE1_END = 0.64;
+const ST_FALLPOSE_END = 0.80;
+const ST_PAUSE2_END = 0.88;
+
+function smoothstep(edge0, edge1, x) {
+  const t = clamp((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+/* ============================================================
+   CONFIG: scenes.config — cámara, luz, niebla, partículas por etapa.
+   ============================================================ */
+/*@GEN:SCENES_START*/
+const scenes = [
+  {
+    id: "front-idle",
+    progress: 0,
+    camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
+    light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.3 },
+    fog: { color: "#0b1330", far: 26 },
+    background: "#0b1330",
+  },
+  {
+    id: "approach",
+    progress: 0.18,
+    camera: { position: [0, -0.05, 3.4], lookAt: [0, -0.1, 0], fov: 27 },
+    light: { color: "#dfeeff", intensity: 0.72, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { color: "#0a1128", far: 24 },
+    background: "#0a1128",
+  },
+  {
+    id: "turn",
+    progress: 0.47,
+    camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
+    light: { color: "#dfeeff", intensity: 0.68, rimColor: "#7dfff0", rimIntensity: 1.6 },
+    fog: { color: "#080d20", far: 20 },
+    background: "#080d20",
+  },
+  {
+    id: "pause",
+    progress: 0.6,
+    camera: { position: [0.3, 0.15, 3.5], lookAt: [0, 0.08, 0], fov: 28 },
+    light: { color: "#dfeeff", intensity: 0.65, rimColor: "#7dfff0", rimIntensity: 1.65 },
+    fog: { color: "#060a18", far: 17 },
+    background: "#060a18",
+  },
+  {
+    id: "fall-pose",
+    progress: 0.8,
+    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
+    light: { color: "#dfeeff", intensity: 0.6, rimColor: "#7dfff0", rimIntensity: 1.7 },
+    fog: { color: "#04060f", far: 14 },
+    background: "#04060f",
+  },
+  {
+    id: "fall",
+    progress: 1,
+    camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
+    light: { color: "#dfeeff", intensity: 0.5, rimColor: "#49d3ff", rimIntensity: 1.6 },
+    fog: { color: "#000000", far: 11 },
+    background: "#000000",
+  },
+];
+/*@GEN:SCENES_END*/
+
+/* ============================================================
+   MOVIMIENTO DEL PERSONAJE — posición (x,y,z) y rotación (yaw/pitch)
+   por etapa, editable desde la herramienta. Reemplaza el viejo
+   sistema de fases fijas (approach/turn/fall hardcodeados).
+   ============================================================ */
+/*@GEN:MOVEMENT_DEFS_START*/
+const MOVEMENT_KEYFRAMES = [
+  { id: "front-idle", progress: 0, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
+  { id: "approach", progress: 0.18, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
+  { id: "turn", progress: 0.47, pos: [0, -0.325, -0.55], yaw: -90, pitch: 0 },
+  { id: "pause", progress: 0.6, pos: [0, 0, -0.55], yaw: -180, pitch: -2 },
+  { id: "fall-pose", progress: 0.8, pos: [0, 0, -0.55], yaw: -180, pitch: -37 },
+  { id: "fall", progress: 1, pos: [0, 0, -9.55], yaw: -180, pitch: -66 },
+];
+
+function sampleMovement(progress) {
+  const list = MOVEMENT_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  if (p <= list[0].progress) return list[0];
+  const last = list[list.length - 1];
+  if (p >= last.progress) return last;
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = smoothstep(0, 1, clamp((p - a.progress) / span));
+  return {
+    pos: [lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t)],
+    yaw: lerp(a.yaw, b.yaw, t),
+    pitch: lerp(a.pitch, b.pitch, t),
+  };
+}
+/*@GEN:MOVEMENT_DEFS_END*/
+
+/*@GEN:BONES_START*/
+const BONE_POSE_KEYFRAMES = [
+  {
+    id: "front-idle",
+    progress: 0,
+    bones: {
+        lClavicle: [0.0000, 0.0000, 0.2269],
+        rClavicle: [0.0000, 0.0000, -0.2269],
+        lForearm: [-0.0349, 0.7156, 0.4014],
+        rForearm: [0.3142, -1.1868, -0.0175],
+        lHand: [-0.3142, 0.5061, 0.3142],
+        rHand: [-0.5411, -0.3840, 0.0000],
+        lThigh: [0.5411, 0.0000, 0.0175],
+        rThigh: [0.2793, 0.0000, 0.0000],
+        lCalf: [-0.9774, 0.0000, 0.0000],
+        rCalf: [-0.9076, 0.0000, 0.0000],
+    },
+  },
+  {
+    id: "approach",
+    progress: 0.25,
+    bones: {
+        head: [-0.4538, 0.0000, 0.0000],
+        lClavicle: [0.0000, 0.0000, 0.2269],
+        rClavicle: [0.0000, 0.0000, -0.2269],
+        lForearm: [-0.0349, 0.7156, 0.4014],
+        rForearm: [0.3142, -1.1868, -0.0175],
+        lHand: [-0.3142, 0.5061, 0.3142],
+        rHand: [-0.5411, -0.3840, 0.0000],
+        lThigh: [0.5411, 0.0000, 0.0175],
+        rThigh: [0.2793, 0.0000, 0.0000],
+        lCalf: [-0.9774, 0.0000, 0.0000],
+        rCalf: [-0.9076, 0.0000, 0.0000],
+    },
+  },
+  {
+    id: "turn",
+    progress: 0.5,
+    bones: {
+        head: [0.0175, -0.1571, -0.0524],
+        lClavicle: [0.0000, 0.0000, 0.2269],
+        rClavicle: [0.0000, 0.0000, -0.2269],
+        lForearm: [-0.0349, 0.5061, 0.4014],
+        rForearm: [0.3142, -0.8727, -0.0175],
+        lHand: [-0.3142, 0.5061, 0.3142],
+        rHand: [-0.5411, -0.3840, 0.0000],
+        lThigh: [0.5411, 0.0000, 0.0175],
+        rThigh: [0.2793, 0.0000, 0.0000],
+        lCalf: [-0.6807, 0.0000, 0.0000],
+        rCalf: [-0.7505, -0.1571, 0.0000],
+    },
+  },
+  {
+    id: "fall-pose",
+    progress: 0.7,
+    bones: {
+        spine1: [0.5585, 0.0000, 0.0000],
+        spine2: [0.4189, 0.0000, 0.0000],
+        head: [0.0175, -0.1571, -0.0524],
+        lClavicle: [0.0000, 0.0000, 0.2269],
+        rClavicle: [0.0000, 0.0000, -0.2269],
+        lForearm: [-0.0349, 0.5061, 0.4014],
+        rForearm: [0.3142, -0.8727, -0.0175],
+        lHand: [-0.3142, 0.5061, 0.3142],
+        rHand: [-0.5411, -0.3840, 0.0000],
+        lThigh: [0.3665, 0.0000, 0.0175],
+        rThigh: [0.2793, 0.0000, 0.0000],
+        lCalf: [-1.3090, -0.1222, -0.2618],
+        rCalf: [-1.0821, -0.1571, 0.0000],
+    },
+  },
+  {
+    id: "fall",
+    progress: 1,
+    bones: {
+        spine1: [0.5585, 0.0000, 0.0000],
+        spine2: [0.4189, 0.0000, 0.0000],
+        head: [0.4014, -0.1571, -0.0524],
+        lClavicle: [0.0000, -0.6458, 0.5411],
+        rClavicle: [-0.4363, 0.4189, -0.2269],
+        lForearm: [-0.0349, 0.5061, 0.4014],
+        rForearm: [0.3142, -0.8727, -0.0175],
+        lHand: [-0.3142, 0.5061, 0.3142],
+        rHand: [-0.5411, -0.3840, 0.0000],
+        lThigh: [0.3665, 0.0000, 0.0175],
+        rThigh: [0.2793, 0.0000, 0.0000],
+        lCalf: [-1.3090, -0.1222, -0.2618],
+        rCalf: [-1.0821, -0.1571, 0.0000],
+    },
+  },
+];
+/*@GEN:BONES_END*/
+
+function sampleBonePose(progress) {
+  const list = BONE_POSE_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  const pick = (kf) => kf.bones;
+  if (p <= list[0].progress) return pick(list[0]);
+  const last = list[list.length - 1];
+  if (p >= last.progress) return pick(last);
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((p - a.progress) / span);
+  const out = {};
+  const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
+  keys.forEach((k) => {
+    const va = a.bones[k] || [0, 0, 0];
+    const vb = b.bones[k] || [0, 0, 0];
+    out[k] = [lerp(va[0], vb[0], t), lerp(va[1], vb[1], t), lerp(va[2], vb[2], t)];
+  });
+  return out;
+}
+
+/*@GEN:SCROLL_LENGTH_START*/
+const SCROLL_LENGTH_VH = 950;
+/*@GEN:SCROLL_LENGTH_END*/
+
+function damp(current, target, lambda, dt) {
+  return current + (target - current) * (1 - Math.exp(-lambda * dt));
+}
+function clamp(value, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getDeviceProfile() {
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  return {
+    isMobile,
+    dpr: isMobile ? [1, 1.5] : [1, 2],
+    enablePostProcessing: !isMobile,
+  };
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+function lerpVec3(a, b, t) {
+  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+}
+function lerpColor(a, b, t) {
+  const ca = new THREE.Color(a);
+  const cb = new THREE.Color(b);
+  ca.lerp(cb, t);
+  return "#" + ca.getHexString();
+}
+
+function sceneToState(kf) {
+  return {
+    camera: kf.camera,
+    light: kf.light,
+    fog: kf.fog,
+    background: kf.background,
+  };
+}
+
+function blendScenes(list, rawProgress) {
+  const progress = clamp(rawProgress, 0, 1);
+  if (progress <= list[0].progress) return sceneToState(list[0]);
+  const last = list[list.length - 1];
+  if (progress >= last.progress) return sceneToState(last);
+
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < progress) i++;
+  const a = list[i];
+  const b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((progress - a.progress) / span);
+
+  return {
+    camera: {
+      position: lerpVec3(a.camera.position, b.camera.position, t),
+      lookAt: lerpVec3(a.camera.lookAt, b.camera.lookAt, t),
+      fov: lerp(a.camera.fov, b.camera.fov, t),
+    },
+    light: {
+      color: lerpColor(a.light.color, b.light.color, t),
+      intensity: lerp(a.light.intensity, b.light.intensity, t),
+      rimColor: lerpColor(a.light.rimColor, b.light.rimColor, t),
+      rimIntensity: lerp(a.light.rimIntensity, b.light.rimIntensity, t),
+    },
+    fog: {
+      color: lerpColor(a.fog.color, b.fog.color, t),
+      far: lerp(a.fog.far, b.fog.far, t),
+    },
+    background: lerpColor(a.background, b.background, t),
+  };
+}
+
+function textWeight(kf, progress, window_ = 0.14) {
+  const d = Math.abs(progress - kf.progress);
+  return clamp(1 - d / window_);
+}
+
+const useScrollStore = create((set) => ({
+  progress: 0,
+  smoothProgress: 0,
+  setProgress: (p) => set({ progress: p }),
+  setSmoothProgress: (p) => set({ smoothProgress: p }),
+}));
+
+function useScrollProgress(spacerRef) {
+  useEffect(() => {
+    const compute = () => {
+      const el = spacerRef.current;
+      if (!el) return;
+      const total = el.offsetHeight - window.innerHeight;
+      const raw = total > 0 ? window.scrollY / total : 0;
+      const p = clamp(raw, 0, 1);
+      useScrollStore.getState().setProgress(p);
+      document.body.classList.toggle("app-root--scrolled", window.scrollY > 20);
+    };
+    compute();
+    window.addEventListener("scroll", compute, { passive: true });
+    window.addEventListener("resize", compute);
+    return () => {
+      window.removeEventListener("scroll", compute);
+      window.removeEventListener("resize", compute);
+    };
+  }, [spacerRef]);
+}
+
+function useArrowKeyScroll(step = 140) {
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+      e.preventDefault();
+      window.scrollBy({ top: e.key === "ArrowDown" ? step : -step, behavior: "smooth" });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [step]);
+}
+
+function ScrollSmoother() {
+  useFrame((_, delta) => {
+    const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
+    setSmoothProgress(damp(smoothProgress, progress, 4, delta));
+  });
+  return null;
+}
+
+function useMouseParallax() {
+  const mouse = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    const onMove = (e) => {
+      if (e.pointerType !== "mouse") return;
+      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+  return mouse;
+}
+
+function CameraRig({ mouse, parallaxStrength = 0.18 }) {
+  const { camera } = useThree();
+  const lookAtTarget = useRef(new THREE.Vector3());
+  const currentLookAt = useRef(new THREE.Vector3());
+
+  useFrame((_, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    const [px, py, pz] = state.camera.position;
+    const [lx, ly, lz] = state.camera.lookAt;
+    const mx = mouse.current?.x ?? 0;
+    const my = mouse.current?.y ?? 0;
+
+    camera.position.x = damp(camera.position.x, px + mx * parallaxStrength, 6, delta);
+    camera.position.y = damp(camera.position.y, py - my * parallaxStrength * 0.6, 6, delta);
+    camera.position.z = damp(camera.position.z, pz, 6, delta);
+
+    lookAtTarget.current.set(lx + mx * 0.05, ly - my * 0.05, lz);
+    currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-6 * delta));
+    camera.lookAt(currentLookAt.current);
+
+    if ("fov" in camera) {
+      camera.fov = damp(camera.fov, state.camera.fov, 5, delta);
+      camera.updateProjectionMatrix();
+    }
+  });
+
+  return null;
+}
+
+/* ============================================================
+   three/AnimatedCharacter.jsx
+
+   Arquitectura (sin cambios respecto a versiones previas):
+   - outer: traslación en el mundo (posición).
+   - pivot: rotación alrededor del centro de masa.
+   - Cadena de huesos con retraso (spine → chest → shoulder → head,
+     y pelvis → thigh → calf → foot) para que no todo rote como una
+     sola pieza rígida.
+
+   LO QUE CAMBIÓ: el objetivo de posición/rotación de outer/pivot ya
+   NO sale de fórmulas fijas por fase — sale de MOVEMENT_KEYFRAMES
+   vía sampleMovement(progress), editable desde la herramienta.
+   ============================================================ */
+const CHAR_CENTER_Y = 0.52;
+const CHAR_SCALE = 1.7;
+
+const _deltaEuler = new THREE.Euler();
+const _deltaQuat = new THREE.Quaternion();
+function applyLocalDelta(bone, restQuat, ex, ey, ez) {
+  _deltaEuler.set(ex, ey, ez, "XYZ");
+  _deltaQuat.setFromEuler(_deltaEuler);
+  bone.quaternion.copy(restQuat).multiply(_deltaQuat);
+}
+
+function AnimatedCharacter({ mouse }) {
+  const outerRef = useRef(null);
+  const pivotRef = useRef(null);
+  const { scene } = useGLTF(CHARACTER_MODEL_URL);
+  const bonesRef = useRef({});
+  const restRef = useRef({});
+  const clockRef = useRef(0);
+
+  const chainRef = useRef({
+    pelvis: 0, spine: 0, chest: 0, shoulder: 0, head: 0,
+    thigh: 0, calf: 0, foot: 0,
+  });
+
+  useEffect(() => {
+    const names = {
+      spine1: "Spine01", spine2: "Spine02", head: "Head", neck: "NeckTwist01",
+      lClavicle: "L_Clavicle", rClavicle: "R_Clavicle",
+      lForearm: "L_Forearm", rForearm: "R_Forearm",
+      lHand: "L_Hand", rHand: "R_Hand",
+      lThigh: "L_Thigh", rThigh: "R_Thigh",
+      lCalf: "L_Calf", rCalf: "R_Calf",
+      lFoot: "L_Foot", rFoot: "R_Foot",
+    };
+    const bones = {};
+    const rest = {};
+    Object.entries(names).forEach(([key, boneName]) => {
+      const bone = scene.getObjectByName(boneName);
+      if (bone) {
+        bones[key] = bone;
+        rest[key] = bone.quaternion.clone();
+      }
+    });
+    bonesRef.current = bones;
+    restRef.current = rest;
+  }, [scene]);
+
+  useFrame((_, delta) => {
+    clockRef.current += delta;
+    const t = clockRef.current;
+    const progress = useScrollStore.getState().smoothProgress;
+    const bones = bonesRef.current;
+    const rest = restRef.current;
+    const outer = outerRef.current;
+    const pivot = pivotRef.current;
+    if (!outer || !pivot) return;
+
+    /*@GEN:MOVEMENT_START*/
+    const m = sampleMovement(progress);
+    const idleFloat = Math.sin(t * 0.8) * 0.022;
+    outer.position.x = damp(outer.position.x, m.pos[0], 3, delta);
+    outer.position.y = damp(outer.position.y, m.pos[1] + idleFloat, 5, delta);
+    outer.position.z = damp(outer.position.z, m.pos[2], 2.0, delta);
+
+    pivot.rotation.y = damp(pivot.rotation.y, (m.yaw * Math.PI) / 180, 4.5, delta);
+    pivot.rotation.x = damp(pivot.rotation.x, (m.pitch * Math.PI) / 180, 4.5, delta);
+    pivot.rotation.z = damp(pivot.rotation.z, Math.sin(t * 0.35) * 0.04, 4, delta);
+    /*@GEN:MOVEMENT_END*/
+
+    // Cadena hacia arriba: columna → pecho → hombros → cabeza.
+    const chain = chainRef.current;
+    chain.pelvis = pivot.rotation.y;
+    chain.spine = damp(chain.spine, chain.pelvis, 7, delta);
+    chain.chest = damp(chain.chest, chain.spine, 5.5, delta);
+    chain.shoulder = damp(chain.shoulder, chain.chest, 4.2, delta);
+    chain.head = damp(chain.head, chain.shoulder, 3.2, delta);
+
+    // Cadena hacia abajo: pelvis → muslo → pantorrilla → pie.
+    chain.thigh = damp(chain.thigh, chain.pelvis, 6, delta);
+    chain.calf = damp(chain.calf, chain.thigh, 5, delta);
+    chain.foot = damp(chain.foot, chain.calf, 4, delta);
+
+    const idleAmp = 1;
+    const floatArm = 0.26 * idleAmp;
+    const floatLeg = 0.18 * idleAmp;
+    // Los brazos SÍ pueden flotar con fase/frecuencia distinta entre
+    // izquierda y derecha porque no tocan nada rígido. Las piernas NO:
+    // los pies están apoyados en la patineta, así que ambas piernas
+    // usan exactamente el mismo seno (misma frecuencia y misma fase,
+    // sin offset entre l/r). Así suben y bajan juntas, la distancia y
+    // el ángulo entre los dos pies no cambia con el tiempo, y la
+    // patineta (rigida entre ambos pies) ya no se deforma.
+    const legWave = Math.sin(t * 0.6 + 0.3) * floatLeg;
+    const calfWave = Math.sin(t * 0.7 + 1.0) * floatLeg * 0.7;
+    const footWave = Math.sin(t * 0.8 + 0.2) * floatLeg * 0.5;
+    const limbFloat = {
+      lForearm: [0, 0, Math.sin(t * 0.9 + 0.0) * floatArm],
+      rForearm: [0, 0, Math.sin(t * 0.85 + 1.4) * floatArm],
+      lHand: [Math.sin(t * 1.1 + 0.6) * floatArm * 0.6, 0, 0],
+      rHand: [Math.sin(t * 1.05 + 2.1) * floatArm * 0.6, 0, 0],
+      lThigh: [legWave, 0, 0],
+      rThigh: [legWave, 0, 0],
+      lCalf: [calfWave, 0, 0],
+      rCalf: [calfWave, 0, 0],
+      lFoot: [0, 0, footWave],
+      rFoot: [0, 0, footWave],
+    };
+
+    const _pose = sampleBonePose(progress);
+    Object.entries(_pose).forEach(([key, [ex, ey, ez]]) => {
+      const bone = bones[key];
+      const r = rest[key];
+      if (!bone || !r) return;
+      const f = limbFloat[key];
+      const fx = f ? ex + f[0] : ex;
+      const fy = f ? ey + f[1] : ey;
+      const fz = f ? ez + f[2] : ez;
+      applyLocalDelta(bone, r, fx, fy, fz);
+    });
+  });
+
+  return (
+    <group ref={outerRef} position={[0, -0.95, -1.3]}>
+      <group ref={pivotRef}>
+        <primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} />
+      </group>
+    </group>
+  );
+}
+useGLTF.preload(CHARACTER_MODEL_URL);
+
+/* ============================================================
+   Entorno del universo (islas flotantes, castillo, planetas). Es un
+   único modelo estático (sin huesos ni animación) que se dibuja de
+   fondo. SCALE/POSITION/ROTATION vienen de UNIVERSE_SCALE/POSITION/
+   ROTATION_Y, generados desde la pestaña "Entorno" de la herramienta.
+   ============================================================ */
+function UniverseEnvironment() {
+  const { scene } = useGLTF(UNIVERSE_MODEL_URL);
+  return (
+    <primitive
+      object={scene}
+      scale={UNIVERSE_SCALE}
+      position={UNIVERSE_POSITION}
+      rotation={[0, (UNIVERSE_ROTATION_Y * Math.PI) / 180, 0]}
+    />
+  );
+}
+useGLTF.preload(UNIVERSE_MODEL_URL);
+
+function Lighting() {
+  const keyRef = useRef(null);
+  const rimRef = useRef(null);
+
+  useFrame((_, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    if (keyRef.current) {
+      keyRef.current.color.set(state.light.color);
+      keyRef.current.intensity = damp(keyRef.current.intensity, state.light.intensity, 4, delta);
+    }
+    if (rimRef.current) {
+      rimRef.current.color.set(state.light.rimColor);
+      rimRef.current.intensity = damp(rimRef.current.intensity, state.light.rimIntensity, 4, delta);
+    }
+  });
+
+  return (
+    <>
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} />
+      <ambientLight intensity={0.32} />
+      <directionalLight ref={keyRef} position={[3, 4, 5]} intensity={0.9} />
+      <directionalLight position={[-3, 2, -2]} intensity={0.5} />
+      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
+    </>
+  );
+}
+
+function SceneEnvironment() {
+  const { scene } = useThree();
+  const fog = useRef(new THREE.FogExp2("#05070a", 0.12));
+  const bgColor = useRef(new THREE.Color("#05070a"));
+
+  useEffect(() => {
+    scene.fog = fog.current;
+    scene.background = bgColor.current;
+  }, [scene]);
+
+  useFrame(() => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    fog.current.color.set(state.fog.color);
+    fog.current.density = 1 / Math.max(state.fog.far, 1);
+    bgColor.current.set(state.background);
+  });
+
+  return null;
+}
+
+function Experience({ device }) {
+  const mouse = useMouseParallax();
+  return (
+    <>
+      <ScrollSmoother />
+      <SceneEnvironment />
+      <CameraRig mouse={mouse} />
+      <Lighting />
+      <Environment preset="night" background={false} />
+      <Stars radius={140} depth={70} count={device.isMobile ? 1200 : 3000} factor={4} saturation={0} fade speed={0.3} />
+      <Suspense fallback={null}>
+        <UniverseEnvironment />
+        <AnimatedCharacter mouse={mouse} />
+      </Suspense>
+      {device.enablePostProcessing && (
+        <EffectComposer multisampling={0}>
+          <Bloom intensity={0.55} luminanceThreshold={0.2} luminanceSmoothing={0.9} mipmapBlur />
+          <Vignette eskil={false} offset={0.15} darkness={0.7} />
+        </EffectComposer>
+      )}
+    </>
+  );
+}
+
+function HeroText() {
+  const ref = useRef(null);
+  const FADE_IN_END = 0.05;
+  const ZOOM_START = ST_TURN_END;
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (!ref.current) return;
+      const fadeIn = smoothstep(0, FADE_IN_END, progress);
+      const zoomOut = smoothstep(ZOOM_START, 1, progress);
+      const scale = 1 + zoomOut * 14;
+      const opacity = fadeIn * (1 - zoomOut);
+      ref.current.style.opacity = String(opacity);
+      ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
+      Scroll Experience
+    </div>
+  );
+}
+
+function SceneText() {
+  const refs = useRef([]);
+
+  useEffect(() => {
+    const update = (progress) => {
+      scenes.forEach((kf, i) => {
+        const el = refs.current[i];
+        if (!el || !kf.text) return;
+        const weight = textWeight(kf, progress);
+        el.style.opacity = String(weight);
+        el.style.transform =
+          kf.text.align === "center"
+            ? `translateX(-50%) translateY(${(1 - weight) * 24}px)`
+            : `translateY(${(1 - weight) * 24}px)`;
+        el.style.pointerEvents = weight > 0.5 ? "auto" : "none";
+      });
+    };
+    update(useScrollStore.getState().smoothProgress);
+    const unsubscribe = useScrollStore.subscribe((s) => update(s.smoothProgress));
+    return unsubscribe;
+  }, []);
+
+  return (
+    <div className="scene-text-layer">
+      {scenes.map((kf, i) =>
+        kf.text ? (
+          <div
+            key={kf.id}
+            ref={(el) => { refs.current[i] = el; }}
+            className={`scene-text scene-text--${kf.text.align}`}
+            style={{ opacity: 0 }}
+          >
+            {kf.text.eyebrow && <span className="scene-text__eyebrow">{kf.text.eyebrow}</span>}
+            <h2 className="scene-text__title">{kf.text.title}</h2>
+            {kf.text.subtitle && <p className="scene-text__subtitle">{kf.text.subtitle}</p>}
+          </div>
+        ) : null
+      )}
+    </div>
+  );
+}
+
+const CTA_START = scenes.find((s) => s.showCTA)?.progress ?? 1;
+const FADE_WINDOW = 0.06;
+
+function CTAButton() {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (!ref.current) return;
+      const weight = clamp((progress - (CTA_START - FADE_WINDOW)) / FADE_WINDOW);
+      ref.current.style.opacity = String(weight);
+      ref.current.style.transform = `translateX(-50%) translateY(${(1 - weight) * 16}px)`;
+      ref.current.style.pointerEvents = weight > 0.6 ? "auto" : "none";
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div ref={ref} className="cta-layer" style={{ opacity: 0 }}>
+      <a className="cta-button" href={clientConfig.cta.href}>
+        {clientConfig.cta.label}
+      </a>
+    </div>
+  );
+}
+
+function ProgressIndicator() {
+  const fillRef = useRef(null);
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (fillRef.current) fillRef.current.style.height = `${progress * 100}%`;
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div className="progress-rail" aria-hidden="true">
+      <div className="progress-rail__track">
+        <div ref={fillRef} className="progress-rail__fill" />
+      </div>
+    </div>
+  );
+}
+
+function CursorTrail() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let points = [];
+    let rafId = 0;
+
+    const resize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+
+    const addPoint = (x, y) => {
+      points.push({ x, y, life: 1 });
+      if (points.length > 40) points.shift();
+    };
+    const onPointerMove = (e) => addPoint(e.clientX, e.clientY);
+    const onTouchMove = (e) => {
+      if (e.touches && e.touches[0]) addPoint(e.touches[0].clientX, e.touches[0].clientY);
+    };
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+      points.forEach((p) => { p.life *= 0.94; });
+      points = points.filter((p) => p.life > 0.02);
+
+      if (points.length > 1) {
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 1; i < points.length; i++) {
+          const p0 = points[i - 1];
+          const p1 = points[i];
+          const alpha = Math.min(p0.life, p1.life) * 0.55;
+          ctx.strokeStyle = clientConfig.colors.accent;
+          ctx.globalAlpha = alpha;
+          ctx.lineWidth = 1.5 + alpha * 4;
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
+      rafId = requestAnimationFrame(draw);
+    };
+    rafId = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("touchmove", onTouchMove);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" />;
+}
+
+function App() {
+  const spacerRef = useRef(null);
+  useScrollProgress(spacerRef);
+  useArrowKeyScroll();
+  const device = useMemo(() => getDeviceProfile(), []);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div
+      className="app-root"
+      style={{
+        "--brand-accent": clientConfig.colors.accent,
+        "--brand-accent-2": clientConfig.colors.accentSecondary,
+        "--color-bg": clientConfig.colors.background,
+        "--color-text": clientConfig.colors.textPrimary,
+        "--color-text-muted": clientConfig.colors.textMuted,
+        "--font-display": clientConfig.fonts.display,
+        "--font-body": clientConfig.fonts.body,
+      }}
+    >
+      <div className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
+        <Canvas
+          dpr={device.dpr}
+          gl={{ antialias: true, powerPreference: "high-performance" }}
+          camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
+        >
+          <Experience device={device} />
+        </Canvas>
+        <CursorTrail />
+        <HeroText />
+        <SceneText />
+        <ProgressIndicator />
+        <div className="scroll-hint" aria-hidden="true">
+          <span>Scroll</span>
+          <div className="scroll-hint__line" />
+        </div>
+      </div>
+      <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<App />);
+
+</script>
+</body>
+</html>
+
+</textarea>
 
 <script type="importmap">
 {
@@ -91,35 +1240,24 @@
 <script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
 
 <script type="text/babel" data-type="module" data-presets="react">
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Environment, Grid } from "@react-three/drei";
 
-// Mismo modelo que index.html
-const MODEL_URL = "./assets/models/weeb.glb";
+const MODEL_URL = "./assets/models/weebpatineta.glb";
+const UNIVERSE_MODEL_URL = "./assets/models/universo.glb";
+const DEFAULT_UNIVERSE = { scale: 1, position: [0, -2, -6], rotationY: 0 };
 
-/* =====================================================================
-   HUESOS — mismas claves y nombres que usa `names` en AnimatedCharacter
-   ===================================================================== */
 const BONE_DEFS = [
-  ["spine1", "Spine01"],
-  ["spine2", "Spine02"],
-  ["neck", "NeckTwist01"],
-  ["head", "Head"],
-  ["lClavicle", "L_Clavicle"],
-  ["rClavicle", "R_Clavicle"],
-  ["lForearm", "L_Forearm"],
-  ["rForearm", "R_Forearm"],
-  ["lHand", "L_Hand"],
-  ["rHand", "R_Hand"],
-  ["lThigh", "L_Thigh"],
-  ["rThigh", "R_Thigh"],
-  ["lCalf", "L_Calf"],
-  ["rCalf", "R_Calf"],
-  ["lFoot", "L_Foot"],
-  ["rFoot", "R_Foot"],
+  ["spine1", "Spine01"], ["spine2", "Spine02"], ["neck", "NeckTwist01"], ["head", "Head"],
+  ["lClavicle", "L_Clavicle"], ["rClavicle", "R_Clavicle"],
+  ["lForearm", "L_Forearm"], ["rForearm", "R_Forearm"],
+  ["lHand", "L_Hand"], ["rHand", "R_Hand"],
+  ["lThigh", "L_Thigh"], ["rThigh", "R_Thigh"],
+  ["lCalf", "L_Calf"], ["rCalf", "R_Calf"],
+  ["lFoot", "L_Foot"], ["rFoot", "R_Foot"],
 ];
 const BONE_KEYS = BONE_DEFS.map(([k]) => k);
 
@@ -127,173 +1265,134 @@ const rad = (d) => (d * Math.PI) / 180;
 const deg = (r) => (r * 180) / Math.PI;
 const clamp = (v, min = 0, max = 1) => Math.min(max, Math.max(min, v));
 const lerp = (a, b, t) => a + (b - a) * t;
-
-/* =====================================================================
-   ETAPAS DE POSE (huesos) — mismos breakpoints que BONE_POSE_KEYFRAMES
-   en tu index.html actual. Los valores de abajo son EXACTAMENTE los que
-   ya tenés puestos (convertidos de radianes a grados para los sliders),
-   así el editor arranca mostrando tu pose actual, no una pose en blanco.
-   ===================================================================== */
-const POSE_KEYFRAMES = [
-  { id: "front-idle", label: "Frente", progress: 0 },
-  { id: "approach", label: "Acercamiento", progress: 0.25 },
-  { id: "turn", label: "Giro", progress: 0.5 },
-  { id: "fall-pose", label: "Postura caída", progress: 0.7 },
-  { id: "fall", label: "Caída", progress: 1 },
-];
-
-const zeroPose = () => Object.fromEntries(BONE_KEYS.map((k) => [k, { x: 0, y: 0, z: 0 }]));
-const rEntry = (rx, ry, rz) => ({ x: deg(rx), y: deg(ry), z: deg(rz) });
-
-function initialPoses() {
-  const p = Object.fromEntries(POSE_KEYFRAMES.map((kf) => [kf.id, zeroPose()]));
-  p["front-idle"] = {
-    ...zeroPose(),
-    lClavicle: rEntry(0, 0, 0.2269), rClavicle: rEntry(0, 0, -0.2269),
-    lForearm: rEntry(-0.0349, 0.7156, 0.4014), rForearm: rEntry(0.3142, -1.1868, -0.0175),
-    lHand: rEntry(-0.3142, 0.5061, 0.3142), rHand: rEntry(-0.5411, -0.3840, 0),
-    lThigh: rEntry(0.5411, 0, 0.0175), rThigh: rEntry(0.2793, 0, 0),
-    lCalf: rEntry(-0.9774, 0, 0), rCalf: rEntry(-0.9076, 0, 0),
-  };
-  p["approach"] = {
-    ...p["front-idle"],
-    head: rEntry(-0.4538, 0, 0),
-  };
-  p["turn"] = {
-    ...p["front-idle"],
-    head: rEntry(0.0175, -0.1571, -0.0524),
-    lForearm: rEntry(-0.0349, 0.5061, 0.4014), rForearm: rEntry(0.3142, -0.8727, -0.0175),
-    lCalf: rEntry(-0.6807, 0, 0), rCalf: rEntry(-0.7505, -0.1571, 0),
-  };
-  p["fall-pose"] = {
-    ...p["turn"],
-    spine1: rEntry(0.5585, 0, 0), spine2: rEntry(0.4189, 0, 0),
-    lThigh: rEntry(0.3665, 0, 0.0175),
-    lCalf: rEntry(-1.3090, -0.1222, -0.2618), rCalf: rEntry(-1.0821, -0.1571, 0),
-  };
-  p["fall"] = {
-    ...p["fall-pose"],
-    head: rEntry(0.4014, -0.1571, -0.0524),
-    lClavicle: rEntry(0, -0.6458, 0.5411), rClavicle: rEntry(-0.4363, 0.4189, -0.2269),
-  };
-  return p;
+function smoothstep(edge0, edge1, x) {
+  const t = clamp((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
 }
 
-function samplePose(posesByKf, progress) {
+/* ============================================================
+   UNA sola lista de "etapas" (stages) compartida por Pose, Cámara
+   y Movimiento. Antes cada sección tenía su propia lista de
+   keyframes con progress distintos (la pose iba a 0/0.25/0.5/0.7/1
+   mientras que cámara y movimiento iban a 0/0.18/0.47/0.6/0.8/1),
+   lo que hacía que la pose y la cámara/movimiento quedaran
+   desincronizadas durante el scroll. Ahora las tres comparten
+   exactamente las mismas 6 etapas.
+   ============================================================ */
+const STAGE_DEFS = [
+  { id: "front-idle", label: "Frente" },
+  { id: "approach", label: "Acercamiento" },
+  { id: "turn", label: "Giro" },
+  { id: "pause", label: "Pausa" },
+  { id: "fall-pose", label: "Postura caída" },
+  { id: "fall", label: "Caída" },
+];
+
+/* Duración de cada tramo (en vh de scroll), entre etapa[i] y etapa[i+1].
+   5 tramos para las 6 etapas. La suma de estos 5 valores es el largo
+   total del scroll (antes fijo en 950vh). Estos valores por defecto
+   reproducen exactamente el timing original (0 / 0.18 / 0.47 / 0.6 /
+   0.8 / 1 sobre 950vh). Editable desde la pestaña "Duración". */
+const DEFAULT_DURATIONS_VH = [170, 275, 125, 190, 190];
+
+function stagesWithProgress(durationsVh) {
+  const total = durationsVh.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0;
+  const out = [{ ...STAGE_DEFS[0], progress: 0 }];
+  for (let i = 0; i < durationsVh.length; i++) {
+    acc += durationsVh[i];
+    out.push({ ...STAGE_DEFS[i + 1], progress: acc / total });
+  }
+  return out;
+}
+const roundProgress = (p) => Math.round(p * 1000) / 1000;
+
+const zeroPose = () => Object.fromEntries(BONE_KEYS.map((k) => [k, { x: 0, y: 0, z: 0 }]));
+
+/* Todo arranca en cero / neutro: ninguna etapa tiene pose, cámara
+   ni movimiento predefinidos. Vos lo armás a gusto desde acá. */
+function initialPoses() {
+  return Object.fromEntries(STAGE_DEFS.map((kf) => [kf.id, zeroPose()]));
+}
+function initialCameras() {
+  return Object.fromEntries(
+    STAGE_DEFS.map((kf) => [kf.id, { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30 }])
+  );
+}
+function initialMovements() {
+  return Object.fromEntries(STAGE_DEFS.map((kf) => [kf.id, { pos: [0, 0, 0], yaw: 0, pitch: 0 }]));
+}
+// Valores fijos (luz / niebla / fondo) por etapa, con una paleta de
+// espacio profundo (azul oscuro) acorde al universo.glb. No tienen
+// control propio en la UI todavía; si querés tocarlos hace falta
+// editar este objeto a mano.
+const FIXED_SCENE_DEFAULTS = {
+  "front-idle": { light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.3 }, fog: { color: "#0b1330", far: 26 }, background: "#0b1330" },
+  "approach": { light: { color: "#dfeeff", intensity: 0.72, rimColor: "#49d3ff", rimIntensity: 1.4 }, fog: { color: "#0a1128", far: 24 }, background: "#0a1128" },
+  "turn": { light: { color: "#dfeeff", intensity: 0.68, rimColor: "#7dfff0", rimIntensity: 1.6 }, fog: { color: "#080d20", far: 20 }, background: "#080d20" },
+  "pause": { light: { color: "#dfeeff", intensity: 0.65, rimColor: "#7dfff0", rimIntensity: 1.65 }, fog: { color: "#060a18", far: 17 }, background: "#060a18" },
+  "fall-pose": { light: { color: "#dfeeff", intensity: 0.6, rimColor: "#7dfff0", rimIntensity: 1.7 }, fog: { color: "#04060f", far: 14 }, background: "#04060f" },
+  "fall": { light: { color: "#dfeeff", intensity: 0.5, rimColor: "#49d3ff", rimIntensity: 1.6 }, fog: { color: "#000000", far: 11 }, background: "#000000" },
+};
+
+function samplePose(posesByKf, progress, stages) {
   const p = clamp(progress, 0, 1);
-  if (p <= POSE_KEYFRAMES[0].progress) return posesByKf[POSE_KEYFRAMES[0].id];
-  const last = POSE_KEYFRAMES[POSE_KEYFRAMES.length - 1];
+  if (p <= stages[0].progress) return posesByKf[stages[0].id];
+  const last = stages[stages.length - 1];
   if (p >= last.progress) return posesByKf[last.id];
   let i = 0;
-  while (i < POSE_KEYFRAMES.length - 1 && POSE_KEYFRAMES[i + 1].progress < p) i++;
-  const a = POSE_KEYFRAMES[i], b = POSE_KEYFRAMES[i + 1];
+  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
+  const a = stages[i], b = stages[i + 1];
   const span = b.progress - a.progress || 1;
   const t = clamp((p - a.progress) / span);
   const pa = posesByKf[a.id], pb = posesByKf[b.id];
   const out = {};
-  BONE_KEYS.forEach((k) => {
-    out[k] = { x: lerp(pa[k].x, pb[k].x, t), y: lerp(pa[k].y, pb[k].y, t), z: lerp(pa[k].z, pb[k].z, t) };
-  });
+  BONE_KEYS.forEach((k) => { out[k] = { x: lerp(pa[k].x, pb[k].x, t), y: lerp(pa[k].y, pb[k].y, t), z: lerp(pa[k].z, pb[k].z, t) }; });
   return out;
-}
-
-/* =====================================================================
-   ETAPAS DE CÁMARA — mismos breakpoints/valores que el array `scenes`
-   de tu index.html actual. particles/light/fog/background/background
-   quedan fijos (no editables acá) y se re-emiten tal cual al generar
-   el código, para no perder nada al reemplazar el array completo.
-   ===================================================================== */
-const CAMERA_KEYFRAMES = [
-  {
-    id: "front-idle", label: "Frente", progress: 0,
-    camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
-    fixed: {
-      particles: { spread: 1, opacity: 0.28 },
-      light: { color: "#ffffff", intensity: 0.75, rimColor: "#c8ff00", rimIntensity: 1.2 },
-      fog: { color: "#0f0f1a", far: 20 },
-      background: "#0f0f1a",
-    },
-  },
-  {
-    id: "approach", label: "Acercamiento", progress: 0.18,
-    camera: { position: [0, -0.05, 3.4], lookAt: [0, -0.1, 0], fov: 27 },
-    fixed: {
-      particles: { spread: 1.05, opacity: 0.3 },
-      light: { color: "#ffffff", intensity: 0.8, rimColor: "#c8ff00", rimIntensity: 1.3 },
-      fog: { color: "#0f0f1a", far: 19 },
-      background: "#0f0f1a",
-    },
-  },
-  {
-    id: "turn", label: "Giro", progress: 0.47,
-    camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
-    fixed: {
-      particles: { spread: 1.2, opacity: 0.35 },
-      light: { color: "#ffffff", intensity: 0.75, rimColor: "#7dfff0", rimIntensity: 1.6 },
-      fog: { color: "#0d0d18", far: 16 },
-      background: "#0d0d18",
-    },
-  },
-  {
-    id: "pause", label: "Pausa", progress: 0.6,
-    camera: { position: [0.3, 0.15, 3.5], lookAt: [0, 0.08, 0], fov: 28 },
-    fixed: {
-      particles: { spread: 1.25, opacity: 0.37 },
-      light: { color: "#ffffff", intensity: 0.75, rimColor: "#7dfff0", rimIntensity: 1.65 },
-      fog: { color: "#0c0c16", far: 15 },
-      background: "#0c0c16",
-    },
-  },
-  {
-    id: "fall-pose", label: "Postura caída", progress: 0.8,
-    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
-    fixed: {
-      particles: { spread: 1.3, opacity: 0.4 },
-      light: { color: "#ffffff", intensity: 0.7, rimColor: "#7dfff0", rimIntensity: 1.7 },
-      fog: { color: "#0a0a14", far: 14 },
-      background: "#0a0a14",
-    },
-  },
-  {
-    id: "fall", label: "Caída", progress: 1,
-    camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
-    fixed: {
-      particles: { spread: 1.5, opacity: 0.45 },
-      light: { color: "#ffffff", intensity: 0.6, rimColor: "#c8ff00", rimIntensity: 1.6 },
-      fog: { color: "#000000", far: 11 },
-      background: "#000000",
-    },
-  },
-];
-
-function initialCameras() {
-  return Object.fromEntries(CAMERA_KEYFRAMES.map((kf) => [kf.id, JSON.parse(JSON.stringify(kf.camera))]));
 }
 
 function lerpVec3(a, b, t) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
 
-function sampleCamera(camsByKf, progress) {
+function sampleCamera(camsByKf, progress, stages) {
   const p = clamp(progress, 0, 1);
-  const list = CAMERA_KEYFRAMES;
-  if (p <= list[0].progress) return camsByKf[list[0].id];
-  const last = list[list.length - 1];
+  if (p <= stages[0].progress) return camsByKf[stages[0].id];
+  const last = stages[stages.length - 1];
   if (p >= last.progress) return camsByKf[last.id];
   let i = 0;
-  while (i < list.length - 1 && list[i + 1].progress < p) i++;
-  const a = list[i], b = list[i + 1];
+  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
+  const a = stages[i], b = stages[i + 1];
   const span = b.progress - a.progress || 1;
   const t = clamp((p - a.progress) / span);
   const ca = camsByKf[a.id], cb = camsByKf[b.id];
-  return {
-    position: lerpVec3(ca.position, cb.position, t),
-    lookAt: lerpVec3(ca.lookAt, cb.lookAt, t),
-    fov: lerp(ca.fov, cb.fov, t),
-  };
+  return { position: lerpVec3(ca.position, cb.position, t), lookAt: lerpVec3(ca.lookAt, cb.lookAt, t), fov: lerp(ca.fov, cb.fov, t) };
 }
 
-/* =====================================================================
-   PERSONAJE
-   ===================================================================== */
+function sampleMovement(movesByKf, progress, stages) {
+  const p = clamp(progress, 0, 1);
+  if (p <= stages[0].progress) return movesByKf[stages[0].id];
+  const last = stages[stages.length - 1];
+  if (p >= last.progress) return movesByKf[last.id];
+  let i = 0;
+  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
+  const a = stages[i], b = stages[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = smoothstep(0, 1, clamp((p - a.progress) / span));
+  const ma = movesByKf[a.id], mb = movesByKf[b.id];
+  return { pos: lerpVec3(ma.pos, mb.pos, t), yaw: lerp(ma.yaw, mb.yaw, t), pitch: lerp(ma.pitch, mb.pitch, t) };
+}
+
+/* ---- Personaje ----
+   IMPORTANTE: este componente ya no se desmonta/remonta al cambiar
+   de pestaña (antes a veces quedaba envuelto en <MovedGroup> y a
+   veces no, lo que forzaba un remount de <primitive>). Un remount
+   hacía que el useEffect volviera a "capturar" como pose de
+   referencia (rest) la pose YA deformada del frame anterior, en vez
+   del bind pose real del modelo — de ahí la deformación acumulada
+   al ir y volver entre pestañas. Ahora el personaje se monta una
+   sola vez y sólo cambian sus props. Este bug era exclusivo de esta
+   herramienta de edición: en el archivo final exportado (arriba en
+   tpl-source) el personaje siempre estuvo montado una sola vez, así
+   que la deformación NO se exporta al index.html. */
 function Character({ pose, onBonesFound }) {
   const { scene } = useGLTF(MODEL_URL);
   const bonesRef = useRef({});
@@ -326,11 +1425,6 @@ function Character({ pose, onBonesFound }) {
 }
 useGLTF.preload(MODEL_URL);
 
-/* =====================================================================
-   CÁMARA — en modo "cámara de escena" fuerza position/lookAt/fov exactos
-   (lo que realmente vería el usuario); en modo "libre" no toca nada y
-   deja que OrbitControls maneje la vista para poder inspeccionar.
-   ===================================================================== */
 function SceneCameraDriver({ target, active }) {
   const { camera } = useThree();
   useFrame(() => {
@@ -342,182 +1436,340 @@ function SceneCameraDriver({ target, active }) {
   return null;
 }
 
-function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate }) {
+function MovedGroup({ movement, children }) {
+  const ref = useRef(null);
+  useFrame(() => {
+    if (!ref.current || !movement) return;
+    ref.current.position.set(movement.pos[0], movement.pos[1], movement.pos[2]);
+    ref.current.rotation.set(rad(movement.pitch), rad(movement.yaw), 0);
+  });
+  return <group ref={ref}>{children}</group>;
+}
+
+/* Si universo.glb todavía no está copiado junto a este archivo, useGLTF
+   tira un error de carga (404). Este boundary evita que eso rompa toda
+   la herramienta — el resto (pose/cámara/movimiento del personaje)
+   sigue funcionando aunque el universo no cargue. */
+class UniverseBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch() {}
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
+function UniversePreview({ universe }) {
+  const { scene } = useGLTF(UNIVERSE_MODEL_URL);
+  return (
+    <primitive
+      object={scene}
+      scale={universe.scale}
+      position={universe.position}
+      rotation={[0, (universe.rotationY * Math.PI) / 180, 0]}
+    />
+  );
+}
+useGLTF.preload(UNIVERSE_MODEL_URL);
+
+/* La estructura de la escena ahora es SIEMPRE la misma (luces, grilla,
+   MovedGroup > Character, cámara, controles). Nunca cambia de forma
+   entre pestañas, así React nunca desmonta el personaje. */
+function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, universe, showUniverse, showGrid }) {
   return (
     <>
       <ambientLight intensity={0.4} />
       <directionalLight position={[3, 4, 5]} intensity={1} />
       <directionalLight position={[-3, 2, -2]} intensity={0.4} />
-      <Environment preset="city" background={false} />
-      <Grid args={[10, 10]} position={[0, -0.02, 0]} cellColor="#333" sectionColor="#555" />
-      <Character pose={pose} onBonesFound={onBonesFound} />
+      <Environment preset="night" background={false} />
+      {showGrid && <Grid args={[10, 10]} position={[0, -0.02, 0]} cellColor="#333" sectionColor="#555" />}
+      {showUniverse && (
+        <UniverseBoundary>
+          <Suspense fallback={null}>
+            <UniversePreview universe={universe} />
+          </Suspense>
+        </UniverseBoundary>
+      )}
+      <MovedGroup movement={movement}>
+        <Character pose={pose} onBonesFound={onBonesFound} />
+      </MovedGroup>
       <SceneCameraDriver target={cameraTarget} active={sceneCameraActive} />
-      <OrbitControls
-        target={[0, 0.5, 0]}
-        enabled={!sceneCameraActive}
-        autoRotate={autoRotate && !sceneCameraActive}
-        autoRotateSpeed={2.2}
-      />
+      <OrbitControls target={[0, 0.5, 0]} enabled={!sceneCameraActive} autoRotate={autoRotate && !sceneCameraActive} autoRotateSpeed={2.2} />
     </>
   );
 }
 
-/* =====================================================================
-   GENERADOR DE CÓDIGO
-   ===================================================================== */
-function generateBoneCode(posesByKf) {
+/* ---- Generadores de código (mismo formato que espera el template) ---- */
+function generateBoneArrayCode(posesByKf, stages) {
   const fmt = (n) => { const r = rad(n); return (Math.abs(r) < 0.0001 ? 0 : r).toFixed(4); };
-  const kfLines = POSE_KEYFRAMES.map((kf) => {
+  const kfLines = stages.map((kf) => {
     const pose = posesByKf[kf.id];
     const boneLines = BONE_KEYS.map((k) => {
       const v = pose[k];
       if (v.x === 0 && v.y === 0 && v.z === 0) return null;
       return `        ${k}: [${fmt(v.x)}, ${fmt(v.y)}, ${fmt(v.z)}],`;
     }).filter(Boolean).join("\n");
-    return `  {\n    id: "${kf.id}",\n    progress: ${kf.progress},\n    bones: {\n${boneLines || "      // (sin cambios respecto al rest pose)"}\n    },\n  },`;
+    return `  {\n    id: "${kf.id}",\n    progress: ${roundProgress(kf.progress)},\n    bones: {\n${boneLines || "      // (sin cambios respecto al rest pose)"}\n    },\n  },`;
   }).join("\n");
-
-  return `// Reemplazá tu BONE_POSE_KEYFRAMES actual por este bloque completo.
-// sampleBonePose y la aplicación en useFrame NO cambian — dejalas como están.
-const BONE_POSE_KEYFRAMES = [
-${kfLines}
-];`;
+  return `const BONE_POSE_KEYFRAMES = [\n${kfLines}\n];`;
 }
 
-function generateCameraCode(camsByKf) {
+function generateScenesArrayCode(camsByKf, stages) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
-  const kfLines = CAMERA_KEYFRAMES.map((kf) => {
+  const kfLines = stages.map((kf) => {
     const cam = camsByKf[kf.id];
-    const f = kf.fixed;
+    const f = FIXED_SCENE_DEFAULTS[kf.id];
     return `  {
     id: "${kf.id}",
-    progress: ${kf.progress},
+    progress: ${roundProgress(kf.progress)},
     camera: { position: ${fmtVec(cam.position)}, lookAt: ${fmtVec(cam.lookAt)}, fov: ${fmtNum(cam.fov)} },
-    particles: { spread: ${f.particles.spread}, opacity: ${f.particles.opacity} },
     light: { color: "${f.light.color}", intensity: ${f.light.intensity}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity} },
     fog: { color: "${f.fog.color}", far: ${f.fog.far} },
     background: "${f.background}",
   },`;
   }).join("\n");
-
-  return `// Reemplazá tu const scenes = [...] actual por este array completo.
-// particles/light/fog/background quedaron igual que en tu versión actual;
-// solo se tocó "camera" en cada etapa según lo que ajustaste acá.
-const scenes = [
-${kfLines}
-];`;
+  return `const scenes = [\n${kfLines}\n];`;
 }
 
-/* =====================================================================
-   APP
-   ===================================================================== */
+function generateMovementDefsCode(movesByKf, stages) {
+  const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
+  const kfLines = stages.map((kf) => {
+    const mv = movesByKf[kf.id];
+    return `  { id: "${kf.id}", progress: ${roundProgress(kf.progress)}, pos: [${mv.pos.map(fmtNum).join(", ")}], yaw: ${fmtNum(mv.yaw)}, pitch: ${fmtNum(mv.pitch)} },`;
+  }).join("\n");
+  return `const MOVEMENT_KEYFRAMES = [
+${kfLines}
+];
+
+function sampleMovement(progress) {
+  const list = MOVEMENT_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  if (p <= list[0].progress) return list[0];
+  const last = list[list.length - 1];
+  if (p >= last.progress) return last;
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = smoothstep(0, 1, clamp((p - a.progress) / span));
+  return {
+    pos: [lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t)],
+    yaw: lerp(a.yaw, b.yaw, t),
+    pitch: lerp(a.pitch, b.pitch, t),
+  };
+}`;
+}
+
+function generateScrollLengthCode(totalVh) {
+  const n = Math.round(totalVh);
+  return `const SCROLL_LENGTH_VH = ${n};`;
+}
+
+function generateUniverseCode(universe) {
+  const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
+  const pos = universe.position.map(fmtNum);
+  return `const UNIVERSE_SCALE = ${fmtNum(universe.scale)};
+const UNIVERSE_POSITION = [${pos.join(", ")}];
+const UNIVERSE_ROTATION_Y = ${fmtNum(universe.rotationY)};`;
+}
+
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, universeCode) {
+  const tplEl = document.getElementById("tpl-source");
+  let tpl = tplEl.value;
+  const swap = (src, startMark, endMark, code) => {
+    const start = src.indexOf(startMark);
+    const end = src.indexOf(endMark);
+    if (start === -1 || end === -1) return src;
+    const before = src.slice(0, start + startMark.length);
+    const after = src.slice(end);
+    return `${before}\n${code}\n${after}`;
+  };
+  tpl = swap(tpl, "/*@GEN:SCENES_START*/", "/*@GEN:SCENES_END*/", scenesCode);
+  tpl = swap(tpl, "/*@GEN:MOVEMENT_DEFS_START*/", "/*@GEN:MOVEMENT_DEFS_END*/", movementCode);
+  tpl = swap(tpl, "/*@GEN:BONES_START*/", "/*@GEN:BONES_END*/", boneCode);
+  tpl = swap(tpl, "/*@GEN:SCROLL_LENGTH_START*/", "/*@GEN:SCROLL_LENGTH_END*/", scrollLengthCode);
+  tpl = swap(tpl, "/*@GEN:UNIVERSE_START*/", "/*@GEN:UNIVERSE_END*/", universeCode);
+  return tpl;
+}
+
+/* ---- App ---- */
 function App() {
-  const [section, setSection] = useState("pose"); // "pose" | "camera" | "preview"
+  const [section, setSection] = useState("pose"); // pose | camera | movement | timing | preview
   const [posesByKf, setPosesByKf] = useState(initialPoses);
   const [camsByKf, setCamsByKf] = useState(initialCameras);
-  const [activePoseKf, setActivePoseKf] = useState(POSE_KEYFRAMES[0].id);
-  const [activeCamKf, setActiveCamKf] = useState(CAMERA_KEYFRAMES[0].id);
+  const [movesByKf, setMovesByKf] = useState(initialMovements);
+
+  // Duración (en vh de scroll) de cada uno de los 5 tramos entre las 6
+  // etapas. La suma de estos 5 valores reemplaza al viejo SCROLL_LENGTH_VH
+  // fijo en 950, y determina en qué "progress" (0..1) cae cada etapa.
+  const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
+  const stages = useMemo(() => stagesWithProgress(durationsVh), [durationsVh]);
+  const totalVh = useMemo(() => durationsVh.reduce((a, b) => a + b, 0), [durationsVh]);
+  const setDurationAt = (i, value) => {
+    setDurationsVh((prev) => { const next = [...prev]; next[i] = value; return next; });
+  };
+
+  // Una sola etapa activa, compartida por Pose / Cámara / Movimiento.
+  // Así, sea cual sea la pestaña que tengas abierta, el visor de la
+  // izquierda siempre muestra la MISMA etapa con su pose + su cámara +
+  // su movimiento combinados de verdad — no hace falta ir a "Preview"
+  // para saber qué genera cada cosa.
+  const [activeStage, setActiveStage] = useState(STAGE_DEFS[0].id);
+
   const [scrub, setScrub] = useState(0);
   const [freeOrbit, setFreeOrbit] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
   const [foundMap, setFoundMap] = useState({});
   const [copiedWhich, setCopiedWhich] = useState(null);
+  const [downloaded, setDownloaded] = useState(false);
+
+  // Entorno (universo.glb): escala, posición y rotación del modelo del
+  // universo respecto al personaje. Para verlo en esta herramienta,
+  // copiá universo.glb junto al archivo (misma carpeta assets/models/).
+  const [universe, setUniverse] = useState(DEFAULT_UNIVERSE);
+  const [showUniverse, setShowUniverse] = useState(true);
+  const [showGrid, setShowGrid] = useState(true);
+  const setUniverseScale = (v) => setUniverse((prev) => ({ ...prev, scale: v }));
+  const setUniverseRotationY = (v) => setUniverse((prev) => ({ ...prev, rotationY: v }));
+  const setUniversePosAxis = (axis, v) => setUniverse((prev) => {
+    const pos = [...prev.position];
+    pos["xyz".indexOf(axis)] = v;
+    return { ...prev, position: pos };
+  });
+
+  const stageIndex = stages.findIndex((s) => s.id === activeStage);
 
   const setBoneAxis = (boneKey, axis, value) => {
-    setPosesByKf((prev) => ({
-      ...prev,
-      [activePoseKf]: { ...prev[activePoseKf], [boneKey]: { ...prev[activePoseKf][boneKey], [axis]: value } },
-    }));
+    setPosesByKf((prev) => ({ ...prev, [activeStage]: { ...prev[activeStage], [boneKey]: { ...prev[activeStage][boneKey], [axis]: value } } }));
   };
   const resetBone = (boneKey) => {
-    setPosesByKf((prev) => ({ ...prev, [activePoseKf]: { ...prev[activePoseKf], [boneKey]: { x: 0, y: 0, z: 0 } } }));
+    setPosesByKf((prev) => ({ ...prev, [activeStage]: { ...prev[activeStage], [boneKey]: { x: 0, y: 0, z: 0 } } }));
   };
   const copyPoseFromPrev = () => {
-    const idx = POSE_KEYFRAMES.findIndex((k) => k.id === activePoseKf);
-    if (idx <= 0) return;
-    const prevId = POSE_KEYFRAMES[idx - 1].id;
-    setPosesByKf((prev) => ({ ...prev, [activePoseKf]: JSON.parse(JSON.stringify(prev[prevId])) }));
+    if (stageIndex <= 0) return;
+    const prevId = stages[stageIndex - 1].id;
+    setPosesByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
   };
 
   const setCamField = (field, axis, value) => {
     setCamsByKf((prev) => {
-      const cam = { ...prev[activeCamKf] };
-      if (field === "fov") { cam.fov = value; }
+      const cam = { ...prev[activeStage] };
+      if (field === "fov") cam.fov = value;
       else { cam[field] = [...cam[field]]; cam[field]["xyz".indexOf(axis)] = value; }
-      return { ...prev, [activeCamKf]: cam };
+      return { ...prev, [activeStage]: cam };
     });
   };
   const copyCamFromPrev = () => {
-    const idx = CAMERA_KEYFRAMES.findIndex((k) => k.id === activeCamKf);
-    if (idx <= 0) return;
-    const prevId = CAMERA_KEYFRAMES[idx - 1].id;
-    setCamsByKf((prev) => ({ ...prev, [activeCamKf]: JSON.parse(JSON.stringify(prev[prevId])) }));
+    if (stageIndex <= 0) return;
+    const prevId = stages[stageIndex - 1].id;
+    setCamsByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
   };
 
-  const previewMode = section === "preview";
-  const currentPose = previewMode ? samplePose(posesByKf, scrub) : posesByKf[activePoseKf];
-  const currentCamTarget = previewMode
-    ? sampleCamera(camsByKf, scrub)
-    : camsByKf[activeCamKf];
-  const sceneCameraActive = previewMode && !freeOrbit;
+  const setMoveField = (field, axis, value) => {
+    setMovesByKf((prev) => {
+      const mv = { ...prev[activeStage] };
+      if (field === "yaw" || field === "pitch") mv[field] = value;
+      else { mv.pos = [...mv.pos]; mv.pos["xyz".indexOf(axis)] = value; }
+      return { ...prev, [activeStage]: mv };
+    });
+  };
+  const copyMoveFromPrev = () => {
+    if (stageIndex <= 0) return;
+    const prevId = stages[stageIndex - 1].id;
+    setMovesByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
+  };
+  const applyYawPreset = (deg_) => setMoveField("yaw", null, deg_);
+  const applyPitchPreset = (deg_) => setMoveField("pitch", null, deg_);
 
-  const boneCode = useMemo(() => generateBoneCode(posesByKf), [posesByKf]);
-  const cameraCode = useMemo(() => generateCameraCode(camsByKf), [camsByKf]);
+  const isPreview = section === "preview";
+  // Fuera de "Preview": se muestra la etapa activa EXACTA (pose + cámara +
+  // movimiento), sin interpolar, para que edites viendo el resultado real.
+  // En "Preview": se interpola con el scrub, como una pasada de scroll real.
+  const currentPose = isPreview ? samplePose(posesByKf, scrub, stages) : posesByKf[activeStage];
+  const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stages) : camsByKf[activeStage];
+  const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stages) : movesByKf[activeStage];
+  // La cámara de la escena manda siempre que no actives "cámara libre",
+  // sea cual sea la pestaña — así ves de entrada qué genera cada ajuste.
+  const sceneCameraActive = !freeOrbit;
+
+  const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stages), [posesByKf, stages]);
+  const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf, stages), [camsByKf, stages]);
+  const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stages), [movesByKf, stages]);
+  const scrollLengthCode = useMemo(() => generateScrollLengthCode(totalVh), [totalVh]);
+  const universeCode = useMemo(() => generateUniverseCode(universe), [universe]);
 
   const copy = async (text, which) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedWhich(which);
-      setTimeout(() => setCopiedWhich(null), 1500);
-    } catch (e) { /* fallback: seleccionar manualmente el textarea */ }
+    try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
+    catch (e) { /* fallback: seleccionar manualmente */ }
   };
+
+  const downloadFullHtml = () => {
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, universeCode);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "index.html";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setDownloaded(true);
+    setTimeout(() => setDownloaded(false), 2000);
+  };
+
+  const copyFullHtml = () => {
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, universeCode);
+    copy(html, "full");
+  };
+
+  const showStageTabs = section === "pose" || section === "camera" || section === "movement";
 
   return (
     <>
       <div className="viewport">
         <div className="top-controls">
-          <span>{section === "preview" && !freeOrbit ? "Vista: cámara de escena (real)" : "Arrastrá para orbitar · Scroll para zoom"}</span>
-          {section === "preview" && (
-            <label className="toggle-row">
-              <input type="checkbox" checked={freeOrbit} onChange={(e) => setFreeOrbit(e.target.checked)} />
-              Cámara libre (inspeccionar)
-            </label>
+          <span>{!freeOrbit ? "Vista: cámara de la escena (real)" : "Arrastrá para orbitar · Scroll para zoom"}</span>
+          <label className="toggle-row"><input type="checkbox" checked={freeOrbit} onChange={(e) => setFreeOrbit(e.target.checked)} />Cámara libre (inspeccionar)</label>
+          {freeOrbit && (
+            <label className="toggle-row"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} />Auto-rotar vista</label>
           )}
-          {section === "preview" && freeOrbit && (
-            <label className="toggle-row">
-              <input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} />
-              Auto-rotar vista
-            </label>
-          )}
+          <label className="toggle-row"><input type="checkbox" checked={showUniverse} onChange={(e) => setShowUniverse(e.target.checked)} />Mostrar universo.glb</label>
+          <label className="toggle-row"><input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />Mostrar grilla</label>
         </div>
         <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }}>
-          <Scene
-            pose={currentPose}
-            onBonesFound={setFoundMap}
-            cameraTarget={currentCamTarget}
-            sceneCameraActive={sceneCameraActive}
-            autoRotate={autoRotate}
-          />
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} universe={universe} showUniverse={showUniverse} showGrid={showGrid} />
         </Canvas>
       </div>
 
       <div className="panel">
         <div>
-          <h1>Pose &amp; Cámara Generator</h1>
-          <p className="hint">
-            Ajustá pose y cámara por etapa. Arranca precargado con los valores que ya tenés en tu
-            index.html — lo que edites acá reemplaza esos valores, el resto queda igual.
-          </p>
+          <h1>Pose, Cámara &amp; Movimiento</h1>
+          <p className="hint">Todas las etapas arrancan en cero: sin pose, cámara fija por defecto y sin desplazamiento. Armalo a tu gusto. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento juntos, sin necesidad de ir a "Preview". En "Duración" ajustás cuánto scroll dura cada etapa, y en "Entorno" el tamaño/posición del universo.glb. Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
         </div>
 
         <div className="section-tabs">
           <div className={`section-tab ${section === "pose" ? "active" : ""}`} onClick={() => setSection("pose")}>Pose</div>
           <div className={`section-tab ${section === "camera" ? "active" : ""}`} onClick={() => setSection("camera")}>Cámara</div>
+          <div className={`section-tab ${section === "movement" ? "active" : ""}`} onClick={() => setSection("movement")}>Movimiento</div>
+          <div className={`section-tab ${section === "timing" ? "active" : ""}`} onClick={() => setSection("timing")}>Duración</div>
+          <div className={`section-tab ${section === "environment" ? "active" : ""}`} onClick={() => setSection("environment")}>Entorno</div>
           <div className={`section-tab ${section === "preview" ? "active" : ""}`} onClick={() => setSection("preview")}>Preview</div>
         </div>
 
-        {section === "preview" && (
+        {showStageTabs && (
+          <>
+            <div className="section-title">Etapa (compartida por Pose / Cámara / Movimiento)</div>
+            <div className="kf-tabs">
+              {stages.map((kf) => (
+                <div key={kf.id} className={`kf-tab ${activeStage === kf.id ? "active" : ""}`} onClick={() => setActiveStage(kf.id)}>{kf.label}<span className="p">progress {kf.progress.toFixed(2)}</span></div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {isPreview && (
           <div className="scrub-row">
             <label style={{ fontSize: 11 }}>progress</label>
             <input type="range" min={0} max={1} step={0.001} value={scrub} onChange={(e) => setScrub(Number(e.target.value))} />
@@ -527,20 +1779,11 @@ function App() {
 
         {section === "pose" && (
           <>
-            <div className="kf-tabs">
-              {POSE_KEYFRAMES.map((kf) => (
-                <div key={kf.id} className={`kf-tab ${activePoseKf === kf.id ? "active" : ""}`} onClick={() => setActivePoseKf(kf.id)}>
-                  {kf.label}<span className="p">progress {kf.progress}</span>
-                </div>
-              ))}
-            </div>
-            <div className="btn-row">
-              <button className="btn" onClick={copyPoseFromPrev}>Copiar etapa anterior</button>
-            </div>
+            <div className="btn-row"><button className="btn" onClick={copyPoseFromPrev}>Copiar etapa anterior</button></div>
             <div className="section-title">Huesos ({BONE_KEYS.length})</div>
             {BONE_DEFS.map(([key, boneName]) => {
               const found = foundMap[key];
-              const v = posesByKf[activePoseKf][key];
+              const v = posesByKf[activeStage][key];
               return (
                 <div className="bone-block" key={key} style={{ opacity: found === false ? 0.4 : 1 }}>
                   <div className="bone-name">{boneName} {found === false ? "· FALTA" : ""}</div>
@@ -560,75 +1803,175 @@ function App() {
 
         {section === "camera" && (
           <>
-            <div className="kf-tabs">
-              {CAMERA_KEYFRAMES.map((kf) => (
-                <div key={kf.id} className={`kf-tab ${activeCamKf === kf.id ? "active" : ""}`} onClick={() => setActiveCamKf(kf.id)}>
-                  {kf.label}<span className="p">progress {kf.progress}</span>
+            <div className="btn-row"><button className="btn" onClick={copyCamFromPrev}>Copiar etapa anterior</button></div>
+            <div className="cam-group">
+              <div className="cam-group-title">Posición (x, y, z)</div>
+              {["x", "y", "z"].map((axis, i) => (
+                <div className="axis-row" key={axis}>
+                  <label>{axis.toUpperCase()}</label>
+                  <input type="range" min={-6} max={6} step={0.05} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
+                  <span className="val">{camsByKf[activeStage].position[i].toFixed(2)}</span>
+                </div>
+              ))}
+              <p className="hint">Z más grande = más lejos. Z más chico = más cerca.</p>
+            </div>
+            <div className="cam-group">
+              <div className="cam-group-title">Mira hacia (lookAt x, y, z)</div>
+              {["x", "y", "z"].map((axis, i) => (
+                <div className="axis-row" key={axis}>
+                  <label>{axis.toUpperCase()}</label>
+                  <input type="range" min={-3} max={3} step={0.05} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
+                  <span className="val">{camsByKf[activeStage].lookAt[i].toFixed(2)}</span>
                 </div>
               ))}
             </div>
-            <div className="btn-row">
-              <button className="btn" onClick={copyCamFromPrev}>Copiar etapa anterior</button>
+            <div className="cam-group">
+              <div className="cam-group-title">Zoom (FOV)</div>
+              <div className="axis-row">
+                <label>°</label>
+                <input type="range" min={15} max={50} step={0.5} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
+                <span className="val">{camsByKf[activeStage].fov.toFixed(1)}</span>
+              </div>
             </div>
+          </>
+        )}
+
+        {section === "movement" && (
+          <>
+            <div className="btn-row"><button className="btn" onClick={copyMoveFromPrev}>Copiar etapa anterior</button></div>
 
             <div className="cam-group">
               <div className="cam-group-title">Posición (x, y, z)</div>
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-6} max={6} step={0.05} value={camsByKf[activeCamKf].position[i]}
-                    onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
-                  <span className="val">{camsByKf[activeCamKf].position[i].toFixed(2)}</span>
+                  <input type="range" min={axis === "z" ? -20 : -3} max={axis === "z" ? 4 : 3} step={0.05} value={movesByKf[activeStage].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} />
+                  <span className="val">{movesByKf[activeStage].pos[i].toFixed(2)}</span>
                 </div>
               ))}
-              <p className="hint">Z más grande = más lejos (alejar). Z más chico = más cerca (acercar).</p>
+              <p className="hint">X: izquierda/derecha (diagonal si lo combinás con Z). Y: altura en cuadro. Z: profundidad — más negativo, más al fondo/lejos.</p>
             </div>
 
             <div className="cam-group">
-              <div className="cam-group-title">Mira hacia (lookAt x, y, z)</div>
-              {["x", "y", "z"].map((axis, i) => (
-                <div className="axis-row" key={axis}>
-                  <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-3} max={3} step={0.05} value={camsByKf[activeCamKf].lookAt[i]}
-                    onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
-                  <span className="val">{camsByKf[activeCamKf].lookAt[i].toFixed(2)}</span>
-                </div>
-              ))}
-              <p className="hint">Mové X/Y del lookAt para "girar" el encuadre alrededor del personaje sin mover la cámara.</p>
-            </div>
-
-            <div className="cam-group">
-              <div className="cam-group-title">Zoom (FOV)</div>
+              <div className="cam-group-title">Giro (yaw)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={15} max={50} step={0.5} value={camsByKf[activeCamKf].fov}
-                  onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
-                <span className="val">{camsByKf[activeCamKf].fov.toFixed(1)}</span>
+                <input type="range" min={-180} max={180} step={1} value={movesByKf[activeStage].yaw} onChange={(e) => setMoveField("yaw", null, Number(e.target.value))} />
+                <span className="val">{Math.round(movesByKf[activeStage].yaw)}°</span>
               </div>
-              <p className="hint">FOV más chico = efecto teleobjetivo (acerca). Más grande = angular (aleja/abre).</p>
+              <div className="btn-row">
+                <button className="btn" onClick={() => applyYawPreset(0)}>Frente</button>
+                <button className="btn" onClick={() => applyYawPreset(-90)}>Derecha 90°</button>
+                <button className="btn" onClick={() => applyYawPreset(90)}>Izquierda 90°</button>
+                <button className="btn" onClick={() => applyYawPreset(180)}>Espalda 180°</button>
+              </div>
+            </div>
+
+            <div className="cam-group">
+              <div className="cam-group-title">Inclinación (pitch)</div>
+              <div className="axis-row">
+                <label>°</label>
+                <input type="range" min={-90} max={90} step={1} value={movesByKf[activeStage].pitch} onChange={(e) => setMoveField("pitch", null, Number(e.target.value))} />
+                <span className="val">{Math.round(movesByKf[activeStage].pitch)}°</span>
+              </div>
+              <div className="btn-row">
+                <button className="btn" onClick={() => applyPitchPreset(0)}>Neutral</button>
+                <button className="btn" onClick={() => applyPitchPreset(60)}>Adelante</button>
+                <button className="btn" onClick={() => applyPitchPreset(-60)}>Atrás</button>
+              </div>
             </div>
           </>
         )}
 
-        <div className="section-title">Código — huesos</div>
-        <textarea className="code" readOnly value={boneCode} onFocus={(e) => e.target.select()} />
+        {section === "timing" && (
+          <>
+            <p className="hint">Cuánto scroll (en vh) dura cada tramo entre etapas. Más vh = la transición es más lenta/larga; menos vh = más rápida/corta. La suma de los 5 tramos reemplaza el largo total del scroll (antes fijo en 950vh) y define en qué "progress" cae cada etapa — se ve reflejado en las pestañas de arriba.</p>
+            <div className="cam-group">
+              {stages.slice(1).map((kf, i) => {
+                const fromLabel = stages[i].label;
+                return (
+                  <div key={kf.id} className="axis-row" style={{ marginBottom: 8 }}>
+                    <label style={{ width: 150, fontSize: 10.5 }}>{fromLabel} → {kf.label}</label>
+                    <input type="range" min={20} max={800} step={5} value={durationsVh[i]} onChange={(e) => setDurationAt(i, Number(e.target.value))} />
+                    <span className="val">{durationsVh[i]}vh</span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="hint">Largo total del scroll: <strong>{Math.round(totalVh)}vh</strong> (antes 950vh fijo).</p>
+          </>
+        )}
+
+        {section === "environment" && (
+          <>
+            <p className="hint">Ajustá acá el tamaño y la posición del universo.glb respecto al personaje, viendo el resultado real a la izquierda (activá "Mostrar universo.glb" arriba del visor). Buscá que el personaje no quede ni gigante ni diminuto respecto a las islas/castillo.</p>
+            <div className="cam-group">
+              <div className="cam-group-title">Escala del universo</div>
+              <div className="axis-row">
+                <label>×</label>
+                <input type="range" min={0.05} max={5} step={0.01} value={universe.scale} onChange={(e) => setUniverseScale(Number(e.target.value))} />
+                <span className="val">{universe.scale.toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="cam-group">
+              <div className="cam-group-title">Posición (x, y, z)</div>
+              {["x", "y", "z"].map((axis, i) => (
+                <div className="axis-row" key={axis}>
+                  <label>{axis.toUpperCase()}</label>
+                  <input type="range" min={-30} max={30} step={0.1} value={universe.position[i]} onChange={(e) => setUniversePosAxis(axis, Number(e.target.value))} />
+                  <span className="val">{universe.position[i].toFixed(1)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="cam-group">
+              <div className="cam-group-title">Rotación (yaw)</div>
+              <div className="axis-row">
+                <label>°</label>
+                <input type="range" min={-180} max={180} step={1} value={universe.rotationY} onChange={(e) => setUniverseRotationY(Number(e.target.value))} />
+                <span className="val">{Math.round(universe.rotationY)}°</span>
+              </div>
+            </div>
+            <p className="hint">Para previsualizarlo acá adentro, copiá <code>universo.glb</code> en <code>assets/models/</code>, junto al archivo del personaje. Si no está, la herramienta sigue funcionando igual (solo no vas a ver el universo hasta descargar/copiar el resultado final).</p>
+          </>
+        )}
+
+        <div className="section-title">Descarga</div>
+        <p className="hint">Genera tu index.html completo con todo lo ajustado en Pose, Cámara, Movimiento y Duración — listo para subir a GitHub Pages, o copialo directo sin descargar.</p>
         <div className="btn-row">
-          <button className="btn primary" onClick={() => copy(boneCode, "bones")}>Copiar código de huesos</button>
-          {copiedWhich === "bones" && <span className="copied">¡Copiado!</span>}
+          <button className="btn primary" onClick={downloadFullHtml}>⬇ Descargar index.html completo</button>
+          {downloaded && <span className="copied">¡Descargado!</span>}
+        </div>
+        <div className="btn-row">
+          <button className="btn" onClick={copyFullHtml}>⧉ Copiar index.html completo</button>
+          {copiedWhich === "full" && <span className="copied">¡Copiado!</span>}
         </div>
 
-        <div className="section-title">Código — cámara (array scenes completo)</div>
-        <textarea className="code" readOnly value={cameraCode} onFocus={(e) => e.target.select()} />
-        <div className="btn-row">
-          <button className="btn primary" onClick={() => copy(cameraCode, "camera")}>Copiar código de cámara</button>
-          {copiedWhich === "camera" && <span className="copied">¡Copiado!</span>}
-        </div>
+        <div className="section-title">Código individual (opcional)</div>
+        <p className="hint">Por si preferís pegar a mano en tu propio archivo en vez de descargar el completo.</p>
+
+        <details>
+          <summary style={{ cursor: "pointer", fontSize: 11.5, color: "rgba(245,246,242,0.7)" }}>Ver bloques de código</summary>
+          <div style={{ marginTop: 8 }}>
+            <div className="section-title">Huesos</div>
+            <textarea className="code" readOnly value={boneCode} onFocus={(e) => e.target.select()} />
+            <div className="btn-row"><button className="btn" onClick={() => copy(boneCode, "bones")}>Copiar</button>{copiedWhich === "bones" && <span className="copied">¡Copiado!</span>}</div>
+
+            <div className="section-title">Cámara (scenes)</div>
+            <textarea className="code" readOnly value={scenesCode} onFocus={(e) => e.target.select()} />
+            <div className="btn-row"><button className="btn" onClick={() => copy(scenesCode, "camera")}>Copiar</button>{copiedWhich === "camera" && <span className="copied">¡Copiado!</span>}</div>
+
+            <div className="section-title">Movimiento</div>
+            <textarea className="code" readOnly value={movementCode} onFocus={(e) => e.target.select()} />
+            <div className="btn-row"><button className="btn" onClick={() => copy(movementCode, "movement")}>Copiar</button>{copiedWhich === "movement" && <span className="copied">¡Copiado!</span>}</div>
+          </div>
+        </details>
       </div>
     </>
   );
 }
 
 createRoot(document.getElementById("root")).render(<App />);
+
 </script>
 </body>
 </html>
