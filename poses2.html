@@ -62,22 +62,32 @@
   .canvas-stage--ready { opacity: 1; }
   .canvas-stage canvas { display: block; width: 100% !important; height: 100% !important; }
 
+ .hero-text {
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  z-index: 5;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2.1rem, 4.5vw, 3.2rem);
+  letter-spacing: 0.07em;
+  color: var(--color-text);
+  white-space: nowrap;
+  text-align: center;
+  will-change: opacity, transform;
+}
+
+@media (max-width: 640px) {
   .hero-text {
-    position: absolute;
-    top: 25%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    transform-origin: center center;
-    z-index: 5;
-    pointer-events: none;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(2.1rem, 4.5vw, 3.2rem);
-    letter-spacing: 0.07em;
-    color: var(--color-text);
-    white-space: nowrap;
-    will-change: opacity, transform;
+    white-space: normal;
+    width: 90vw;
+    font-size: clamp(1.5rem, 7vw, 2.2rem);
+    line-height: 1.25;
   }
+}
 
   .scene-text-layer {
     position: absolute;
@@ -295,8 +305,9 @@ const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 // assets/models/ junto al del personaje.
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
-  { type: "model", url: "./assets/models/universo.glb", scale: 4.65, position: [-0.1, -1, 2.4], rotationY: 0, billboard: false },
-  { type: "image", url: "./assets/models/b1a3e6be-698e-4808-afcb-4ff31c1e2284.png", scale: 20, position: [0, 0.4, -18.1], rotationY: 0, billboard: false },
+  { type: "model", url: "./assets/models/universo.glb", scale: 5.1, position: [-0.1, -1.6, 5.1], rotationY: 0, billboard: false },
+  { type: "image", url: "./assets/models/b1a3e6be-698e-4808-afcb-4ff31c1e2284.png", scale: 20, position: [-0.5, 3.7, -22.5], rotationY: 0, billboard: true },
+  { type: "image", url: "./assets/models/webs_neon2.png", scale: 3.8, position: [0.4, 4, -7.4], rotationY: 0, billboard: true },
 ];
 /*@GEN:OBJECTS_END*/
 
@@ -336,48 +347,21 @@ function applyEasing(t, kind) {
 /*@GEN:SCENES_START*/
 const scenes = [
   {
-    id: "pose-1",
+    id: "pose-1788805058872",
     progress: 0,
     easing: "smooth",
-    camera: { position: [-0.146, -0.422, 6.742], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
-    fog: { color: "#05070a", far: 33.5 },
+    camera: { position: [1.551, 0.2, 2.062], lookAt: [2.25, 0.85, 0.45], fov: 10, roll: 0 },
+    light: { color: "#dfeeff", intensity: 1.86, rimColor: "#49d3ff", rimIntensity: 1.92 },
+    fog: { color: "#05070a", far: 30 },
     background: "#05070a",
   },
   {
-    id: "pose-2",
-    progress: 0.233,
-    easing: "smooth",
-    camera: { position: [-0.17, -0.408, 4.703], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
-    fog: { color: "#05070a", far: 33.5 },
-    background: "#05070a",
-  },
-  {
-    id: "pose-1788787106407",
-    progress: 0.26,
-    easing: "smooth",
-    camera: { position: [-0.17, -0.408, 4.703], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
-    fog: { color: "#05070a", far: 33.5 },
-    background: "#05070a",
-  },
-  {
-    id: "pose-1788787123751",
-    progress: 0.466,
-    easing: "smooth",
-    camera: { position: [0.418, -0.143, 2.383], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
-    fog: { color: "#05070a", far: 33.5 },
-    background: "#05070a",
-  },
-  {
-    id: "pose-1788787712221",
+    id: "pose-1788806812140",
     progress: 1,
     easing: "smooth",
-    camera: { position: [-0.018, 0.699, 0.78], lookAt: [0, 0.85, 0], fov: 28.5, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.57, rimColor: "#49d3ff", rimIntensity: 1.48 },
-    fog: { color: "#05070a", far: 21 },
+    camera: { position: [5.309, -1.109, 3.746], lookAt: [2.25, 0.85, 0.45], fov: 10, roll: 0 },
+    light: { color: "#dfeeff", intensity: 1.86, rimColor: "#49d3ff", rimIntensity: 1.92 },
+    fog: { color: "#05070a", far: 30 },
     background: "#05070a",
   },
 ];
@@ -389,11 +373,8 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0.45, 1.6], yaw: 97, pitch: 12 },
-  { id: "pose-2", progress: 0.233, easing: "smooth", pos: [0, 0.45, 1.6], yaw: -54, pitch: 12 },
-  { id: "pose-1788787106407", progress: 0.26, easing: "smooth", pos: [0, 0.45, 1.6], yaw: -54, pitch: 18 },
-  { id: "pose-1788787123751", progress: 0.466, easing: "smooth", pos: [-0.2, 0.95, -0.45], yaw: -62, pitch: -1 },
-  { id: "pose-1788787712221", progress: 1, easing: "smooth", pos: [3, -1.8, -19.4], yaw: -140, pitch: -12 },
+  { id: "pose-1788805058872", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: -137, pitch: -1 },
+  { id: "pose-1788806812140", progress: 1, easing: "smooth", pos: [-1.2, 5, -4.7], yaw: 3, pitch: -1 },
 ];
 
 function sampleMovement(progress) {
@@ -418,58 +399,30 @@ function sampleMovement(progress) {
 /*@GEN:BONES_START*/
 const BONE_POSE_KEYFRAMES = [
   {
-    id: "pose-1",
+    id: "pose-1788805058872",
     progress: 0,
     easing: "smooth",
     bones: {
-        spine1: [0.0175, -0.7156, 0.0175],
-        spine2: [0.1222, -0.4189, 0.0175],
-        neck: [0.0000, -0.3142, 0.0000],
-        head: [0.1222, -0.2618, 0.1745],
+        spine1: [0.0175, -0.9774, 0.0349],
+        spine2: [0.0000, -0.3142, -0.1222],
+        neck: [-0.0873, -0.1571, 0.0000],
+        head: [0.0000, -0.2443, 0.0000],
+        lForearm: [-0.3491, -0.1920, 0.1745],
+        rForearm: [0.1571, -0.4363, -0.2967],
+        lHand: [0.3316, -0.1920, -0.0175],
     },
   },
   {
-    id: "pose-2",
-    progress: 0.233,
-    easing: "smooth",
-    bones: {
-        spine1: [0.0175, -0.7156, 0.0175],
-        spine2: [0.1222, -0.4189, 0.0175],
-        neck: [0.0000, -0.3142, 0.0000],
-        head: [0.1222, -0.2618, 0.1745],
-    },
-  },
-  {
-    id: "pose-1788787106407",
-    progress: 0.26,
-    easing: "smooth",
-    bones: {
-        spine1: [0.0175, -0.7156, 0.0175],
-        spine2: [0.1222, -0.4189, 0.0175],
-        neck: [0.0000, -0.3142, 0.0000],
-        head: [0.1222, -0.2618, 0.1745],
-    },
-  },
-  {
-    id: "pose-1788787123751",
-    progress: 0.466,
-    easing: "smooth",
-    bones: {
-        spine1: [0.0175, -0.7156, 0.0175],
-        spine2: [0.1222, -0.4189, 0.0175],
-        neck: [0.0000, -0.3142, 0.0000],
-        head: [0.1222, -0.2618, 0.1745],
-    },
-  },
-  {
-    id: "pose-1788787712221",
+    id: "pose-1788806812140",
     progress: 1,
     easing: "smooth",
     bones: {
-        spine1: [0.0175, -0.7156, 0.0175],
-        spine2: [0.1222, -0.4189, 0.0175],
-        neck: [0.0000, -0.3142, 0.0000],
-        head: [0.1222, -0.2618, 0.1745],
+        spine2: [0.0000, -0.3142, -0.1222],
+        neck: [-0.0873, -0.1571, 0.0000],
+        head: [0.0000, -0.2443, 0.0000],
+        lForearm: [-0.3491, -0.1920, 0.1745],
+        rForearm: [0.1571, -0.4363, -0.2967],
+        lHand: [0.3316, -0.1920, -0.0175],
     },
   },
 ];
@@ -498,7 +451,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 730;
+const SCROLL_LENGTH_VH = 300;
 /*@GEN:SCROLL_LENGTH_END*/
 
 function damp(current, target, lambda, dt) {
@@ -941,8 +894,8 @@ function HeroText() {
 
   return (
     <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-      Scroll Experience
-    </div>
+  Pero se ven <br />todos iguales..
+</div>
   );
 }
 
