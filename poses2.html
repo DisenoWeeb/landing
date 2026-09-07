@@ -321,7 +321,7 @@ const scenes = [
   {
     id: "front-idle",
     progress: 0,
-    camera: { position: [0, 1.2, 6], lookAt: [0, 0.5, 0], fov: 50 },
+    camera: { position: [0, 1.3, 6], lookAt: [0, -0.6, 0], fov: 50 },
     light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.3 },
     fog: { color: "#0b1330", far: 26 },
     background: "#0b1330",
@@ -376,7 +376,7 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "front-idle", progress: 0, pos: [0, 1, 4], yaw: -97, pitch: -9 },
+  { id: "front-idle", progress: 0, pos: [0, 0.85, 3.1], yaw: -97, pitch: 4 },
   { id: "approach", progress: 0.455, pos: [0, 1.3, 1.45], yaw: 74, pitch: 13 },
   { id: "turn", progress: 0.723, pos: [0, 1.85, -2], yaw: 115, pitch: 17 },
   { id: "pause", progress: 0.851, pos: [0, 2.15, -6.1], yaw: 180, pitch: 33 },
@@ -409,9 +409,9 @@ const BONE_POSE_KEYFRAMES = [
     id: "front-idle",
     progress: 0,
     bones: {
-        spine1: [0.0698, 0.6981, 0.0349],
-        spine2: [0.1047, 0.2443, 0.0873],
-        neck: [0.1222, 0.1745, -0.1222],
+        spine1: [0.0698, 0.5934, -0.1920],
+        spine2: [0.2618, 0.0175, 0.0873],
+        neck: [0.4189, 0.3840, -0.1222],
         head: [-0.2269, 0.2793, -0.1047],
     },
   },
