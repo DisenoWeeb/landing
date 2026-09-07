@@ -259,7 +259,7 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Stars } from "@react-three/drei";
+import { useGLTF, Stars, useTexture, Billboard } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 
 /* ============================================================
@@ -286,17 +286,19 @@ const clientConfig = {
 
 const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 
-// Modelo de entorno/base (plataforma) que rodea al personaje.
-// Colocá el archivo universo.glb en assets/models/ junto al del
-// personaje. SCALE/POSITION/ROTATION se generan desde la pestaña
-// "Entorno" de la herramienta — si algo queda muy grande/chico o mal
-// ubicado, es más fácil ajustarlo ahí (con preview en vivo) que a mano.
-const UNIVERSE_MODEL_URL = "./assets/models/universo.glb";
-/*@GEN:UNIVERSE_START*/
-const UNIVERSE_SCALE = 5;
-const UNIVERSE_POSITION = [0, -0.2, 2.2];
-const UNIVERSE_ROTATION_Y = 0;
-/*@GEN:UNIVERSE_END*/
+// Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
+// personaje. Podés tener uno o varios modelos estáticos (sin huesos ni
+// animación) a la vez. Cada uno con su propio archivo, escala, posición
+// y rotación. Se generan desde la pestaña "Objetos" de la herramienta —
+// si algo queda muy grande/chico o mal ubicado, es más fácil ajustarlo
+// ahí (con preview en vivo) que a mano. Colocá cada archivo .glb en
+// assets/models/ junto al del personaje.
+/*@GEN:OBJECTS_START*/
+const OBJECTS = [
+  { type: "model", url: "./assets/models/universo.glb", scale: 4.65, position: [-0.1, -1, 2.4], rotationY: 0, billboard: false },
+  { type: "image", url: "./assets/models/b1a3e6be-698e-4808-afcb-4ff31c1e2284.png", scale: 20, position: [0, 0.4, -18.1], rotationY: 0, billboard: false },
+];
+/*@GEN:OBJECTS_END*/
 
 // Se mantienen porque HeroText usa ST_TURN_END para sincronizar su propio
 // zoom con el fin del giro. Ya NO gobiernan el movimiento del personaje
@@ -313,75 +315,85 @@ function smoothstep(edge0, edge1, x) {
   return t * t * (3 - 2 * t);
 }
 
+/* Curva de velocidad ("easing") por tramo, elegible desde la pestaña
+   Duración. Se aplica por igual a cámara, movimiento, pose y ambiente
+   para que todos lleguen coordinados al mismo punto en el tiempo. */
+function applyEasing(t, kind) {
+  switch (kind) {
+    case "linear": return t;
+    case "easeIn": return t * t;
+    case "easeOut": return 1 - (1 - t) * (1 - t);
+    case "smooth":
+    default: return smoothstep(0, 1, t);
+  }
+}
+
 /* ============================================================
    CONFIG: scenes.config — cámara, luz, niebla, partículas por etapa.
+   Las etapas ahora son genéricas (Pose 1, Pose 2, ...) en cantidad
+   variable — no hay un número fijo.
    ============================================================ */
 /*@GEN:SCENES_START*/
 const scenes = [
   {
-    id: "front-idle",
+    id: "pose-1",
     progress: 0,
-    camera: { position: [0, 0.5, 6], lookAt: [0, -0.15, -3], fov: 47 },
-    light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.3 },
-    fog: { color: "#0b1330", far: 26 },
-    background: "#0b1330",
+    easing: "smooth",
+    camera: { position: [-0.146, -0.422, 6.742], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
+    fog: { color: "#05070a", far: 33.5 },
+    background: "#05070a",
   },
   {
-    id: "approach",
-    progress: 0.222,
-    camera: { position: [0, 0.5, 6], lookAt: [0, -0.15, -3], fov: 47 },
-    light: { color: "#dfeeff", intensity: 0.72, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { color: "#0a1128", far: 24 },
-    background: "#0a1128",
+    id: "pose-2",
+    progress: 0.233,
+    easing: "smooth",
+    camera: { position: [-0.17, -0.408, 4.703], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
+    fog: { color: "#05070a", far: 33.5 },
+    background: "#05070a",
   },
   {
-    id: "turn",
-    progress: 0.34,
-    camera: { position: [0, 0.5, 6], lookAt: [0, -0.15, -3], fov: 47 },
-    light: { color: "#dfeeff", intensity: 0.68, rimColor: "#7dfff0", rimIntensity: 1.6 },
-    fog: { color: "#080d20", far: 20 },
-    background: "#080d20",
+    id: "pose-1788787106407",
+    progress: 0.26,
+    easing: "smooth",
+    camera: { position: [-0.17, -0.408, 4.703], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
+    fog: { color: "#05070a", far: 33.5 },
+    background: "#05070a",
   },
   {
-    id: "pause",
-    progress: 0.503,
-    camera: { position: [0, 0.5, 6], lookAt: [0, -0.15, -3], fov: 35.5 },
-    light: { color: "#dfeeff", intensity: 0.65, rimColor: "#7dfff0", rimIntensity: 1.65 },
-    fog: { color: "#060a18", far: 17 },
-    background: "#060a18",
+    id: "pose-1788787123751",
+    progress: 0.466,
+    easing: "smooth",
+    camera: { position: [0.418, -0.143, 2.383], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
+    fog: { color: "#05070a", far: 33.5 },
+    background: "#05070a",
   },
   {
-    id: "fall-pose",
-    progress: 0.752,
-    camera: { position: [0, 0.5, 6], lookAt: [0, -0.15, -3], fov: 35.5 },
-    light: { color: "#dfeeff", intensity: 0.6, rimColor: "#7dfff0", rimIntensity: 1.7 },
-    fog: { color: "#04060f", far: 14 },
-    background: "#04060f",
-  },
-  {
-    id: "fall",
+    id: "pose-1788787712221",
     progress: 1,
-    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30 },
-    light: { color: "#dfeeff", intensity: 0.5, rimColor: "#49d3ff", rimIntensity: 1.6 },
-    fog: { color: "#000000", far: 11 },
-    background: "#000000",
+    easing: "smooth",
+    camera: { position: [-0.018, 0.699, 0.78], lookAt: [0, 0.85, 0], fov: 28.5, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.57, rimColor: "#49d3ff", rimIntensity: 1.48 },
+    fog: { color: "#05070a", far: 21 },
+    background: "#05070a",
   },
 ];
 /*@GEN:SCENES_END*/
 
 /* ============================================================
    MOVIMIENTO DEL PERSONAJE — posición (x,y,z) y rotación (yaw/pitch)
-   por etapa, editable desde la herramienta. Reemplaza el viejo
-   sistema de fases fijas (approach/turn/fall hardcodeados).
+   por etapa, editable desde la herramienta. Cantidad de etapas variable.
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "front-idle", progress: 0, pos: [0, 0.7, -1.4], yaw: 69, pitch: 0 },
-  { id: "approach", progress: 0.222, pos: [-0.05, 1.65, -2.1], yaw: -15, pitch: 0 },
-  { id: "turn", progress: 0.34, pos: [-0.05, 1.65, -2.1], yaw: -15, pitch: -12 },
-  { id: "pause", progress: 0.503, pos: [-0.05, 1.3, 1.35], yaw: -66, pitch: -12 },
-  { id: "fall-pose", progress: 0.752, pos: [-0.05, 1.3, 1.35], yaw: -66, pitch: -12 },
-  { id: "fall", progress: 1, pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0.45, 1.6], yaw: 97, pitch: 12 },
+  { id: "pose-2", progress: 0.233, easing: "smooth", pos: [0, 0.45, 1.6], yaw: -54, pitch: 12 },
+  { id: "pose-1788787106407", progress: 0.26, easing: "smooth", pos: [0, 0.45, 1.6], yaw: -54, pitch: 18 },
+  { id: "pose-1788787123751", progress: 0.466, easing: "smooth", pos: [-0.2, 0.95, -0.45], yaw: -62, pitch: -1 },
+  { id: "pose-1788787712221", progress: 1, easing: "smooth", pos: [3, -1.8, -19.4], yaw: -140, pitch: -12 },
 ];
 
 function sampleMovement(progress) {
@@ -394,7 +406,7 @@ function sampleMovement(progress) {
   while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = smoothstep(0, 1, clamp((p - a.progress) / span));
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
   return {
     pos: [lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t)],
     yaw: lerp(a.yaw, b.yaw, t),
@@ -406,55 +418,58 @@ function sampleMovement(progress) {
 /*@GEN:BONES_START*/
 const BONE_POSE_KEYFRAMES = [
   {
-    id: "front-idle",
+    id: "pose-1",
     progress: 0,
+    easing: "smooth",
     bones: {
-        spine2: [0.0000, -0.2793, 0.0000],
-        neck: [0.1047, -0.2094, 0.1047],
-        head: [-0.0873, -0.5411, 0.0000],
+        spine1: [0.0175, -0.7156, 0.0175],
+        spine2: [0.1222, -0.4189, 0.0175],
+        neck: [0.0000, -0.3142, 0.0000],
+        head: [0.1222, -0.2618, 0.1745],
     },
   },
   {
-    id: "approach",
-    progress: 0.222,
+    id: "pose-2",
+    progress: 0.233,
+    easing: "smooth",
     bones: {
-        head: [0.0000, 0.2793, -0.0873],
+        spine1: [0.0175, -0.7156, 0.0175],
+        spine2: [0.1222, -0.4189, 0.0175],
+        neck: [0.0000, -0.3142, 0.0000],
+        head: [0.1222, -0.2618, 0.1745],
     },
   },
   {
-    id: "turn",
-    progress: 0.34,
+    id: "pose-1788787106407",
+    progress: 0.26,
+    easing: "smooth",
     bones: {
-        head: [0.0000, 0.2793, -0.0873],
-        rClavicle: [-0.2793, 0.0000, 0.0000],
-        lForearm: [0.3840, -0.3142, -0.0175],
-        rForearm: [0.4887, 0.0000, 0.0000],
-        lHand: [0.7854, 0.4887, 0.0000],
+        spine1: [0.0175, -0.7156, 0.0175],
+        spine2: [0.1222, -0.4189, 0.0175],
+        neck: [0.0000, -0.3142, 0.0000],
+        head: [0.1222, -0.2618, 0.1745],
     },
   },
   {
-    id: "pause",
-    progress: 0.503,
+    id: "pose-1788787123751",
+    progress: 0.466,
+    easing: "smooth",
     bones: {
-        spine1: [0.0873, 0.4189, -0.1047],
-        spine2: [0.0349, 0.1920, 0.0873],
-        head: [-0.1047, 0.4014, -0.1047],
+        spine1: [0.0175, -0.7156, 0.0175],
+        spine2: [0.1222, -0.4189, 0.0175],
+        neck: [0.0000, -0.3142, 0.0000],
+        head: [0.1222, -0.2618, 0.1745],
     },
   },
   {
-    id: "fall-pose",
-    progress: 0.752,
-    bones: {
-        spine1: [0.0873, 0.4189, -0.1047],
-        spine2: [0.0349, 0.1920, 0.0873],
-        head: [-0.1047, 0.4014, -0.1047],
-    },
-  },
-  {
-    id: "fall",
+    id: "pose-1788787712221",
     progress: 1,
+    easing: "smooth",
     bones: {
-      // (sin cambios respecto al rest pose)
+        spine1: [0.0175, -0.7156, 0.0175],
+        spine2: [0.1222, -0.4189, 0.0175],
+        neck: [0.0000, -0.3142, 0.0000],
+        head: [0.1222, -0.2618, 0.1745],
     },
   },
 ];
@@ -471,7 +486,7 @@ function sampleBonePose(progress) {
   while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = clamp((p - a.progress) / span);
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
   const out = {};
   const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
   keys.forEach((k) => {
@@ -483,7 +498,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 765;
+const SCROLL_LENGTH_VH = 730;
 /*@GEN:SCROLL_LENGTH_END*/
 
 function damp(current, target, lambda, dt) {
@@ -535,13 +550,14 @@ function blendScenes(list, rawProgress) {
   const a = list[i];
   const b = list[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = clamp((progress - a.progress) / span);
+  const t = applyEasing(clamp((progress - a.progress) / span), b.easing);
 
   return {
     camera: {
       position: lerpVec3(a.camera.position, b.camera.position, t),
       lookAt: lerpVec3(a.camera.lookAt, b.camera.lookAt, t),
       fov: lerp(a.camera.fov, b.camera.fov, t),
+      roll: lerp(a.camera.roll || 0, b.camera.roll || 0, t),
     },
     light: {
       color: lerpColor(a.light.color, b.light.color, t),
@@ -555,11 +571,6 @@ function blendScenes(list, rawProgress) {
     },
     background: lerpColor(a.background, b.background, t),
   };
-}
-
-function textWeight(kf, progress, window_ = 0.14) {
-  const d = Math.abs(progress - kf.progress);
-  return clamp(1 - d / window_);
 }
 
 const useScrollStore = create((set) => ({
@@ -630,6 +641,7 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
   const { camera } = useThree();
   const lookAtTarget = useRef(new THREE.Vector3());
   const currentLookAt = useRef(new THREE.Vector3());
+  const dampedRoll = useRef(0);
 
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
@@ -645,7 +657,11 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
     lookAtTarget.current.set(lx + mx * 0.05, ly - my * 0.05, lz);
     currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-6 * delta));
+    camera.up.set(0, 1, 0);
     camera.lookAt(currentLookAt.current);
+
+    dampedRoll.current = damp(dampedRoll.current, state.camera.roll || 0, 6, delta);
+    if (dampedRoll.current) camera.rotateZ((dampedRoll.current * Math.PI) / 180);
 
     if ("fov" in camera) {
       camera.fov = damp(camera.fov, state.camera.fov, 5, delta);
@@ -658,17 +674,6 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
 /* ============================================================
    three/AnimatedCharacter.jsx
-
-   Arquitectura (sin cambios respecto a versiones previas):
-   - outer: traslación en el mundo (posición).
-   - pivot: rotación alrededor del centro de masa.
-   - Cadena de huesos con retraso (spine → chest → shoulder → head,
-     y pelvis → thigh → calf → foot) para que no todo rote como una
-     sola pieza rígida.
-
-   LO QUE CAMBIÓ: el objetivo de posición/rotación de outer/pivot ya
-   NO sale de fórmulas fijas por fase — sale de MOVEMENT_KEYFRAMES
-   vía sampleMovement(progress), editable desde la herramienta.
    ============================================================ */
 const CHAR_CENTER_Y = 0.52;
 const CHAR_SCALE = 1.7;
@@ -739,7 +744,6 @@ function AnimatedCharacter({ mouse }) {
     pivot.rotation.z = damp(pivot.rotation.z, Math.sin(t * 0.35) * 0.04, 4, delta);
     /*@GEN:MOVEMENT_END*/
 
-    // Cadena hacia arriba: columna → pecho → hombros → cabeza.
     const chain = chainRef.current;
     chain.pelvis = pivot.rotation.y;
     chain.spine = damp(chain.spine, chain.pelvis, 7, delta);
@@ -747,7 +751,6 @@ function AnimatedCharacter({ mouse }) {
     chain.shoulder = damp(chain.shoulder, chain.chest, 4.2, delta);
     chain.head = damp(chain.head, chain.shoulder, 3.2, delta);
 
-    // Cadena hacia abajo: pelvis → muslo → pantorrilla → pie.
     chain.thigh = damp(chain.thigh, chain.pelvis, 6, delta);
     chain.calf = damp(chain.calf, chain.thigh, 5, delta);
     chain.foot = damp(chain.foot, chain.calf, 4, delta);
@@ -755,13 +758,6 @@ function AnimatedCharacter({ mouse }) {
     const idleAmp = 1;
     const floatArm = 0.26 * idleAmp;
     const floatLeg = 0.18 * idleAmp;
-    // Los brazos SÍ pueden flotar con fase/frecuencia distinta entre
-    // izquierda y derecha porque no tocan nada rígido. Las piernas NO:
-    // los pies están apoyados en la patineta, así que ambas piernas
-    // usan exactamente el mismo seno (misma frecuencia y misma fase,
-    // sin offset entre l/r). Así suben y bajan juntas, la distancia y
-    // el ángulo entre los dos pies no cambia con el tiempo, y la
-    // patineta (rigida entre ambos pies) ya no se deforma.
     const legWave = Math.sin(t * 0.6 + 0.3) * floatLeg;
     const calfWave = Math.sin(t * 0.7 + 1.0) * floatLeg * 0.7;
     const footWave = Math.sin(t * 0.8 + 0.2) * floatLeg * 0.5;
@@ -802,23 +798,54 @@ function AnimatedCharacter({ mouse }) {
 useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
-   Entorno / base (plataforma). Es un único modelo estático (sin
-   huesos ni animación) que se dibuja alrededor/debajo del personaje.
-   SCALE/POSITION/ROTATION vienen de UNIVERSE_SCALE/POSITION/
-   ROTATION_Y, generados desde la pestaña "Entorno" de la herramienta.
+   Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
+   sin huesos ni animación) o una imagen plana (.png/.jpg, tipo cartel
+   o sprite, con opción de "billboard" para que siempre mire a
+   cámara). Se puede tener cualquier cantidad — se generan desde la
+   pestaña "Objetos" de la herramienta.
    ============================================================ */
-function UniverseEnvironment() {
-  const { scene } = useGLTF(UNIVERSE_MODEL_URL);
+function SceneObjectModel({ data }) {
+  const { scene } = useGLTF(data.url);
   return (
     <primitive
       object={scene}
-      scale={UNIVERSE_SCALE}
-      position={UNIVERSE_POSITION}
-      rotation={[0, (UNIVERSE_ROTATION_Y * Math.PI) / 180, 0]}
+      scale={data.scale}
+      position={data.position}
+      rotation={[0, (data.rotationY * Math.PI) / 180, 0]}
     />
   );
 }
-useGLTF.preload(UNIVERSE_MODEL_URL);
+function SceneObjectImage({ data }) {
+  const texture = useTexture(data.url);
+  const aspect = texture.image ? texture.image.width / texture.image.height : 1;
+  const mesh = (
+    <mesh
+      scale={[data.scale * aspect, data.scale, 1]}
+      position={data.billboard ? [0, 0, 0] : data.position}
+      rotation={data.billboard ? [0, 0, 0] : [0, (data.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return data.billboard ? <Billboard position={data.position}>{mesh}</Billboard> : mesh;
+}
+function SceneObject({ data }) {
+  return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
+}
+function SceneObjects() {
+  return (
+    <>
+      {OBJECTS.map((obj, i) => (
+        <SceneObject key={i} data={obj} />
+      ))}
+    </>
+  );
+}
+OBJECTS.forEach((obj) => {
+  if (obj.type === "image") useTexture.preload(obj.url);
+  else useGLTF.preload(obj.url);
+});
 
 function Lighting() {
   const keyRef = useRef(null);
@@ -879,7 +906,7 @@ function Experience({ device }) {
       <Lighting />
       <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
       <Suspense fallback={null}>
-        <UniverseEnvironment />
+        <SceneObjects />
         <AnimatedCharacter mouse={mouse} />
       </Suspense>
       {device.enablePostProcessing && (
@@ -894,16 +921,17 @@ function Experience({ device }) {
 
 function HeroText() {
   const ref = useRef(null);
-  const FADE_IN_END = 0.05;
+  // Entrada invertida: el texto empieza oculto/grande y hace zoom-in
+  // con fade-in hacia el final del scroll, quedando fijo y visible ahí.
   const ZOOM_START = ST_TURN_END;
+  const ZOOM_END = 1;
 
   useEffect(() => {
     const update = (progress) => {
       if (!ref.current) return;
-      const fadeIn = smoothstep(0, FADE_IN_END, progress);
-      const zoomOut = smoothstep(ZOOM_START, 1, progress);
-      const scale = 1 + zoomOut * 14;
-      const opacity = fadeIn * (1 - zoomOut);
+      const zoomIn = smoothstep(ZOOM_START, ZOOM_END, progress);
+      const scale = 15 - zoomIn * 14;
+      const opacity = zoomIn;
       ref.current.style.opacity = String(opacity);
       ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
     };
@@ -916,6 +944,11 @@ function HeroText() {
       Scroll Experience
     </div>
   );
+}
+
+function textWeight(kf, progress, window_ = 0.14) {
+  const d = Math.abs(progress - kf.progress);
+  return clamp(1 - d / window_);
 }
 
 function SceneText() {
