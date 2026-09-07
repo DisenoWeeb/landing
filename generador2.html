@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pose, Cámara &amp; Movimiento Generator — weeb.glb</title>
+<title>Pose, Cámara, Movimiento &amp; Objetos Generator</title>
 <style>
   html, body { margin: 0; padding: 0; background: #0f0f1a; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
   #root { width: 100%; height: 100%; display: flex; }
@@ -12,11 +12,11 @@
   .top-controls { position: absolute; top: 12px; left: 12px; z-index: 5; color: rgba(245,246,242,0.6); font-size: 11.5px; display: flex; flex-direction: column; gap: 4px; }
   .toggle-row { display: flex; align-items: center; gap: 6px; background: rgba(10,10,16,0.7); padding: 5px 8px; border-radius: 6px; }
   .toggle-row input { accent-color: #c8ff00; }
-  .panel { width: 400px; height: 100%; background: rgba(10,10,16,0.96); color: #f5f6f2; overflow-y: auto; padding: 16px; box-sizing: border-box; font-size: 13px; border-left: 1px solid rgba(200,255,0,0.3); display: flex; flex-direction: column; gap: 14px; }
+  .panel { width: 420px; height: 100%; background: rgba(10,10,16,0.96); color: #f5f6f2; overflow-y: auto; padding: 16px; box-sizing: border-box; font-size: 13px; border-left: 1px solid rgba(200,255,0,0.3); display: flex; flex-direction: column; gap: 14px; }
   h1 { font-size: 15px; margin: 0 0 2px; color: #c8ff00; }
   p.hint { color: rgba(245,246,242,0.6); font-size: 11.5px; margin: 0; line-height: 1.4; }
-  .section-tabs { display: flex; gap: 6px; }
-  .section-tab { flex: 1; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 12px; font-weight: 600; }
+  .section-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .section-tab { flex: 1 1 30%; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 12px; font-weight: 600; }
   .section-tab.active { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; }
   .kf-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
   .kf-tab { flex: 1 1 30%; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 11px; line-height: 1.3; }
@@ -32,12 +32,18 @@
   .axis-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
   .axis-row label { width: 14px; color: rgba(245,246,242,0.7); font-size: 11px; }
   .axis-row input[type=range] { flex: 1; }
+  .axis-row input[type=text] { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #f5f6f2; border-radius: 4px; padding: 4px 6px; font-size: 11.5px; }
+  .axis-row input[type=color] { width: 32px; height: 24px; padding: 0; border: none; background: none; }
   .axis-row .val { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: rgba(245,246,242,0.8); font-size: 11px; }
   .cam-group { padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .cam-group-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #7dfff0; }
+  .obj-block { padding: 8px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: rgba(255,255,255,0.03); }
+  .obj-block-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .obj-block-header input[type=text] { flex: 1; }
   .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .btn { padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: #f5f6f2; cursor: pointer; font-size: 11.5px; }
   .btn.primary { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; font-weight: 600; }
+  .btn.danger { border-color: rgba(255,90,90,0.5); color: #ff9a9a; }
   textarea.code { width: 100%; height: 160px; resize: vertical; background: #05050a; color: #cdeb8f; border: 1px solid rgba(200,255,0,0.25); border-radius: 6px; padding: 10px; font-family: ui-monospace, monospace; font-size: 10px; line-height: 1.4; box-sizing: border-box; }
   .copied { color: #c8ff00; font-size: 11px; }
 </style>
@@ -307,7 +313,7 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Environment, Stars } from "@react-three/drei";
+import { useGLTF, Stars, useTexture, Billboard } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 
 /* ============================================================
@@ -334,17 +340,18 @@ const clientConfig = {
 
 const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 
-// Modelo del universo (islas flotantes, castillo, planetas) que rodea al
-// personaje. Colocá el archivo universo.glb en assets/models/ junto al
-// del personaje. SCALE/POSITION/ROTATION se generan desde la pestaña
-// "Entorno" de la herramienta — si algo queda muy grande/chico o mal
-// ubicado, es más fácil ajustarlo ahí (con preview en vivo) que a mano.
-const UNIVERSE_MODEL_URL = "./assets/models/universo.glb";
-/*@GEN:UNIVERSE_START*/
-const UNIVERSE_SCALE = 1;
-const UNIVERSE_POSITION = [0, -2, -6];
-const UNIVERSE_ROTATION_Y = 0;
-/*@GEN:UNIVERSE_END*/
+// Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
+// personaje. Podés tener uno o varios modelos estáticos (sin huesos ni
+// animación) a la vez. Cada uno con su propio archivo, escala, posición
+// y rotación. Se generan desde la pestaña "Objetos" de la herramienta —
+// si algo queda muy grande/chico o mal ubicado, es más fácil ajustarlo
+// ahí (con preview en vivo) que a mano. Colocá cada archivo .glb en
+// assets/models/ junto al del personaje.
+/*@GEN:OBJECTS_START*/
+const OBJECTS = [
+  { url: "./assets/models/universo.glb", scale: 5, position: [0, -0.2, 2.2], rotationY: 0 },
+];
+/*@GEN:OBJECTS_END*/
 
 // Se mantienen porque HeroText usa ST_TURN_END para sincronizar su propio
 // zoom con el fin del giro. Ya NO gobiernan el movimiento del personaje
@@ -363,11 +370,13 @@ function smoothstep(edge0, edge1, x) {
 
 /* ============================================================
    CONFIG: scenes.config — cámara, luz, niebla, partículas por etapa.
+   Las etapas ahora son genéricas (Pose 1, Pose 2, ...) en cantidad
+   variable — no hay un número fijo.
    ============================================================ */
 /*@GEN:SCENES_START*/
 const scenes = [
   {
-    id: "front-idle",
+    id: "pose-1",
     progress: 0,
     camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
     light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.3 },
@@ -375,7 +384,7 @@ const scenes = [
     background: "#0b1330",
   },
   {
-    id: "approach",
+    id: "pose-2",
     progress: 0.18,
     camera: { position: [0, -0.05, 3.4], lookAt: [0, -0.1, 0], fov: 27 },
     light: { color: "#dfeeff", intensity: 0.72, rimColor: "#49d3ff", rimIntensity: 1.4 },
@@ -383,7 +392,7 @@ const scenes = [
     background: "#0a1128",
   },
   {
-    id: "turn",
+    id: "pose-3",
     progress: 0.47,
     camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
     light: { color: "#dfeeff", intensity: 0.68, rimColor: "#7dfff0", rimIntensity: 1.6 },
@@ -391,7 +400,7 @@ const scenes = [
     background: "#080d20",
   },
   {
-    id: "pause",
+    id: "pose-4",
     progress: 0.6,
     camera: { position: [0.3, 0.15, 3.5], lookAt: [0, 0.08, 0], fov: 28 },
     light: { color: "#dfeeff", intensity: 0.65, rimColor: "#7dfff0", rimIntensity: 1.65 },
@@ -399,7 +408,7 @@ const scenes = [
     background: "#060a18",
   },
   {
-    id: "fall-pose",
+    id: "pose-5",
     progress: 0.8,
     camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
     light: { color: "#dfeeff", intensity: 0.6, rimColor: "#7dfff0", rimIntensity: 1.7 },
@@ -407,7 +416,7 @@ const scenes = [
     background: "#04060f",
   },
   {
-    id: "fall",
+    id: "pose-6",
     progress: 1,
     camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
     light: { color: "#dfeeff", intensity: 0.5, rimColor: "#49d3ff", rimIntensity: 1.6 },
@@ -419,17 +428,16 @@ const scenes = [
 
 /* ============================================================
    MOVIMIENTO DEL PERSONAJE — posición (x,y,z) y rotación (yaw/pitch)
-   por etapa, editable desde la herramienta. Reemplaza el viejo
-   sistema de fases fijas (approach/turn/fall hardcodeados).
+   por etapa, editable desde la herramienta. Cantidad de etapas variable.
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "front-idle", progress: 0, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
-  { id: "approach", progress: 0.18, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
-  { id: "turn", progress: 0.47, pos: [0, -0.325, -0.55], yaw: -90, pitch: 0 },
-  { id: "pause", progress: 0.6, pos: [0, 0, -0.55], yaw: -180, pitch: -2 },
-  { id: "fall-pose", progress: 0.8, pos: [0, 0, -0.55], yaw: -180, pitch: -37 },
-  { id: "fall", progress: 1, pos: [0, 0, -9.55], yaw: -180, pitch: -66 },
+  { id: "pose-1", progress: 0, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
+  { id: "pose-2", progress: 0.18, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
+  { id: "pose-3", progress: 0.47, pos: [0, -0.325, -0.55], yaw: -90, pitch: 0 },
+  { id: "pose-4", progress: 0.6, pos: [0, 0, -0.55], yaw: -180, pitch: -2 },
+  { id: "pose-5", progress: 0.8, pos: [0, 0, -0.55], yaw: -180, pitch: -37 },
+  { id: "pose-6", progress: 1, pos: [0, 0, -9.55], yaw: -180, pitch: -66 },
 ];
 
 function sampleMovement(progress) {
@@ -454,7 +462,7 @@ function sampleMovement(progress) {
 /*@GEN:BONES_START*/
 const BONE_POSE_KEYFRAMES = [
   {
-    id: "front-idle",
+    id: "pose-1",
     progress: 0,
     bones: {
         lClavicle: [0.0000, 0.0000, 0.2269],
@@ -470,7 +478,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "approach",
+    id: "pose-2",
     progress: 0.25,
     bones: {
         head: [-0.4538, 0.0000, 0.0000],
@@ -487,7 +495,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "turn",
+    id: "pose-3",
     progress: 0.5,
     bones: {
         head: [0.0175, -0.1571, -0.0524],
@@ -504,7 +512,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "fall-pose",
+    id: "pose-4",
     progress: 0.7,
     bones: {
         spine1: [0.5585, 0.0000, 0.0000],
@@ -523,7 +531,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "fall",
+    id: "pose-5",
     progress: 1,
     bones: {
         spine1: [0.5585, 0.0000, 0.0000],
@@ -581,7 +589,7 @@ function getDeviceProfile() {
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   return {
     isMobile,
-    dpr: isMobile ? [1, 1.5] : [1, 2],
+    dpr: isMobile ? [1, 1] : [1, 1.5],
     enablePostProcessing: !isMobile,
   };
 }
@@ -626,6 +634,7 @@ function blendScenes(list, rawProgress) {
       position: lerpVec3(a.camera.position, b.camera.position, t),
       lookAt: lerpVec3(a.camera.lookAt, b.camera.lookAt, t),
       fov: lerp(a.camera.fov, b.camera.fov, t),
+      roll: lerp(a.camera.roll || 0, b.camera.roll || 0, t),
     },
     light: {
       color: lerpColor(a.light.color, b.light.color, t),
@@ -639,11 +648,6 @@ function blendScenes(list, rawProgress) {
     },
     background: lerpColor(a.background, b.background, t),
   };
-}
-
-function textWeight(kf, progress, window_ = 0.14) {
-  const d = Math.abs(progress - kf.progress);
-  return clamp(1 - d / window_);
 }
 
 const useScrollStore = create((set) => ({
@@ -714,6 +718,7 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
   const { camera } = useThree();
   const lookAtTarget = useRef(new THREE.Vector3());
   const currentLookAt = useRef(new THREE.Vector3());
+  const dampedRoll = useRef(0);
 
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
@@ -729,7 +734,11 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
     lookAtTarget.current.set(lx + mx * 0.05, ly - my * 0.05, lz);
     currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-6 * delta));
+    camera.up.set(0, 1, 0);
     camera.lookAt(currentLookAt.current);
+
+    dampedRoll.current = damp(dampedRoll.current, state.camera.roll || 0, 6, delta);
+    if (dampedRoll.current) camera.rotateZ((dampedRoll.current * Math.PI) / 180);
 
     if ("fov" in camera) {
       camera.fov = damp(camera.fov, state.camera.fov, 5, delta);
@@ -742,17 +751,6 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
 /* ============================================================
    three/AnimatedCharacter.jsx
-
-   Arquitectura (sin cambios respecto a versiones previas):
-   - outer: traslación en el mundo (posición).
-   - pivot: rotación alrededor del centro de masa.
-   - Cadena de huesos con retraso (spine → chest → shoulder → head,
-     y pelvis → thigh → calf → foot) para que no todo rote como una
-     sola pieza rígida.
-
-   LO QUE CAMBIÓ: el objetivo de posición/rotación de outer/pivot ya
-   NO sale de fórmulas fijas por fase — sale de MOVEMENT_KEYFRAMES
-   vía sampleMovement(progress), editable desde la herramienta.
    ============================================================ */
 const CHAR_CENTER_Y = 0.52;
 const CHAR_SCALE = 1.7;
@@ -823,7 +821,6 @@ function AnimatedCharacter({ mouse }) {
     pivot.rotation.z = damp(pivot.rotation.z, Math.sin(t * 0.35) * 0.04, 4, delta);
     /*@GEN:MOVEMENT_END*/
 
-    // Cadena hacia arriba: columna → pecho → hombros → cabeza.
     const chain = chainRef.current;
     chain.pelvis = pivot.rotation.y;
     chain.spine = damp(chain.spine, chain.pelvis, 7, delta);
@@ -831,7 +828,6 @@ function AnimatedCharacter({ mouse }) {
     chain.shoulder = damp(chain.shoulder, chain.chest, 4.2, delta);
     chain.head = damp(chain.head, chain.shoulder, 3.2, delta);
 
-    // Cadena hacia abajo: pelvis → muslo → pantorrilla → pie.
     chain.thigh = damp(chain.thigh, chain.pelvis, 6, delta);
     chain.calf = damp(chain.calf, chain.thigh, 5, delta);
     chain.foot = damp(chain.foot, chain.calf, 4, delta);
@@ -839,13 +835,6 @@ function AnimatedCharacter({ mouse }) {
     const idleAmp = 1;
     const floatArm = 0.26 * idleAmp;
     const floatLeg = 0.18 * idleAmp;
-    // Los brazos SÍ pueden flotar con fase/frecuencia distinta entre
-    // izquierda y derecha porque no tocan nada rígido. Las piernas NO:
-    // los pies están apoyados en la patineta, así que ambas piernas
-    // usan exactamente el mismo seno (misma frecuencia y misma fase,
-    // sin offset entre l/r). Así suben y bajan juntas, la distancia y
-    // el ángulo entre los dos pies no cambia con el tiempo, y la
-    // patineta (rigida entre ambos pies) ya no se deforma.
     const legWave = Math.sin(t * 0.6 + 0.3) * floatLeg;
     const calfWave = Math.sin(t * 0.7 + 1.0) * floatLeg * 0.7;
     const footWave = Math.sin(t * 0.8 + 0.2) * floatLeg * 0.5;
@@ -886,23 +875,54 @@ function AnimatedCharacter({ mouse }) {
 useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
-   Entorno del universo (islas flotantes, castillo, planetas). Es un
-   único modelo estático (sin huesos ni animación) que se dibuja de
-   fondo. SCALE/POSITION/ROTATION vienen de UNIVERSE_SCALE/POSITION/
-   ROTATION_Y, generados desde la pestaña "Entorno" de la herramienta.
+   Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
+   sin huesos ni animación) o una imagen plana (.png/.jpg, tipo cartel
+   o sprite, con opción de "billboard" para que siempre mire a
+   cámara). Se puede tener cualquier cantidad — se generan desde la
+   pestaña "Objetos" de la herramienta.
    ============================================================ */
-function UniverseEnvironment() {
-  const { scene } = useGLTF(UNIVERSE_MODEL_URL);
+function SceneObjectModel({ data }) {
+  const { scene } = useGLTF(data.url);
   return (
     <primitive
       object={scene}
-      scale={UNIVERSE_SCALE}
-      position={UNIVERSE_POSITION}
-      rotation={[0, (UNIVERSE_ROTATION_Y * Math.PI) / 180, 0]}
+      scale={data.scale}
+      position={data.position}
+      rotation={[0, (data.rotationY * Math.PI) / 180, 0]}
     />
   );
 }
-useGLTF.preload(UNIVERSE_MODEL_URL);
+function SceneObjectImage({ data }) {
+  const texture = useTexture(data.url);
+  const aspect = texture.image ? texture.image.width / texture.image.height : 1;
+  const mesh = (
+    <mesh
+      scale={[data.scale * aspect, data.scale, 1]}
+      position={data.billboard ? [0, 0, 0] : data.position}
+      rotation={data.billboard ? [0, 0, 0] : [0, (data.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return data.billboard ? <Billboard position={data.position}>{mesh}</Billboard> : mesh;
+}
+function SceneObject({ data }) {
+  return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
+}
+function SceneObjects() {
+  return (
+    <>
+      {OBJECTS.map((obj, i) => (
+        <SceneObject key={i} data={obj} />
+      ))}
+    </>
+  );
+}
+OBJECTS.forEach((obj) => {
+  if (obj.type === "image") useTexture.preload(obj.url);
+  else useGLTF.preload(obj.url);
+});
 
 function Lighting() {
   const keyRef = useRef(null);
@@ -961,15 +981,14 @@ function Experience({ device }) {
       <SceneEnvironment />
       <CameraRig mouse={mouse} />
       <Lighting />
-      <Environment preset="night" background={false} />
-      <Stars radius={140} depth={70} count={device.isMobile ? 1200 : 3000} factor={4} saturation={0} fade speed={0.3} />
+      <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
       <Suspense fallback={null}>
-        <UniverseEnvironment />
+        <SceneObjects />
         <AnimatedCharacter mouse={mouse} />
       </Suspense>
       {device.enablePostProcessing && (
         <EffectComposer multisampling={0}>
-          <Bloom intensity={0.55} luminanceThreshold={0.2} luminanceSmoothing={0.9} mipmapBlur />
+          <Bloom intensity={0.5} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
           <Vignette eskil={false} offset={0.15} darkness={0.7} />
         </EffectComposer>
       )}
@@ -1001,6 +1020,11 @@ function HeroText() {
       Scroll Experience
     </div>
   );
+}
+
+function textWeight(kf, progress, window_ = 0.14) {
+  const d = Math.abs(progress - kf.progress);
+  return clamp(1 - d / window_);
 }
 
 function SceneText() {
@@ -1244,11 +1268,9 @@ import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, OrbitControls, Environment, Grid } from "@react-three/drei";
+import { useGLTF, OrbitControls, Grid, useTexture, Billboard } from "@react-three/drei";
 
 const MODEL_URL = "./assets/models/weebpatineta.glb";
-const UNIVERSE_MODEL_URL = "./assets/models/universo.glb";
-const DEFAULT_UNIVERSE = { scale: 1, position: [0, -2, -6], rotationY: 0 };
 
 const BONE_DEFS = [
   ["spine1", "Spine01"], ["spine2", "Spine02"], ["neck", "NeckTwist01"], ["head", "Head"],
@@ -1271,69 +1293,64 @@ function smoothstep(edge0, edge1, x) {
 }
 
 /* ============================================================
-   UNA sola lista de "etapas" (stages) compartida por Pose, Cámara
-   y Movimiento. Antes cada sección tenía su propia lista de
-   keyframes con progress distintos (la pose iba a 0/0.25/0.5/0.7/1
-   mientras que cámara y movimiento iban a 0/0.18/0.47/0.6/0.8/1),
-   lo que hacía que la pose y la cámara/movimiento quedaran
-   desincronizadas durante el scroll. Ahora las tres comparten
-   exactamente las mismas 6 etapas.
+   Etapas ("poses") — ahora en CANTIDAD VARIABLE. Ya no hay una lista
+   fija de 6 nombres semánticos (Frente/Acercamiento/Giro/...); las
+   etapas se llaman genéricamente "Pose 1", "Pose 2", etc. y se pueden
+   agregar o quitar libremente desde la pestaña Pose/Cámara/Movimiento.
+   Pose, Cámara, Movimiento y su Ambiente (luz/niebla/fondo) comparten
+   siempre las mismas etapas.
    ============================================================ */
-const STAGE_DEFS = [
-  { id: "front-idle", label: "Frente" },
-  { id: "approach", label: "Acercamiento" },
-  { id: "turn", label: "Giro" },
-  { id: "pause", label: "Pausa" },
-  { id: "fall-pose", label: "Postura caída" },
-  { id: "fall", label: "Caída" },
-];
-
+function makeDefaultStages() {
+  return [
+    { id: "pose-1", label: "Pose 1" },
+    { id: "pose-2", label: "Pose 2" },
+    { id: "pose-3", label: "Pose 3" },
+    { id: "pose-4", label: "Pose 4" },
+    { id: "pose-5", label: "Pose 5" },
+    { id: "pose-6", label: "Pose 6" },
+  ];
+}
 /* Duración de cada tramo (en vh de scroll), entre etapa[i] y etapa[i+1].
-   5 tramos para las 6 etapas. La suma de estos 5 valores es el largo
-   total del scroll (antes fijo en 950vh). Estos valores por defecto
-   reproducen exactamente el timing original (0 / 0.18 / 0.47 / 0.6 /
-   0.8 / 1 sobre 950vh). Editable desde la pestaña "Duración". */
+   Un valor menos que la cantidad de etapas. La suma de estos valores es
+   el largo total del scroll. Editable desde la pestaña "Duración". */
 const DEFAULT_DURATIONS_VH = [170, 275, 125, 190, 190];
 
-function stagesWithProgress(durationsVh) {
+function stagesWithProgress(stageList, durationsVh) {
   const total = durationsVh.reduce((a, b) => a + b, 0) || 1;
   let acc = 0;
-  const out = [{ ...STAGE_DEFS[0], progress: 0 }];
+  const out = [{ ...stageList[0], progress: 0 }];
   for (let i = 0; i < durationsVh.length; i++) {
     acc += durationsVh[i];
-    out.push({ ...STAGE_DEFS[i + 1], progress: acc / total });
+    out.push({ ...stageList[i + 1], progress: acc / total });
   }
   return out;
 }
 const roundProgress = (p) => Math.round(p * 1000) / 1000;
 
 const zeroPose = () => Object.fromEntries(BONE_KEYS.map((k) => [k, { x: 0, y: 0, z: 0 }]));
+const defaultCamera = () => ({ position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 });
+const defaultMovement = () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0 });
+const defaultFx = () => ({
+  light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.4 },
+  fog: { color: "#05070a", far: 20 },
+  background: "#05070a",
+});
 
-/* Todo arranca en cero / neutro: ninguna etapa tiene pose, cámara
-   ni movimiento predefinidos. Vos lo armás a gusto desde acá. */
-function initialPoses() {
-  return Object.fromEntries(STAGE_DEFS.map((kf) => [kf.id, zeroPose()]));
+/* Todo arranca en cero / neutro: ninguna etapa tiene pose, cámara,
+   movimiento ni ambiente predefinidos (salvo el ambiente, que arranca
+   con un valor neutro razonable). Se arma a gusto desde la herramienta. */
+function initialPoses(stageList) {
+  return Object.fromEntries(stageList.map((kf) => [kf.id, zeroPose()]));
 }
-function initialCameras() {
-  return Object.fromEntries(
-    STAGE_DEFS.map((kf) => [kf.id, { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30 }])
-  );
+function initialCameras(stageList) {
+  return Object.fromEntries(stageList.map((kf) => [kf.id, defaultCamera()]));
 }
-function initialMovements() {
-  return Object.fromEntries(STAGE_DEFS.map((kf) => [kf.id, { pos: [0, 0, 0], yaw: 0, pitch: 0 }]));
+function initialMovements(stageList) {
+  return Object.fromEntries(stageList.map((kf) => [kf.id, defaultMovement()]));
 }
-// Valores fijos (luz / niebla / fondo) por etapa, con una paleta de
-// espacio profundo (azul oscuro) acorde al universo.glb. No tienen
-// control propio en la UI todavía; si querés tocarlos hace falta
-// editar este objeto a mano.
-const FIXED_SCENE_DEFAULTS = {
-  "front-idle": { light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.3 }, fog: { color: "#0b1330", far: 26 }, background: "#0b1330" },
-  "approach": { light: { color: "#dfeeff", intensity: 0.72, rimColor: "#49d3ff", rimIntensity: 1.4 }, fog: { color: "#0a1128", far: 24 }, background: "#0a1128" },
-  "turn": { light: { color: "#dfeeff", intensity: 0.68, rimColor: "#7dfff0", rimIntensity: 1.6 }, fog: { color: "#080d20", far: 20 }, background: "#080d20" },
-  "pause": { light: { color: "#dfeeff", intensity: 0.65, rimColor: "#7dfff0", rimIntensity: 1.65 }, fog: { color: "#060a18", far: 17 }, background: "#060a18" },
-  "fall-pose": { light: { color: "#dfeeff", intensity: 0.6, rimColor: "#7dfff0", rimIntensity: 1.7 }, fog: { color: "#04060f", far: 14 }, background: "#04060f" },
-  "fall": { light: { color: "#dfeeff", intensity: 0.5, rimColor: "#49d3ff", rimIntensity: 1.6 }, fog: { color: "#000000", far: 11 }, background: "#000000" },
-};
+function initialFx(stageList) {
+  return Object.fromEntries(stageList.map((kf) => [kf.id, defaultFx()]));
+}
 
 function samplePose(posesByKf, progress, stages) {
   const p = clamp(progress, 0, 1);
@@ -1364,7 +1381,7 @@ function sampleCamera(camsByKf, progress, stages) {
   const span = b.progress - a.progress || 1;
   const t = clamp((p - a.progress) / span);
   const ca = camsByKf[a.id], cb = camsByKf[b.id];
-  return { position: lerpVec3(ca.position, cb.position, t), lookAt: lerpVec3(ca.lookAt, cb.lookAt, t), fov: lerp(ca.fov, cb.fov, t) };
+  return { position: lerpVec3(ca.position, cb.position, t), lookAt: lerpVec3(ca.lookAt, cb.lookAt, t), fov: lerp(ca.fov, cb.fov, t), roll: lerp(ca.roll || 0, cb.roll || 0, t) };
 }
 
 function sampleMovement(movesByKf, progress, stages) {
@@ -1381,18 +1398,47 @@ function sampleMovement(movesByKf, progress, stages) {
   return { pos: lerpVec3(ma.pos, mb.pos, t), yaw: lerp(ma.yaw, mb.yaw, t), pitch: lerp(ma.pitch, mb.pitch, t) };
 }
 
+function lerpColorHex(a, b, t) {
+  const ca = new THREE.Color(a);
+  const cb = new THREE.Color(b);
+  ca.lerp(cb, t);
+  return "#" + ca.getHexString();
+}
+
+/* Igual que sampleCamera/sampleMovement pero para Ambiente (luz, rim,
+   niebla, fondo), para poder previsualizarlo también interpolado en la
+   pestaña Preview. Fuera de Preview se usa el valor crudo de la etapa
+   activa (ver App). */
+function sampleFx(fxByKf, progress, stages) {
+  const p = clamp(progress, 0, 1);
+  if (p <= stages[0].progress) return fxByKf[stages[0].id];
+  const last = stages[stages.length - 1];
+  if (p >= last.progress) return fxByKf[last.id];
+  let i = 0;
+  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
+  const a = stages[i], b = stages[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = clamp((p - a.progress) / span);
+  const fa = fxByKf[a.id], fb = fxByKf[b.id];
+  return {
+    light: {
+      color: lerpColorHex(fa.light.color, fb.light.color, t),
+      intensity: lerp(fa.light.intensity, fb.light.intensity, t),
+      rimColor: lerpColorHex(fa.light.rimColor, fb.light.rimColor, t),
+      rimIntensity: lerp(fa.light.rimIntensity, fb.light.rimIntensity, t),
+    },
+    fog: { color: lerpColorHex(fa.fog.color, fb.fog.color, t), far: lerp(fa.fog.far, fb.fog.far, t) },
+    background: lerpColorHex(fa.background, fb.background, t),
+  };
+}
+
 /* ---- Personaje ----
-   IMPORTANTE: este componente ya no se desmonta/remonta al cambiar
-   de pestaña (antes a veces quedaba envuelto en <MovedGroup> y a
-   veces no, lo que forzaba un remount de <primitive>). Un remount
-   hacía que el useEffect volviera a "capturar" como pose de
-   referencia (rest) la pose YA deformada del frame anterior, en vez
-   del bind pose real del modelo — de ahí la deformación acumulada
-   al ir y volver entre pestañas. Ahora el personaje se monta una
-   sola vez y sólo cambian sus props. Este bug era exclusivo de esta
-   herramienta de edición: en el archivo final exportado (arriba en
-   tpl-source) el personaje siempre estuvo montado una sola vez, así
-   que la deformación NO se exporta al index.html. */
+   Se monta UNA sola vez y sólo cambian sus props, para que cambiar de
+   pestaña o de etapa activa nunca provoque un remount de <primitive>
+   (un remount forzaría a recapturar como "rest pose" una pose ya
+   deformada). Este detalle es exclusivo de esta herramienta de
+   edición: en el archivo final exportado el personaje siempre se
+   monta una sola vez. */
 function Character({ pose, onBonesFound }) {
   const { scene } = useGLTF(MODEL_URL);
   const bonesRef = useRef({});
@@ -1430,8 +1476,31 @@ function SceneCameraDriver({ target, active }) {
   useFrame(() => {
     if (!active || !target) return;
     camera.position.set(target.position[0], target.position[1], target.position[2]);
+    camera.up.set(0, 1, 0);
     camera.lookAt(target.lookAt[0], target.lookAt[1], target.lookAt[2]);
+    if (target.roll) camera.rotateZ((target.roll * Math.PI) / 180);
     if ("fov" in camera) { camera.fov = target.fov; camera.updateProjectionMatrix(); }
+  });
+  return null;
+}
+
+/* Mientras "Cámara libre" está activa, este componente lee en cada
+   frame la posición/target/fov real de la cámara orbitada a mano y los
+   guarda en liveCameraRef — así el botón "Capturar cámara libre" (en
+   la pestaña Cámara) puede tomar exactamente lo que estás viendo y
+   guardarlo como keyframe de la etapa activa. Control total: lo que
+   armás a mano con el mouse se puede volcar directo a la animación. */
+function LiveCameraTracker({ orbitRef, liveCameraRef, active }) {
+  const { camera } = useThree();
+  useFrame(() => {
+    if (!active) return;
+    const controls = orbitRef.current;
+    const targetVec = controls ? controls.target : null;
+    liveCameraRef.current = {
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      lookAt: targetVec ? [targetVec.x, targetVec.y, targetVec.z] : [0, 0, 0],
+      fov: "fov" in camera ? camera.fov : 30,
+    };
   });
   return null;
 }
@@ -1446,11 +1515,11 @@ function MovedGroup({ movement, children }) {
   return <group ref={ref}>{children}</group>;
 }
 
-/* Si universo.glb todavía no está copiado junto a este archivo, useGLTF
-   tira un error de carga (404). Este boundary evita que eso rompa toda
-   la herramienta — el resto (pose/cámara/movimiento del personaje)
-   sigue funcionando aunque el universo no cargue. */
-class UniverseBoundary extends React.Component {
+/* Si un .glb de objeto todavía no está copiado junto a este archivo,
+   useGLTF tira un error de carga (404). Este boundary evita que eso
+   rompa toda la herramienta — cada objeto tiene su propio boundary,
+   así uno que falte no tumba a los demás. */
+class ObjectBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch() {}
@@ -1460,42 +1529,64 @@ class UniverseBoundary extends React.Component {
   }
 }
 
-function UniversePreview({ universe }) {
-  const { scene } = useGLTF(UNIVERSE_MODEL_URL);
+function ObjectPreviewModel({ obj }) {
+  const { scene } = useGLTF(obj.url);
   return (
     <primitive
       object={scene}
-      scale={universe.scale}
-      position={universe.position}
-      rotation={[0, (universe.rotationY * Math.PI) / 180, 0]}
+      scale={obj.scale}
+      position={obj.position}
+      rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}
     />
   );
 }
-useGLTF.preload(UNIVERSE_MODEL_URL);
+function ObjectPreviewImage({ obj }) {
+  const texture = useTexture(obj.url);
+  const aspect = texture.image ? texture.image.width / texture.image.height : 1;
+  const mesh = (
+    <mesh
+      scale={[obj.scale * aspect, obj.scale, 1]}
+      position={obj.billboard ? [0, 0, 0] : obj.position}
+      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
+}
+function ObjectPreview({ obj }) {
+  return obj.type === "image" ? <ObjectPreviewImage obj={obj} /> : <ObjectPreviewModel obj={obj} />;
+}
 
-/* La estructura de la escena ahora es SIEMPRE la misma (luces, grilla,
-   MovedGroup > Character, cámara, controles). Nunca cambia de forma
-   entre pestañas, así React nunca desmonta el personaje. */
-function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, universe, showUniverse, showGrid }) {
+/* La estructura de la escena es SIEMPRE la misma (luces, grilla,
+   MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
+   forma entre pestañas, así React nunca desmonta el personaje. */
+function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef }) {
   return (
     <>
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[3, 4, 5]} intensity={1} />
+      {showFx && <color attach="background" args={[fx.background]} />}
+      {showFx && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
+      <ambientLight intensity={0.28} />
+      <directionalLight color={showFx ? fx.light.color : "#ffffff"} position={[3, 4, 5]} intensity={showFx ? fx.light.intensity : 0.9} />
       <directionalLight position={[-3, 2, -2]} intensity={0.4} />
-      <Environment preset="night" background={false} />
+      <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={showFx ? fx.light.rimIntensity : 0} distance={12} />
       {showGrid && <Grid args={[10, 10]} position={[0, -0.02, 0]} cellColor="#333" sectionColor="#555" />}
-      {showUniverse && (
-        <UniverseBoundary>
-          <Suspense fallback={null}>
-            <UniversePreview universe={universe} />
-          </Suspense>
-        </UniverseBoundary>
-      )}
+      {showObjects &&
+        objects.filter((o) => o.visible).map((o) => (
+          <ObjectBoundary key={o.id}>
+            <Suspense fallback={null}>
+              <ObjectPreview obj={o} />
+            </Suspense>
+          </ObjectBoundary>
+        ))}
       <MovedGroup movement={movement}>
         <Character pose={pose} onBonesFound={onBonesFound} />
       </MovedGroup>
       <SceneCameraDriver target={cameraTarget} active={sceneCameraActive} />
-      <OrbitControls target={[0, 0.5, 0]} enabled={!sceneCameraActive} autoRotate={autoRotate && !sceneCameraActive} autoRotateSpeed={2.2} />
+      <LiveCameraTracker orbitRef={orbitRef} liveCameraRef={liveCameraRef} active={!sceneCameraActive} />
+      <OrbitControls ref={orbitRef} target={[0, 0.5, 0]} enabled={!sceneCameraActive} autoRotate={autoRotate && !sceneCameraActive} autoRotateSpeed={2.2} />
     </>
   );
 }
@@ -1515,16 +1606,16 @@ function generateBoneArrayCode(posesByKf, stages) {
   return `const BONE_POSE_KEYFRAMES = [\n${kfLines}\n];`;
 }
 
-function generateScenesArrayCode(camsByKf, stages) {
+function generateScenesArrayCode(camsByKf, fxByKf, stages) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
   const kfLines = stages.map((kf) => {
     const cam = camsByKf[kf.id];
-    const f = FIXED_SCENE_DEFAULTS[kf.id];
+    const f = fxByKf[kf.id];
     return `  {
     id: "${kf.id}",
     progress: ${roundProgress(kf.progress)},
-    camera: { position: ${fmtVec(cam.position)}, lookAt: ${fmtVec(cam.lookAt)}, fov: ${fmtNum(cam.fov)} },
+    camera: { position: ${fmtVec(cam.position)}, lookAt: ${fmtVec(cam.lookAt)}, fov: ${fmtNum(cam.fov)}, roll: ${fmtNum(cam.roll || 0)} },
     light: { color: "${f.light.color}", intensity: ${f.light.intensity}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity} },
     fog: { color: "${f.fog.color}", far: ${f.fog.far} },
     background: "${f.background}",
@@ -1567,15 +1658,14 @@ function generateScrollLengthCode(totalVh) {
   return `const SCROLL_LENGTH_VH = ${n};`;
 }
 
-function generateUniverseCode(universe) {
+function generateObjectsCode(objects) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
-  const pos = universe.position.map(fmtNum);
-  return `const UNIVERSE_SCALE = ${fmtNum(universe.scale)};
-const UNIVERSE_POSITION = [${pos.join(", ")}];
-const UNIVERSE_ROTATION_Y = ${fmtNum(universe.rotationY)};`;
+  const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
+  const lines = objects.map((o) => `  { type: "${o.type === "image" ? "image" : "model"}", url: "${o.url}", scale: ${fmtNum(o.scale)}, position: ${fmtVec(o.position)}, rotationY: ${fmtNum(o.rotationY)}, billboard: ${o.billboard ? "true" : "false"} },`).join("\n");
+  return `const OBJECTS = [\n${lines || "  // (sin objetos)"}\n];`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, universeCode) {
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -1590,33 +1680,60 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, uni
   tpl = swap(tpl, "/*@GEN:MOVEMENT_DEFS_START*/", "/*@GEN:MOVEMENT_DEFS_END*/", movementCode);
   tpl = swap(tpl, "/*@GEN:BONES_START*/", "/*@GEN:BONES_END*/", boneCode);
   tpl = swap(tpl, "/*@GEN:SCROLL_LENGTH_START*/", "/*@GEN:SCROLL_LENGTH_END*/", scrollLengthCode);
-  tpl = swap(tpl, "/*@GEN:UNIVERSE_START*/", "/*@GEN:UNIVERSE_END*/", universeCode);
+  tpl = swap(tpl, "/*@GEN:OBJECTS_START*/", "/*@GEN:OBJECTS_END*/", objectsCode);
   return tpl;
 }
 
 /* ---- App ---- */
 function App() {
-  const [section, setSection] = useState("pose"); // pose | camera | movement | timing | preview
-  const [posesByKf, setPosesByKf] = useState(initialPoses);
-  const [camsByKf, setCamsByKf] = useState(initialCameras);
-  const [movesByKf, setMovesByKf] = useState(initialMovements);
+  const [section, setSection] = useState("pose"); // pose | camera | movement | timing | objects | preview
 
-  // Duración (en vh de scroll) de cada uno de los 5 tramos entre las 6
-  // etapas. La suma de estos 5 valores reemplaza al viejo SCROLL_LENGTH_VH
-  // fijo en 950, y determina en qué "progress" (0..1) cae cada etapa.
+  const [stages, setStages] = useState(makeDefaultStages);
   const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
-  const stages = useMemo(() => stagesWithProgress(durationsVh), [durationsVh]);
+  const [posesByKf, setPosesByKf] = useState(() => initialPoses(makeDefaultStages()));
+  const [camsByKf, setCamsByKf] = useState(() => initialCameras(makeDefaultStages()));
+  const [movesByKf, setMovesByKf] = useState(() => initialMovements(makeDefaultStages()));
+  const [fxByKf, setFxByKf] = useState(() => initialFx(makeDefaultStages()));
+
+  const stagesComputed = useMemo(() => stagesWithProgress(stages, durationsVh), [stages, durationsVh]);
   const totalVh = useMemo(() => durationsVh.reduce((a, b) => a + b, 0), [durationsVh]);
   const setDurationAt = (i, value) => {
     setDurationsVh((prev) => { const next = [...prev]; next[i] = value; return next; });
   };
 
   // Una sola etapa activa, compartida por Pose / Cámara / Movimiento.
-  // Así, sea cual sea la pestaña que tengas abierta, el visor de la
-  // izquierda siempre muestra la MISMA etapa con su pose + su cámara +
-  // su movimiento combinados de verdad — no hace falta ir a "Preview"
-  // para saber qué genera cada cosa.
-  const [activeStage, setActiveStage] = useState(STAGE_DEFS[0].id);
+  const [activeStage, setActiveStage] = useState(() => makeDefaultStages()[0].id);
+
+  const addStage = () => {
+    const n = stages.length + 1;
+    const newId = `pose-${Date.now()}`;
+    const lastId = stages[stages.length - 1].id;
+    setStages((prev) => [...prev, { id: newId, label: `Pose ${n}` }]);
+    setDurationsVh((prev) => [...prev, 150]);
+    setPosesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || zeroPose())) }));
+    setCamsByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultCamera())) }));
+    setMovesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultMovement())) }));
+    setFxByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultFx())) }));
+    setActiveStage(newId);
+  };
+
+  const removeStage = (id) => {
+    const idx = stages.findIndex((s) => s.id === id);
+    if (stages.length <= 2 || idx === -1) return;
+    const remIdx = idx === 0 ? 0 : idx - 1;
+    setStages((prev) => prev.filter((s) => s.id !== id));
+    setDurationsVh((prev) => { const next = [...prev]; next.splice(remIdx, 1); return next; });
+    setPosesByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setCamsByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setMovesByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setFxByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    if (activeStage === id) {
+      const remaining = stages.filter((s) => s.id !== id);
+      setActiveStage(remaining[Math.max(0, idx - 1)]?.id || remaining[0]?.id);
+    }
+  };
+
+  const renameStage = (id, label) => setStages((prev) => prev.map((s) => (s.id === id ? { ...s, label } : s)));
 
   const [scrub, setScrub] = useState(0);
   const [freeOrbit, setFreeOrbit] = useState(false);
@@ -1625,21 +1742,43 @@ function App() {
   const [copiedWhich, setCopiedWhich] = useState(null);
   const [downloaded, setDownloaded] = useState(false);
 
-  // Entorno (universo.glb): escala, posición y rotación del modelo del
-  // universo respecto al personaje. Para verlo en esta herramienta,
-  // copiá universo.glb junto al archivo (misma carpeta assets/models/).
-  const [universe, setUniverse] = useState(DEFAULT_UNIVERSE);
-  const [showUniverse, setShowUniverse] = useState(true);
+  // Objetos de entorno (antes "Entorno" / un solo universo.glb). Ahora
+  // se pueden agregar tantos como haga falta, cada uno con su propio
+  // archivo (modelo .glb o imagen .png/.jpg), escala, posición y rotación.
+  const [objects, setObjects] = useState(() => [
+    { id: "obj-universo", label: "Universo (rampa)", type: "model", url: "./assets/models/universo.glb", scale: 5, position: [0, -0.2, 2.2], rotationY: 0, billboard: false, visible: true },
+  ]);
+  const [showObjects, setShowObjects] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
-  const setUniverseScale = (v) => setUniverse((prev) => ({ ...prev, scale: v }));
-  const setUniverseRotationY = (v) => setUniverse((prev) => ({ ...prev, rotationY: v }));
-  const setUniversePosAxis = (axis, v) => setUniverse((prev) => {
-    const pos = [...prev.position];
-    pos["xyz".indexOf(axis)] = v;
-    return { ...prev, position: pos };
-  });
+  const [showFx, setShowFx] = useState(true);
 
-  const stageIndex = stages.findIndex((s) => s.id === activeStage);
+  const addObject = () => {
+    const n = objects.length + 1;
+    setObjects((prev) => [...prev, {
+      id: `obj-${Date.now()}`,
+      label: `Objeto ${n}`,
+      type: "model",
+      url: `./assets/models/objeto${n}.glb`,
+      scale: 1,
+      position: [0, 0, 0],
+      rotationY: 0,
+      billboard: false,
+      visible: true,
+    }]);
+  };
+  const removeObject = (id) => setObjects((prev) => prev.filter((o) => o.id !== id));
+  const updateObject = (id, patch) => setObjects((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+  const setObjectType = (id, type) => {
+    setObjects((prev) => prev.map((o) => {
+      if (o.id !== id) return o;
+      let url = o.url;
+      if (type === "image" && /\.glb$/i.test(url)) url = url.replace(/\.glb$/i, ".png");
+      if (type === "model" && /\.(png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(png|jpe?g|webp)$/i, ".glb");
+      return { ...o, type, url, billboard: type === "image" ? (o.billboard ?? true) : false };
+    }));
+  };
+
+  const stageIndex = stagesComputed.findIndex((s) => s.id === activeStage);
 
   const setBoneAxis = (boneKey, axis, value) => {
     setPosesByKf((prev) => ({ ...prev, [activeStage]: { ...prev[activeStage], [boneKey]: { ...prev[activeStage][boneKey], [axis]: value } } }));
@@ -1649,22 +1788,41 @@ function App() {
   };
   const copyPoseFromPrev = () => {
     if (stageIndex <= 0) return;
-    const prevId = stages[stageIndex - 1].id;
+    const prevId = stagesComputed[stageIndex - 1].id;
     setPosesByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
   };
 
   const setCamField = (field, axis, value) => {
     setCamsByKf((prev) => {
       const cam = { ...prev[activeStage] };
-      if (field === "fov") cam.fov = value;
+      if (field === "fov" || field === "roll") cam[field] = value;
       else { cam[field] = [...cam[field]]; cam[field]["xyz".indexOf(axis)] = value; }
       return { ...prev, [activeStage]: cam };
     });
   };
+  const orbitRef = useRef(null);
+  const liveCameraRef = useRef(null);
+  const captureFreeCamera = () => {
+    const live = liveCameraRef.current;
+    if (!live) return;
+    setCamsByKf((prev) => ({
+      ...prev,
+      [activeStage]: { position: live.position, lookAt: live.lookAt, fov: live.fov, roll: prev[activeStage].roll || 0 },
+    }));
+  };
+  const setFxField = (group, field, value) => {
+    setFxByKf((prev) => {
+      const fx = { ...prev[activeStage] };
+      if (group === "background") return { ...prev, [activeStage]: { ...fx, background: value } };
+      fx[group] = { ...fx[group], [field]: value };
+      return { ...prev, [activeStage]: fx };
+    });
+  };
   const copyCamFromPrev = () => {
     if (stageIndex <= 0) return;
-    const prevId = stages[stageIndex - 1].id;
+    const prevId = stagesComputed[stageIndex - 1].id;
     setCamsByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
+    setFxByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
   };
 
   const setMoveField = (field, axis, value) => {
@@ -1677,28 +1835,24 @@ function App() {
   };
   const copyMoveFromPrev = () => {
     if (stageIndex <= 0) return;
-    const prevId = stages[stageIndex - 1].id;
+    const prevId = stagesComputed[stageIndex - 1].id;
     setMovesByKf((prev) => ({ ...prev, [activeStage]: JSON.parse(JSON.stringify(prev[prevId])) }));
   };
   const applyYawPreset = (deg_) => setMoveField("yaw", null, deg_);
   const applyPitchPreset = (deg_) => setMoveField("pitch", null, deg_);
 
   const isPreview = section === "preview";
-  // Fuera de "Preview": se muestra la etapa activa EXACTA (pose + cámara +
-  // movimiento), sin interpolar, para que edites viendo el resultado real.
-  // En "Preview": se interpola con el scrub, como una pasada de scroll real.
-  const currentPose = isPreview ? samplePose(posesByKf, scrub, stages) : posesByKf[activeStage];
-  const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stages) : camsByKf[activeStage];
-  const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stages) : movesByKf[activeStage];
-  // La cámara de la escena manda siempre que no actives "cámara libre",
-  // sea cual sea la pestaña — así ves de entrada qué genera cada ajuste.
+  const currentPose = isPreview ? samplePose(posesByKf, scrub, stagesComputed) : posesByKf[activeStage];
+  const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stagesComputed) : camsByKf[activeStage];
+  const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stagesComputed) : movesByKf[activeStage];
+  const renderFx = isPreview ? sampleFx(fxByKf, scrub, stagesComputed) : fxByKf[activeStage];
   const sceneCameraActive = !freeOrbit;
 
-  const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stages), [posesByKf, stages]);
-  const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf, stages), [camsByKf, stages]);
-  const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stages), [movesByKf, stages]);
+  const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed), [posesByKf, stagesComputed]);
+  const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf, fxByKf, stagesComputed), [camsByKf, fxByKf, stagesComputed]);
+  const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stagesComputed), [movesByKf, stagesComputed]);
   const scrollLengthCode = useMemo(() => generateScrollLengthCode(totalVh), [totalVh]);
-  const universeCode = useMemo(() => generateUniverseCode(universe), [universe]);
+  const objectsCode = useMemo(() => generateObjectsCode(objects), [objects]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
@@ -1706,7 +1860,7 @@ function App() {
   };
 
   const downloadFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, universeCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1720,11 +1874,13 @@ function App() {
   };
 
   const copyFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, universeCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode);
     copy(html, "full");
   };
 
   const showStageTabs = section === "pose" || section === "camera" || section === "movement";
+  const currentStageLabel = stages.find((s) => s.id === activeStage)?.label || "";
+  const currentFx = fxByKf[activeStage];
 
   return (
     <>
@@ -1735,18 +1891,19 @@ function App() {
           {freeOrbit && (
             <label className="toggle-row"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} />Auto-rotar vista</label>
           )}
-          <label className="toggle-row"><input type="checkbox" checked={showUniverse} onChange={(e) => setShowUniverse(e.target.checked)} />Mostrar universo.glb</label>
+          <label className="toggle-row"><input type="checkbox" checked={showObjects} onChange={(e) => setShowObjects(e.target.checked)} />Mostrar objetos</label>
           <label className="toggle-row"><input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />Mostrar grilla</label>
+          <label className="toggle-row"><input type="checkbox" checked={showFx} onChange={(e) => setShowFx(e.target.checked)} />Mostrar ambiente (luz/niebla/fondo)</label>
         </div>
         <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} universe={universe} showUniverse={showUniverse} showGrid={showGrid} />
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} />
         </Canvas>
       </div>
 
       <div className="panel">
         <div>
-          <h1>Pose, Cámara &amp; Movimiento</h1>
-          <p className="hint">Todas las etapas arrancan en cero: sin pose, cámara fija por defecto y sin desplazamiento. Armalo a tu gusto. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento juntos, sin necesidad de ir a "Preview". En "Duración" ajustás cuánto scroll dura cada etapa, y en "Entorno" el tamaño/posición del universo.glb. Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
+          <h1>Pose, Cámara, Movimiento &amp; Objetos</h1>
+          <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
         </div>
 
         <div className="section-tabs">
@@ -1754,7 +1911,7 @@ function App() {
           <div className={`section-tab ${section === "camera" ? "active" : ""}`} onClick={() => setSection("camera")}>Cámara</div>
           <div className={`section-tab ${section === "movement" ? "active" : ""}`} onClick={() => setSection("movement")}>Movimiento</div>
           <div className={`section-tab ${section === "timing" ? "active" : ""}`} onClick={() => setSection("timing")}>Duración</div>
-          <div className={`section-tab ${section === "environment" ? "active" : ""}`} onClick={() => setSection("environment")}>Entorno</div>
+          <div className={`section-tab ${section === "objects" ? "active" : ""}`} onClick={() => setSection("objects")}>Objetos</div>
           <div className={`section-tab ${section === "preview" ? "active" : ""}`} onClick={() => setSection("preview")}>Preview</div>
         </div>
 
@@ -1762,9 +1919,17 @@ function App() {
           <>
             <div className="section-title">Etapa (compartida por Pose / Cámara / Movimiento)</div>
             <div className="kf-tabs">
-              {stages.map((kf) => (
+              {stagesComputed.map((kf) => (
                 <div key={kf.id} className={`kf-tab ${activeStage === kf.id ? "active" : ""}`} onClick={() => setActiveStage(kf.id)}>{kf.label}<span className="p">progress {kf.progress.toFixed(2)}</span></div>
               ))}
+            </div>
+            <div className="btn-row">
+              <button className="btn primary" onClick={addStage}>+ Agregar pose</button>
+              {stages.length > 2 && <button className="btn danger" onClick={() => removeStage(activeStage)}>🗑 Eliminar "{currentStageLabel}"</button>}
+            </div>
+            <div className="axis-row">
+              <label style={{ width: 70, fontSize: 11 }}>Nombre</label>
+              <input type="text" value={currentStageLabel} onChange={(e) => renameStage(activeStage, e.target.value)} />
             </div>
           </>
         )}
@@ -1805,11 +1970,19 @@ function App() {
           <>
             <div className="btn-row"><button className="btn" onClick={copyCamFromPrev}>Copiar etapa anterior</button></div>
             <div className="cam-group">
+              <div className="cam-group-title">Cámara libre → capturar en esta etapa</div>
+              <p className="hint">Activá "Cámara libre" arriba del visor, orbitá/paneá/zoomeá con el mouse hasta encontrar el ángulo que quieras, y tocá este botón para guardar exactamente esa vista (posición, hacia dónde mira y zoom) en la etapa activa. Es la forma más rápida de tener control total, sin mover sliders a mano.</p>
+              <div className="btn-row">
+                <button className="btn primary" onClick={captureFreeCamera} disabled={!freeOrbit}>📷 Capturar cámara libre en "{currentStageLabel}"</button>
+              </div>
+              {!freeOrbit && <p className="hint">(activá "Cámara libre" arriba del visor para habilitar este botón)</p>}
+            </div>
+            <div className="cam-group">
               <div className="cam-group-title">Posición (x, y, z)</div>
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-6} max={6} step={0.05} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
+                  <input type="range" min={-30} max={30} step={0.05} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
                   <span className="val">{camsByKf[activeStage].position[i].toFixed(2)}</span>
                 </div>
               ))}
@@ -1820,7 +1993,7 @@ function App() {
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-3} max={3} step={0.05} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
+                  <input type="range" min={-15} max={15} step={0.05} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
                   <span className="val">{camsByKf[activeStage].lookAt[i].toFixed(2)}</span>
                 </div>
               ))}
@@ -1829,9 +2002,25 @@ function App() {
               <div className="cam-group-title">Zoom (FOV)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={15} max={50} step={0.5} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
+                <input type="range" min={10} max={90} step={0.5} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
                 <span className="val">{camsByKf[activeStage].fov.toFixed(1)}</span>
               </div>
+            </div>
+            <div className="cam-group">
+              <div className="cam-group-title">Inclinación lateral (roll)</div>
+              <div className="axis-row">
+                <label>°</label>
+                <input type="range" min={-180} max={180} step={1} value={camsByKf[activeStage].roll || 0} onChange={(e) => setCamField("roll", null, Number(e.target.value))} />
+                <span className="val">{Math.round(camsByKf[activeStage].roll || 0)}°</span>
+              </div>
+              <p className="hint">Rota la imagen alrededor del eje de la vista (efecto "cámara ladeada"). 0° = horizonte recto.</p>
+            </div>
+            <div className="cam-group">
+              <div className="cam-group-title">Ambiente (luz / niebla / fondo)</div>
+              <div className="axis-row"><label style={{ width: 60 }}>Luz</label><input type="color" value={currentFx.light.color} onChange={(e) => setFxField("light", "color", e.target.value)} /><input type="range" min={0} max={2} step={0.01} value={currentFx.light.intensity} onChange={(e) => setFxField("light", "intensity", Number(e.target.value))} /><span className="val">{currentFx.light.intensity.toFixed(2)}</span></div>
+              <div className="axis-row"><label style={{ width: 60 }}>Rim</label><input type="color" value={currentFx.light.rimColor} onChange={(e) => setFxField("light", "rimColor", e.target.value)} /><input type="range" min={0} max={3} step={0.01} value={currentFx.light.rimIntensity} onChange={(e) => setFxField("light", "rimIntensity", Number(e.target.value))} /><span className="val">{currentFx.light.rimIntensity.toFixed(2)}</span></div>
+              <div className="axis-row"><label style={{ width: 60 }}>Niebla</label><input type="color" value={currentFx.fog.color} onChange={(e) => setFxField("fog", "color", e.target.value)} /><input type="range" min={5} max={40} step={0.5} value={currentFx.fog.far} onChange={(e) => setFxField("fog", "far", Number(e.target.value))} /><span className="val">{currentFx.fog.far.toFixed(1)}</span></div>
+              <div className="axis-row"><label style={{ width: 60 }}>Fondo</label><input type="color" value={currentFx.background} onChange={(e) => setFxField("background", null, e.target.value)} /></div>
             </div>
           </>
         )}
@@ -1885,9 +2074,9 @@ function App() {
 
         {section === "timing" && (
           <>
-            <p className="hint">Cuánto scroll (en vh) dura cada tramo entre etapas. Más vh = la transición es más lenta/larga; menos vh = más rápida/corta. La suma de los 5 tramos reemplaza el largo total del scroll (antes fijo en 950vh) y define en qué "progress" cae cada etapa — se ve reflejado en las pestañas de arriba.</p>
+            <p className="hint">Cuánto scroll (en vh) dura cada tramo entre etapas. Más vh = la transición es más lenta/larga; menos vh = más rápida/corta. La suma de los tramos reemplaza el largo total del scroll y define en qué "progress" cae cada etapa — se ve reflejado en las pestañas de arriba.</p>
             <div className="cam-group">
-              {stages.slice(1).map((kf, i) => {
+              {stagesComputed.slice(1).map((kf, i) => {
                 const fromLabel = stages[i].label;
                 return (
                   <div key={kf.id} className="axis-row" style={{ marginBottom: 8 }}>
@@ -1898,45 +2087,53 @@ function App() {
                 );
               })}
             </div>
-            <p className="hint">Largo total del scroll: <strong>{Math.round(totalVh)}vh</strong> (antes 950vh fijo).</p>
+            <p className="hint">Largo total del scroll: <strong>{Math.round(totalVh)}vh</strong></p>
           </>
         )}
 
-        {section === "environment" && (
+        {section === "objects" && (
           <>
-            <p className="hint">Ajustá acá el tamaño y la posición del universo.glb respecto al personaje, viendo el resultado real a la izquierda (activá "Mostrar universo.glb" arriba del visor). Buscá que el personaje no quede ni gigante ni diminuto respecto a las islas/castillo.</p>
-            <div className="cam-group">
-              <div className="cam-group-title">Escala del universo</div>
-              <div className="axis-row">
-                <label>×</label>
-                <input type="range" min={0.05} max={5} step={0.01} value={universe.scale} onChange={(e) => setUniverseScale(Number(e.target.value))} />
-                <span className="val">{universe.scale.toFixed(2)}</span>
-              </div>
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Posición (x, y, z)</div>
-              {["x", "y", "z"].map((axis, i) => (
-                <div className="axis-row" key={axis}>
-                  <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-30} max={30} step={0.1} value={universe.position[i]} onChange={(e) => setUniversePosAxis(axis, Number(e.target.value))} />
-                  <span className="val">{universe.position[i].toFixed(1)}</span>
+            <p className="hint">Agregá los modelos estáticos del entorno (rampas, plataformas, props, etc.) — podés tener varios a la vez, cada uno con su propio archivo, escala, posición y rotación. Copiá cada .glb en <code>assets/models/</code>, junto al del personaje, con el nombre que le pongas acá (por defecto objeto1.glb, objeto2.glb, ...).</p>
+            {objects.map((obj, idx) => (
+              <div className="obj-block" key={obj.id}>
+                <div className="obj-block-header">
+                  <input type="text" value={obj.label} onChange={(e) => updateObject(obj.id, { label: e.target.value })} />
+                  <label className="toggle-row" style={{ padding: "3px 6px" }}><input type="checkbox" checked={obj.visible} onChange={(e) => updateObject(obj.id, { visible: e.target.checked })} />Visible</label>
+                  <button className="btn danger" style={{ fontSize: 10, padding: "3px 6px" }} onClick={() => removeObject(obj.id)}>🗑</button>
                 </div>
-              ))}
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Rotación (yaw)</div>
-              <div className="axis-row">
-                <label>°</label>
-                <input type="range" min={-180} max={180} step={1} value={universe.rotationY} onChange={(e) => setUniverseRotationY(Number(e.target.value))} />
-                <span className="val">{Math.round(universe.rotationY)}°</span>
+                <div className="axis-row">
+                  <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
+                  <input type="text" value={obj.url} onChange={(e) => updateObject(obj.id, { url: e.target.value })} />
+                </div>
+                <div className="axis-row">
+                  <label>×</label>
+                  <input type="range" min={0.05} max={20} step={0.05} value={obj.scale} onChange={(e) => updateObject(obj.id, { scale: Number(e.target.value) })} />
+                  <span className="val">{obj.scale.toFixed(2)}</span>
+                </div>
+                {["x", "y", "z"].map((axis, i) => (
+                  <div className="axis-row" key={axis}>
+                    <label>{axis.toUpperCase()}</label>
+                    <input type="range" min={-30} max={30} step={0.1} value={obj.position[i]} onChange={(e) => {
+                      const pos = [...obj.position]; pos[i] = Number(e.target.value); updateObject(obj.id, { position: pos });
+                    }} />
+                    <span className="val">{obj.position[i].toFixed(1)}</span>
+                  </div>
+                ))}
+                <div className="axis-row">
+                  <label>°</label>
+                  <input type="range" min={-180} max={180} step={1} value={obj.rotationY} onChange={(e) => updateObject(obj.id, { rotationY: Number(e.target.value) })} />
+                  <span className="val">{Math.round(obj.rotationY)}°</span>
+                </div>
               </div>
+            ))}
+            <div className="btn-row">
+              <button className="btn primary" onClick={addObject}>+ Agregar objeto</button>
             </div>
-            <p className="hint">Para previsualizarlo acá adentro, copiá <code>universo.glb</code> en <code>assets/models/</code>, junto al archivo del personaje. Si no está, la herramienta sigue funcionando igual (solo no vas a ver el universo hasta descargar/copiar el resultado final).</p>
           </>
         )}
 
         <div className="section-title">Descarga</div>
-        <p className="hint">Genera tu index.html completo con todo lo ajustado en Pose, Cámara, Movimiento y Duración — listo para subir a GitHub Pages, o copialo directo sin descargar.</p>
+        <p className="hint">Genera tu index.html completo con todo lo ajustado en Pose, Cámara, Movimiento, Duración y Objetos — listo para subir a GitHub Pages, o copialo directo sin descargar.</p>
         <div className="btn-row">
           <button className="btn primary" onClick={downloadFullHtml}>⬇ Descargar index.html completo</button>
           {downloaded && <span className="copied">¡Descargado!</span>}
@@ -1963,6 +2160,10 @@ function App() {
             <div className="section-title">Movimiento</div>
             <textarea className="code" readOnly value={movementCode} onFocus={(e) => e.target.select()} />
             <div className="btn-row"><button className="btn" onClick={() => copy(movementCode, "movement")}>Copiar</button>{copiedWhich === "movement" && <span className="copied">¡Copiado!</span>}</div>
+
+            <div className="section-title">Objetos</div>
+            <textarea className="code" readOnly value={objectsCode} onFocus={(e) => e.target.select()} />
+            <div className="btn-row"><button className="btn" onClick={() => copy(objectsCode, "objects")}>Copiar</button>{copiedWhich === "objects" && <span className="copied">¡Copiado!</span>}</div>
           </div>
         </details>
       </div>
