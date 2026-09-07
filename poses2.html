@@ -346,7 +346,7 @@ const scenes = [
   },
   {
     id: "pose-2",
-    progress: 0.378,
+    progress: 0.233,
     easing: "smooth",
     camera: { position: [-0.17, -0.408, 4.703], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
     light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
@@ -355,7 +355,7 @@ const scenes = [
   },
   {
     id: "pose-1788787106407",
-    progress: 0.422,
+    progress: 0.26,
     easing: "smooth",
     camera: { position: [-0.17, -0.408, 4.703], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
     light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
@@ -364,7 +364,7 @@ const scenes = [
   },
   {
     id: "pose-1788787123751",
-    progress: 0.756,
+    progress: 0.466,
     easing: "smooth",
     camera: { position: [0.418, -0.143, 2.383], lookAt: [0, -0.15, 0], fov: 30, roll: 0 },
     light: { color: "#dfeeff", intensity: 1.84, rimColor: "#49d3ff", rimIntensity: 1.48 },
@@ -375,7 +375,7 @@ const scenes = [
     id: "pose-1788787712221",
     progress: 1,
     easing: "smooth",
-    camera: { position: [1.197, 0.9, 4.15], lookAt: [0, 0.85, 0], fov: 28.5, roll: 0 },
+    camera: { position: [-0.018, 0.699, 0.78], lookAt: [0, 0.85, 0], fov: 28.5, roll: 0 },
     light: { color: "#dfeeff", intensity: 0.57, rimColor: "#49d3ff", rimIntensity: 1.48 },
     fog: { color: "#05070a", far: 21 },
     background: "#05070a",
@@ -390,9 +390,9 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0.45, 1.6], yaw: 97, pitch: 12 },
-  { id: "pose-2", progress: 0.378, easing: "smooth", pos: [0, 0.45, 1.6], yaw: -54, pitch: 12 },
-  { id: "pose-1788787106407", progress: 0.422, easing: "smooth", pos: [0, 0.45, 1.6], yaw: -54, pitch: 18 },
-  { id: "pose-1788787123751", progress: 0.756, easing: "smooth", pos: [-0.2, 0.95, -0.45], yaw: -62, pitch: -1 },
+  { id: "pose-2", progress: 0.233, easing: "smooth", pos: [0, 0.45, 1.6], yaw: -54, pitch: 12 },
+  { id: "pose-1788787106407", progress: 0.26, easing: "smooth", pos: [0, 0.45, 1.6], yaw: -54, pitch: 18 },
+  { id: "pose-1788787123751", progress: 0.466, easing: "smooth", pos: [-0.2, 0.95, -0.45], yaw: -62, pitch: -1 },
   { id: "pose-1788787712221", progress: 1, easing: "smooth", pos: [3, -1.8, -19.4], yaw: -140, pitch: -12 },
 ];
 
@@ -430,7 +430,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-2",
-    progress: 0.378,
+    progress: 0.233,
     easing: "smooth",
     bones: {
         spine1: [0.0175, -0.7156, 0.0175],
@@ -441,7 +441,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1788787106407",
-    progress: 0.422,
+    progress: 0.26,
     easing: "smooth",
     bones: {
         spine1: [0.0175, -0.7156, 0.0175],
@@ -452,7 +452,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1788787123751",
-    progress: 0.756,
+    progress: 0.466,
     easing: "smooth",
     bones: {
         spine1: [0.0175, -0.7156, 0.0175],
@@ -498,7 +498,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 450;
+const SCROLL_LENGTH_VH = 730;
 /*@GEN:SCROLL_LENGTH_END*/
 
 function damp(current, target, lambda, dt) {
@@ -921,16 +921,17 @@ function Experience({ device }) {
 
 function HeroText() {
   const ref = useRef(null);
-  const FADE_IN_END = 0.05;
+  // Entrada invertida: el texto empieza oculto/grande y hace zoom-in
+  // con fade-in hacia el final del scroll, quedando fijo y visible ahí.
   const ZOOM_START = ST_TURN_END;
+  const ZOOM_END = 1;
 
   useEffect(() => {
     const update = (progress) => {
       if (!ref.current) return;
-      const fadeIn = smoothstep(0, FADE_IN_END, progress);
-      const zoomOut = smoothstep(ZOOM_START, 1, progress);
-      const scale = 1 + zoomOut * 14;
-      const opacity = fadeIn * (1 - zoomOut);
+      const zoomIn = smoothstep(ZOOM_START, ZOOM_END, progress);
+      const scale = 15 - zoomIn * 14;
+      const opacity = zoomIn;
       ref.current.style.opacity = String(opacity);
       ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
     };
@@ -940,7 +941,7 @@ function HeroText() {
 
   return (
     <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-      Internet esta lleno de sitios lindos..
+      Scroll Experience
     </div>
   );
 }
