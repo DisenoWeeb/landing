@@ -2093,39 +2093,55 @@ function App() {
 
         {section === "objects" && (
           <>
-            <p className="hint">Agregá los modelos estáticos del entorno (rampas, plataformas, props, etc.) — podés tener varios a la vez, cada uno con su propio archivo, escala, posición y rotación. Copiá cada .glb en <code>assets/models/</code>, junto al del personaje, con el nombre que le pongas acá (por defecto objeto1.glb, objeto2.glb, ...).</p>
-            {objects.map((obj, idx) => (
-              <div className="obj-block" key={obj.id}>
-                <div className="obj-block-header">
-                  <input type="text" value={obj.label} onChange={(e) => updateObject(obj.id, { label: e.target.value })} />
-                  <label className="toggle-row" style={{ padding: "3px 6px" }}><input type="checkbox" checked={obj.visible} onChange={(e) => updateObject(obj.id, { visible: e.target.checked })} />Visible</label>
-                  <button className="btn danger" style={{ fontSize: 10, padding: "3px 6px" }} onClick={() => removeObject(obj.id)}>🗑</button>
-                </div>
-                <div className="axis-row">
-                  <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
-                  <input type="text" value={obj.url} onChange={(e) => updateObject(obj.id, { url: e.target.value })} />
-                </div>
-                <div className="axis-row">
-                  <label>×</label>
-                  <input type="range" min={0.05} max={20} step={0.05} value={obj.scale} onChange={(e) => updateObject(obj.id, { scale: Number(e.target.value) })} />
-                  <span className="val">{obj.scale.toFixed(2)}</span>
-                </div>
-                {["x", "y", "z"].map((axis, i) => (
-                  <div className="axis-row" key={axis}>
-                    <label>{axis.toUpperCase()}</label>
-                    <input type="range" min={-30} max={30} step={0.1} value={obj.position[i]} onChange={(e) => {
-                      const pos = [...obj.position]; pos[i] = Number(e.target.value); updateObject(obj.id, { position: pos });
-                    }} />
-                    <span className="val">{obj.position[i].toFixed(1)}</span>
+            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas) o imágenes planas (.png/.jpg, tipo cartel o sprite). Podés tener varios a la vez, cada uno con su propio archivo, escala, posición y rotación. Copiá cada archivo junto al del personaje (en <code>assets/models/</code> para .glb, o donde prefieras para imágenes), con el nombre que le pongas acá.</p>
+            {objects.map((obj, idx) => {
+              const isImage = obj.type === "image";
+              return (
+                <div className="obj-block" key={obj.id}>
+                  <div className="obj-block-header">
+                    <input type="text" value={obj.label} onChange={(e) => updateObject(obj.id, { label: e.target.value })} />
+                    <label className="toggle-row" style={{ padding: "3px 6px" }}><input type="checkbox" checked={obj.visible} onChange={(e) => updateObject(obj.id, { visible: e.target.checked })} />Visible</label>
+                    <button className="btn danger" style={{ fontSize: 10, padding: "3px 6px" }} onClick={() => removeObject(obj.id)}>🗑</button>
                   </div>
-                ))}
-                <div className="axis-row">
-                  <label>°</label>
-                  <input type="range" min={-180} max={180} step={1} value={obj.rotationY} onChange={(e) => updateObject(obj.id, { rotationY: Number(e.target.value) })} />
-                  <span className="val">{Math.round(obj.rotationY)}°</span>
+                  <div className="btn-row" style={{ marginBottom: 6 }}>
+                    <button className={`btn ${!isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "model")}>Modelo (.glb)</button>
+                    <button className={`btn ${isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "image")}>Imagen (.png/.jpg)</button>
+                  </div>
+                  <div className="axis-row">
+                    <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
+                    <input type="text" value={obj.url} onChange={(e) => updateObject(obj.id, { url: e.target.value })} />
+                  </div>
+                  {isImage && (
+                    <label className="toggle-row" style={{ marginBottom: 6 }}>
+                      <input type="checkbox" checked={!!obj.billboard} onChange={(e) => updateObject(obj.id, { billboard: e.target.checked })} />
+                      Billboard (siempre mira a cámara)
+                    </label>
+                  )}
+                  <div className="axis-row">
+                    <label>×</label>
+                    <input type="range" min={0.05} max={20} step={0.05} value={obj.scale} onChange={(e) => updateObject(obj.id, { scale: Number(e.target.value) })} />
+                    <span className="val">{obj.scale.toFixed(2)}</span>
+                  </div>
+                  {["x", "y", "z"].map((axis, i) => (
+                    <div className="axis-row" key={axis}>
+                      <label>{axis.toUpperCase()}</label>
+                      <input type="range" min={-30} max={30} step={0.1} value={obj.position[i]} onChange={(e) => {
+                        const pos = [...obj.position]; pos[i] = Number(e.target.value); updateObject(obj.id, { position: pos });
+                      }} />
+                      <span className="val">{obj.position[i].toFixed(1)}</span>
+                    </div>
+                  ))}
+                  {!(isImage && obj.billboard) && (
+                    <div className="axis-row">
+                      <label>°</label>
+                      <input type="range" min={-180} max={180} step={1} value={obj.rotationY} onChange={(e) => updateObject(obj.id, { rotationY: Number(e.target.value) })} />
+                      <span className="val">{Math.round(obj.rotationY)}°</span>
+                    </div>
+                  )}
+                  {isImage && obj.billboard && <p className="hint">Con billboard activado, la rotación no aplica — la imagen siempre gira para mirar a cámara.</p>}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div className="btn-row">
               <button className="btn primary" onClick={addObject}>+ Agregar objeto</button>
             </div>
