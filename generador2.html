@@ -1975,7 +1975,7 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showFx} onChange={(e) => setShowFx(e.target.checked)} />Mostrar ambiente (luz/niebla/fondo)</label>
         </div>
         <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} />
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} />
         </Canvas>
       </div>
 
