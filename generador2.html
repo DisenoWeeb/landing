@@ -1305,6 +1305,19 @@ function smoothstep(edge0, edge1, x) {
   return t * t * (3 - 2 * t);
 }
 
+/* Curva de velocidad ("easing") por tramo — usada por samplePose /
+   sampleCamera / sampleMovement / sampleFx más abajo para que la
+   pestaña Preview respete lo elegido en "Duración". */
+function applyEasing(t, kind) {
+  switch (kind) {
+    case "linear": return t;
+    case "easeIn": return t * t;
+    case "easeOut": return 1 - (1 - t) * (1 - t);
+    case "smooth":
+    default: return smoothstep(0, 1, t);
+  }
+}
+
 /* ============================================================
    Etapas ("poses") — ahora en CANTIDAD VARIABLE. Ya no hay una lista
    fija de 6 nombres semánticos (Frente/Acercamiento/Giro/...); las
