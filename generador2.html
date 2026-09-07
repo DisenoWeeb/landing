@@ -116,22 +116,32 @@
   .canvas-stage--ready { opacity: 1; }
   .canvas-stage canvas { display: block; width: 100% !important; height: 100% !important; }
 
+ .hero-text {
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  z-index: 5;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2.1rem, 4.5vw, 3.2rem);
+  letter-spacing: 0.07em;
+  color: var(--color-text);
+  white-space: nowrap;
+  text-align: center;
+  will-change: opacity, transform;
+}
+
+@media (max-width: 640px) {
   .hero-text {
-    position: absolute;
-    top: 25%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    transform-origin: center center;
-    z-index: 5;
-    pointer-events: none;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(2.1rem, 4.5vw, 3.2rem);
-    letter-spacing: 0.07em;
-    color: var(--color-text);
-    white-space: nowrap;
-    will-change: opacity, transform;
+    white-space: normal;
+    width: 90vw;
+    font-size: clamp(1.5rem, 7vw, 2.2rem);
+    line-height: 1.25;
   }
+}
 
   .scene-text-layer {
     position: absolute;
@@ -1011,16 +1021,17 @@ function Experience({ device }) {
 
 function HeroText() {
   const ref = useRef(null);
-  const FADE_IN_END = 0.05;
+  // Entrada invertida: el texto empieza oculto/grande y hace zoom-in
+  // con fade-in hacia el final del scroll, quedando fijo y visible ahí.
   const ZOOM_START = ST_TURN_END;
+  const ZOOM_END = 1;
 
   useEffect(() => {
     const update = (progress) => {
       if (!ref.current) return;
-      const fadeIn = smoothstep(0, FADE_IN_END, progress);
-      const zoomOut = smoothstep(ZOOM_START, 1, progress);
-      const scale = 1 + zoomOut * 14;
-      const opacity = fadeIn * (1 - zoomOut);
+      const zoomIn = smoothstep(ZOOM_START, ZOOM_END, progress);
+      const scale = 15 - zoomIn * 14;
+      const opacity = zoomIn;
       ref.current.style.opacity = String(opacity);
       ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
     };
@@ -1030,8 +1041,8 @@ function HeroText() {
 
   return (
     <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-      Scroll Experience
-    </div>
+  Internet esta lleno de<br />sitios weebs lindos..
+</div>
   );
 }
 
