@@ -62,22 +62,32 @@
   .canvas-stage--ready { opacity: 1; }
   .canvas-stage canvas { display: block; width: 100% !important; height: 100% !important; }
 
+ .hero-text {
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  z-index: 5;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2.1rem, 4.5vw, 3.2rem);
+  letter-spacing: 0.07em;
+  color: var(--color-text);
+  white-space: nowrap;
+  text-align: center;
+  will-change: opacity, transform;
+}
+
+@media (max-width: 640px) {
   .hero-text {
-    position: absolute;
-    top: 25%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    transform-origin: center center;
-    z-index: 5;
-    pointer-events: none;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(2.1rem, 4.5vw, 3.2rem);
-    letter-spacing: 0.07em;
-    color: var(--color-text);
-    white-space: nowrap;
-    will-change: opacity, transform;
+    white-space: normal;
+    width: 90vw;
+    font-size: clamp(1.5rem, 7vw, 2.2rem);
+    line-height: 1.25;
   }
+}
 
   .scene-text-layer {
     position: absolute;
@@ -940,9 +950,9 @@ function HeroText() {
   }, []);
 
   return (
-    <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-      Internet esta lleno de sitios weebs muy lindos..
-    </div>
+   <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
+  Internet esta lleno de<br />sitios weebs lindos..
+</div>
   );
 }
 
