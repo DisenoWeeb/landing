@@ -368,6 +368,19 @@ function smoothstep(edge0, edge1, x) {
   return t * t * (3 - 2 * t);
 }
 
+/* Curva de velocidad ("easing") por tramo, elegible desde la pestaña
+   Duración. Se aplica por igual a cámara, movimiento, pose y ambiente
+   para que todos lleguen coordinados al mismo punto en el tiempo. */
+function applyEasing(t, kind) {
+  switch (kind) {
+    case "linear": return t;
+    case "easeIn": return t * t;
+    case "easeOut": return 1 - (1 - t) * (1 - t);
+    case "smooth":
+    default: return smoothstep(0, 1, t);
+  }
+}
+
 /* ============================================================
    CONFIG: scenes.config — cámara, luz, niebla, partículas por etapa.
    Las etapas ahora son genéricas (Pose 1, Pose 2, ...) en cantidad
@@ -563,7 +576,7 @@ function sampleBonePose(progress) {
   while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = clamp((p - a.progress) / span);
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
   const out = {};
   const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
   keys.forEach((k) => {
@@ -627,7 +640,7 @@ function blendScenes(list, rawProgress) {
   const a = list[i];
   const b = list[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = clamp((progress - a.progress) / span);
+  const t = applyEasing(clamp((progress - a.progress) / span), b.easing);
 
   return {
     camera: {
@@ -1352,7 +1365,7 @@ function initialFx(stageList) {
   return Object.fromEntries(stageList.map((kf) => [kf.id, defaultFx()]));
 }
 
-function samplePose(posesByKf, progress, stages) {
+function samplePose(posesByKf, progress, stages, easings) {
   const p = clamp(progress, 0, 1);
   if (p <= stages[0].progress) return posesByKf[stages[0].id];
   const last = stages[stages.length - 1];
@@ -1361,7 +1374,7 @@ function samplePose(posesByKf, progress, stages) {
   while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
   const a = stages[i], b = stages[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = clamp((p - a.progress) / span);
+  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
   const pa = posesByKf[a.id], pb = posesByKf[b.id];
   const out = {};
   BONE_KEYS.forEach((k) => { out[k] = { x: lerp(pa[k].x, pb[k].x, t), y: lerp(pa[k].y, pb[k].y, t), z: lerp(pa[k].z, pb[k].z, t) }; });
@@ -1370,7 +1383,7 @@ function samplePose(posesByKf, progress, stages) {
 
 function lerpVec3(a, b, t) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
 
-function sampleCamera(camsByKf, progress, stages) {
+function sampleCamera(camsByKf, progress, stages, easings) {
   const p = clamp(progress, 0, 1);
   if (p <= stages[0].progress) return camsByKf[stages[0].id];
   const last = stages[stages.length - 1];
@@ -1379,12 +1392,12 @@ function sampleCamera(camsByKf, progress, stages) {
   while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
   const a = stages[i], b = stages[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = clamp((p - a.progress) / span);
+  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
   const ca = camsByKf[a.id], cb = camsByKf[b.id];
   return { position: lerpVec3(ca.position, cb.position, t), lookAt: lerpVec3(ca.lookAt, cb.lookAt, t), fov: lerp(ca.fov, cb.fov, t), roll: lerp(ca.roll || 0, cb.roll || 0, t) };
 }
 
-function sampleMovement(movesByKf, progress, stages) {
+function sampleMovement(movesByKf, progress, stages, easings) {
   const p = clamp(progress, 0, 1);
   if (p <= stages[0].progress) return movesByKf[stages[0].id];
   const last = stages[stages.length - 1];
@@ -1393,7 +1406,7 @@ function sampleMovement(movesByKf, progress, stages) {
   while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
   const a = stages[i], b = stages[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = smoothstep(0, 1, clamp((p - a.progress) / span));
+  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
   const ma = movesByKf[a.id], mb = movesByKf[b.id];
   return { pos: lerpVec3(ma.pos, mb.pos, t), yaw: lerp(ma.yaw, mb.yaw, t), pitch: lerp(ma.pitch, mb.pitch, t) };
 }
@@ -1409,7 +1422,7 @@ function lerpColorHex(a, b, t) {
    niebla, fondo), para poder previsualizarlo también interpolado en la
    pestaña Preview. Fuera de Preview se usa el valor crudo de la etapa
    activa (ver App). */
-function sampleFx(fxByKf, progress, stages) {
+function sampleFx(fxByKf, progress, stages, easings) {
   const p = clamp(progress, 0, 1);
   if (p <= stages[0].progress) return fxByKf[stages[0].id];
   const last = stages[stages.length - 1];
@@ -1418,7 +1431,7 @@ function sampleFx(fxByKf, progress, stages) {
   while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
   const a = stages[i], b = stages[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = clamp((p - a.progress) / span);
+  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
   const fa = fxByKf[a.id], fb = fxByKf[b.id];
   return {
     light: {
@@ -1584,37 +1597,56 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       <MovedGroup movement={movement}>
         <Character pose={pose} onBonesFound={onBonesFound} />
       </MovedGroup>
-      <SceneCameraDriver target={cameraTarget} active={sceneCameraActive} />
-      <LiveCameraTracker orbitRef={orbitRef} liveCameraRef={liveCameraRef} active={!sceneCameraActive} />
-      <OrbitControls ref={orbitRef} target={[0, 0.5, 0]} enabled={!sceneCameraActive} autoRotate={autoRotate && !sceneCameraActive} autoRotateSpeed={2.2} />
+      {sceneCameraActive ? (
+        <SceneCameraDriver target={cameraTarget} active={true} />
+      ) : (
+        <>
+          {/* Antes OrbitControls y SceneCameraDriver estaban montados
+              siempre juntos (uno activo/otro no), y cada frame se
+              peleaban por la cámara → sensación de "traba" al activar
+              Cámara libre. Ahora solo uno de los dos está montado a la
+              vez, así nunca compiten. */}
+          <OrbitControls
+            ref={orbitRef}
+            makeDefault
+            target={cameraTarget ? cameraTarget.lookAt : [0, 0.5, 0]}
+            autoRotate={autoRotate}
+            autoRotateSpeed={2.2}
+          />
+          <LiveCameraTracker orbitRef={orbitRef} liveCameraRef={liveCameraRef} active={true} />
+        </>
+      )}
     </>
   );
 }
 
 /* ---- Generadores de código (mismo formato que espera el template) ---- */
-function generateBoneArrayCode(posesByKf, stages) {
+function generateBoneArrayCode(posesByKf, stages, easings) {
   const fmt = (n) => { const r = rad(n); return (Math.abs(r) < 0.0001 ? 0 : r).toFixed(4); };
-  const kfLines = stages.map((kf) => {
+  const kfLines = stages.map((kf, idx) => {
     const pose = posesByKf[kf.id];
+    const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
     const boneLines = BONE_KEYS.map((k) => {
       const v = pose[k];
       if (v.x === 0 && v.y === 0 && v.z === 0) return null;
       return `        ${k}: [${fmt(v.x)}, ${fmt(v.y)}, ${fmt(v.z)}],`;
     }).filter(Boolean).join("\n");
-    return `  {\n    id: "${kf.id}",\n    progress: ${roundProgress(kf.progress)},\n    bones: {\n${boneLines || "      // (sin cambios respecto al rest pose)"}\n    },\n  },`;
+    return `  {\n    id: "${kf.id}",\n    progress: ${roundProgress(kf.progress)},\n    easing: "${easing}",\n    bones: {\n${boneLines || "      // (sin cambios respecto al rest pose)"}\n    },\n  },`;
   }).join("\n");
   return `const BONE_POSE_KEYFRAMES = [\n${kfLines}\n];`;
 }
 
-function generateScenesArrayCode(camsByKf, fxByKf, stages) {
+function generateScenesArrayCode(camsByKf, fxByKf, stages, easings) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
-  const kfLines = stages.map((kf) => {
+  const kfLines = stages.map((kf, idx) => {
     const cam = camsByKf[kf.id];
     const f = fxByKf[kf.id];
+    const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
     return `  {
     id: "${kf.id}",
     progress: ${roundProgress(kf.progress)},
+    easing: "${easing}",
     camera: { position: ${fmtVec(cam.position)}, lookAt: ${fmtVec(cam.lookAt)}, fov: ${fmtNum(cam.fov)}, roll: ${fmtNum(cam.roll || 0)} },
     light: { color: "${f.light.color}", intensity: ${f.light.intensity}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity} },
     fog: { color: "${f.fog.color}", far: ${f.fog.far} },
@@ -1624,11 +1656,12 @@ function generateScenesArrayCode(camsByKf, fxByKf, stages) {
   return `const scenes = [\n${kfLines}\n];`;
 }
 
-function generateMovementDefsCode(movesByKf, stages) {
+function generateMovementDefsCode(movesByKf, stages, easings) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
-  const kfLines = stages.map((kf) => {
+  const kfLines = stages.map((kf, idx) => {
     const mv = movesByKf[kf.id];
-    return `  { id: "${kf.id}", progress: ${roundProgress(kf.progress)}, pos: [${mv.pos.map(fmtNum).join(", ")}], yaw: ${fmtNum(mv.yaw)}, pitch: ${fmtNum(mv.pitch)} },`;
+    const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
+    return `  { id: "${kf.id}", progress: ${roundProgress(kf.progress)}, easing: "${easing}", pos: [${mv.pos.map(fmtNum).join(", ")}], yaw: ${fmtNum(mv.yaw)}, pitch: ${fmtNum(mv.pitch)} },`;
   }).join("\n");
   return `const MOVEMENT_KEYFRAMES = [
 ${kfLines}
@@ -1644,7 +1677,7 @@ function sampleMovement(progress) {
   while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = smoothstep(0, 1, clamp((p - a.progress) / span));
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
   return {
     pos: [lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t)],
     yaw: lerp(a.yaw, b.yaw, t),
@@ -1690,6 +1723,7 @@ function App() {
 
   const [stages, setStages] = useState(makeDefaultStages);
   const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
+  const [easings, setEasings] = useState(() => DEFAULT_DURATIONS_VH.map(() => "smooth"));
   const [posesByKf, setPosesByKf] = useState(() => initialPoses(makeDefaultStages()));
   const [camsByKf, setCamsByKf] = useState(() => initialCameras(makeDefaultStages()));
   const [movesByKf, setMovesByKf] = useState(() => initialMovements(makeDefaultStages()));
@@ -1699,6 +1733,9 @@ function App() {
   const totalVh = useMemo(() => durationsVh.reduce((a, b) => a + b, 0), [durationsVh]);
   const setDurationAt = (i, value) => {
     setDurationsVh((prev) => { const next = [...prev]; next[i] = value; return next; });
+  };
+  const setEasingAt = (i, value) => {
+    setEasings((prev) => { const next = [...prev]; next[i] = value; return next; });
   };
 
   // Una sola etapa activa, compartida por Pose / Cámara / Movimiento.
@@ -1710,6 +1747,7 @@ function App() {
     const lastId = stages[stages.length - 1].id;
     setStages((prev) => [...prev, { id: newId, label: `Pose ${n}` }]);
     setDurationsVh((prev) => [...prev, 150]);
+    setEasings((prev) => [...prev, "smooth"]);
     setPosesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || zeroPose())) }));
     setCamsByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultCamera())) }));
     setMovesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultMovement())) }));
@@ -1723,6 +1761,7 @@ function App() {
     const remIdx = idx === 0 ? 0 : idx - 1;
     setStages((prev) => prev.filter((s) => s.id !== id));
     setDurationsVh((prev) => { const next = [...prev]; next.splice(remIdx, 1); return next; });
+    setEasings((prev) => { const next = [...prev]; next.splice(remIdx, 1); return next; });
     setPosesByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setCamsByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setMovesByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
@@ -1735,7 +1774,34 @@ function App() {
 
   const renameStage = (id, label) => setStages((prev) => prev.map((s) => (s.id === id ? { ...s, label } : s)));
 
+
   const [scrub, setScrub] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playSpeed, setPlaySpeed] = useState(1);
+
+  /* Reproduce automáticamente el "progress" de 0 a 1 (pasa de largo el
+     scroll manual) para poder ver la coordinación real entre cámara,
+     personaje y ambiente sin tener que arrastrar el slider a mano.
+     "Velocidad" es un multiplicador sobre un recorrido nominal de 10s. */
+  useEffect(() => {
+    if (!isPlaying) return;
+    const durationMs = 10000 / playSpeed;
+    let raf;
+    let startTime = null;
+    let startScrub = scrub >= 0.999 ? 0 : scrub;
+    if (scrub >= 0.999) setScrub(0);
+    const tick = (now) => {
+      if (startTime === null) startTime = now;
+      const elapsed = now - startTime;
+      const p = startScrub + elapsed / durationMs;
+      if (p >= 1) { setScrub(1); setIsPlaying(false); return; }
+      setScrub(p);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, playSpeed]);
   const [freeOrbit, setFreeOrbit] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
   const [foundMap, setFoundMap] = useState({});
@@ -1842,15 +1908,15 @@ function App() {
   const applyPitchPreset = (deg_) => setMoveField("pitch", null, deg_);
 
   const isPreview = section === "preview";
-  const currentPose = isPreview ? samplePose(posesByKf, scrub, stagesComputed) : posesByKf[activeStage];
-  const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stagesComputed) : camsByKf[activeStage];
-  const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stagesComputed) : movesByKf[activeStage];
-  const renderFx = isPreview ? sampleFx(fxByKf, scrub, stagesComputed) : fxByKf[activeStage];
+  const currentPose = isPreview ? samplePose(posesByKf, scrub, stagesComputed, easings) : posesByKf[activeStage];
+  const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stagesComputed, easings) : camsByKf[activeStage];
+  const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stagesComputed, easings) : movesByKf[activeStage];
+  const renderFx = isPreview ? sampleFx(fxByKf, scrub, stagesComputed, easings) : fxByKf[activeStage];
   const sceneCameraActive = !freeOrbit;
 
-  const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed), [posesByKf, stagesComputed]);
-  const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf, fxByKf, stagesComputed), [camsByKf, fxByKf, stagesComputed]);
-  const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stagesComputed), [movesByKf, stagesComputed]);
+  const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed, easings), [posesByKf, stagesComputed, easings]);
+  const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf, fxByKf, stagesComputed, easings), [camsByKf, fxByKf, stagesComputed, easings]);
+  const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stagesComputed, easings), [movesByKf, stagesComputed, easings]);
   const scrollLengthCode = useMemo(() => generateScrollLengthCode(totalVh), [totalVh]);
   const objectsCode = useMemo(() => generateObjectsCode(objects), [objects]);
 
@@ -1937,8 +2003,18 @@ function App() {
         {isPreview && (
           <div className="scrub-row">
             <label style={{ fontSize: 11 }}>progress</label>
-            <input type="range" min={0} max={1} step={0.001} value={scrub} onChange={(e) => setScrub(Number(e.target.value))} />
+            <input type="range" min={0} max={1} step={0.001} value={scrub} onChange={(e) => { setIsPlaying(false); setScrub(Number(e.target.value)); }} />
             <span className="val">{scrub.toFixed(2)}</span>
+          </div>
+        )}
+        {isPreview && (
+          <div className="btn-row" style={{ alignItems: "center" }}>
+            <button className="btn primary" onClick={() => setIsPlaying((p) => !p)}>{isPlaying ? "⏸ Pausar" : "▶ Reproducir"}</button>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+              Velocidad
+              <input type="range" min={0.1} max={3} step={0.05} value={playSpeed} onChange={(e) => setPlaySpeed(Number(e.target.value))} style={{ width: 90 }} />
+              <span className="val">{playSpeed.toFixed(2)}×</span>
+            </label>
           </div>
         )}
 
@@ -2074,20 +2150,31 @@ function App() {
 
         {section === "timing" && (
           <>
-            <p className="hint">Cuánto scroll (en vh) dura cada tramo entre etapas. Más vh = la transición es más lenta/larga; menos vh = más rápida/corta. La suma de los tramos reemplaza el largo total del scroll y define en qué "progress" cae cada etapa — se ve reflejado en las pestañas de arriba.</p>
+            <p className="hint">Cuánto scroll (en vh) dura cada tramo entre etapas, y con qué curva de velocidad se recorre. Más vh = la transición es más lenta/larga; menos vh = más rápida/corta. La curva controla el "cómo" además del "cuánto": con ella podés hacer que la cámara y el personaje arranquen lento y aceleren, o frenen suave al llegar — así se sienten coordinados en vez de robóticos. La suma de los tramos define el largo total del scroll.</p>
             <div className="cam-group">
               {stagesComputed.slice(1).map((kf, i) => {
                 const fromLabel = stages[i].label;
                 return (
-                  <div key={kf.id} className="axis-row" style={{ marginBottom: 8 }}>
-                    <label style={{ width: 150, fontSize: 10.5 }}>{fromLabel} → {kf.label}</label>
-                    <input type="range" min={20} max={800} step={5} value={durationsVh[i]} onChange={(e) => setDurationAt(i, Number(e.target.value))} />
-                    <span className="val">{durationsVh[i]}vh</span>
+                  <div key={kf.id} style={{ marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="axis-row" style={{ marginBottom: 4 }}>
+                      <label style={{ width: 150, fontSize: 10.5 }}>{fromLabel} → {kf.label}</label>
+                      <input type="range" min={20} max={800} step={5} value={durationsVh[i]} onChange={(e) => setDurationAt(i, Number(e.target.value))} />
+                      <span className="val">{durationsVh[i]}vh</span>
+                    </div>
+                    <div className="axis-row">
+                      <label style={{ width: 150, fontSize: 10.5 }}>Curva de velocidad</label>
+                      <select value={easings[i] || "smooth"} onChange={(e) => setEasingAt(i, e.target.value)} style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}>
+                        <option value="smooth">Suave (arranca y frena lento)</option>
+                        <option value="linear">Lineal (velocidad constante)</option>
+                        <option value="easeIn">Entrada lenta (arranca despacio, llega rápido)</option>
+                        <option value="easeOut">Salida lenta (arranca rápido, llega despacio)</option>
+                      </select>
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <p className="hint">Largo total del scroll: <strong>{Math.round(totalVh)}vh</strong></p>
+            <p className="hint">Largo total del scroll: <strong>{Math.round(totalVh)}vh</strong>. Probá los cambios en la pestaña Preview con "▶ Reproducir".</p>
           </>
         )}
 
