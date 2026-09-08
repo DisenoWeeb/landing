@@ -1572,7 +1572,7 @@ function ObjectPreviewModel({ obj }) {
   );
 }
 function ObjectPreviewImage({ obj }) {
-  const texture = useTexture(obj.url);
+  const texture = useTexture(obj.previewUrl || obj.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const mesh = (
     <mesh
@@ -1891,7 +1891,7 @@ function App() {
   // se pueden agregar tantos como haga falta, cada uno con su propio
   // archivo (modelo .glb o imagen .png/.jpg), escala, posición y rotación.
   const [objects, setObjects] = useState(() => [
-    { id: "obj-universo", label: "Universo (rampa)", type: "model", url: "./assets/models/universo.glb", scale: 5, position: [0, -0.2, 2.2], rotationY: 0, billboard: false, visible: true },
+    { id: "obj-universo", label: "Universo (rampa)", type: "model", url: "./assets/models/universo.glb", previewUrl: null, scale: 5, position: [0, -0.2, 2.2], rotationY: 0, billboard: false, visible: true },
   ]);
   const [showObjects, setShowObjects] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
@@ -1906,6 +1906,7 @@ function App() {
       label: `Objeto ${n}`,
       type: "model",
       url: `./assets/models/objeto${n}.glb`,
+      previewUrl: null,
       scale: 1,
       position: [0, 0, 0],
       rotationY: 0,
@@ -1920,9 +1921,26 @@ function App() {
       if (o.id !== id) return o;
       let url = o.url;
       if (type === "image" && /\.glb$/i.test(url)) url = url.replace(/\.glb$/i, ".png");
-      if (type === "model" && /\.(png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(png|jpe?g|webp)$/i, ".glb");
-      return { ...o, type, url, billboard: type === "image" ? (o.billboard ?? true) : false };
+      if (type === "model" && /\.(svg|png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(svg|png|jpe?g|webp)$/i, ".glb");
+      return { ...o, type, url, previewUrl: type === "model" ? null : o.previewUrl, billboard: type === "image" ? (o.billboard ?? true) : false };
     }));
+  };
+  /* Subida real de archivo (SVG exportado de Corel Draw, PNG, JPG). El
+     navegador no puede escribir el archivo en el disco del proyecto —
+     eso lo hace el botón "Descargar" de abajo, con el mismo nombre que
+     va a usar el index.html final — pero sí puede leerlo localmente
+     con URL.createObjectURL para mostrarlo YA en el visor 3D, sin
+     esperar a que lo copies a mano. */
+  const uploadObjectFile = (id, file) => {
+    if (!file) return;
+    const blobUrl = URL.createObjectURL(file);
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    updateObject(id, {
+      type: "image",
+      previewUrl: blobUrl,
+      url: `./assets/models/${safeName}`,
+      billboard: true,
+    });
   };
 
   const stageIndex = stagesComputed.findIndex((s) => s.id === activeStage);
@@ -2278,7 +2296,7 @@ function App() {
 
         {section === "objects" && (
           <>
-            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas) o imágenes planas (.png/.jpg, tipo cartel o sprite). Podés tener varios a la vez, cada uno con su propio archivo, escala, posición y rotación. Copiá cada archivo junto al del personaje (en <code>assets/models/</code> para .glb, o donde prefieras para imágenes), con el nombre que le pongas acá.</p>
+            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas) o imágenes planas (.svg/.png/.jpg, tipo cartel, logo o sprite). Para imágenes/SVG podés subir el archivo directo (el de Corel Draw funciona tal cual) y lo ves de una en el visor. El navegador no puede copiarlo solo a la carpeta del proyecto — para eso usá el botón "Descargar" y guardalo con ese mismo nombre en <code>assets/models/</code> junto al resto de los archivos.</p>
             {objects.map((obj, idx) => {
               const isImage = obj.type === "image";
               return (
@@ -2290,12 +2308,33 @@ function App() {
                   </div>
                   <div className="btn-row" style={{ marginBottom: 6 }}>
                     <button className={`btn ${!isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "model")}>Modelo (.glb)</button>
-                    <button className={`btn ${isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "image")}>Imagen (.png/.jpg)</button>
+                    <button className={`btn ${isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "image")}>Imagen / SVG</button>
                   </div>
+                  {isImage && (
+                    <div className="btn-row" style={{ marginBottom: 6 }}>
+                      <label className="btn" style={{ cursor: "pointer" }}>
+                        ⬆ Subir archivo (.svg/.png/.jpg)
+                        <input
+                          type="file"
+                          accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp"
+                          style={{ display: "none" }}
+                          onChange={(e) => { uploadObjectFile(obj.id, e.target.files[0]); e.target.value = ""; }}
+                        />
+                      </label>
+                      {obj.previewUrl && (
+                        <a className="btn" href={obj.previewUrl} download={obj.url.split("/").pop()}>
+                          ⬇ Descargar "{obj.url.split("/").pop()}"
+                        </a>
+                      )}
+                    </div>
+                  )}
                   <div className="axis-row">
                     <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
                     <input type="text" value={obj.url} onChange={(e) => updateObject(obj.id, { url: e.target.value })} />
                   </div>
+                  {isImage && obj.previewUrl && (
+                    <p className="hint">Estás viendo el archivo subido en este visor. Cuando descargues el index.html, acordate de guardar "{obj.url.split("/").pop()}" (botón de arriba) en esa misma ruta, o el navegador no lo va a encontrar.</p>
+                  )}
                   {isImage && (
                     <label className="toggle-row" style={{ marginBottom: 6 }}>
                       <input type="checkbox" checked={!!obj.billboard} onChange={(e) => updateObject(obj.id, { billboard: e.target.checked })} />
