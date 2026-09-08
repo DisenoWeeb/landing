@@ -342,7 +342,9 @@ const clientConfig = {
   },
 };
 
-const CHARACTER_MODEL_URL = "./assets/models/pink perfume bottle 3d model.glb";
+/*@GEN:MODEL_URL_START*/
+const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
+/*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
 // personaje. Podés tener uno o varios modelos estáticos (sin huesos ni
@@ -1287,7 +1289,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Grid, useTexture, Billboard } from "@react-three/drei";
 
-const MODEL_URL = "./assets/models/pink perfume bottle 3d model.glb";
+const DEFAULT_MODEL_URL = "./assets/models/weebpatineta.glb";
 
 const BONE_DEFS = [
   ["spine1", "Spine01"], ["spine2", "Spine02"], ["neck", "NeckTwist01"], ["head", "Head"],
@@ -1469,11 +1471,10 @@ function sampleFx(fxByKf, progress, stages, easings) {
    deformada). Este detalle es exclusivo de esta herramienta de
    edición: en el archivo final exportado el personaje siempre se
    monta una sola vez. */
-function Character({ pose, onBonesFound }) {
-  const { scene } = useGLTF(MODEL_URL);
+function Character({ pose, onBonesFound, modelUrl }) {
+  const { scene } = useGLTF(modelUrl);
   const bonesRef = useRef({});
   const restRef = useRef({});
-  const foundOnce = useRef(false);
 
   useEffect(() => {
     const bones = {}; const rest = {}; const found = {};
@@ -1483,7 +1484,7 @@ function Character({ pose, onBonesFound }) {
       else found[key] = false;
     });
     bonesRef.current = bones; restRef.current = rest;
-    if (!foundOnce.current) { foundOnce.current = true; onBonesFound(found); }
+    onBonesFound(found);
   }, [scene]);
 
   useFrame(() => {
@@ -1499,7 +1500,7 @@ function Character({ pose, onBonesFound }) {
 
   return <primitive object={scene} position={[0, -0.9, 0]} scale={1.7} />;
 }
-useGLTF.preload(MODEL_URL);
+useGLTF.preload(DEFAULT_MODEL_URL);
 
 function SceneCameraDriver({ target, active }) {
   const { camera } = useThree();
@@ -1592,7 +1593,7 @@ function ObjectPreview({ obj }) {
 /* La estructura de la escena es SIEMPRE la misma (luces, grilla,
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
-function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef }) {
+function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl }) {
   return (
     <>
       {showFx && <color attach="background" args={[fx.background]} />}
@@ -1626,7 +1627,11 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           </ObjectBoundary>
         ))}
       <MovedGroup movement={movement}>
-        <Character pose={pose} onBonesFound={onBonesFound} />
+        <ObjectBoundary>
+          <Suspense fallback={null}>
+            <Character pose={pose} onBonesFound={onBonesFound} modelUrl={modelUrl} />
+          </Suspense>
+        </ObjectBoundary>
       </MovedGroup>
       {sceneCameraActive ? (
         <SceneCameraDriver target={cameraTarget} active={true} />
@@ -1759,6 +1764,10 @@ function generateScrollLengthCode(totalVh) {
   return `const SCROLL_LENGTH_VH = ${n};`;
 }
 
+function generateModelUrlCode(url) {
+  return `const CHARACTER_MODEL_URL = "${url}";`;
+}
+
 function generateObjectsCode(objects) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
@@ -1766,7 +1775,7 @@ function generateObjectsCode(objects) {
   return `const OBJECTS = [\n${lines || "  // (sin objetos)"}\n];`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode) {
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -1777,6 +1786,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
     const after = src.slice(end);
     return `${before}\n${code}\n${after}`;
   };
+  tpl = swap(tpl, "/*@GEN:MODEL_URL_START*/", "/*@GEN:MODEL_URL_END*/", modelUrlCode);
   tpl = swap(tpl, "/*@GEN:SCENES_START*/", "/*@GEN:SCENES_END*/", scenesCode);
   tpl = swap(tpl, "/*@GEN:MOVEMENT_DEFS_START*/", "/*@GEN:MOVEMENT_DEFS_END*/", movementCode);
   tpl = swap(tpl, "/*@GEN:BONES_START*/", "/*@GEN:BONES_END*/", boneCode);
@@ -1789,6 +1799,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
 function App() {
   const [section, setSection] = useState("pose"); // pose | camera | movement | timing | objects | preview
 
+  const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL_URL);
   const [stages, setStages] = useState(makeDefaultStages);
   const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
   const [easings, setEasings] = useState(() => DEFAULT_DURATIONS_VH.map(() => "smooth"));
@@ -1989,6 +2000,7 @@ function App() {
   const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stagesComputed, easings), [movesByKf, stagesComputed, easings]);
   const scrollLengthCode = useMemo(() => generateScrollLengthCode(totalVh), [totalVh]);
   const objectsCode = useMemo(() => generateObjectsCode(objects), [objects]);
+  const modelUrlCode = useMemo(() => generateModelUrlCode(modelUrl), [modelUrl]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
@@ -1996,7 +2008,7 @@ function App() {
   };
 
   const downloadFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2010,12 +2022,14 @@ function App() {
   };
 
   const copyFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode);
     copy(html, "full");
   };
 
   const showStageTabs = section === "pose" || section === "camera" || section === "movement";
   const currentStageLabel = stages.find((s) => s.id === activeStage)?.label || "";
+  const bonesChecked = Object.keys(foundMap).length > 0;
+  const noBonesFound = bonesChecked && !Object.values(foundMap).some(Boolean);
   const currentFx = fxByKf[activeStage];
 
   return (
@@ -2033,7 +2047,7 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
         </div>
         <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} />
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} />
         </Canvas>
         {showMobileFrame && <MobileFrameOverlay containerRef={viewportRef} />}
       </div>
@@ -2042,6 +2056,15 @@ function App() {
         <div>
           <h1>Pose, Cámara, Movimiento &amp; Objetos</h1>
           <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos, con el contorno de celular (9:16) marcando qué se ve realmente en pantalla chica. Cada control tiene ahora un campo numérico al lado del slider para escribir el valor exacto. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
+        </div>
+
+        <div className="cam-group">
+          <div className="cam-group-title">Modelo principal</div>
+          <div className="axis-row">
+            <label style={{ width: 46, fontSize: 10.5 }}>Archivo</label>
+            <input type="text" value={modelUrl} onChange={(e) => setModelUrl(e.target.value)} />
+          </div>
+          <p className="hint">El objeto que animás con Pose/Cámara/Movimiento. Puede ser un personaje con esqueleto (huesos) o un objeto rígido sin huesos — un perfume, un producto, un logo 3D. Si no tiene huesos, la pestaña Pose no hace nada: usá solo Movimiento para hacerlo flotar/girar por etapa.</p>
         </div>
 
         <div className="section-tabs">
@@ -2092,6 +2115,9 @@ function App() {
 
         {section === "pose" && (
           <>
+            {noBonesFound && (
+              <p className="hint" style={{ color: "#c8ff00" }}>Este modelo no tiene huesos detectados (es un objeto rígido, como un producto o logo). Esta pestaña no va a tener efecto — andá a "Movimiento" para hacerlo flotar/girar por etapa.</p>
+            )}
             <div className="btn-row"><button className="btn" onClick={copyPoseFromPrev}>Copiar etapa anterior</button></div>
             <div className="section-title">Huesos ({BONE_KEYS.length})</div>
             {BONE_DEFS.map(([key, boneName]) => {
