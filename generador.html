@@ -38,6 +38,9 @@
   .axis-row .val { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: rgba(245,246,242,0.8); font-size: 11px; }
   .cam-group { padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .cam-group-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #7dfff0; }
+  .axis-row input[type=number].axis-num { width: 58px; flex: 0 0 auto; }
+  .mobile-frame { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 4; border: 1.5px solid rgba(200,255,0,0.85); box-shadow: 0 0 0 2000px rgba(0,0,0,0.45); border-radius: 14px; }
+  .mobile-frame__label { position: absolute; top: -22px; left: 0; font-size: 10.5px; color: #c8ff00; background: rgba(10,10,16,0.75); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
   .obj-block { padding: 8px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: rgba(255,255,255,0.03); }
   .obj-block-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
   .obj-block-header input[type=text] { flex: 1; }
@@ -339,7 +342,9 @@ const clientConfig = {
   },
 };
 
+/*@GEN:MODEL_URL_START*/
 const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
+/*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
 // personaje. Podés tener uno o varios modelos estáticos (sin huesos ni
@@ -1284,7 +1289,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Grid, useTexture, Billboard } from "@react-three/drei";
 
-const MODEL_URL = "./assets/models/weebpatineta.glb";
+const DEFAULT_MODEL_URL = "./assets/models/weebpatineta.glb";
 
 const BONE_DEFS = [
   ["spine1", "Spine01"], ["spine2", "Spine02"], ["neck", "NeckTwist01"], ["head", "Head"],
@@ -1466,11 +1471,10 @@ function sampleFx(fxByKf, progress, stages, easings) {
    deformada). Este detalle es exclusivo de esta herramienta de
    edición: en el archivo final exportado el personaje siempre se
    monta una sola vez. */
-function Character({ pose, onBonesFound }) {
-  const { scene } = useGLTF(MODEL_URL);
+function Character({ pose, onBonesFound, modelUrl }) {
+  const { scene } = useGLTF(modelUrl);
   const bonesRef = useRef({});
   const restRef = useRef({});
-  const foundOnce = useRef(false);
 
   useEffect(() => {
     const bones = {}; const rest = {}; const found = {};
@@ -1480,7 +1484,7 @@ function Character({ pose, onBonesFound }) {
       else found[key] = false;
     });
     bonesRef.current = bones; restRef.current = rest;
-    if (!foundOnce.current) { foundOnce.current = true; onBonesFound(found); }
+    onBonesFound(found);
   }, [scene]);
 
   useFrame(() => {
@@ -1496,7 +1500,7 @@ function Character({ pose, onBonesFound }) {
 
   return <primitive object={scene} position={[0, -0.9, 0]} scale={1.7} />;
 }
-useGLTF.preload(MODEL_URL);
+useGLTF.preload(DEFAULT_MODEL_URL);
 
 function SceneCameraDriver({ target, active }) {
   const { camera } = useThree();
@@ -1568,7 +1572,7 @@ function ObjectPreviewModel({ obj }) {
   );
 }
 function ObjectPreviewImage({ obj }) {
-  const texture = useTexture(obj.url);
+  const texture = useTexture(obj.previewUrl || obj.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const mesh = (
     <mesh
@@ -1589,7 +1593,7 @@ function ObjectPreview({ obj }) {
 /* La estructura de la escena es SIEMPRE la misma (luces, grilla,
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
-function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef }) {
+function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl }) {
   return (
     <>
       {showFx && <color attach="background" args={[fx.background]} />}
@@ -1604,8 +1608,10 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           args={[300, 300]}
           position={[0, -0.02, 0]}
           cellSize={2}
+          cellThickness={0.8}
           cellColor="#333"
           sectionSize={20}
+          sectionThickness={1.6}
           sectionColor="#555"
           fadeDistance={140}
           fadeStrength={1}
@@ -1621,7 +1627,11 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           </ObjectBoundary>
         ))}
       <MovedGroup movement={movement}>
-        <Character pose={pose} onBonesFound={onBonesFound} />
+        <ObjectBoundary>
+          <Suspense fallback={null}>
+            <Character pose={pose} onBonesFound={onBonesFound} modelUrl={modelUrl} />
+          </Suspense>
+        </ObjectBoundary>
       </MovedGroup>
       {sceneCameraActive ? (
         <SceneCameraDriver target={cameraTarget} active={true} />
@@ -1643,6 +1653,43 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
         </>
       )}
     </>
+  );
+}
+
+/* Contorno de celular: dibuja el rectángulo 9:16 más grande que entra
+   en el visor actual (igual que "object-fit: contain"), para ver de
+   entrada qué parte de la composición realmente se ve en un teléfono.
+   Se recalcula con ResizeObserver porque el visor cambia de tamaño al
+   abrir/cerrar el panel o redimensionar la ventana. */
+function MobileFrameOverlay({ containerRef, ratio = 9 / 16 }) {
+  const [box, setBox] = useState(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const compute = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (!w || !h) return;
+      let fw = h * ratio;
+      let fh = h;
+      if (fw > w) { fw = w; fh = w / ratio; }
+      setBox({ w: fw, h: fh, left: (w - fw) / 2, top: (h - fh) / 2 });
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [containerRef, ratio]);
+
+  if (!box) return null;
+  return (
+    <div
+      className="mobile-frame"
+      style={{ width: box.w, height: box.h, left: box.left, top: box.top }}
+    >
+      <span className="mobile-frame__label">Celular · 9:16</span>
+    </div>
   );
 }
 
@@ -1717,6 +1764,10 @@ function generateScrollLengthCode(totalVh) {
   return `const SCROLL_LENGTH_VH = ${n};`;
 }
 
+function generateModelUrlCode(url) {
+  return `const CHARACTER_MODEL_URL = "${url}";`;
+}
+
 function generateObjectsCode(objects) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
@@ -1724,7 +1775,7 @@ function generateObjectsCode(objects) {
   return `const OBJECTS = [\n${lines || "  // (sin objetos)"}\n];`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode) {
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -1735,6 +1786,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
     const after = src.slice(end);
     return `${before}\n${code}\n${after}`;
   };
+  tpl = swap(tpl, "/*@GEN:MODEL_URL_START*/", "/*@GEN:MODEL_URL_END*/", modelUrlCode);
   tpl = swap(tpl, "/*@GEN:SCENES_START*/", "/*@GEN:SCENES_END*/", scenesCode);
   tpl = swap(tpl, "/*@GEN:MOVEMENT_DEFS_START*/", "/*@GEN:MOVEMENT_DEFS_END*/", movementCode);
   tpl = swap(tpl, "/*@GEN:BONES_START*/", "/*@GEN:BONES_END*/", boneCode);
@@ -1747,6 +1799,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
 function App() {
   const [section, setSection] = useState("pose"); // pose | camera | movement | timing | objects | preview
 
+  const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL_URL);
   const [stages, setStages] = useState(makeDefaultStages);
   const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
   const [easings, setEasings] = useState(() => DEFAULT_DURATIONS_VH.map(() => "smooth"));
@@ -1838,11 +1891,13 @@ function App() {
   // se pueden agregar tantos como haga falta, cada uno con su propio
   // archivo (modelo .glb o imagen .png/.jpg), escala, posición y rotación.
   const [objects, setObjects] = useState(() => [
-    { id: "obj-universo", label: "Universo (rampa)", type: "model", url: "./assets/models/universo.glb", scale: 5, position: [0, -0.2, 2.2], rotationY: 0, billboard: false, visible: true },
+    { id: "obj-universo", label: "Universo (rampa)", type: "model", url: "./assets/models/universo.glb", previewUrl: null, scale: 5, position: [0, -0.2, 2.2], rotationY: 0, billboard: false, visible: true },
   ]);
   const [showObjects, setShowObjects] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [showFx, setShowFx] = useState(true);
+  const [showMobileFrame, setShowMobileFrame] = useState(true);
+  const viewportRef = useRef(null);
 
   const addObject = () => {
     const n = objects.length + 1;
@@ -1851,6 +1906,7 @@ function App() {
       label: `Objeto ${n}`,
       type: "model",
       url: `./assets/models/objeto${n}.glb`,
+      previewUrl: null,
       scale: 1,
       position: [0, 0, 0],
       rotationY: 0,
@@ -1865,8 +1921,40 @@ function App() {
       if (o.id !== id) return o;
       let url = o.url;
       if (type === "image" && /\.glb$/i.test(url)) url = url.replace(/\.glb$/i, ".png");
-      if (type === "model" && /\.(png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(png|jpe?g|webp)$/i, ".glb");
-      return { ...o, type, url, billboard: type === "image" ? (o.billboard ?? true) : false };
+      if (type === "model" && /\.(svg|png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(svg|png|jpe?g|webp)$/i, ".glb");
+      return { ...o, type, url, previewUrl: type === "model" ? null : o.previewUrl, billboard: type === "image" ? (o.billboard ?? true) : false };
+    }));
+  };
+  /* Subida real de archivo (SVG exportado de Corel Draw, PNG, JPG). El
+     navegador no puede escribir el archivo en el disco del proyecto —
+     eso lo hace el botón "Descargar" de abajo, con el mismo nombre que
+     va a usar el index.html final — pero sí puede leerlo localmente
+     con URL.createObjectURL para mostrarlo YA en el visor 3D, sin
+     esperar a que lo copies a mano. */
+  const uploadObjectFile = (id, file) => {
+    if (!file) return;
+    const blobUrl = URL.createObjectURL(file);
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    updateObject(id, {
+      type: "image",
+      previewUrl: blobUrl,
+      url: `./assets/models/${safeName}`,
+      billboard: true,
+    });
+  };
+  /* Si editás el campo "Archivo" a mano (en vez de usar "Subir
+     archivo"), esto evita el bug de dejar una imagen/SVG con el tipo
+     "Modelo" seleccionado — lo que hace que el navegador intente
+     leerla con el cargador de .glb y falle ("no es JSON válido"). */
+  const setObjectUrl = (id, newUrl) => {
+    setObjects((prev) => prev.map((o) => {
+      if (o.id !== id) return o;
+      const isImgExt = /\.(svg|png|jpe?g|webp)$/i.test(newUrl);
+      const isGlbExt = /\.glb$/i.test(newUrl);
+      let patch = { url: newUrl };
+      if (isImgExt && o.type !== "image") patch = { ...patch, type: "image", billboard: o.billboard ?? true, previewUrl: null };
+      if (isGlbExt && o.type !== "model") patch = { ...patch, type: "model", billboard: false, previewUrl: null };
+      return { ...o, ...patch };
     }));
   };
 
@@ -1945,6 +2033,7 @@ function App() {
   const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stagesComputed, easings), [movesByKf, stagesComputed, easings]);
   const scrollLengthCode = useMemo(() => generateScrollLengthCode(totalVh), [totalVh]);
   const objectsCode = useMemo(() => generateObjectsCode(objects), [objects]);
+  const modelUrlCode = useMemo(() => generateModelUrlCode(modelUrl), [modelUrl]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
@@ -1952,7 +2041,7 @@ function App() {
   };
 
   const downloadFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1966,17 +2055,19 @@ function App() {
   };
 
   const copyFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode);
     copy(html, "full");
   };
 
   const showStageTabs = section === "pose" || section === "camera" || section === "movement";
   const currentStageLabel = stages.find((s) => s.id === activeStage)?.label || "";
+  const bonesChecked = Object.keys(foundMap).length > 0;
+  const noBonesFound = bonesChecked && !Object.values(foundMap).some(Boolean);
   const currentFx = fxByKf[activeStage];
 
   return (
     <>
-      <div className="viewport">
+      <div className="viewport" ref={viewportRef}>
         <div className="top-controls">
           <span>{!freeOrbit ? "Vista: cámara de la escena (real)" : "Arrastrá para orbitar · Scroll para zoom"}</span>
           <label className="toggle-row"><input type="checkbox" checked={freeOrbit} onChange={(e) => setFreeOrbit(e.target.checked)} />Cámara libre (inspeccionar)</label>
@@ -1986,16 +2077,27 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showObjects} onChange={(e) => setShowObjects(e.target.checked)} />Mostrar objetos</label>
           <label className="toggle-row"><input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />Mostrar grilla</label>
           <label className="toggle-row"><input type="checkbox" checked={showFx} onChange={(e) => setShowFx(e.target.checked)} />Mostrar ambiente (luz/niebla/fondo)</label>
+          <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
         </div>
-        <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} />
+        <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true }}>
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} />
         </Canvas>
+        {showMobileFrame && <MobileFrameOverlay containerRef={viewportRef} />}
       </div>
 
       <div className="panel">
         <div>
           <h1>Pose, Cámara, Movimiento &amp; Objetos</h1>
-          <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
+          <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos, con el contorno de celular (9:16) marcando qué se ve realmente en pantalla chica. Cada control tiene ahora un campo numérico al lado del slider para escribir el valor exacto. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
+        </div>
+
+        <div className="cam-group">
+          <div className="cam-group-title">Modelo principal</div>
+          <div className="axis-row">
+            <label style={{ width: 46, fontSize: 10.5 }}>Archivo</label>
+            <input type="text" value={modelUrl} onChange={(e) => setModelUrl(e.target.value)} />
+          </div>
+          <p className="hint">El objeto que animás con Pose/Cámara/Movimiento. Puede ser un personaje con esqueleto (huesos) o un objeto rígido sin huesos — un perfume, un producto, un logo 3D. Si no tiene huesos, la pestaña Pose no hace nada: usá solo Movimiento para hacerlo flotar/girar por etapa.</p>
         </div>
 
         <div className="section-tabs">
@@ -2046,6 +2148,9 @@ function App() {
 
         {section === "pose" && (
           <>
+            {noBonesFound && (
+              <p className="hint" style={{ color: "#c8ff00" }}>Este modelo no tiene huesos detectados (es un objeto rígido, como un producto o logo). Esta pestaña no va a tener efecto — andá a "Movimiento" para hacerlo flotar/girar por etapa.</p>
+            )}
             <div className="btn-row"><button className="btn" onClick={copyPoseFromPrev}>Copiar etapa anterior</button></div>
             <div className="section-title">Huesos ({BONE_KEYS.length})</div>
             {BONE_DEFS.map(([key, boneName]) => {
@@ -2057,8 +2162,8 @@ function App() {
                   {["x", "y", "z"].map((axis) => (
                     <div className="axis-row" key={axis}>
                       <label>{axis.toUpperCase()}</label>
-                      <input type="range" min={-180} max={180} value={v[axis]} onChange={(e) => setBoneAxis(key, axis, Number(e.target.value))} />
-                      <span className="val">{Math.round(v[axis])}°</span>
+                      <input type="range" min={-180} max={180} step={0.1} value={v[axis]} onChange={(e) => setBoneAxis(key, axis, Number(e.target.value))} />
+                      <input type="number" className="axis-num" step={0.1} value={Math.round(v[axis] * 100) / 100} onChange={(e) => setBoneAxis(key, axis, Number(e.target.value))} />
                     </div>
                   ))}
                   <button className="btn" style={{ fontSize: 10, padding: "2px 6px" }} onClick={() => resetBone(key)}>reset</button>
@@ -2084,8 +2189,8 @@ function App() {
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-30} max={30} step={0.05} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
-                  <span className="val">{camsByKf[activeStage].position[i].toFixed(2)}</span>
+                  <input type="range" min={-30} max={30} step={0.01} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
+                  <input type="number" className="axis-num" step={0.01} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
                 </div>
               ))}
               <p className="hint">Z más grande = más lejos. Z más chico = más cerca.</p>
@@ -2095,8 +2200,8 @@ function App() {
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-15} max={15} step={0.05} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
-                  <span className="val">{camsByKf[activeStage].lookAt[i].toFixed(2)}</span>
+                  <input type="range" min={-15} max={15} step={0.01} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
+                  <input type="number" className="axis-num" step={0.01} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
                 </div>
               ))}
             </div>
@@ -2104,16 +2209,16 @@ function App() {
               <div className="cam-group-title">Zoom (FOV)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={10} max={90} step={0.5} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
-                <span className="val">{camsByKf[activeStage].fov.toFixed(1)}</span>
+                <input type="range" min={10} max={90} step={0.1} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.1} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
               </div>
             </div>
             <div className="cam-group">
               <div className="cam-group-title">Inclinación lateral (roll)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={-180} max={180} step={1} value={camsByKf[activeStage].roll || 0} onChange={(e) => setCamField("roll", null, Number(e.target.value))} />
-                <span className="val">{Math.round(camsByKf[activeStage].roll || 0)}°</span>
+                <input type="range" min={-180} max={180} step={0.1} value={camsByKf[activeStage].roll || 0} onChange={(e) => setCamField("roll", null, Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.1} value={camsByKf[activeStage].roll || 0} onChange={(e) => setCamField("roll", null, Number(e.target.value))} />
               </div>
               <p className="hint">Rota la imagen alrededor del eje de la vista (efecto "cámara ladeada"). 0° = horizonte recto.</p>
             </div>
@@ -2136,8 +2241,8 @@ function App() {
               {["x", "y", "z"].map((axis, i) => (
                 <div className="axis-row" key={axis}>
                   <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={axis === "z" ? -120 : -60} max={axis === "z" ? 40 : 60} step={0.1} value={movesByKf[activeStage].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} />
-                  <input type="number" step={0.1} value={movesByKf[activeStage].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} style={{ width: 62 }} />
+                  <input type="range" min={axis === "z" ? -120 : -60} max={axis === "z" ? 40 : 60} step={0.05} value={movesByKf[activeStage].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} />
+                  <input type="number" step={0.05} value={movesByKf[activeStage].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} style={{ width: 62 }} />
                 </div>
               ))}
               <p className="hint">X: izquierda/derecha (diagonal si lo combinás con Z). Y: altura en cuadro. Z: profundidad — más negativo, más al fondo/lejos. Rango ampliado — usá el campo numérico si necesitás más precisión que el slider.</p>
@@ -2147,8 +2252,8 @@ function App() {
               <div className="cam-group-title">Giro (yaw)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={-180} max={180} step={1} value={movesByKf[activeStage].yaw} onChange={(e) => setMoveField("yaw", null, Number(e.target.value))} />
-                <span className="val">{Math.round(movesByKf[activeStage].yaw)}°</span>
+                <input type="range" min={-180} max={180} step={0.1} value={movesByKf[activeStage].yaw} onChange={(e) => setMoveField("yaw", null, Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.1} value={movesByKf[activeStage].yaw} onChange={(e) => setMoveField("yaw", null, Number(e.target.value))} />
               </div>
               <div className="btn-row">
                 <button className="btn" onClick={() => applyYawPreset(0)}>Frente</button>
@@ -2162,8 +2267,8 @@ function App() {
               <div className="cam-group-title">Inclinación (pitch)</div>
               <div className="axis-row">
                 <label>°</label>
-                <input type="range" min={-90} max={90} step={1} value={movesByKf[activeStage].pitch} onChange={(e) => setMoveField("pitch", null, Number(e.target.value))} />
-                <span className="val">{Math.round(movesByKf[activeStage].pitch)}°</span>
+                <input type="range" min={-90} max={90} step={0.1} value={movesByKf[activeStage].pitch} onChange={(e) => setMoveField("pitch", null, Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.1} value={movesByKf[activeStage].pitch} onChange={(e) => setMoveField("pitch", null, Number(e.target.value))} />
               </div>
               <div className="btn-row">
                 <button className="btn" onClick={() => applyPitchPreset(0)}>Neutral</button>
@@ -2206,7 +2311,7 @@ function App() {
 
         {section === "objects" && (
           <>
-            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas) o imágenes planas (.png/.jpg, tipo cartel o sprite). Podés tener varios a la vez, cada uno con su propio archivo, escala, posición y rotación. Copiá cada archivo junto al del personaje (en <code>assets/models/</code> para .glb, o donde prefieras para imágenes), con el nombre que le pongas acá.</p>
+            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas) o imágenes planas (.svg/.png/.jpg, tipo cartel, logo o sprite). Para imágenes/SVG podés subir el archivo directo (el de Corel Draw funciona tal cual) y lo ves de una en el visor. El navegador no puede copiarlo solo a la carpeta del proyecto — para eso usá el botón "Descargar" y guardalo con ese mismo nombre en <code>assets/models/</code> junto al resto de los archivos.</p>
             {objects.map((obj, idx) => {
               const isImage = obj.type === "image";
               return (
@@ -2218,12 +2323,39 @@ function App() {
                   </div>
                   <div className="btn-row" style={{ marginBottom: 6 }}>
                     <button className={`btn ${!isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "model")}>Modelo (.glb)</button>
-                    <button className={`btn ${isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "image")}>Imagen (.png/.jpg)</button>
+                    <button className={`btn ${isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "image")}>Imagen / SVG</button>
                   </div>
+                  {isImage && (
+                    <div className="btn-row" style={{ marginBottom: 6 }}>
+                      <label className="btn" style={{ cursor: "pointer" }}>
+                        ⬆ Subir archivo (.svg/.png/.jpg)
+                        <input
+                          type="file"
+                          accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp"
+                          style={{ display: "none" }}
+                          onChange={(e) => { uploadObjectFile(obj.id, e.target.files[0]); e.target.value = ""; }}
+                        />
+                      </label>
+                      {obj.previewUrl && (
+                        <a className="btn" href={obj.previewUrl} download={obj.url.split("/").pop()}>
+                          ⬇ Descargar "{obj.url.split("/").pop()}"
+                        </a>
+                      )}
+                    </div>
+                  )}
                   <div className="axis-row">
                     <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
-                    <input type="text" value={obj.url} onChange={(e) => updateObject(obj.id, { url: e.target.value })} />
+                    <input type="text" value={obj.url} onChange={(e) => setObjectUrl(obj.id, e.target.value)} />
                   </div>
+                  {!isImage && /\.(svg|png|jpe?g|webp)$/i.test(obj.url) && (
+                    <p className="hint" style={{ color: "#ff9a9a" }}>⚠ Esta ruta termina en imagen/SVG pero el tipo está en "Modelo (.glb)" — así el navegador va a intentar leerla como .glb y va a fallar. Tocá el botón "Imagen / SVG" de arriba.</p>
+                  )}
+                  {isImage && /\.glb$/i.test(obj.url) && (
+                    <p className="hint" style={{ color: "#ff9a9a" }}>⚠ Esta ruta termina en .glb pero el tipo está en "Imagen / SVG" — tocá el botón "Modelo (.glb)" de arriba.</p>
+                  )}
+                  {isImage && obj.previewUrl && (
+                    <p className="hint">Estás viendo el archivo subido en este visor. Cuando descargues el index.html, acordate de guardar "{obj.url.split("/").pop()}" (botón de arriba) en esa misma ruta, o el navegador no lo va a encontrar.</p>
+                  )}
                   {isImage && (
                     <label className="toggle-row" style={{ marginBottom: 6 }}>
                       <input type="checkbox" checked={!!obj.billboard} onChange={(e) => updateObject(obj.id, { billboard: e.target.checked })} />
@@ -2232,23 +2364,25 @@ function App() {
                   )}
                   <div className="axis-row">
                     <label>×</label>
-                    <input type="range" min={0.05} max={20} step={0.05} value={obj.scale} onChange={(e) => updateObject(obj.id, { scale: Number(e.target.value) })} />
-                    <span className="val">{obj.scale.toFixed(2)}</span>
+                    <input type="range" min={0.05} max={20} step={0.01} value={obj.scale} onChange={(e) => updateObject(obj.id, { scale: Number(e.target.value) })} />
+                    <input type="number" className="axis-num" step={0.01} value={obj.scale} onChange={(e) => updateObject(obj.id, { scale: Number(e.target.value) })} />
                   </div>
                   {["x", "y", "z"].map((axis, i) => (
                     <div className="axis-row" key={axis}>
                       <label>{axis.toUpperCase()}</label>
-                      <input type="range" min={-30} max={30} step={0.1} value={obj.position[i]} onChange={(e) => {
+                      <input type="range" min={-30} max={30} step={0.05} value={obj.position[i]} onChange={(e) => {
                         const pos = [...obj.position]; pos[i] = Number(e.target.value); updateObject(obj.id, { position: pos });
                       }} />
-                      <span className="val">{obj.position[i].toFixed(1)}</span>
+                      <input type="number" className="axis-num" step={0.05} value={obj.position[i]} onChange={(e) => {
+                        const pos = [...obj.position]; pos[i] = Number(e.target.value); updateObject(obj.id, { position: pos });
+                      }} />
                     </div>
                   ))}
                   {!(isImage && obj.billboard) && (
                     <div className="axis-row">
                       <label>°</label>
-                      <input type="range" min={-180} max={180} step={1} value={obj.rotationY} onChange={(e) => updateObject(obj.id, { rotationY: Number(e.target.value) })} />
-                      <span className="val">{Math.round(obj.rotationY)}°</span>
+                      <input type="range" min={-180} max={180} step={0.1} value={obj.rotationY} onChange={(e) => updateObject(obj.id, { rotationY: Number(e.target.value) })} />
+                      <input type="number" className="axis-num" step={0.1} value={obj.rotationY} onChange={(e) => updateObject(obj.id, { rotationY: Number(e.target.value) })} />
                     </div>
                   )}
                   {isImage && obj.billboard && <p className="hint">Con billboard activado, la rotación no aplica — la imagen siempre gira para mirar a cámara.</p>}
