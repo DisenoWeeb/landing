@@ -295,7 +295,7 @@ const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 // assets/models/ junto al del personaje.
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
-  { type: "image", url: "./assets/models/954a1b9d-4edb-422e-a7b6-41e001bc0f3e.png", scale: 7.2, position: [0, -1.6, 0], rotationY: 0, billboard: false },
+  { type: "image", url: "./assets/models/954a1b9d-4edb-422e-a7b6-41e001bc0f3e.png", scale: 7.2, position: [0, -1.6, 0], rotationY: 0, billboard: true },
   { type: "image", url: "./assets/models/b1a3e6be-698e-4808-afcb-4ff31c1e2284.png", scale: 20, position: [1.7, 0.6, -16.8], rotationY: 0, billboard: true },
   { type: "image", url: "./assets/models/webs_neon2.png", scale: 3.35, position: [0, 1.5, -9.2], rotationY: -1, billboard: true },
 ];
@@ -341,8 +341,8 @@ const scenes = [
     progress: 0,
     easing: "smooth",
     camera: { position: [-1.356, 0.634, 13.347], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.87 },
-    fog: { color: "#05070a", far: 12.5 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#00a9c7", rimIntensity: 1.53 },
+    fog: { color: "#05070a", far: 40 },
     background: "#05070a",
   },
   {
@@ -350,17 +350,17 @@ const scenes = [
     progress: 0.115,
     easing: "smooth",
     camera: { position: [-1.356, 0.634, 13.347], lookAt: [0, 0.5, 0], fov: 30, roll: 1 },
-    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.87 },
-    fog: { color: "#05070a", far: 11 },
-    background: "#05070a",
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 1.29 },
+    fog: { color: "#05070a", far: 40 },
+    background: "#000000",
   },
   {
     id: "pose-1788814469320",
     progress: 0.226,
     easing: "smooth",
     camera: { position: [-1.356, 5.5, 13.347], lookAt: [0, 0.45, -5.6], fov: 15.5, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.91, rimColor: "#49d3ff", rimIntensity: 0.87 },
-    fog: { color: "#05070a", far: 39.5 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.87 },
+    fog: { color: "#05070a", far: 40 },
     background: "#05070a",
   },
   {
@@ -368,8 +368,8 @@ const scenes = [
     progress: 0.341,
     easing: "smooth",
     camera: { position: [-4.2, 8.2, 20.65], lookAt: [0.95, 2, -5.35], fov: 10, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.91, rimColor: "#49d3ff", rimIntensity: 0.87 },
-    fog: { color: "#05070a", far: 39.5 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 1.76 },
+    fog: { color: "#05070a", far: 40 },
     background: "#05070a",
   },
   {
@@ -377,8 +377,8 @@ const scenes = [
     progress: 0.458,
     easing: "smooth",
     camera: { position: [20.874, 10.661, 11.051], lookAt: [-1.95, 1.65, -5.35], fov: 10, roll: 4 },
-    light: { color: "#dfeeff", intensity: 1.91, rimColor: "#49d3ff", rimIntensity: 0.87 },
-    fog: { color: "#05070a", far: 39.5 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.87 },
+    fog: { color: "#05070a", far: 40 },
     background: "#05070a",
   },
   {
@@ -395,7 +395,7 @@ const scenes = [
     progress: 0.69,
     easing: "smooth",
     camera: { position: [20.874, 10.661, 11.051], lookAt: [-1.6, 0.85, -12.4], fov: 10, roll: 4 },
-    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.84 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 1.61 },
     fog: { color: "#05070a", far: 40 },
     background: "#000d1f",
   },
@@ -422,7 +422,7 @@ const scenes = [
     progress: 1,
     easing: "smooth",
     camera: { position: [5.85, 3.3, -4.55], lookAt: [-2.55, 0.1, -12.4], fov: 10, roll: 4 },
-    light: { color: "#dfeeff", intensity: 0, rimColor: "#49d3ff", rimIntensity: 0.84 },
+    light: { color: "#dfeeff", intensity: 0, rimColor: "#49d3ff", rimIntensity: 3 },
     fog: { color: "#05070a", far: 5 },
     background: "#000d1f",
   },
