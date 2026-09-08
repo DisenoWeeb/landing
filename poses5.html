@@ -297,8 +297,9 @@ const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 // assets/models/ junto al del personaje.
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
-  { type: "image", url: "./assets/models/logoweeb.svg", scale: 10.33, position: [0, -0.2, 2.2], rotationY: 0, billboard: true },
-  { type: "image", url: "./assets/models/b1a3e6be-698e-4808-afcb-4ff31c1e2284.png", scale: 40, position: [0.1, -4.75, -5.35], rotationY: 0, billboard: true },
+  { type: "image", url: "./assets/models/b1a3e6be-698e-4808-afcb-4ff31c1e2284.png", scale: 16.53, position: [0, 0, -9.45], rotationY: -6.7, billboard: true },
+  { type: "image", url: "./assets/models/logoweeb.svg", scale: 4.26, position: [0, -1.95, 0], rotationY: 0, billboard: true },
+  { type: "image", url: "./assets/models/61c2f025-c31b-4457-9366-40ad690823b0.png", scale: 1.9, position: [0, -1.7, -8.6], rotationY: 0, billboard: true },
 ];
 /*@GEN:OBJECTS_END*/
 
@@ -341,28 +342,37 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [0, 44.31, 44.586], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.98, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { color: "#05070a", far: 38.5 },
-    background: "#0c336e",
+    camera: { position: [-0.395, 1.606, 18.214], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.94 },
+    fog: { color: "#000000", far: 40 },
+    background: "#003380",
   },
   {
     id: "pose-2",
-    progress: 0.531,
+    progress: 0.362,
     easing: "smooth",
-    camera: { position: [0.401, -6.751, 13.861], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.98, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { color: "#05070a", far: 38.5 },
-    background: "#0c336e",
+    camera: { position: [-0.09, -4.06, 3.68], lookAt: [0, -1.93, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.94 },
+    fog: { color: "#000000", far: 40 },
+    background: "#003380",
   },
   {
-    id: "pose-1788907294681",
+    id: "pose-1788908867255",
+    progress: 0.681,
+    easing: "smooth",
+    camera: { position: [0.006, -2.011, 0.541], lookAt: [0, -1.93, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.94 },
+    fog: { color: "#000000", far: 40 },
+    background: "#003380",
+  },
+  {
+    id: "pose-1788909464216",
     progress: 1,
     easing: "smooth",
-    camera: { position: [0.744, -3.045, 3.909], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 1.98, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { color: "#05070a", far: 38.5 },
-    background: "#0c336e",
+    camera: { position: [0.006, -2.011, 0.541], lookAt: [0.003, -1.93, -1.27], fov: 12.1, roll: 0 },
+    light: { color: "#dfeeff", intensity: 2, rimColor: "#49d3ff", rimIntensity: 0.94 },
+    fog: { color: "#000000", far: 40 },
+    background: "#003380",
   },
 ];
 /*@GEN:SCENES_END*/
@@ -373,9 +383,10 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-2", progress: 0.531, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1788907294681", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 69.6, pitch: 0 },
+  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, -1.15, -4.2], yaw: 0, pitch: 0 },
+  { id: "pose-2", progress: 0.362, easing: "smooth", pos: [0, -1.15, -4.2], yaw: 0, pitch: 0 },
+  { id: "pose-1788908867255", progress: 0.681, easing: "smooth", pos: [-0.75, -1.9, -4.2], yaw: 95.7, pitch: 0 },
+  { id: "pose-1788909464216", progress: 1, easing: "smooth", pos: [-0.75, -1.9, -4.2], yaw: 95.7, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -409,20 +420,38 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-2",
-    progress: 0.531,
+    progress: 0.362,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1788907294681",
+    id: "pose-1788908867255",
+    progress: 0.681,
+    easing: "smooth",
+    bones: {
+        spine1: [0.0000, -0.7418, -0.0890],
+        spine2: [0.0000, -0.1082, 0.0000],
+        head: [0.0000, -0.4643, 0.0000],
+        lClavicle: [-0.3857, -0.2269, 0.2269],
+        rClavicle: [0.0000, 0.1082, 0.0000],
+        lForearm: [-0.3054, -0.5044, 0.0105],
+        lHand: [-0.0698, -0.1676, 0.3264],
+    },
+  },
+  {
+    id: "pose-1788909464216",
     progress: 1,
     easing: "smooth",
     bones: {
-        spine1: [0.0000, -0.8796, 0.0000],
-        spine2: [0.0000, -0.2670, 0.0000],
-        head: [-0.4835, 0.1292, -0.1292],
+        spine1: [0.0000, 0.4451, -0.0890],
+        spine2: [0.0000, 0.1484, 0.0000],
+        head: [0.0000, 0.3456, 0.0000],
+        lClavicle: [-0.3857, -0.2269, 0.2269],
+        rClavicle: [0.0000, 0.1082, 0.0000],
+        lForearm: [-0.3054, -0.5044, 0.0105],
+        lHand: [-0.0698, -0.1676, 0.3264],
     },
   },
 ];
@@ -451,7 +480,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 320;
+const SCROLL_LENGTH_VH = 470;
 /*@GEN:SCROLL_LENGTH_END*/
 
 function damp(current, target, lambda, dt) {
