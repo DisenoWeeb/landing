@@ -114,6 +114,7 @@
     inset: 0;
     width: 100vw;
     height: 100vh;
+    background: #05070a;
     opacity: 0;
     transition: opacity 0.8s ease;
   }
@@ -398,49 +399,49 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
-    light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.3 },
-    fog: { color: "#0b1330", far: 26 },
-    background: "#0b1330",
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.3 },
+    fog: { enabled: true, color: "#0b1330", far: 26 },
+    background: { from: "#0b1330", to: "#0b1330", angle: 180 },
   },
   {
     id: "pose-2",
     progress: 0.18,
     camera: { position: [0, -0.05, 3.4], lookAt: [0, -0.1, 0], fov: 27 },
-    light: { color: "#dfeeff", intensity: 0.72, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { color: "#0a1128", far: 24 },
-    background: "#0a1128",
+    light: { color: "#dfeeff", intensity: 0.72, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { enabled: true, color: "#0a1128", far: 24 },
+    background: { from: "#0a1128", to: "#0a1128", angle: 180 },
   },
   {
     id: "pose-3",
     progress: 0.47,
     camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
-    light: { color: "#dfeeff", intensity: 0.68, rimColor: "#7dfff0", rimIntensity: 1.6 },
-    fog: { color: "#080d20", far: 20 },
-    background: "#080d20",
+    light: { color: "#dfeeff", intensity: 0.68, azimuth: 45, elevation: 35, rimColor: "#7dfff0", rimIntensity: 1.6 },
+    fog: { enabled: true, color: "#080d20", far: 20 },
+    background: { from: "#080d20", to: "#080d20", angle: 180 },
   },
   {
     id: "pose-4",
     progress: 0.6,
     camera: { position: [0.3, 0.15, 3.5], lookAt: [0, 0.08, 0], fov: 28 },
-    light: { color: "#dfeeff", intensity: 0.65, rimColor: "#7dfff0", rimIntensity: 1.65 },
-    fog: { color: "#060a18", far: 17 },
-    background: "#060a18",
+    light: { color: "#dfeeff", intensity: 0.65, azimuth: 45, elevation: 35, rimColor: "#7dfff0", rimIntensity: 1.65 },
+    fog: { enabled: true, color: "#060a18", far: 17 },
+    background: { from: "#060a18", to: "#060a18", angle: 180 },
   },
   {
     id: "pose-5",
     progress: 0.8,
     camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
-    light: { color: "#dfeeff", intensity: 0.6, rimColor: "#7dfff0", rimIntensity: 1.7 },
-    fog: { color: "#04060f", far: 14 },
-    background: "#04060f",
+    light: { color: "#dfeeff", intensity: 0.6, azimuth: 45, elevation: 35, rimColor: "#7dfff0", rimIntensity: 1.7 },
+    fog: { enabled: true, color: "#04060f", far: 14 },
+    background: { from: "#04060f", to: "#04060f", angle: 180 },
   },
   {
     id: "pose-6",
     progress: 1,
     camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
-    light: { color: "#dfeeff", intensity: 0.5, rimColor: "#49d3ff", rimIntensity: 1.6 },
-    fog: { color: "#000000", far: 11 },
-    background: "#000000",
+    light: { color: "#dfeeff", intensity: 0.5, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.6 },
+    fog: { enabled: true, color: "#000000", far: 11 },
+    background: { from: "#000000", to: "#000000", angle: 180 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -619,6 +620,19 @@ function lerp(a, b, t) {
 function lerpVec3(a, b, t) {
   return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 }
+function lerpAngle(a, b, t) {
+  let diff = ((b - a + 180) % 360 + 360) % 360 - 180;
+  return a + diff * t;
+}
+function lightDirFromAngles(azimuthDeg, elevationDeg, distance) {
+  const az = (azimuthDeg * Math.PI) / 180;
+  const el = (elevationDeg * Math.PI) / 180;
+  return [
+    distance * Math.cos(el) * Math.sin(az),
+    distance * Math.sin(el),
+    distance * Math.cos(el) * Math.cos(az),
+  ];
+}
 function lerpColor(a, b, t) {
   const ca = new THREE.Color(a);
   const cb = new THREE.Color(b);
@@ -658,14 +672,21 @@ function blendScenes(list, rawProgress) {
     light: {
       color: lerpColor(a.light.color, b.light.color, t),
       intensity: lerp(a.light.intensity, b.light.intensity, t),
+      azimuth: lerpAngle(a.light.azimuth ?? 45, b.light.azimuth ?? 45, t),
+      elevation: lerp(a.light.elevation ?? 35, b.light.elevation ?? 35, t),
       rimColor: lerpColor(a.light.rimColor, b.light.rimColor, t),
       rimIntensity: lerp(a.light.rimIntensity, b.light.rimIntensity, t),
     },
     fog: {
+      enabled: t < 0.5 ? (a.fog.enabled ?? true) : (b.fog.enabled ?? true),
       color: lerpColor(a.fog.color, b.fog.color, t),
       far: lerp(a.fog.far, b.fog.far, t),
     },
-    background: lerpColor(a.background, b.background, t),
+    background: {
+      from: lerpColor(a.background.from, b.background.from, t),
+      to: lerpColor(a.background.to, b.background.to, t),
+      angle: lerp(a.background.angle ?? 180, b.background.angle ?? 180, t),
+    },
   };
 }
 
@@ -946,6 +967,7 @@ OBJECTS.forEach((obj) => {
 function Lighting() {
   const keyRef = useRef(null);
   const rimRef = useRef(null);
+  const dampedPos = useRef(new THREE.Vector3(...lightDirFromAngles(45, 35, 6)));
 
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
@@ -953,6 +975,11 @@ function Lighting() {
     if (keyRef.current) {
       keyRef.current.color.set(state.light.color);
       keyRef.current.intensity = damp(keyRef.current.intensity, state.light.intensity, 4, delta);
+      const target = lightDirFromAngles(state.light.azimuth, state.light.elevation, 6);
+      dampedPos.current.x = damp(dampedPos.current.x, target[0], 5, delta);
+      dampedPos.current.y = damp(dampedPos.current.y, target[1], 5, delta);
+      dampedPos.current.z = damp(dampedPos.current.z, target[2], 5, delta);
+      keyRef.current.position.copy(dampedPos.current);
     }
     if (rimRef.current) {
       rimRef.current.color.set(state.light.rimColor);
@@ -964,7 +991,7 @@ function Lighting() {
     <>
       <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} />
       <ambientLight intensity={0.32} />
-      <directionalLight ref={keyRef} position={[3, 4, 5]} intensity={0.9} />
+      <directionalLight ref={keyRef} intensity={0.9} />
       <directionalLight position={[-3, 2, -2]} intensity={0.5} />
       <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
     </>
@@ -974,19 +1001,21 @@ function Lighting() {
 function SceneEnvironment() {
   const { scene } = useThree();
   const fog = useRef(new THREE.FogExp2("#05070a", 0.12));
-  const bgColor = useRef(new THREE.Color("#05070a"));
 
   useEffect(() => {
-    scene.fog = fog.current;
-    scene.background = bgColor.current;
+    scene.background = null;
   }, [scene]);
 
   useFrame(() => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
-    fog.current.color.set(state.fog.color);
-    fog.current.density = 1 / Math.max(state.fog.far, 1);
-    bgColor.current.set(state.background);
+    if (state.fog.enabled) {
+      scene.fog = fog.current;
+      fog.current.color.set(state.fog.color);
+      fog.current.density = 1 / Math.max(state.fog.far, 1);
+    } else {
+      scene.fog = null;
+    }
   });
 
   return null;
@@ -1115,6 +1144,21 @@ function CTAButton() {
   );
 }
 
+function BackgroundGradient({ stageRef }) {
+  useEffect(() => {
+    const update = (progress) => {
+      const el = stageRef.current;
+      if (!el) return;
+      const state = blendScenes(scenes, progress);
+      el.style.background = `linear-gradient(${state.background.angle}deg, ${state.background.from}, ${state.background.to})`;
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, [stageRef]);
+
+  return null;
+}
+
 function ProgressIndicator() {
   const fillRef = useRef(null);
 
@@ -1212,6 +1256,7 @@ function CursorTrail() {
 
 function App() {
   const spacerRef = useRef(null);
+  const stageRef = useRef(null);
   useScrollProgress(spacerRef);
   useArrowKeyScroll();
   const device = useMemo(() => getDeviceProfile(), []);
@@ -1235,14 +1280,15 @@ function App() {
         "--font-body": clientConfig.fonts.body,
       }}
     >
-      <div className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
+      <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
         <Canvas
           dpr={device.dpr}
-          gl={{ antialias: true, powerPreference: "high-performance" }}
+          gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
         >
           <Experience device={device} />
         </Canvas>
+        <BackgroundGradient stageRef={stageRef} />
         <CursorTrail />
         <HeroText />
         <SceneText />
@@ -1363,9 +1409,9 @@ const zeroPose = () => Object.fromEntries(BONE_KEYS.map((k) => [k, { x: 0, y: 0,
 const defaultCamera = () => ({ position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 });
 const defaultMovement = () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0 });
 const defaultFx = () => ({
-  light: { color: "#dfeeff", intensity: 0.7, rimColor: "#49d3ff", rimIntensity: 1.4 },
-  fog: { color: "#05070a", far: 20 },
-  background: "#05070a",
+  light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+  fog: { enabled: true, color: "#05070a", far: 20 },
+  background: { from: "#05070a", to: "#05070a", angle: 180 },
 });
 
 /* Todo arranca en cero / neutro: ninguna etapa tiene pose, cámara,
@@ -1436,6 +1482,19 @@ function lerpColorHex(a, b, t) {
   ca.lerp(cb, t);
   return "#" + ca.getHexString();
 }
+function lerpAngleDeg(a, b, t) {
+  let diff = ((b - a + 180) % 360 + 360) % 360 - 180;
+  return a + diff * t;
+}
+function lightDirFromAngles(azimuthDeg, elevationDeg, distance) {
+  const az = (azimuthDeg * Math.PI) / 180;
+  const el = (elevationDeg * Math.PI) / 180;
+  return [
+    distance * Math.cos(el) * Math.sin(az),
+    distance * Math.sin(el),
+    distance * Math.cos(el) * Math.cos(az),
+  ];
+}
 
 /* Igual que sampleCamera/sampleMovement pero para Ambiente (luz, rim,
    niebla, fondo), para poder previsualizarlo también interpolado en la
@@ -1456,11 +1515,21 @@ function sampleFx(fxByKf, progress, stages, easings) {
     light: {
       color: lerpColorHex(fa.light.color, fb.light.color, t),
       intensity: lerp(fa.light.intensity, fb.light.intensity, t),
+      azimuth: lerpAngleDeg(fa.light.azimuth ?? 45, fb.light.azimuth ?? 45, t),
+      elevation: lerp(fa.light.elevation ?? 35, fb.light.elevation ?? 35, t),
       rimColor: lerpColorHex(fa.light.rimColor, fb.light.rimColor, t),
       rimIntensity: lerp(fa.light.rimIntensity, fb.light.rimIntensity, t),
     },
-    fog: { color: lerpColorHex(fa.fog.color, fb.fog.color, t), far: lerp(fa.fog.far, fb.fog.far, t) },
-    background: lerpColorHex(fa.background, fb.background, t),
+    fog: {
+      enabled: t < 0.5 ? (fa.fog.enabled ?? true) : (fb.fog.enabled ?? true),
+      color: lerpColorHex(fa.fog.color, fb.fog.color, t),
+      far: lerp(fa.fog.far, fb.fog.far, t),
+    },
+    background: {
+      from: lerpColorHex(fa.background.from, fb.background.from, t),
+      to: lerpColorHex(fa.background.to, fb.background.to, t),
+      angle: lerp(fa.background.angle ?? 180, fb.background.angle ?? 180, t),
+    },
   };
 }
 
@@ -1596,11 +1665,10 @@ function ObjectPreview({ obj }) {
 function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl }) {
   return (
     <>
-      {showFx && <color attach="background" args={[fx.background]} />}
-      {showFx && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
+      {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
       <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
       <ambientLight intensity={0.28} />
-      <directionalLight color={showFx ? fx.light.color : "#ffffff"} position={[3, 4, 5]} intensity={showFx ? fx.light.intensity : 0.9} />
+      <directionalLight color={showFx ? fx.light.color : "#ffffff"} position={showFx ? lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 6) : [3, 4, 5]} intensity={showFx ? fx.light.intensity : 0.9} />
       <directionalLight position={[-3, 2, -2]} intensity={0.4} />
       <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={showFx ? fx.light.rimIntensity : 0} distance={12} />
       {showGrid && (
@@ -1721,9 +1789,9 @@ function generateScenesArrayCode(camsByKf, fxByKf, stages, easings) {
     progress: ${roundProgress(kf.progress)},
     easing: "${easing}",
     camera: { position: ${fmtVec(cam.position)}, lookAt: ${fmtVec(cam.lookAt)}, fov: ${fmtNum(cam.fov)}, roll: ${fmtNum(cam.roll || 0)} },
-    light: { color: "${f.light.color}", intensity: ${f.light.intensity}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity} },
-    fog: { color: "${f.fog.color}", far: ${f.fog.far} },
-    background: "${f.background}",
+    light: { color: "${f.light.color}", intensity: ${f.light.intensity}, azimuth: ${fmtNum(f.light.azimuth)}, elevation: ${fmtNum(f.light.elevation)}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity} },
+    fog: { enabled: ${f.fog.enabled === false ? "false" : "true"}, color: "${f.fog.color}", far: ${f.fog.far} },
+    background: { from: "${f.background.from}", to: "${f.background.to}", angle: ${fmtNum(f.background.angle)} },
   },`;
   }).join("\n");
   return `const scenes = [\n${kfLines}\n];`;
@@ -1993,8 +2061,28 @@ function App() {
   const setFxField = (group, field, value) => {
     setFxByKf((prev) => {
       const fx = { ...prev[activeStage] };
-      if (group === "background") return { ...prev, [activeStage]: { ...fx, background: value } };
       fx[group] = { ...fx[group], [field]: value };
+      return { ...prev, [activeStage]: fx };
+    });
+  };
+  /* Atajo: cuando el fondo está en modo "Sólido", mantiene "to" pegado
+     a "from" para que sea un degradado colapsado a un solo color; en
+     "Degradado" los desacopla. */
+  const setBackgroundMode = (mode) => {
+    setFxByKf((prev) => {
+      const fx = { ...prev[activeStage] };
+      const bg = fx.background;
+      fx.background = mode === "solid" ? { ...bg, to: bg.from } : { ...bg };
+      return { ...prev, [activeStage]: fx };
+    });
+  };
+  const setBackgroundColor = (field, value) => {
+    setFxByKf((prev) => {
+      const fx = { ...prev[activeStage] };
+      const bg = { ...fx.background, [field]: value };
+      const isSolid = fx.background.from === fx.background.to;
+      if (isSolid && field === "from") bg.to = value;
+      fx.background = bg;
       return { ...prev, [activeStage]: fx };
     });
   };
@@ -2067,7 +2155,11 @@ function App() {
 
   return (
     <>
-      <div className="viewport" ref={viewportRef}>
+      <div
+        className="viewport"
+        ref={viewportRef}
+        style={showFx ? { background: `linear-gradient(${renderFx.background.angle}deg, ${renderFx.background.from}, ${renderFx.background.to})` } : undefined}
+      >
         <div className="top-controls">
           <span>{!freeOrbit ? "Vista: cámara de la escena (real)" : "Arrastrá para orbitar · Scroll para zoom"}</span>
           <label className="toggle-row"><input type="checkbox" checked={freeOrbit} onChange={(e) => setFreeOrbit(e.target.checked)} />Cámara libre (inspeccionar)</label>
@@ -2079,7 +2171,7 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showFx} onChange={(e) => setShowFx(e.target.checked)} />Mostrar ambiente (luz/niebla/fondo)</label>
           <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
         </div>
-        <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true }}>
+        <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
           <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} />
         </Canvas>
         {showMobileFrame && <MobileFrameOverlay containerRef={viewportRef} />}
@@ -2223,11 +2315,90 @@ function App() {
               <p className="hint">Rota la imagen alrededor del eje de la vista (efecto "cámara ladeada"). 0° = horizonte recto.</p>
             </div>
             <div className="cam-group">
-              <div className="cam-group-title">Ambiente (luz / niebla / fondo)</div>
-              <div className="axis-row"><label style={{ width: 60 }}>Luz</label><input type="color" value={currentFx.light.color} onChange={(e) => setFxField("light", "color", e.target.value)} /><input type="range" min={0} max={2} step={0.01} value={currentFx.light.intensity} onChange={(e) => setFxField("light", "intensity", Number(e.target.value))} /><span className="val">{currentFx.light.intensity.toFixed(2)}</span></div>
-              <div className="axis-row"><label style={{ width: 60 }}>Rim</label><input type="color" value={currentFx.light.rimColor} onChange={(e) => setFxField("light", "rimColor", e.target.value)} /><input type="range" min={0} max={3} step={0.01} value={currentFx.light.rimIntensity} onChange={(e) => setFxField("light", "rimIntensity", Number(e.target.value))} /><span className="val">{currentFx.light.rimIntensity.toFixed(2)}</span></div>
-              <div className="axis-row"><label style={{ width: 60 }}>Niebla</label><input type="color" value={currentFx.fog.color} onChange={(e) => setFxField("fog", "color", e.target.value)} /><input type="range" min={5} max={40} step={0.5} value={currentFx.fog.far} onChange={(e) => setFxField("fog", "far", Number(e.target.value))} /><span className="val">{currentFx.fog.far.toFixed(1)}</span></div>
-              <div className="axis-row"><label style={{ width: 60 }}>Fondo</label><input type="color" value={currentFx.background} onChange={(e) => setFxField("background", null, e.target.value)} /></div>
+              <div className="cam-group-title">Luz principal</div>
+              <div className="axis-row">
+                <label style={{ width: 60 }}>Color</label>
+                <input type="color" value={currentFx.light.color} onChange={(e) => setFxField("light", "color", e.target.value)} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 60 }}>Intensidad</label>
+                <input type="range" min={0} max={5} step={0.05} value={currentFx.light.intensity} onChange={(e) => setFxField("light", "intensity", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.05} value={currentFx.light.intensity} onChange={(e) => setFxField("light", "intensity", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 60 }}>Azimut</label>
+                <input type="range" min={0} max={360} step={1} value={currentFx.light.azimuth ?? 45} onChange={(e) => setFxField("light", "azimuth", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={1} value={currentFx.light.azimuth ?? 45} onChange={(e) => setFxField("light", "azimuth", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 60 }}>Altura</label>
+                <input type="range" min={-90} max={90} step={1} value={currentFx.light.elevation ?? 35} onChange={(e) => setFxField("light", "elevation", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={1} value={currentFx.light.elevation ?? 35} onChange={(e) => setFxField("light", "elevation", Number(e.target.value))} />
+              </div>
+              <p className="hint">Azimut gira la luz alrededor (0° = de frente, 90° = desde la derecha, 180° = contraluz). Altura la sube/baja (0° = a la altura de los ojos, 90° = directo desde arriba).</p>
+            </div>
+            <div className="cam-group">
+              <div className="cam-group-title">Luz de contorno (rim)</div>
+              <div className="axis-row">
+                <label style={{ width: 60 }}>Color</label>
+                <input type="color" value={currentFx.light.rimColor} onChange={(e) => setFxField("light", "rimColor", e.target.value)} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 60 }}>Intensidad</label>
+                <input type="range" min={0} max={5} step={0.05} value={currentFx.light.rimIntensity} onChange={(e) => setFxField("light", "rimIntensity", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.05} value={currentFx.light.rimIntensity} onChange={(e) => setFxField("light", "rimIntensity", Number(e.target.value))} />
+              </div>
+            </div>
+            <div className="cam-group">
+              <div className="cam-group-title">Niebla</div>
+              <label className="toggle-row" style={{ marginBottom: 6 }}>
+                <input type="checkbox" checked={currentFx.fog.enabled !== false} onChange={(e) => setFxField("fog", "enabled", e.target.checked)} />
+                Activar niebla en esta etapa
+              </label>
+              {currentFx.fog.enabled !== false && (
+                <>
+                  <div className="axis-row">
+                    <label style={{ width: 60 }}>Color</label>
+                    <input type="color" value={currentFx.fog.color} onChange={(e) => setFxField("fog", "color", e.target.value)} />
+                  </div>
+                  <div className="axis-row">
+                    <label style={{ width: 60 }}>Alcance</label>
+                    <input type="range" min={0} max={300} step={0.5} value={currentFx.fog.far} onChange={(e) => setFxField("fog", "far", Number(e.target.value))} />
+                    <input type="number" className="axis-num" min={0.1} step={0.5} value={currentFx.fog.far} onChange={(e) => setFxField("fog", "far", Number(e.target.value))} />
+                  </div>
+                  <p className="hint">Alcance chico = niebla cerrada, muy cerca. Alcance grande = niebla casi imperceptible. El slider llega a 300, pero el número de al lado no tiene techo — escribí lo que necesites.</p>
+                </>
+              )}
+            </div>
+            <div className="cam-group">
+              <div className="cam-group-title">Fondo</div>
+              <div className="btn-row" style={{ marginBottom: 6 }}>
+                <button className={`btn ${currentFx.background.from === currentFx.background.to ? "primary" : ""}`} onClick={() => setBackgroundMode("solid")}>Sólido</button>
+                <button className={`btn ${currentFx.background.from !== currentFx.background.to ? "primary" : ""}`} onClick={() => setBackgroundMode("gradient")}>Degradado</button>
+              </div>
+              {currentFx.background.from === currentFx.background.to ? (
+                <div className="axis-row">
+                  <label style={{ width: 60 }}>Color</label>
+                  <input type="color" value={currentFx.background.from} onChange={(e) => setBackgroundColor("from", e.target.value)} />
+                </div>
+              ) : (
+                <>
+                  <div className="axis-row">
+                    <label style={{ width: 60 }}>Desde</label>
+                    <input type="color" value={currentFx.background.from} onChange={(e) => setBackgroundColor("from", e.target.value)} />
+                  </div>
+                  <div className="axis-row">
+                    <label style={{ width: 60 }}>Hasta</label>
+                    <input type="color" value={currentFx.background.to} onChange={(e) => setBackgroundColor("to", e.target.value)} />
+                  </div>
+                  <div className="axis-row">
+                    <label style={{ width: 60 }}>Ángulo</label>
+                    <input type="range" min={0} max={360} step={1} value={currentFx.background.angle ?? 180} onChange={(e) => setFxField("background", "angle", Number(e.target.value))} />
+                    <input type="number" className="axis-num" step={1} value={currentFx.background.angle ?? 180} onChange={(e) => setFxField("background", "angle", Number(e.target.value))} />
+                  </div>
+                  <p className="hint">180° = de arriba hacia abajo, 90° = de izquierda a derecha.</p>
+                </>
+              )}
             </div>
           </>
         )}
