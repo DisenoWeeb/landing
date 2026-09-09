@@ -401,50 +401,56 @@ const scenes = [
   {
     id: "pose-1",
     progress: 0,
-    camera: { position: [0, -0.35, 4.2], lookAt: [0, -0.4, 0], fov: 28 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.3 },
-    fog: { enabled: true, color: "#0b1330", far: 26 },
-    background: { from: "#0b1330", to: "#0b1330", angle: 180 },
+    easing: "smooth",
+    camera: { position: [-5.174, 0.101, 22.973], lookAt: [-0.99, 5.61, 0.71], fov: 33, roll: 0 },
+    light: { color: "#ededed", intensity: 1.8, azimuth: 232, elevation: 25, rimColor: "#54214c", rimIntensity: 5 },
+    fog: { enabled: true, color: "#14140f", far: 54 },
+    background: { from: "#7391bf", to: "#7391bf", angle: 180 },
   },
   {
     id: "pose-2",
-    progress: 0.18,
-    camera: { position: [0, -0.05, 3.4], lookAt: [0, -0.1, 0], fov: 27 },
-    light: { color: "#dfeeff", intensity: 0.72, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: true, color: "#0a1128", far: 24 },
-    background: { from: "#0a1128", to: "#0a1128", angle: 180 },
+    progress: 0.179,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { enabled: true, color: "#05070a", far: 20 },
+    background: { from: "#05070a", to: "#05070a", angle: 180 },
   },
   {
     id: "pose-3",
-    progress: 0.47,
-    camera: { position: [0.5, 0.1, 3.4], lookAt: [0, 0.1, 0], fov: 27 },
-    light: { color: "#dfeeff", intensity: 0.68, azimuth: 45, elevation: 35, rimColor: "#7dfff0", rimIntensity: 1.6 },
-    fog: { enabled: true, color: "#080d20", far: 20 },
-    background: { from: "#080d20", to: "#080d20", angle: 180 },
+    progress: 0.468,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { enabled: true, color: "#05070a", far: 20 },
+    background: { from: "#05070a", to: "#05070a", angle: 180 },
   },
   {
     id: "pose-4",
     progress: 0.6,
-    camera: { position: [0.3, 0.15, 3.5], lookAt: [0, 0.08, 0], fov: 28 },
-    light: { color: "#dfeeff", intensity: 0.65, azimuth: 45, elevation: 35, rimColor: "#7dfff0", rimIntensity: 1.65 },
-    fog: { enabled: true, color: "#060a18", far: 17 },
-    background: { from: "#060a18", to: "#060a18", angle: 180 },
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { enabled: true, color: "#05070a", far: 20 },
+    background: { from: "#05070a", to: "#05070a", angle: 180 },
   },
   {
     id: "pose-5",
     progress: 0.8,
-    camera: { position: [0.2, 0.3, 3.8], lookAt: [0, 0.05, 0], fov: 30 },
-    light: { color: "#dfeeff", intensity: 0.6, azimuth: 45, elevation: 35, rimColor: "#7dfff0", rimIntensity: 1.7 },
-    fog: { enabled: true, color: "#04060f", far: 14 },
-    background: { from: "#04060f", to: "#04060f", angle: 180 },
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { enabled: true, color: "#05070a", far: 20 },
+    background: { from: "#05070a", to: "#05070a", angle: 180 },
   },
   {
     id: "pose-6",
     progress: 1,
-    camera: { position: [0, 0.4, 4.2], lookAt: [0, 0, 0], fov: 32 },
-    light: { color: "#dfeeff", intensity: 0.5, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.6 },
-    fog: { enabled: true, color: "#000000", far: 11 },
-    background: { from: "#000000", to: "#000000", angle: 180 },
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { enabled: true, color: "#05070a", far: 20 },
+    background: { from: "#05070a", to: "#05070a", angle: 180 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -455,12 +461,12 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1", progress: 0, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
-  { id: "pose-2", progress: 0.18, pos: [0, -0.95, -1.3], yaw: 0, pitch: 0 },
-  { id: "pose-3", progress: 0.47, pos: [0, -0.325, -0.55], yaw: -90, pitch: 0 },
-  { id: "pose-4", progress: 0.6, pos: [0, 0, -0.55], yaw: -180, pitch: -2 },
-  { id: "pose-5", progress: 0.8, pos: [0, 0, -0.55], yaw: -180, pitch: -37 },
-  { id: "pose-6", progress: 1, pos: [0, 0, -9.55], yaw: -180, pitch: -66 },
+  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 2.05, 0], yaw: 6.2, pitch: 0 },
+  { id: "pose-2", progress: 0.179, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-3", progress: 0.468, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-4", progress: 0.6, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-5", progress: 0.8, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-6", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -473,7 +479,7 @@ function sampleMovement(progress) {
   while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
   const span = b.progress - a.progress || 1;
-  const t = smoothstep(0, 1, clamp((p - a.progress) / span));
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
   return {
     pos: [lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t)],
     yaw: lerp(a.yaw, b.yaw, t),
@@ -487,89 +493,49 @@ const BONE_POSE_KEYFRAMES = [
   {
     id: "pose-1",
     progress: 0,
+    easing: "smooth",
     bones: {
-        lClavicle: [0.0000, 0.0000, 0.2269],
-        rClavicle: [0.0000, 0.0000, -0.2269],
-        lForearm: [-0.0349, 0.7156, 0.4014],
-        rForearm: [0.3142, -1.1868, -0.0175],
-        lHand: [-0.3142, 0.5061, 0.3142],
-        rHand: [-0.5411, -0.3840, 0.0000],
-        lThigh: [0.5411, 0.0000, 0.0175],
-        rThigh: [0.2793, 0.0000, 0.0000],
-        lCalf: [-0.9774, 0.0000, 0.0000],
-        rCalf: [-0.9076, 0.0000, 0.0000],
+      // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "pose-2",
-    progress: 0.25,
+    progress: 0.179,
+    easing: "smooth",
     bones: {
-        head: [-0.4538, 0.0000, 0.0000],
-        lClavicle: [0.0000, 0.0000, 0.2269],
-        rClavicle: [0.0000, 0.0000, -0.2269],
-        lForearm: [-0.0349, 0.7156, 0.4014],
-        rForearm: [0.3142, -1.1868, -0.0175],
-        lHand: [-0.3142, 0.5061, 0.3142],
-        rHand: [-0.5411, -0.3840, 0.0000],
-        lThigh: [0.5411, 0.0000, 0.0175],
-        rThigh: [0.2793, 0.0000, 0.0000],
-        lCalf: [-0.9774, 0.0000, 0.0000],
-        rCalf: [-0.9076, 0.0000, 0.0000],
+      // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "pose-3",
-    progress: 0.5,
+    progress: 0.468,
+    easing: "smooth",
     bones: {
-        head: [0.0175, -0.1571, -0.0524],
-        lClavicle: [0.0000, 0.0000, 0.2269],
-        rClavicle: [0.0000, 0.0000, -0.2269],
-        lForearm: [-0.0349, 0.5061, 0.4014],
-        rForearm: [0.3142, -0.8727, -0.0175],
-        lHand: [-0.3142, 0.5061, 0.3142],
-        rHand: [-0.5411, -0.3840, 0.0000],
-        lThigh: [0.5411, 0.0000, 0.0175],
-        rThigh: [0.2793, 0.0000, 0.0000],
-        lCalf: [-0.6807, 0.0000, 0.0000],
-        rCalf: [-0.7505, -0.1571, 0.0000],
+      // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "pose-4",
-    progress: 0.7,
+    progress: 0.6,
+    easing: "smooth",
     bones: {
-        spine1: [0.5585, 0.0000, 0.0000],
-        spine2: [0.4189, 0.0000, 0.0000],
-        head: [0.0175, -0.1571, -0.0524],
-        lClavicle: [0.0000, 0.0000, 0.2269],
-        rClavicle: [0.0000, 0.0000, -0.2269],
-        lForearm: [-0.0349, 0.5061, 0.4014],
-        rForearm: [0.3142, -0.8727, -0.0175],
-        lHand: [-0.3142, 0.5061, 0.3142],
-        rHand: [-0.5411, -0.3840, 0.0000],
-        lThigh: [0.3665, 0.0000, 0.0175],
-        rThigh: [0.2793, 0.0000, 0.0000],
-        lCalf: [-1.3090, -0.1222, -0.2618],
-        rCalf: [-1.0821, -0.1571, 0.0000],
+      // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "pose-5",
-    progress: 1,
+    progress: 0.8,
+    easing: "smooth",
     bones: {
-        spine1: [0.5585, 0.0000, 0.0000],
-        spine2: [0.4189, 0.0000, 0.0000],
-        head: [0.4014, -0.1571, -0.0524],
-        lClavicle: [0.0000, -0.6458, 0.5411],
-        rClavicle: [-0.4363, 0.4189, -0.2269],
-        lForearm: [-0.0349, 0.5061, 0.4014],
-        rForearm: [0.3142, -0.8727, -0.0175],
-        lHand: [-0.3142, 0.5061, 0.3142],
-        rHand: [-0.5411, -0.3840, 0.0000],
-        lThigh: [0.3665, 0.0000, 0.0175],
-        rThigh: [0.2793, 0.0000, 0.0000],
-        lCalf: [-1.3090, -0.1222, -0.2618],
-        rCalf: [-1.0821, -0.1571, 0.0000],
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-6",
+    progress: 1,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
     },
   },
 ];
@@ -1311,6 +1277,7 @@ createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
 </html>
+
 
 </textarea>
 
