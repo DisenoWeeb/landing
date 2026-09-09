@@ -356,7 +356,7 @@ const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 // assets/models/ junto al del personaje.
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
-  { url: "./assets/models/universo.glb", scale: 5, position: [0, -0.2, 2.2], rotationY: 0 },
+  { url: "./assets/models/aguavet.glb", scale: 5, position: [0, -0.2, 2.2], rotationY: 0 },
 ];
 /*@GEN:OBJECTS_END*/
 
@@ -1955,11 +1955,11 @@ function App() {
   const [copiedWhich, setCopiedWhich] = useState(null);
   const [downloaded, setDownloaded] = useState(false);
 
-  // Objetos de entorno (antes "Entorno" / un solo universo.glb). Ahora
+  // Objetos de entorno (antes "Entorno" / un solo aguavet.glb). Ahora
   // se pueden agregar tantos como haga falta, cada uno con su propio
   // archivo (modelo .glb o imagen .png/.jpg), escala, posición y rotación.
   const [objects, setObjects] = useState(() => [
-    { id: "obj-universo", label: "Universo (rampa)", type: "model", url: "./assets/models/universo.glb", previewUrl: null, scale: 5, position: [0, -0.2, 2.2], rotationY: 0, billboard: false, visible: true },
+    { id: "obj-aguavet", label: "aguavet (rampa)", type: "model", url: "./assets/models/aguavet.glb", previewUrl: null, scale: 5, position: [0, -0.2, 2.2], rotationY: 0, billboard: false, visible: true },
   ]);
   const [showObjects, setShowObjects] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
