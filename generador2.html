@@ -997,11 +997,30 @@ function SceneObjectImage({ data }) {
 function SceneObject({ data }) {
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
 }
+/* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
+   servidor (404) o falla al leerse, esto evita que tumbe TODA la
+   experiencia — sin esto, un solo archivo faltante rompe el canvas
+   entero (WebGL "Context Lost") y la página queda negra. Cada objeto
+   tiene su propio boundary, así uno roto no afecta a los demás ni al
+   personaje. */
+class ObjectBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error) { console.warn("No se pudo cargar un objeto de la escena:", error && error.message); }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
 function SceneObjects() {
   return (
     <>
       {OBJECTS.map((obj, i) => (
-        <SceneObject key={i} data={obj} />
+        <ObjectBoundary key={i}>
+          <Suspense fallback={null}>
+            <SceneObject data={obj} />
+          </Suspense>
+        </ObjectBoundary>
       ))}
     </>
   );
@@ -1079,7 +1098,11 @@ function Experience({ device }) {
       <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
       <Suspense fallback={null}>
         <SceneObjects />
-        <AnimatedCharacter mouse={mouse} />
+        <ObjectBoundary>
+          <Suspense fallback={null}>
+            <AnimatedCharacter mouse={mouse} />
+          </Suspense>
+        </ObjectBoundary>
       </Suspense>
       {device.enablePostProcessing && (
         <EffectComposer multisampling={0}>
