@@ -1411,7 +1411,7 @@ const defaultMovement = () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0 });
 const defaultFx = () => ({
   light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
   fog: { enabled: true, color: "#05070a", far: 20 },
-  background: { from: "#05070a", to: "#05070a", angle: 180 },
+  background: { mode: "solid", from: "#05070a", to: "#05070a", angle: 180 },
 });
 
 /* Todo arranca en cero / neutro: ninguna etapa tiene pose, cámara,
@@ -2065,14 +2065,26 @@ function App() {
       return { ...prev, [activeStage]: fx };
     });
   };
-  /* Atajo: cuando el fondo está en modo "Sólido", mantiene "to" pegado
-     a "from" para que sea un degradado colapsado a un solo color; en
-     "Degradado" los desacopla. */
+  /* Genera un segundo color con contraste real (más oscuro/claro que
+     el primero) para que, al pasar a "Degradado", el cambio se note
+     de una — antes copiaba el mismo color en los dos extremos y por
+     eso el botón parecía no hacer nada. */
+  const nudgeColor = (hex) => {
+    const c = new THREE.Color(hex);
+    const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    const target = new THREE.Color(lum > 0.5 ? "#000000" : "#ffffff");
+    c.lerp(target, 0.55);
+    return "#" + c.getHexString();
+  };
   const setBackgroundMode = (mode) => {
     setFxByKf((prev) => {
       const fx = { ...prev[activeStage] };
       const bg = fx.background;
-      fx.background = mode === "solid" ? { ...bg, to: bg.from } : { ...bg };
+      if (mode === "solid") {
+        fx.background = { ...bg, mode: "solid", to: bg.from };
+      } else {
+        fx.background = { ...bg, mode: "gradient", to: bg.to !== bg.from ? bg.to : nudgeColor(bg.from) };
+      }
       return { ...prev, [activeStage]: fx };
     });
   };
@@ -2080,8 +2092,7 @@ function App() {
     setFxByKf((prev) => {
       const fx = { ...prev[activeStage] };
       const bg = { ...fx.background, [field]: value };
-      const isSolid = fx.background.from === fx.background.to;
-      if (isSolid && field === "from") bg.to = value;
+      if (fx.background.mode !== "gradient" && field === "from") bg.to = value;
       fx.background = bg;
       return { ...prev, [activeStage]: fx };
     });
@@ -2373,10 +2384,10 @@ function App() {
             <div className="cam-group">
               <div className="cam-group-title">Fondo</div>
               <div className="btn-row" style={{ marginBottom: 6 }}>
-                <button className={`btn ${currentFx.background.from === currentFx.background.to ? "primary" : ""}`} onClick={() => setBackgroundMode("solid")}>Sólido</button>
-                <button className={`btn ${currentFx.background.from !== currentFx.background.to ? "primary" : ""}`} onClick={() => setBackgroundMode("gradient")}>Degradado</button>
+                <button className={`btn ${currentFx.background.mode !== "gradient" ? "primary" : ""}`} onClick={() => setBackgroundMode("solid")}>Sólido</button>
+                <button className={`btn ${currentFx.background.mode === "gradient" ? "primary" : ""}`} onClick={() => setBackgroundMode("gradient")}>Degradado</button>
               </div>
-              {currentFx.background.from === currentFx.background.to ? (
+              {currentFx.background.mode !== "gradient" ? (
                 <div className="axis-row">
                   <label style={{ width: 60 }}>Color</label>
                   <input type="color" value={currentFx.background.from} onChange={(e) => setBackgroundColor("from", e.target.value)} />
