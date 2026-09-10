@@ -290,17 +290,33 @@ const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 /*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
-// personaje. Podés tener uno o varios modelos estáticos (sin huesos ni
-// animación) a la vez. Cada uno con su propio archivo, escala, posición
-// y rotación. Se generan desde la pestaña "Objetos" de la herramienta —
-// si algo queda muy grande/chico o mal ubicado, es más fácil ajustarlo
-// ahí (con preview en vivo) que a mano. Colocá cada archivo .glb en
-// assets/models/ junto al del personaje.
+// personaje. Podés tener uno o varios, cada uno con su propio archivo
+// (modelo .glb o imagen/SVG) y su propia animación de posición/escala/
+// rotación por etapa (igual que el personaje) — así también se pueden
+// mover durante el scroll y no quedan estáticos. Se generan desde la
+// pestaña "Objetos" de la herramienta — si algo queda muy grande/chico
+// o mal ubicado, es más fácil ajustarlo ahí (con preview en vivo) que
+// a mano. Colocá cada archivo en assets/models/ junto al del personaje.
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
-  { type: "image", url: "./assets/models/web_bruzera.png", scale: 6.55, position: [0, 2.95, -9.65], rotationY: 0, billboard: true },
-  { type: "image", url: "./assets/models/logoweeb.svg", scale: 2.85, position: [0, 0.7, 6], rotationY: 0, billboard: true },
-  { type: "image", url: "./assets/models/web_bruzera2.png", scale: 1.97, position: [0.7, -10.14, -6.4], rotationY: 0, billboard: true },
+  {
+    type: "model",
+    url: "./assets/models/universo.glb",
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, -0.2, 2.2], scale: 5, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [-0.1, -1.5, 2.55], scale: 3.93, rotationY: 16.4 },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/web_bruzera.png",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 1, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 1.3, 0], scale: 3.99, rotationY: 0 },
+    ],
+  },
 ];
 /*@GEN:OBJECTS_END*/
 
@@ -343,55 +359,19 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [0.11, 0.159, 30.481], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 4.3, azimuth: 84, elevation: 23, rimColor: "#b540ab", rimIntensity: 100 },
-    fog: { enabled: true, color: "#ecd2cf", far: 20.5 },
-    background: { from: "#f7dbd7", to: "#d4c0be", angle: 162 },
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { enabled: true, color: "#05070a", far: 20 },
+    background: { from: "#05070a", to: "#05070a", angle: 180 },
   },
   {
     id: "pose-2",
-    progress: 0.221,
-    easing: "smooth",
-    camera: { position: [0, 0.6, 8.646], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 4.3, azimuth: 84, elevation: 23, rimColor: "#c733db", rimIntensity: 1.4 },
-    fog: { enabled: true, color: "#f0d5d2", far: 11.1 },
-    background: { from: "#f7dbd7", to: "#d4c0be", angle: 162 },
-  },
-  {
-    id: "pose-1789067771014",
-    progress: 0.416,
-    easing: "smooth",
-    camera: { position: [0, 0.47, 5.75], lookAt: [0, 0.9, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 4.3, azimuth: 84, elevation: 23, rimColor: "#fc47ff", rimIntensity: 100 },
-    fog: { enabled: true, color: "#f0d5d2", far: 246.5 },
-    background: { from: "#f7dbd7", to: "#d4c0be", angle: 162 },
-  },
-  {
-    id: "pose-1789068798569",
-    progress: 0.61,
-    easing: "smooth",
-    camera: { position: [2.74, 0.66, 3.11], lookAt: [1.27, 1.27, -2.88], fov: 16.9, roll: 0 },
-    light: { color: "#dfeeff", intensity: 4.9, azimuth: 120, elevation: -80, rimColor: "#fc47ff", rimIntensity: 100 },
-    fog: { enabled: true, color: "#f0d5d2", far: 300 },
-    background: { from: "#f7dbd7", to: "#d4c0be", angle: 162 },
-  },
-  {
-    id: "pose-1789069015797",
-    progress: 0.805,
-    easing: "smooth",
-    camera: { position: [2.385, -10.668, 3.149], lookAt: [1.27, -10, -2.88], fov: 16.9, roll: 0 },
-    light: { color: "#dfeeff", intensity: 2.8, azimuth: 90, elevation: -18, rimColor: "#fc47ff", rimIntensity: 100 },
-    fog: { enabled: true, color: "#f0d5d2", far: 300 },
-    background: { from: "#f7dbd7", to: "#311a17", angle: 162 },
-  },
-  {
-    id: "pose-1789069994410",
     progress: 1,
     easing: "smooth",
-    camera: { position: [2.385, -10.668, 3.149], lookAt: [1.27, -10, -2.88], fov: 16.9, roll: 0 },
-    light: { color: "#dfeeff", intensity: 5, azimuth: 58, elevation: -31, rimColor: "#fc47ff", rimIntensity: 500 },
-    fog: { enabled: true, color: "#f0d5d2", far: 215.5 },
-    background: { from: "#f7dbd7", to: "#3f2622", angle: 162 },
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+    fog: { enabled: true, color: "#05070a", far: 20 },
+    background: { from: "#05070a", to: "#c4c4c4", angle: 312 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -402,12 +382,8 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 25.45], yaw: 0, pitch: 0 },
-  { id: "pose-2", progress: 0.221, easing: "smooth", pos: [0, 0, 6], yaw: 0, pitch: 0 },
-  { id: "pose-1789067771014", progress: 0.416, easing: "smooth", pos: [0, 1.8, -8.3], yaw: -180, pitch: 0 },
-  { id: "pose-1789068798569", progress: 0.61, easing: "smooth", pos: [0, 1.8, -8.3], yaw: 10.8, pitch: 0 },
-  { id: "pose-1789069015797", progress: 0.805, easing: "smooth", pos: [0.75, -9.7, -5.99], yaw: -16.4, pitch: 0 },
-  { id: "pose-1789069994410", progress: 1, easing: "smooth", pos: [0.75, -9.7, -5.99], yaw: -26.6, pitch: 0 },
+  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-2", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: -4, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -441,51 +417,10 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-2",
-    progress: 0.221,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1789067771014",
-    progress: 0.416,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1789068798569",
-    progress: 0.61,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1789069015797",
-    progress: 0.805,
-    easing: "smooth",
-    bones: {
-        spine1: [0.0000, 0.2077, 0.0000],
-        spine2: [0.0000, 0.1676, 0.0000],
-        head: [0.0000, 0.1676, -0.0489],
-        rClavicle: [0.1885, 0.8988, 0.3648],
-        lForearm: [-0.4451, -0.3456, -0.5829],
-        rForearm: [1.1764, -0.0105, 0.1292],
-        lHand: [-0.2077, 0.3264, -0.2670],
-    },
-  },
-  {
-    id: "pose-1789069994410",
     progress: 1,
     easing: "smooth",
     bones: {
-        spine1: [0.0000, 0.2077, 0.0000],
-        spine2: [0.0000, 0.1676, 0.0000],
-        head: [0.0890, 0.2478, 0.0000],
-        lHand: [-0.2077, -0.0890, -0.3264],
+      // (sin cambios respecto al rest pose)
     },
   },
 ];
@@ -514,7 +449,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 770;
+const SCROLL_LENGTH_VH = 170;
 /*@GEN:SCROLL_LENGTH_END*/
 
 function damp(current, target, lambda, dt) {
@@ -835,36 +770,75 @@ useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
    Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
-   sin huesos ni animación) o una imagen plana (.png/.jpg, tipo cartel
-   o sprite, con opción de "billboard" para que siempre mire a
-   cámara). Se puede tener cualquier cantidad — se generan desde la
-   pestaña "Objetos" de la herramienta.
+   sin huesos ni animación propia) o una imagen/SVG plana (con opción
+   de "billboard" para que siempre mire a cámara). Cada objeto anima
+   su propia posición/escala/rotación por etapa (keyframes), leídas
+   del mismo "progress" de scroll que usa el personaje — por eso el
+   transform se aplica de forma imperativa (ref + useFrame) en vez de
+   como props de React, igual que AnimatedCharacter, para no forzar un
+   re-render en cada frame de scroll.
    ============================================================ */
+function sampleObjectKeyframes(keyframes, progress) {
+  const list = keyframes;
+  const p = clamp(progress, 0, 1);
+  if (p <= list[0].progress) return list[0];
+  const last = list[list.length - 1];
+  if (p >= last.progress) return last;
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
+  return {
+    position: lerpVec3(a.position, b.position, t),
+    scale: lerp(a.scale, b.scale, t),
+    rotationY: lerpAngle(a.rotationY, b.rotationY, t),
+  };
+}
+
+function useObjectTransformRef(keyframes, billboard) {
+  const groupRef = useRef(null);
+  useFrame((_, delta) => {
+    const g = groupRef.current;
+    if (!g) return;
+    const progress = useScrollStore.getState().smoothProgress;
+    const kf = sampleObjectKeyframes(keyframes, progress);
+    g.position.x = damp(g.position.x, kf.position[0], 4, delta);
+    g.position.y = damp(g.position.y, kf.position[1], 4, delta);
+    g.position.z = damp(g.position.z, kf.position[2], 2.2, delta);
+    const s = damp(g.scale.x, kf.scale, 4, delta);
+    g.scale.set(s, s, s);
+    if (!billboard) {
+      g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
+    }
+  });
+  return groupRef;
+}
+
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
+  const groupRef = useObjectTransformRef(data.keyframes, false);
   return (
-    <primitive
-      object={scene}
-      scale={data.scale}
-      position={data.position}
-      rotation={[0, (data.rotationY * Math.PI) / 180, 0]}
-    />
+    <group ref={groupRef}>
+      <primitive object={scene} />
+    </group>
   );
 }
 function SceneObjectImage({ data }) {
   const texture = useTexture(data.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
+  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
   const mesh = (
-    <mesh
-      scale={[data.scale * aspect, data.scale, 1]}
-      position={data.billboard ? [0, 0, 0] : data.position}
-      rotation={data.billboard ? [0, 0, 0] : [0, (data.rotationY * Math.PI) / 180, 0]}
-    >
+    <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} />
     </mesh>
   );
-  return data.billboard ? <Billboard position={data.position}>{mesh}</Billboard> : mesh;
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
 }
 function SceneObject({ data }) {
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
