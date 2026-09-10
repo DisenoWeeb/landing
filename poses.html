@@ -286,7 +286,7 @@ const clientConfig = {
 };
 
 /*@GEN:MODEL_URL_START*/
-const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
+const CHARACTER_MODEL_URL = "";
 /*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
@@ -300,12 +300,30 @@ const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
   {
-    type: "model",
-    url: "./assets/models/universo.glb",
-    billboard: false,
+    type: "image",
+    url: "./assets/models/bruzera.png",
+    billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, -0.2, 2.2], scale: 5, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [-0.1, -1.5, 2.55], scale: 3.93, rotationY: 16.4 },
+      { progress: 0, easing: "smooth", position: [0, 1.2, 0], scale: 2.5, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 1.2, 0], scale: 2.52, rotationY: 0 },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/bruzera3.png",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.8, 0.3], scale: 0.96, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 0.8, 0.3], scale: 0.96, rotationY: 0 },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/logobruzera.png",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [-0.55, 2.2, 0.3], scale: 0.3, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 1.4, 0.35], scale: 0.89, rotationY: 0 },
     ],
   },
 ];
@@ -350,19 +368,19 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: true, color: "#05070a", far: 20 },
-    background: { from: "#05070a", to: "#05070a", angle: 180 },
+    camera: { position: [0, 0, 3.5], lookAt: [0, 1.05, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 1.85, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#f4dfce", far: 300 },
+    background: { from: "#f8e9d3", to: "#e7bcbc", angle: 180 },
   },
   {
     id: "pose-2",
     progress: 1,
     easing: "smooth",
-    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: true, color: "#05070a", far: 20 },
-    background: { from: "#05070a", to: "#c4c4c4", angle: 312 },
+    camera: { position: [0, -0.378, 4.761], lookAt: [0, 1.05, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 1.85, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#f4dfce", far: 300 },
+    background: { from: "#f8e9d3", to: "#e7bcbc", angle: 180 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -374,7 +392,7 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-2", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: -4, pitch: 0 },
+  { id: "pose-2", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -834,11 +852,30 @@ function SceneObjectImage({ data }) {
 function SceneObject({ data }) {
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
 }
+/* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
+   servidor (404) o falla al leerse, esto evita que tumbe TODA la
+   experiencia — sin esto, un solo archivo faltante rompe el canvas
+   entero (WebGL "Context Lost") y la página queda negra. Cada objeto
+   tiene su propio boundary, así uno roto no afecta a los demás ni al
+   personaje. */
+class ObjectBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error) { console.warn("No se pudo cargar un objeto de la escena:", error && error.message); }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
 function SceneObjects() {
   return (
     <>
       {OBJECTS.map((obj, i) => (
-        <SceneObject key={i} data={obj} />
+        <ObjectBoundary key={i}>
+          <Suspense fallback={null}>
+            <SceneObject data={obj} />
+          </Suspense>
+        </ObjectBoundary>
       ))}
     </>
   );
@@ -916,7 +953,11 @@ function Experience({ device }) {
       <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
       <Suspense fallback={null}>
         <SceneObjects />
-        <AnimatedCharacter mouse={mouse} />
+        <ObjectBoundary>
+          <Suspense fallback={null}>
+            <AnimatedCharacter mouse={mouse} />
+          </Suspense>
+        </ObjectBoundary>
       </Suspense>
       {device.enablePostProcessing && (
         <EffectComposer multisampling={0}>
