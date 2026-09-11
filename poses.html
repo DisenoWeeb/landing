@@ -340,7 +340,7 @@ const OBJECTS = [
       { progress: 0, easing: "smooth", position: [0, -3.75, 0], scale: 1, rotationY: 0 },
       { progress: 0.388, easing: "smooth", position: [0, -3.75, 0], scale: 1, rotationY: 0 },
       { progress: 0.694, easing: "smooth", position: [0, -0.85, 0], scale: 0.23, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, -0.85, 0], scale: 0.23, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [-0.55, -0.53, 3.95], scale: 0.19, rotationY: 0 },
     ],
   },
 ];
@@ -516,10 +516,10 @@ const SCROLL_LENGTH_VH = 490;
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = false;
-const VIGNETTE_DARKNESS = 1;
-const VIGNETTE_OFFSET = 0.3;
+const VIGNETTE_DARKNESS = 0.5;
+const VIGNETTE_OFFSET = 0.15;
 const BLOOM_ENABLED = false;
-const BLOOM_INTENSITY = 0;
+const BLOOM_INTENSITY = 0.5;
 /*@GEN:POSTFX_END*/
 
 function damp(current, target, lambda, dt) {
@@ -533,7 +533,7 @@ function getDeviceProfile() {
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   return {
     isMobile,
-    dpr: isMobile ? [1, 1] : [1, 1.5],
+    dpr: isMobile ? [1, 2] : [1, 1.5],
     enablePostProcessing: !isMobile,
   };
 }
@@ -947,7 +947,7 @@ function SceneObjectImageRaster({ data }) {
   );
 }
 function SceneObjectImageSvg({ data }) {
-  const texture = useHiResSvgTexture(data.url, 2048);
+  const texture = useHiResSvgTexture(data.url, 3072);
   const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
