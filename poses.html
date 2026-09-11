@@ -516,10 +516,10 @@ const SCROLL_LENGTH_VH = 490;
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = false;
-const VIGNETTE_DARKNESS = 0.61;
-const VIGNETTE_OFFSET = 0.6;
+const VIGNETTE_DARKNESS = 1;
+const VIGNETTE_OFFSET = 0.3;
 const BLOOM_ENABLED = false;
-const BLOOM_INTENSITY = 1.04;
+const BLOOM_INTENSITY = 0;
 /*@GEN:POSTFX_END*/
 
 function damp(current, target, lambda, dt) {
@@ -885,6 +885,42 @@ function useObjectTransformRef(keyframes, billboard) {
   return groupRef;
 }
 
+/* Los navegadores rasterizan un SVG a un tamaño chico por defecto
+   (a veces 300x150px) antes de poder usarlo como textura — se ve
+   pixelado al escalarlo grande en pantalla. Esto lo vuelve a dibujar
+   en un canvas de alta resolución antes de crear la textura. Solo
+   aplica a .svg; una imagen .png/.jpg ya es un bitmap y sigue el
+   camino normal (useTexture). */
+function useHiResSvgTexture(url, targetLong) {
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      const w0 = img.naturalWidth || 300;
+      const h0 = img.naturalHeight || 150;
+      const aspect = w0 / h0 || 1;
+      const canvas = document.createElement("canvas");
+      if (aspect >= 1) { canvas.width = targetLong; canvas.height = Math.round(targetLong / aspect); }
+      else { canvas.height = targetLong; canvas.width = Math.round(targetLong * aspect); }
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTexture(tex);
+    };
+    img.onerror = () => { if (!cancelled) setTexture(null); };
+    img.src = url;
+    return () => { cancelled = true; };
+  }, [url, targetLong]);
+  return texture;
+}
+function isSvgUrl(url) {
+  return /\.svg($|\?)/i.test(url || "");
+}
+
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const groupRef = useObjectTransformRef(data.keyframes, false);
@@ -894,7 +930,7 @@ function SceneObjectModel({ data }) {
     </group>
   );
 }
-function SceneObjectImage({ data }) {
+function SceneObjectImageRaster({ data }) {
   const texture = useTexture(data.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
@@ -909,6 +945,26 @@ function SceneObjectImage({ data }) {
       {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
     </group>
   );
+}
+function SceneObjectImageSvg({ data }) {
+  const texture = useHiResSvgTexture(data.url, 2048);
+  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
+  if (!texture) return <group ref={groupRef} />;
+  const aspect = texture.image.width / texture.image.height;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
+function SceneObjectImage({ data }) {
+  return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
 function SceneObject({ data }) {
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
