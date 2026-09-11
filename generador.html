@@ -626,7 +626,7 @@ function getDeviceProfile() {
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   return {
     isMobile,
-    dpr: isMobile ? [1, 1] : [1, 1.5],
+    dpr: isMobile ? [1, 2] : [1, 1.5],
     enablePostProcessing: !isMobile,
   };
 }
@@ -1040,7 +1040,7 @@ function SceneObjectImageRaster({ data }) {
   );
 }
 function SceneObjectImageSvg({ data }) {
-  const texture = useHiResSvgTexture(data.url, 2048);
+  const texture = useHiResSvgTexture(data.url, 3072);
   const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
@@ -1805,7 +1805,7 @@ function ObjectPreviewModel({ obj }) {
    de crear la textura, así se ve nítido. Solo aplica a .svg; una
    imagen .png/.jpg ya es un bitmap y no gana nada con este paso, así
    que sigue el camino normal (useTexture). */
-function useHiResSvgTexture(url, targetLong = 2048) {
+function useHiResSvgTexture(url, targetLong = 3072) {
   const [texture, setTexture] = useState(null);
   useEffect(() => {
     let cancelled = false;
