@@ -54,6 +54,7 @@
 </head>
 <body>
 <div id="root"></div>
+<script id="embedded-project-b64" type="text/plain"></script>
 
 <textarea id="tpl-source" style="display:none">
 <!DOCTYPE html>
@@ -348,15 +349,23 @@ const CHARACTER_MODEL_URL = "./assets/models/weebpatineta.glb";
 /*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
-// personaje. Podés tener uno o varios modelos estáticos (sin huesos ni
-// animación) a la vez. Cada uno con su propio archivo, escala, posición
-// y rotación. Se generan desde la pestaña "Objetos" de la herramienta —
-// si algo queda muy grande/chico o mal ubicado, es más fácil ajustarlo
-// ahí (con preview en vivo) que a mano. Colocá cada archivo .glb en
-// assets/models/ junto al del personaje.
+// personaje. Podés tener uno o varios, cada uno con su propio archivo
+// (modelo .glb o imagen/SVG) y su propia animación de posición/escala/
+// rotación por etapa (igual que el personaje) — así también se pueden
+// mover durante el scroll y no quedan estáticos. Se generan desde la
+// pestaña "Objetos" de la herramienta — si algo queda muy grande/chico
+// o mal ubicado, es más fácil ajustarlo ahí (con preview en vivo) que
+// a mano. Colocá cada archivo en assets/models/ junto al del personaje.
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
-  { url: "./assets/models/aguavet.glb", scale: 5, position: [0, -0.2, 2.2], rotationY: 0 },
+  {
+    type: "model",
+    url: "./assets/models/universo.glb",
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, -0.2, 2.2], scale: 5, rotationY: 0 },
+    ],
+  },
 ];
 /*@GEN:OBJECTS_END*/
 
@@ -597,6 +606,14 @@ function sampleBonePose(progress) {
 /*@GEN:SCROLL_LENGTH_START*/
 const SCROLL_LENGTH_VH = 950;
 /*@GEN:SCROLL_LENGTH_END*/
+
+/*@GEN:POSTFX_START*/
+const VIGNETTE_ENABLED = false;
+const VIGNETTE_DARKNESS = 0.5;
+const VIGNETTE_OFFSET = 0.15;
+const BLOOM_ENABLED = true;
+const BLOOM_INTENSITY = 0.5;
+/*@GEN:POSTFX_END*/
 
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
@@ -916,45 +933,103 @@ useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
    Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
-   sin huesos ni animación) o una imagen plana (.png/.jpg, tipo cartel
-   o sprite, con opción de "billboard" para que siempre mire a
-   cámara). Se puede tener cualquier cantidad — se generan desde la
-   pestaña "Objetos" de la herramienta.
+   sin huesos ni animación propia) o una imagen/SVG plana (con opción
+   de "billboard" para que siempre mire a cámara). Cada objeto anima
+   su propia posición/escala/rotación por etapa (keyframes), leídas
+   del mismo "progress" de scroll que usa el personaje — por eso el
+   transform se aplica de forma imperativa (ref + useFrame) en vez de
+   como props de React, igual que AnimatedCharacter, para no forzar un
+   re-render en cada frame de scroll.
    ============================================================ */
+function sampleObjectKeyframes(keyframes, progress) {
+  const list = keyframes;
+  const p = clamp(progress, 0, 1);
+  if (p <= list[0].progress) return list[0];
+  const last = list[list.length - 1];
+  if (p >= last.progress) return last;
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
+  return {
+    position: lerpVec3(a.position, b.position, t),
+    scale: lerp(a.scale, b.scale, t),
+    rotationY: lerpAngle(a.rotationY, b.rotationY, t),
+  };
+}
+
+function useObjectTransformRef(keyframes, billboard) {
+  const groupRef = useRef(null);
+  useFrame((_, delta) => {
+    const g = groupRef.current;
+    if (!g) return;
+    const progress = useScrollStore.getState().smoothProgress;
+    const kf = sampleObjectKeyframes(keyframes, progress);
+    g.position.x = damp(g.position.x, kf.position[0], 4, delta);
+    g.position.y = damp(g.position.y, kf.position[1], 4, delta);
+    g.position.z = damp(g.position.z, kf.position[2], 2.2, delta);
+    const s = damp(g.scale.x, kf.scale, 4, delta);
+    g.scale.set(s, s, s);
+    if (!billboard) {
+      g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
+    }
+  });
+  return groupRef;
+}
+
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
+  const groupRef = useObjectTransformRef(data.keyframes, false);
   return (
-    <primitive
-      object={scene}
-      scale={data.scale}
-      position={data.position}
-      rotation={[0, (data.rotationY * Math.PI) / 180, 0]}
-    />
+    <group ref={groupRef}>
+      <primitive object={scene} />
+    </group>
   );
 }
 function SceneObjectImage({ data }) {
   const texture = useTexture(data.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
+  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
   const mesh = (
-    <mesh
-      scale={[data.scale * aspect, data.scale, 1]}
-      position={data.billboard ? [0, 0, 0] : data.position}
-      rotation={data.billboard ? [0, 0, 0] : [0, (data.rotationY * Math.PI) / 180, 0]}
-    >
+    <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} />
     </mesh>
   );
-  return data.billboard ? <Billboard position={data.position}>{mesh}</Billboard> : mesh;
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
 }
 function SceneObject({ data }) {
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
+}
+/* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
+   servidor (404) o falla al leerse, esto evita que tumbe TODA la
+   experiencia — sin esto, un solo archivo faltante rompe el canvas
+   entero (WebGL "Context Lost") y la página queda negra. Cada objeto
+   tiene su propio boundary, así uno roto no afecta a los demás ni al
+   personaje. */
+class ObjectBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error) { console.warn("No se pudo cargar un objeto de la escena:", error && error.message); }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
 }
 function SceneObjects() {
   return (
     <>
       {OBJECTS.map((obj, i) => (
-        <SceneObject key={i} data={obj} />
+        <ObjectBoundary key={i}>
+          <Suspense fallback={null}>
+            <SceneObject data={obj} />
+          </Suspense>
+        </ObjectBoundary>
       ))}
     </>
   );
@@ -1032,12 +1107,16 @@ function Experience({ device }) {
       <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
       <Suspense fallback={null}>
         <SceneObjects />
-        <AnimatedCharacter mouse={mouse} />
+        <ObjectBoundary>
+          <Suspense fallback={null}>
+            <AnimatedCharacter mouse={mouse} />
+          </Suspense>
+        </ObjectBoundary>
       </Suspense>
-      {device.enablePostProcessing && (
+      {device.enablePostProcessing && (BLOOM_ENABLED || VIGNETTE_ENABLED) && (
         <EffectComposer multisampling={0}>
-          <Bloom intensity={0.5} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
-          <Vignette eskil={false} offset={0.15} darkness={0.7} />
+          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+          {VIGNETTE_ENABLED && <Vignette eskil={false} offset={VIGNETTE_OFFSET} darkness={VIGNETTE_DARKNESS} />}
         </EffectComposer>
       )}
     </>
@@ -1411,7 +1490,7 @@ const defaultMovement = () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0 });
 const defaultFx = () => ({
   light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
   fog: { enabled: true, color: "#05070a", far: 20 },
-  background: { from: "#05070a", to: "#05070a", angle: 180 },
+  background: { mode: "solid", from: "#05070a", to: "#05070a", angle: 180 },
 });
 
 /* Todo arranca en cero / neutro: ninguna etapa tiene pose, cámara,
@@ -1474,6 +1553,27 @@ function sampleMovement(movesByKf, progress, stages, easings) {
   const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
   const ma = movesByKf[a.id], mb = movesByKf[b.id];
   return { pos: lerpVec3(ma.pos, mb.pos, t), yaw: lerp(ma.yaw, mb.yaw, t), pitch: lerp(ma.pitch, mb.pitch, t) };
+}
+
+/* Igual patrón que sampleMovement, pero por objeto: interpola
+   posición/escala/rotación de un objeto de entorno entre las dos
+   etapas que rodean el progreso actual. */
+function sampleObjectTransform(transformsByStage, progress, stages, easings) {
+  const p = clamp(progress, 0, 1);
+  if (p <= stages[0].progress) return transformsByStage[stages[0].id];
+  const last = stages[stages.length - 1];
+  if (p >= last.progress) return transformsByStage[last.id];
+  let i = 0;
+  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
+  const a = stages[i], b = stages[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
+  const ta = transformsByStage[a.id], tb = transformsByStage[b.id];
+  return {
+    position: lerpVec3(ta.position, tb.position, t),
+    scale: lerp(ta.scale, tb.scale, t),
+    rotationY: lerp(ta.rotationY, tb.rotationY, t),
+  };
 }
 
 function lerpColorHex(a, b, t) {
@@ -1836,14 +1936,37 @@ function generateModelUrlCode(url) {
   return `const CHARACTER_MODEL_URL = "${url}";`;
 }
 
-function generateObjectsCode(objects) {
-  const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
-  const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
-  const lines = objects.map((o) => `  { type: "${o.type === "image" ? "image" : "model"}", url: "${o.url}", scale: ${fmtNum(o.scale)}, position: ${fmtVec(o.position)}, rotationY: ${fmtNum(o.rotationY)}, billboard: ${o.billboard ? "true" : "false"} },`).join("\n");
-  return `const OBJECTS = [\n${lines || "  // (sin objetos)"}\n];`;
+function generatePostFxCode(postFx) {
+  return `const VIGNETTE_ENABLED = ${postFx.vignetteEnabled ? "true" : "false"};
+const VIGNETTE_DARKNESS = ${postFx.vignetteDarkness};
+const VIGNETTE_OFFSET = ${postFx.vignetteOffset};
+const BLOOM_ENABLED = ${postFx.bloomEnabled ? "true" : "false"};
+const BLOOM_INTENSITY = ${postFx.bloomIntensity};`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode) {
+function generateObjectsCode(objects, transformsByKf, stages, easings) {
+  const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
+  const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
+  const objLines = objects.map((o) => {
+    const transforms = transformsByKf[o.id] || {};
+    const kfLines = stages.map((kf, idx) => {
+      const t = transforms[kf.id] || { position: [0, 0, 0], scale: 1, rotationY: 0 };
+      const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
+      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)} },`;
+    }).join("\n");
+    return `  {
+    type: "${o.type === "image" ? "image" : "model"}",
+    url: "${o.url}",
+    billboard: ${o.billboard ? "true" : "false"},
+    keyframes: [
+${kfLines}
+    ],
+  },`;
+  }).join("\n");
+  return `const OBJECTS = [\n${objLines || "  // (sin objetos)"}\n];`;
+}
+
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -1859,6 +1982,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
   tpl = swap(tpl, "/*@GEN:MOVEMENT_DEFS_START*/", "/*@GEN:MOVEMENT_DEFS_END*/", movementCode);
   tpl = swap(tpl, "/*@GEN:BONES_START*/", "/*@GEN:BONES_END*/", boneCode);
   tpl = swap(tpl, "/*@GEN:SCROLL_LENGTH_START*/", "/*@GEN:SCROLL_LENGTH_END*/", scrollLengthCode);
+  tpl = swap(tpl, "/*@GEN:POSTFX_START*/", "/*@GEN:POSTFX_END*/", postFxCode);
   tpl = swap(tpl, "/*@GEN:OBJECTS_START*/", "/*@GEN:OBJECTS_END*/", objectsCode);
   return tpl;
 }
@@ -1868,6 +1992,20 @@ function App() {
   const [section, setSection] = useState("pose"); // pose | camera | movement | timing | objects | preview
 
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL_URL);
+  /* Efectos de post-proceso del sitio exportado (viñeta/brillo). Son
+     globales, no por etapa — y el visor de este editor NO los aplica
+     (no tiene ese pipeline montado), así que lo que ves acá es sin
+     viñeta/brillo siempre; el resultado final los aplica si los
+     activás. La viñeta viene apagada por defecto porque puede tapar
+     bordes de composiciones que dependen de fundirse con el fondo. */
+  const [postFx, setPostFx] = useState({
+    vignetteEnabled: false,
+    vignetteDarkness: 0.5,
+    vignetteOffset: 0.15,
+    bloomEnabled: true,
+    bloomIntensity: 0.5,
+  });
+  const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
   const [stages, setStages] = useState(makeDefaultStages);
   const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
   const [easings, setEasings] = useState(() => DEFAULT_DURATIONS_VH.map(() => "smooth"));
@@ -1899,6 +2037,13 @@ function App() {
     setCamsByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultCamera())) }));
     setMovesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultMovement())) }));
     setFxByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultFx())) }));
+    setObjectTransformsByKf((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((objId) => {
+        next[objId] = { ...next[objId], [newId]: JSON.parse(JSON.stringify(next[objId][lastId] || { position: [0, 0, 0], scale: 1, rotationY: 0 })) };
+      });
+      return next;
+    });
     setActiveStage(newId);
   };
 
@@ -1913,6 +2058,15 @@ function App() {
     setCamsByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setMovesByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setFxByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setObjectTransformsByKf((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((objId) => {
+        const forObj = { ...next[objId] };
+        delete forObj[id];
+        next[objId] = forObj;
+      });
+      return next;
+    });
     if (activeStage === id) {
       const remaining = stages.filter((s) => s.id !== id);
       setActiveStage(remaining[Math.max(0, idx - 1)]?.id || remaining[0]?.id);
@@ -1955,12 +2109,22 @@ function App() {
   const [copiedWhich, setCopiedWhich] = useState(null);
   const [downloaded, setDownloaded] = useState(false);
 
-  // Objetos de entorno (antes "Entorno" / un solo aguavet.glb). Ahora
+  // Objetos de entorno (antes "Entorno" / un solo universo.glb). Ahora
   // se pueden agregar tantos como haga falta, cada uno con su propio
-  // archivo (modelo .glb o imagen .png/.jpg), escala, posición y rotación.
+  // archivo (modelo .glb o imagen .png/.jpg). La posición/escala/giro
+  // de cada uno vive POR ETAPA (objectTransformsByKf) — igual que la
+  // Cámara o el Movimiento del personaje — así también pueden moverse
+  // a lo largo del scroll y no quedan estáticos.
   const [objects, setObjects] = useState(() => [
-    { id: "obj-aguavet", label: "aguavet (rampa)", type: "model", url: "./assets/models/aguavet.glb", previewUrl: null, scale: 5, position: [0, -0.2, 2.2], rotationY: 0, billboard: false, visible: true },
+    { id: "obj-universo", label: "Universo (rampa)", type: "model", url: "./assets/models/universo.glb", previewUrl: null, billboard: false, visible: true },
   ]);
+  const defaultObjectTransform = () => ({ position: [0, 0, 0], scale: 1, rotationY: 0 });
+  const [objectTransformsByKf, setObjectTransformsByKf] = useState(() => {
+    const stageList = makeDefaultStages();
+    return {
+      "obj-universo": Object.fromEntries(stageList.map((s) => [s.id, { position: [0, -0.2, 2.2], scale: 5, rotationY: 0 }])),
+    };
+  });
   const [showObjects, setShowObjects] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [showFx, setShowFx] = useState(true);
@@ -1969,21 +2133,60 @@ function App() {
 
   const addObject = () => {
     const n = objects.length + 1;
+    const newId = `obj-${Date.now()}`;
     setObjects((prev) => [...prev, {
-      id: `obj-${Date.now()}`,
+      id: newId,
       label: `Objeto ${n}`,
       type: "model",
       url: `./assets/models/objeto${n}.glb`,
       previewUrl: null,
-      scale: 1,
-      position: [0, 0, 0],
-      rotationY: 0,
       billboard: false,
       visible: true,
     }]);
+    setObjectTransformsByKf((prev) => ({
+      ...prev,
+      [newId]: Object.fromEntries(stagesComputed.map((s) => [s.id, defaultObjectTransform()])),
+    }));
   };
-  const removeObject = (id) => setObjects((prev) => prev.filter((o) => o.id !== id));
+  const removeObject = (id) => {
+    setObjects((prev) => prev.filter((o) => o.id !== id));
+    setObjectTransformsByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
+  };
   const updateObject = (id, patch) => setObjects((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+  const setObjectTransform = (id, field, axis, value) => {
+    setObjectTransformsByKf((prev) => {
+      const forObj = { ...prev[id] };
+      const cur = { ...forObj[activeStage] };
+      if (field === "position") {
+        const pos = [...cur.position];
+        pos["xyz".indexOf(axis)] = value;
+        cur.position = pos;
+      } else {
+        cur[field] = value;
+      }
+      forObj[activeStage] = cur;
+      return { ...prev, [id]: forObj };
+    });
+  };
+  const copyObjectTransformFromPrev = (id) => {
+    if (stageIndex <= 0) return;
+    const prevId = stagesComputed[stageIndex - 1].id;
+    setObjectTransformsByKf((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [activeStage]: JSON.parse(JSON.stringify(prev[id][prevId])) },
+    }));
+  };
+  const copyAllObjectTransformsFromPrev = () => {
+    if (stageIndex <= 0) return;
+    const prevId = stagesComputed[stageIndex - 1].id;
+    setObjectTransformsByKf((prev) => {
+      const next = { ...prev };
+      objects.forEach((o) => {
+        next[o.id] = { ...next[o.id], [activeStage]: JSON.parse(JSON.stringify(prev[o.id][prevId])) };
+      });
+      return next;
+    });
+  };
   const setObjectType = (id, type) => {
     setObjects((prev) => prev.map((o) => {
       if (o.id !== id) return o;
@@ -2065,14 +2268,26 @@ function App() {
       return { ...prev, [activeStage]: fx };
     });
   };
-  /* Atajo: cuando el fondo está en modo "Sólido", mantiene "to" pegado
-     a "from" para que sea un degradado colapsado a un solo color; en
-     "Degradado" los desacopla. */
+  /* Genera un segundo color con contraste real (más oscuro/claro que
+     el primero) para que, al pasar a "Degradado", el cambio se note
+     de una — antes copiaba el mismo color en los dos extremos y por
+     eso el botón parecía no hacer nada. */
+  const nudgeColor = (hex) => {
+    const c = new THREE.Color(hex);
+    const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    const target = new THREE.Color(lum > 0.5 ? "#000000" : "#ffffff");
+    c.lerp(target, 0.55);
+    return "#" + c.getHexString();
+  };
   const setBackgroundMode = (mode) => {
     setFxByKf((prev) => {
       const fx = { ...prev[activeStage] };
       const bg = fx.background;
-      fx.background = mode === "solid" ? { ...bg, to: bg.from } : { ...bg };
+      if (mode === "solid") {
+        fx.background = { ...bg, mode: "solid", to: bg.from };
+      } else {
+        fx.background = { ...bg, mode: "gradient", to: bg.to !== bg.from ? bg.to : nudgeColor(bg.from) };
+      }
       return { ...prev, [activeStage]: fx };
     });
   };
@@ -2080,8 +2295,7 @@ function App() {
     setFxByKf((prev) => {
       const fx = { ...prev[activeStage] };
       const bg = { ...fx.background, [field]: value };
-      const isSolid = fx.background.from === fx.background.to;
-      if (isSolid && field === "from") bg.to = value;
+      if (fx.background.mode !== "gradient" && field === "from") bg.to = value;
       fx.background = bg;
       return { ...prev, [activeStage]: fx };
     });
@@ -2114,22 +2328,148 @@ function App() {
   const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stagesComputed, easings) : camsByKf[activeStage];
   const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stagesComputed, easings) : movesByKf[activeStage];
   const renderFx = isPreview ? sampleFx(fxByKf, scrub, stagesComputed, easings) : fxByKf[activeStage];
+  const renderObjects = useMemo(() => objects.map((o) => {
+    const transforms = objectTransformsByKf[o.id];
+    if (!transforms) return { ...o, ...defaultObjectTransform() };
+    const t = isPreview ? sampleObjectTransform(transforms, scrub, stagesComputed, easings) : (transforms[activeStage] || defaultObjectTransform());
+    return { ...o, ...t };
+  }), [objects, objectTransformsByKf, isPreview, scrub, stagesComputed, easings, activeStage]);
   const sceneCameraActive = !freeOrbit;
 
   const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed, easings), [posesByKf, stagesComputed, easings]);
   const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf, fxByKf, stagesComputed, easings), [camsByKf, fxByKf, stagesComputed, easings]);
   const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stagesComputed, easings), [movesByKf, stagesComputed, easings]);
   const scrollLengthCode = useMemo(() => generateScrollLengthCode(totalVh), [totalVh]);
-  const objectsCode = useMemo(() => generateObjectsCode(objects), [objects]);
+  const objectsCode = useMemo(() => generateObjectsCode(objects, objectTransformsByKf, stagesComputed, easings), [objects, objectTransformsByKf, stagesComputed, easings]);
   const modelUrlCode = useMemo(() => generateModelUrlCode(modelUrl), [modelUrl]);
+  const postFxCode = useMemo(() => generatePostFxCode(postFx), [postFx]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
     catch (e) { /* fallback: seleccionar manualmente */ }
   };
 
+  /* Guarda/carga el ESTADO DE EDICIÓN completo (etapas, poses, cámara,
+     movimiento, ambiente, objetos y sus animaciones) como un .json
+     aparte — distinto del index.html final. Esto es lo que hay que
+     usar para "seguir mañana donde quedaste". Los blobs de vista
+     previa (SVG/imagen subida) no se guardan porque no sobreviven
+     entre sesiones — al recargar el proyecto, la ruta del archivo
+     queda intacta pero hay que volver a "Subir archivo" si querés
+     verla de nuevo en el visor. */
+  const [projectLoadError, setProjectLoadError] = useState(null);
+  const [projectLoaded, setProjectLoaded] = useState(false);
+
+  const buildProjectSnapshot = () => ({
+    kind: "weeb-scroll-project",
+    version: 1,
+    savedAt: new Date().toISOString(),
+    modelUrl,
+    postFx,
+    stages,
+    durationsVh,
+    easings,
+    posesByKf,
+    camsByKf,
+    movesByKf,
+    fxByKf,
+    objects: objects.map((o) => ({ ...o, previewUrl: null })),
+    objectTransformsByKf,
+  });
+
+  const restoreProjectState = (p) => {
+    if (!p || p.kind !== "weeb-scroll-project") throw new Error("no es un archivo de proyecto de esta herramienta");
+    setModelUrl(p.modelUrl || DEFAULT_MODEL_URL);
+    if (p.postFx) setPostFx((prev) => ({ ...prev, ...p.postFx }));
+    const loadedStages = p.stages && p.stages.length ? p.stages : makeDefaultStages();
+    setStages(loadedStages);
+    setDurationsVh(p.durationsVh || DEFAULT_DURATIONS_VH);
+    setEasings(p.easings || loadedStages.slice(1).map(() => "smooth"));
+    setPosesByKf(p.posesByKf || {});
+    setCamsByKf(p.camsByKf || {});
+    setMovesByKf(p.movesByKf || {});
+    setFxByKf(p.fxByKf || {});
+    setObjects(p.objects || []);
+    setObjectTransformsByKf(p.objectTransformsByKf || {});
+    setActiveStage(loadedStages[0].id);
+  };
+
+  /* Al abrir un archivo que "Guardar como editor" generó, este mismo
+     componente ya viene con el progreso embebido (base64, en un tag
+     invisible fuera de #root). Se detecta y se carga solo, una vez,
+     al montar. */
+  useEffect(() => {
+    const el = document.getElementById("embedded-project-b64");
+    const b64 = el && el.textContent.trim();
+    if (!b64) return;
+    try {
+      const json = decodeURIComponent(escape(atob(b64)));
+      restoreProjectState(JSON.parse(json));
+      setProjectLoaded(true);
+      setTimeout(() => setProjectLoaded(false), 2500);
+    } catch (e) {
+      console.warn("No se pudo restaurar el progreso embebido:", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveProject = () => {
+    const project = buildProjectSnapshot();
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "proyecto.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const loadProject = (file) => {
+    if (!file) return;
+    setProjectLoadError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        restoreProjectState(JSON.parse(reader.result));
+        setProjectLoaded(true);
+        setTimeout(() => setProjectLoaded(false), 2500);
+      } catch (e) {
+        setProjectLoadError("No se pudo leer ese archivo como proyecto (¿es el .json que bajaste con \"Guardar proyecto\" de esta misma herramienta?).");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  /* Genera una COPIA COMPLETA de esta misma herramienta (HTML + los
+     dos scripts, tal cual están corriendo ahora mismo — React nunca
+     toca el texto de un <script>, así que sigue siendo el código
+     original) con tu progreso actual metido adentro en base64. Al
+     abrir ese archivo de nuevo — doble clic, o subido a GitHub Pages
+     con el nombre que quieras — arranca ya con todo cargado. */
+  const [projectName, setProjectName] = useState("proyecto");
+  const saveProjectAsEditor = () => {
+    const project = buildProjectSnapshot();
+    const json = JSON.stringify(project);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    html = html.replace(
+      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/,
+      `<script id="embedded-project-b64" type="text/plain">${b64}</scri` + `pt>`
+    );
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeName = (projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto";
+    a.href = url; a.download = `editor_${safeName}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const downloadFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2143,11 +2483,11 @@ function App() {
   };
 
   const copyFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode);
     copy(html, "full");
   };
 
-  const showStageTabs = section === "pose" || section === "camera" || section === "movement";
+  const showStageTabs = section === "pose" || section === "camera" || section === "movement" || section === "objects";
   const currentStageLabel = stages.find((s) => s.id === activeStage)?.label || "";
   const bonesChecked = Object.keys(foundMap).length > 0;
   const noBonesFound = bonesChecked && !Object.values(foundMap).some(Boolean);
@@ -2172,7 +2512,7 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
         </div>
         <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={objects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} />
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} />
         </Canvas>
         {showMobileFrame && <MobileFrameOverlay containerRef={viewportRef} />}
       </div>
@@ -2190,6 +2530,40 @@ function App() {
             <input type="text" value={modelUrl} onChange={(e) => setModelUrl(e.target.value)} />
           </div>
           <p className="hint">El objeto que animás con Pose/Cámara/Movimiento. Puede ser un personaje con esqueleto (huesos) o un objeto rígido sin huesos — un perfume, un producto, un logo 3D. Si no tiene huesos, la pestaña Pose no hace nada: usá solo Movimiento para hacerlo flotar/girar por etapa.</p>
+        </div>
+
+        <div className="cam-group">
+          <div className="cam-group-title">Efectos (solo en el sitio exportado)</div>
+          <p className="hint">Este visor no los aplica — son del sitio final únicamente. La viñeta oscurece los bordes de la pantalla en forma ovalada/circular; si tu fondo tiene que fundirse limpio con la página, dejala apagada (viene así por defecto).</p>
+          <label className="toggle-row" style={{ marginBottom: 6 }}>
+            <input type="checkbox" checked={postFx.vignetteEnabled} onChange={(e) => setPostFxField("vignetteEnabled", e.target.checked)} />
+            Viñeta (oscurece bordes)
+          </label>
+          {postFx.vignetteEnabled && (
+            <>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Oscuridad</label>
+                <input type="range" min={0} max={1} step={0.01} value={postFx.vignetteDarkness} onChange={(e) => setPostFxField("vignetteDarkness", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.01} value={postFx.vignetteDarkness} onChange={(e) => setPostFxField("vignetteDarkness", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Alcance</label>
+                <input type="range" min={0} max={1} step={0.01} value={postFx.vignetteOffset} onChange={(e) => setPostFxField("vignetteOffset", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.01} value={postFx.vignetteOffset} onChange={(e) => setPostFxField("vignetteOffset", Number(e.target.value))} />
+              </div>
+            </>
+          )}
+          <label className="toggle-row" style={{ marginBottom: 6 }}>
+            <input type="checkbox" checked={postFx.bloomEnabled} onChange={(e) => setPostFxField("bloomEnabled", e.target.checked)} />
+            Brillo (bloom, resalta las luces)
+          </label>
+          {postFx.bloomEnabled && (
+            <div className="axis-row">
+              <label style={{ width: 70, fontSize: 10.5 }}>Intensidad</label>
+              <input type="range" min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(e) => setPostFxField("bloomIntensity", Number(e.target.value))} />
+              <input type="number" className="axis-num" step={0.01} value={postFx.bloomIntensity} onChange={(e) => setPostFxField("bloomIntensity", Number(e.target.value))} />
+            </div>
+          )}
         </div>
 
         <div className="section-tabs">
@@ -2373,10 +2747,10 @@ function App() {
             <div className="cam-group">
               <div className="cam-group-title">Fondo</div>
               <div className="btn-row" style={{ marginBottom: 6 }}>
-                <button className={`btn ${currentFx.background.from === currentFx.background.to ? "primary" : ""}`} onClick={() => setBackgroundMode("solid")}>Sólido</button>
-                <button className={`btn ${currentFx.background.from !== currentFx.background.to ? "primary" : ""}`} onClick={() => setBackgroundMode("gradient")}>Degradado</button>
+                <button className={`btn ${currentFx.background.mode !== "gradient" ? "primary" : ""}`} onClick={() => setBackgroundMode("solid")}>Sólido</button>
+                <button className={`btn ${currentFx.background.mode === "gradient" ? "primary" : ""}`} onClick={() => setBackgroundMode("gradient")}>Degradado</button>
               </div>
-              {currentFx.background.from === currentFx.background.to ? (
+              {currentFx.background.mode !== "gradient" ? (
                 <div className="axis-row">
                   <label style={{ width: 60 }}>Color</label>
                   <input type="color" value={currentFx.background.from} onChange={(e) => setBackgroundColor("from", e.target.value)} />
@@ -2483,8 +2857,11 @@ function App() {
         {section === "objects" && (
           <>
             <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas) o imágenes planas (.svg/.png/.jpg, tipo cartel, logo o sprite). Para imágenes/SVG podés subir el archivo directo (el de Corel Draw funciona tal cual) y lo ves de una en el visor. El navegador no puede copiarlo solo a la carpeta del proyecto — para eso usá el botón "Descargar" y guardalo con ese mismo nombre en <code>assets/models/</code> junto al resto de los archivos.</p>
+            <p className="hint">La escala/posición/rotación de cada objeto ahora es <strong>por etapa</strong> (la misma "Etapa" de arriba) — así podés hacer que floten, se acerquen o giren durante el scroll, igual que el personaje. Si no tocás nada en una etapa nueva, el objeto queda quieto donde estaba.</p>
+            <div className="btn-row"><button className="btn" onClick={copyAllObjectTransformsFromPrev}>Copiar posiciones de TODOS desde la etapa anterior</button></div>
             {objects.map((obj, idx) => {
               const isImage = obj.type === "image";
+              const t = (objectTransformsByKf[obj.id] && objectTransformsByKf[obj.id][activeStage]) || defaultObjectTransform();
               return (
                 <div className="obj-block" key={obj.id}>
                   <div className="obj-block-header">
@@ -2533,27 +2910,26 @@ function App() {
                       Billboard (siempre mira a cámara)
                     </label>
                   )}
+                  <div className="btn-row" style={{ marginBottom: 6 }}>
+                    <button className="btn" onClick={() => copyObjectTransformFromPrev(obj.id)}>Copiar este objeto desde la etapa anterior</button>
+                  </div>
                   <div className="axis-row">
                     <label>×</label>
-                    <input type="range" min={0.05} max={20} step={0.01} value={obj.scale} onChange={(e) => updateObject(obj.id, { scale: Number(e.target.value) })} />
-                    <input type="number" className="axis-num" step={0.01} value={obj.scale} onChange={(e) => updateObject(obj.id, { scale: Number(e.target.value) })} />
+                    <input type="range" min={0.05} max={20} step={0.01} value={t.scale} onChange={(e) => setObjectTransform(obj.id, "scale", null, Number(e.target.value))} />
+                    <input type="number" className="axis-num" step={0.01} value={t.scale} onChange={(e) => setObjectTransform(obj.id, "scale", null, Number(e.target.value))} />
                   </div>
                   {["x", "y", "z"].map((axis, i) => (
                     <div className="axis-row" key={axis}>
                       <label>{axis.toUpperCase()}</label>
-                      <input type="range" min={-30} max={30} step={0.05} value={obj.position[i]} onChange={(e) => {
-                        const pos = [...obj.position]; pos[i] = Number(e.target.value); updateObject(obj.id, { position: pos });
-                      }} />
-                      <input type="number" className="axis-num" step={0.05} value={obj.position[i]} onChange={(e) => {
-                        const pos = [...obj.position]; pos[i] = Number(e.target.value); updateObject(obj.id, { position: pos });
-                      }} />
+                      <input type="range" min={-30} max={30} step={0.05} value={t.position[i]} onChange={(e) => setObjectTransform(obj.id, "position", axis, Number(e.target.value))} />
+                      <input type="number" className="axis-num" step={0.05} value={t.position[i]} onChange={(e) => setObjectTransform(obj.id, "position", axis, Number(e.target.value))} />
                     </div>
                   ))}
                   {!(isImage && obj.billboard) && (
                     <div className="axis-row">
                       <label>°</label>
-                      <input type="range" min={-180} max={180} step={0.1} value={obj.rotationY} onChange={(e) => updateObject(obj.id, { rotationY: Number(e.target.value) })} />
-                      <input type="number" className="axis-num" step={0.1} value={obj.rotationY} onChange={(e) => updateObject(obj.id, { rotationY: Number(e.target.value) })} />
+                      <input type="range" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(e) => setObjectTransform(obj.id, "rotationY", null, Number(e.target.value))} />
+                      <input type="number" className="axis-num" step={0.1} value={t.rotationY} onChange={(e) => setObjectTransform(obj.id, "rotationY", null, Number(e.target.value))} />
                     </div>
                   )}
                   {isImage && obj.billboard && <p className="hint">Con billboard activado, la rotación no aplica — la imagen siempre gira para mirar a cámara.</p>}
@@ -2565,6 +2941,34 @@ function App() {
             </div>
           </>
         )}
+
+        <div className="section-title">Proyecto (para seguir editando después)</div>
+        <p className="hint">Esto NO es el sitio final — es para vos, mientras trabajás. "Guardar como editor" te baja una copia de ESTA MISMA herramienta con tu progreso ya adentro: la nombrás como quieras, la subís a GitHub o la guardás donde sea, y el día que la abras arranca justo donde la dejaste. No hace falta cargar nada aparte.</p>
+        <div className="axis-row">
+          <label style={{ width: 90, fontSize: 10.5 }}>Nombre</label>
+          <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="veterinaria" />
+        </div>
+        <div className="btn-row">
+          <button className="btn primary" onClick={saveProjectAsEditor}>💾 Guardar como editor (editor_{(projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto"}.html)</button>
+          {projectLoaded && <span className="copied">¡Proyecto cargado!</span>}
+        </div>
+        <details style={{ marginTop: 4 }}>
+          <summary style={{ cursor: "pointer", fontSize: 11.5, color: "rgba(245,246,242,0.7)" }}>Opción liviana: guardar solo los datos (.json)</summary>
+          <p className="hint" style={{ marginTop: 6 }}>Un archivo bien chico con solo tu progreso (sin el código de la herramienta). Sirve si preferís mandarlo por chat o guardarlo aparte — para seguir editando, abrís esta herramienta de nuevo y lo cargás con el botón de abajo.</p>
+          <div className="btn-row">
+            <button className="btn" onClick={saveProject}>💾 Guardar datos (.json)</button>
+            <label className="btn" style={{ cursor: "pointer" }}>
+              📂 Cargar datos (.json)
+              <input
+                type="file"
+                accept=".json,application/json"
+                style={{ display: "none" }}
+                onChange={(e) => { loadProject(e.target.files[0]); e.target.value = ""; }}
+              />
+            </label>
+          </div>
+        </details>
+        {projectLoadError && <p className="hint" style={{ color: "#ff9a9a" }}>{projectLoadError}</p>}
 
         <div className="section-title">Descarga</div>
         <p className="hint">Genera tu index.html completo con todo lo ajustado en Pose, Cámara, Movimiento, Duración y Objetos — listo para subir a GitHub Pages, o copialo directo sin descargar.</p>
