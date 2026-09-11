@@ -304,8 +304,8 @@ const OBJECTS = [
     url: "./assets/models/bruzera.png",
     billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 2.75, -10], scale: 9.52, rotationY: 0 },
-      { progress: 0.559, easing: "smooth", position: [0, 1.8, -10], scale: 9.52, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0.15, 2.75, -10], scale: 9.45, rotationY: 0 },
+      { progress: 0.559, easing: "smooth", position: [0.25, 1.8, -10], scale: 9.52, rotationY: 0 },
       { progress: 1, easing: "smooth", position: [0, 1.8, -10], scale: 9.52, rotationY: 0 },
     ],
   },
@@ -325,7 +325,7 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0.04, 8.6], scale: 1.93, rotationY: 0 },
-      { progress: 0.559, easing: "smooth", position: [0.3, 2.09, -2.15], scale: 1.87, rotationY: 0 },
+      { progress: 0.559, easing: "smooth", position: [1.45, 2.09, -2.15], scale: 1.87, rotationY: 0 },
       { progress: 1, easing: "smooth", position: [0.3, 1.44, -2.15], scale: 1.99, rotationY: 0 },
     ],
   },
@@ -1021,7 +1021,7 @@ function HeroText() {
 
   return (
     <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-      Scroll Experience
+      
     </div>
   );
 }
