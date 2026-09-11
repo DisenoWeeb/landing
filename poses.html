@@ -514,6 +514,14 @@ function sampleBonePose(progress) {
 const SCROLL_LENGTH_VH = 490;
 /*@GEN:SCROLL_LENGTH_END*/
 
+/*@GEN:POSTFX_START*/
+const VIGNETTE_ENABLED = false;
+const VIGNETTE_DARKNESS = 0.61;
+const VIGNETTE_OFFSET = 0.6;
+const BLOOM_ENABLED = false;
+const BLOOM_INTENSITY = 1.04;
+/*@GEN:POSTFX_END*/
+
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
 }
@@ -1012,10 +1020,10 @@ function Experience({ device }) {
           </Suspense>
         </ObjectBoundary>
       </Suspense>
-      {device.enablePostProcessing && (
+      {device.enablePostProcessing && (BLOOM_ENABLED || VIGNETTE_ENABLED) && (
         <EffectComposer multisampling={0}>
-          <Bloom intensity={0.5} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
-          <Vignette eskil={false} offset={0.15} darkness={0.7} />
+          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+          {VIGNETTE_ENABLED && <Vignette eskil={false} offset={VIGNETTE_OFFSET} darkness={VIGNETTE_DARKNESS} />}
         </EffectComposer>
       )}
     </>
