@@ -388,7 +388,7 @@ const scenes = [
     camera: { position: [0, -0.378, 4.761], lookAt: [0, 0.62, 0], fov: 30, roll: 0 },
     light: { color: "#dfeeff", intensity: 2.15, azimuth: 193, elevation: -4, rimColor: "#49d3ff", rimIntensity: 0 },
     fog: { enabled: false, color: "#ffffff", far: 300 },
-    background: { from: "#ffffff", to: "#ffffff", angle: 180 },
+    background: { from: "#ffedbd", to: "#ffedbd", angle: 180 },
   },
   {
     id: "pose-2",
@@ -405,8 +405,8 @@ const scenes = [
     easing: "smooth",
     camera: { position: [0, -10, 4.761], lookAt: [0, -10, 0], fov: 30.5, roll: 0 },
     light: { color: "#dfeeff", intensity: 1.85, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#c69d9d", far: 6 },
-    background: { from: "#bd9492", to: "#ffffff", angle: 0 },
+    fog: { enabled: false, color: "#ecd5d5", far: 6 },
+    background: { from: "#e5e3c3", to: "#e5e3c3", angle: 0 },
   },
   {
     id: "pose-1789081541099",
@@ -1043,8 +1043,7 @@ function HeroText() {
 
   return (
     <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-     /*Scroll Experience*/
-      
+      ---
     </div>
   );
 }
