@@ -35,6 +35,7 @@
   .axis-row input[type=text] { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #f5f6f2; border-radius: 4px; padding: 4px 6px; font-size: 11.5px; }
   .axis-row input[type=number] { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #f5f6f2; border-radius: 4px; padding: 4px 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
   .axis-row input[type=color] { width: 32px; height: 24px; padding: 0; border: none; background: none; }
+  .curve-select option { background: #0a0a0a; color: #f5f6f2; }
   .axis-row .val { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: rgba(245,246,242,0.8); font-size: 11px; }
   .cam-group { padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .cam-group-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #7dfff0; }
@@ -54,6 +55,7 @@
 </head>
 <body>
 <div id="root"></div>
+<script id="embedded-project-b64" type="text/plain"></script>
 
 <textarea id="tpl-source" style="display:none">
 <!DOCTYPE html>
@@ -319,7 +321,7 @@ import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Stars, useTexture, Billboard } from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
 /* ============================================================
    CONFIG: client.config
@@ -606,6 +608,14 @@ function sampleBonePose(progress) {
 const SCROLL_LENGTH_VH = 950;
 /*@GEN:SCROLL_LENGTH_END*/
 
+/*@GEN:POSTFX_START*/
+const VIGNETTE_ENABLED = false;
+const VIGNETTE_DARKNESS = 0.5;
+const VIGNETTE_OFFSET = 0.15;
+const BLOOM_ENABLED = true;
+const BLOOM_INTENSITY = 0.5;
+/*@GEN:POSTFX_END*/
+
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
 }
@@ -617,7 +627,7 @@ function getDeviceProfile() {
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   return {
     isMobile,
-    dpr: isMobile ? [1, 1] : [1, 1.5],
+    dpr: isMobile ? [1, 2] : [1, 1.5],
     enablePostProcessing: !isMobile,
   };
 }
@@ -969,6 +979,42 @@ function useObjectTransformRef(keyframes, billboard) {
   return groupRef;
 }
 
+/* Los navegadores rasterizan un SVG a un tamaño chico por defecto
+   (a veces 300x150px) antes de poder usarlo como textura — se ve
+   pixelado al escalarlo grande en pantalla. Esto lo vuelve a dibujar
+   en un canvas de alta resolución antes de crear la textura. Solo
+   aplica a .svg; una imagen .png/.jpg ya es un bitmap y sigue el
+   camino normal (useTexture). */
+function useHiResSvgTexture(url, targetLong) {
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      const w0 = img.naturalWidth || 300;
+      const h0 = img.naturalHeight || 150;
+      const aspect = w0 / h0 || 1;
+      const canvas = document.createElement("canvas");
+      if (aspect >= 1) { canvas.width = targetLong; canvas.height = Math.round(targetLong / aspect); }
+      else { canvas.height = targetLong; canvas.width = Math.round(targetLong * aspect); }
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTexture(tex);
+    };
+    img.onerror = () => { if (!cancelled) setTexture(null); };
+    img.src = url;
+    return () => { cancelled = true; };
+  }, [url, targetLong]);
+  return texture;
+}
+function isSvgUrl(url) {
+  return /\.svg($|\?)/i.test(url || "");
+}
+
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const groupRef = useObjectTransformRef(data.keyframes, false);
@@ -978,7 +1024,7 @@ function SceneObjectModel({ data }) {
     </group>
   );
 }
-function SceneObjectImage({ data }) {
+function SceneObjectImageRaster({ data }) {
   const texture = useTexture(data.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
@@ -993,6 +1039,26 @@ function SceneObjectImage({ data }) {
       {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
     </group>
   );
+}
+function SceneObjectImageSvg({ data }) {
+  const texture = useHiResSvgTexture(data.url, 3072);
+  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
+  if (!texture) return <group ref={groupRef} />;
+  const aspect = texture.image.width / texture.image.height;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
+function SceneObjectImage({ data }) {
+  return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
 function SceneObject({ data }) {
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
@@ -1104,10 +1170,9 @@ function Experience({ device }) {
           </Suspense>
         </ObjectBoundary>
       </Suspense>
-      {device.enablePostProcessing && (
+      {device.enablePostProcessing && BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
-          <Bloom intensity={0.5} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
-          <Vignette eskil={false} offset={0.15} darkness={0.7} />
+          <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
         </EffectComposer>
       )}
     </>
@@ -1359,6 +1424,18 @@ function App() {
           <Experience device={device} />
         </Canvas>
         <BackgroundGradient stageRef={stageRef} />
+        {VIGNETTE_ENABLED && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 3,
+              pointerEvents: "none",
+              background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - VIGNETTE_OFFSET) * 100}%, rgba(0,0,0,${VIGNETTE_DARKNESS}) 100%)`,
+            }}
+          />
+        )}
         <CursorTrail />
         <HeroText />
         <SceneText />
@@ -1391,7 +1468,8 @@ createRoot(document.getElementById("root")).render(<App />);
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
     "three": "https://esm.sh/three@0.160.0",
     "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
-    "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber"
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber"
   }
 }
 </script>
@@ -1404,6 +1482,7 @@ import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Grid, useTexture, Billboard } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
 const DEFAULT_MODEL_URL = "./assets/models/weebpatineta.glb";
 
@@ -1731,7 +1810,45 @@ function ObjectPreviewModel({ obj }) {
     />
   );
 }
-function ObjectPreviewImage({ obj }) {
+/* Los navegadores rasterizan un SVG a un tamaño chico por defecto (a
+   veces 300x150px) antes de poder usarlo como textura — por eso se ve
+   pixelado al escalarlo grande. Esto lo vuelve a dibujar en un canvas
+   de alta resolución (respetando el aspecto real del archivo) antes
+   de crear la textura, así se ve nítido. Solo aplica a .svg; una
+   imagen .png/.jpg ya es un bitmap y no gana nada con este paso, así
+   que sigue el camino normal (useTexture). */
+function useHiResSvgTexture(url, targetLong = 3072) {
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      const w0 = img.naturalWidth || 300;
+      const h0 = img.naturalHeight || 150;
+      const aspect = w0 / h0 || 1;
+      const canvas = document.createElement("canvas");
+      if (aspect >= 1) { canvas.width = targetLong; canvas.height = Math.round(targetLong / aspect); }
+      else { canvas.height = targetLong; canvas.width = Math.round(targetLong * aspect); }
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTexture(tex);
+    };
+    img.onerror = () => { if (!cancelled) setTexture(null); };
+    img.src = url;
+    return () => { cancelled = true; };
+  }, [url, targetLong]);
+  return texture;
+}
+
+function isSvgUrl(url) {
+  return /\.svg($|\?)/i.test(url || "");
+}
+
+function ObjectPreviewImageRaster({ obj }) {
   const texture = useTexture(obj.previewUrl || obj.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const mesh = (
@@ -1746,6 +1863,25 @@ function ObjectPreviewImage({ obj }) {
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
 }
+function ObjectPreviewImageSvg({ obj }) {
+  const texture = useHiResSvgTexture(obj.previewUrl || obj.url);
+  if (!texture) return null;
+  const aspect = texture.image.width / texture.image.height;
+  const mesh = (
+    <mesh
+      scale={[obj.scale * aspect, obj.scale, 1]}
+      position={obj.billboard ? [0, 0, 0] : obj.position}
+      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
+}
+function ObjectPreviewImage({ obj }) {
+  return isSvgUrl(obj.url) ? <ObjectPreviewImageSvg obj={obj} /> : <ObjectPreviewImageRaster obj={obj} />;
+}
 function ObjectPreview({ obj }) {
   return obj.type === "image" ? <ObjectPreviewImage obj={obj} /> : <ObjectPreviewModel obj={obj} />;
 }
@@ -1753,7 +1889,7 @@ function ObjectPreview({ obj }) {
 /* La estructura de la escena es SIEMPRE la misma (luces, grilla,
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
-function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl }) {
+function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx }) {
   return (
     <>
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
@@ -1810,6 +1946,11 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           />
           <LiveCameraTracker orbitRef={orbitRef} liveCameraRef={liveCameraRef} active={true} />
         </>
+      )}
+      {postFx && postFx.bloomEnabled && (
+        <EffectComposer multisampling={0}>
+          <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
+        </EffectComposer>
       )}
     </>
   );
@@ -1927,6 +2068,14 @@ function generateModelUrlCode(url) {
   return `const CHARACTER_MODEL_URL = "${url}";`;
 }
 
+function generatePostFxCode(postFx) {
+  return `const VIGNETTE_ENABLED = ${postFx.vignetteEnabled ? "true" : "false"};
+const VIGNETTE_DARKNESS = ${postFx.vignetteDarkness};
+const VIGNETTE_OFFSET = ${postFx.vignetteOffset};
+const BLOOM_ENABLED = ${postFx.bloomEnabled ? "true" : "false"};
+const BLOOM_INTENSITY = ${postFx.bloomIntensity};`;
+}
+
 function generateObjectsCode(objects, transformsByKf, stages, easings) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
@@ -1949,7 +2098,7 @@ ${kfLines}
   return `const OBJECTS = [\n${objLines || "  // (sin objetos)"}\n];`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode) {
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -1965,6 +2114,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
   tpl = swap(tpl, "/*@GEN:MOVEMENT_DEFS_START*/", "/*@GEN:MOVEMENT_DEFS_END*/", movementCode);
   tpl = swap(tpl, "/*@GEN:BONES_START*/", "/*@GEN:BONES_END*/", boneCode);
   tpl = swap(tpl, "/*@GEN:SCROLL_LENGTH_START*/", "/*@GEN:SCROLL_LENGTH_END*/", scrollLengthCode);
+  tpl = swap(tpl, "/*@GEN:POSTFX_START*/", "/*@GEN:POSTFX_END*/", postFxCode);
   tpl = swap(tpl, "/*@GEN:OBJECTS_START*/", "/*@GEN:OBJECTS_END*/", objectsCode);
   return tpl;
 }
@@ -1974,6 +2124,20 @@ function App() {
   const [section, setSection] = useState("pose"); // pose | camera | movement | timing | objects | preview
 
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL_URL);
+  /* Efectos de post-proceso del sitio exportado (viñeta/brillo). Son
+     globales, no por etapa — y el visor de este editor NO los aplica
+     (no tiene ese pipeline montado), así que lo que ves acá es sin
+     viñeta/brillo siempre; el resultado final los aplica si los
+     activás. La viñeta viene apagada por defecto porque puede tapar
+     bordes de composiciones que dependen de fundirse con el fondo. */
+  const [postFx, setPostFx] = useState({
+    vignetteEnabled: false,
+    vignetteDarkness: 0.5,
+    vignetteOffset: 0.15,
+    bloomEnabled: true,
+    bloomIntensity: 0.5,
+  });
+  const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
   const [stages, setStages] = useState(makeDefaultStages);
   const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
   const [easings, setEasings] = useState(() => DEFAULT_DURATIONS_VH.map(() => "smooth"));
@@ -2310,14 +2474,134 @@ function App() {
   const scrollLengthCode = useMemo(() => generateScrollLengthCode(totalVh), [totalVh]);
   const objectsCode = useMemo(() => generateObjectsCode(objects, objectTransformsByKf, stagesComputed, easings), [objects, objectTransformsByKf, stagesComputed, easings]);
   const modelUrlCode = useMemo(() => generateModelUrlCode(modelUrl), [modelUrl]);
+  const postFxCode = useMemo(() => generatePostFxCode(postFx), [postFx]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
     catch (e) { /* fallback: seleccionar manualmente */ }
   };
 
+  /* Guarda/carga el ESTADO DE EDICIÓN completo (etapas, poses, cámara,
+     movimiento, ambiente, objetos y sus animaciones) como un .json
+     aparte — distinto del index.html final. Esto es lo que hay que
+     usar para "seguir mañana donde quedaste". Los blobs de vista
+     previa (SVG/imagen subida) no se guardan porque no sobreviven
+     entre sesiones — al recargar el proyecto, la ruta del archivo
+     queda intacta pero hay que volver a "Subir archivo" si querés
+     verla de nuevo en el visor. */
+  const [projectLoadError, setProjectLoadError] = useState(null);
+  const [projectLoaded, setProjectLoaded] = useState(false);
+
+  const buildProjectSnapshot = () => ({
+    kind: "weeb-scroll-project",
+    version: 1,
+    savedAt: new Date().toISOString(),
+    modelUrl,
+    postFx,
+    stages,
+    durationsVh,
+    easings,
+    posesByKf,
+    camsByKf,
+    movesByKf,
+    fxByKf,
+    objects: objects.map((o) => ({ ...o, previewUrl: null })),
+    objectTransformsByKf,
+  });
+
+  const restoreProjectState = (p) => {
+    if (!p || p.kind !== "weeb-scroll-project") throw new Error("no es un archivo de proyecto de esta herramienta");
+    setModelUrl(p.modelUrl || DEFAULT_MODEL_URL);
+    if (p.postFx) setPostFx((prev) => ({ ...prev, ...p.postFx }));
+    const loadedStages = p.stages && p.stages.length ? p.stages : makeDefaultStages();
+    setStages(loadedStages);
+    setDurationsVh(p.durationsVh || DEFAULT_DURATIONS_VH);
+    setEasings(p.easings || loadedStages.slice(1).map(() => "smooth"));
+    setPosesByKf(p.posesByKf || {});
+    setCamsByKf(p.camsByKf || {});
+    setMovesByKf(p.movesByKf || {});
+    setFxByKf(p.fxByKf || {});
+    setObjects(p.objects || []);
+    setObjectTransformsByKf(p.objectTransformsByKf || {});
+    setActiveStage(loadedStages[0].id);
+  };
+
+  /* Al abrir un archivo que "Guardar como editor" generó, este mismo
+     componente ya viene con el progreso embebido (base64, en un tag
+     invisible fuera de #root). Se detecta y se carga solo, una vez,
+     al montar. */
+  useEffect(() => {
+    const el = document.getElementById("embedded-project-b64");
+    const b64 = el && el.textContent.trim();
+    if (!b64) return;
+    try {
+      const json = decodeURIComponent(escape(atob(b64)));
+      restoreProjectState(JSON.parse(json));
+      setProjectLoaded(true);
+      setTimeout(() => setProjectLoaded(false), 2500);
+    } catch (e) {
+      console.warn("No se pudo restaurar el progreso embebido:", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveProject = () => {
+    const project = buildProjectSnapshot();
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "proyecto.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const loadProject = (file) => {
+    if (!file) return;
+    setProjectLoadError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        restoreProjectState(JSON.parse(reader.result));
+        setProjectLoaded(true);
+        setTimeout(() => setProjectLoaded(false), 2500);
+      } catch (e) {
+        setProjectLoadError("No se pudo leer ese archivo como proyecto (¿es el .json que bajaste con \"Guardar proyecto\" de esta misma herramienta?).");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  /* Genera una COPIA COMPLETA de esta misma herramienta (HTML + los
+     dos scripts, tal cual están corriendo ahora mismo — React nunca
+     toca el texto de un <script>, así que sigue siendo el código
+     original) con tu progreso actual metido adentro en base64. Al
+     abrir ese archivo de nuevo — doble clic, o subido a GitHub Pages
+     con el nombre que quieras — arranca ya con todo cargado. */
+  const [projectName, setProjectName] = useState("proyecto");
+  const saveProjectAsEditor = () => {
+    const project = buildProjectSnapshot();
+    const json = JSON.stringify(project);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    html = html.replace(
+      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/,
+      `<script id="embedded-project-b64" type="text/plain">${b64}</scri` + `pt>`
+    );
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeName = (projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto";
+    a.href = url; a.download = `editor_${safeName}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const downloadFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2331,7 +2615,7 @@ function App() {
   };
 
   const copyFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode);
+    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode);
     copy(html, "full");
   };
 
@@ -2360,8 +2644,20 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
         </div>
         <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} />
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} />
         </Canvas>
+        {showFx && postFx.vignetteEnabled && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 3,
+              pointerEvents: "none",
+              background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)`,
+            }}
+          />
+        )}
         {showMobileFrame && <MobileFrameOverlay containerRef={viewportRef} />}
       </div>
 
@@ -2378,6 +2674,40 @@ function App() {
             <input type="text" value={modelUrl} onChange={(e) => setModelUrl(e.target.value)} />
           </div>
           <p className="hint">El objeto que animás con Pose/Cámara/Movimiento. Puede ser un personaje con esqueleto (huesos) o un objeto rígido sin huesos — un perfume, un producto, un logo 3D. Si no tiene huesos, la pestaña Pose no hace nada: usá solo Movimiento para hacerlo flotar/girar por etapa.</p>
+        </div>
+
+        <div className="cam-group">
+          <div className="cam-group-title">Efectos</div>
+          <p className="hint">Se aplican en el visor y en el sitio exportado por igual. La viñeta oscurece los bordes de la pantalla en forma ovalada; si tu fondo tiene que fundirse limpio con la página, dejala apagada (viene así por defecto).</p>
+          <label className="toggle-row" style={{ marginBottom: 6 }}>
+            <input type="checkbox" checked={postFx.vignetteEnabled} onChange={(e) => setPostFxField("vignetteEnabled", e.target.checked)} />
+            Viñeta (oscurece bordes)
+          </label>
+          {postFx.vignetteEnabled && (
+            <>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Oscuridad</label>
+                <input type="range" min={0} max={1} step={0.01} value={postFx.vignetteDarkness} onChange={(e) => setPostFxField("vignetteDarkness", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.01} value={postFx.vignetteDarkness} onChange={(e) => setPostFxField("vignetteDarkness", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Alcance</label>
+                <input type="range" min={0} max={1} step={0.01} value={postFx.vignetteOffset} onChange={(e) => setPostFxField("vignetteOffset", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.01} value={postFx.vignetteOffset} onChange={(e) => setPostFxField("vignetteOffset", Number(e.target.value))} />
+              </div>
+            </>
+          )}
+          <label className="toggle-row" style={{ marginBottom: 6 }}>
+            <input type="checkbox" checked={postFx.bloomEnabled} onChange={(e) => setPostFxField("bloomEnabled", e.target.checked)} />
+            Brillo (bloom, resalta las luces)
+          </label>
+          {postFx.bloomEnabled && (
+            <div className="axis-row">
+              <label style={{ width: 70, fontSize: 10.5 }}>Intensidad</label>
+              <input type="range" min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(e) => setPostFxField("bloomIntensity", Number(e.target.value))} />
+              <input type="number" className="axis-num" step={0.01} value={postFx.bloomIntensity} onChange={(e) => setPostFxField("bloomIntensity", Number(e.target.value))} />
+            </div>
+          )}
         </div>
 
         <div className="section-tabs">
@@ -2653,7 +2983,7 @@ function App() {
                     </div>
                     <div className="axis-row">
                       <label style={{ width: 150, fontSize: 10.5 }}>Curva de velocidad</label>
-                      <select value={easings[i] || "smooth"} onChange={(e) => setEasingAt(i, e.target.value)} style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}>
+                      <select className="curve-select" value={easings[i] || "smooth"} onChange={(e) => setEasingAt(i, e.target.value)} style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}>
                         <option value="smooth">Suave (arranca y frena lento)</option>
                         <option value="linear">Lineal (velocidad constante)</option>
                         <option value="easeIn">Entrada lenta (arranca despacio, llega rápido)</option>
@@ -2755,6 +3085,34 @@ function App() {
             </div>
           </>
         )}
+
+        <div className="section-title">Proyecto (para seguir editando después)</div>
+        <p className="hint">Esto NO es el sitio final — es para vos, mientras trabajás. "Guardar como editor" te baja una copia de ESTA MISMA herramienta con tu progreso ya adentro: la nombrás como quieras, la subís a GitHub o la guardás donde sea, y el día que la abras arranca justo donde la dejaste. No hace falta cargar nada aparte.</p>
+        <div className="axis-row">
+          <label style={{ width: 90, fontSize: 10.5 }}>Nombre</label>
+          <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="veterinaria" />
+        </div>
+        <div className="btn-row">
+          <button className="btn primary" onClick={saveProjectAsEditor}>💾 Guardar como editor (editor_{(projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto"}.html)</button>
+          {projectLoaded && <span className="copied">¡Proyecto cargado!</span>}
+        </div>
+        <details style={{ marginTop: 4 }}>
+          <summary style={{ cursor: "pointer", fontSize: 11.5, color: "rgba(245,246,242,0.7)" }}>Opción liviana: guardar solo los datos (.json)</summary>
+          <p className="hint" style={{ marginTop: 6 }}>Un archivo bien chico con solo tu progreso (sin el código de la herramienta). Sirve si preferís mandarlo por chat o guardarlo aparte — para seguir editando, abrís esta herramienta de nuevo y lo cargás con el botón de abajo.</p>
+          <div className="btn-row">
+            <button className="btn" onClick={saveProject}>💾 Guardar datos (.json)</button>
+            <label className="btn" style={{ cursor: "pointer" }}>
+              📂 Cargar datos (.json)
+              <input
+                type="file"
+                accept=".json,application/json"
+                style={{ display: "none" }}
+                onChange={(e) => { loadProject(e.target.files[0]); e.target.value = ""; }}
+              />
+            </label>
+          </div>
+        </details>
+        {projectLoadError && <p className="hint" style={{ color: "#ff9a9a" }}>{projectLoadError}</p>}
 
         <div className="section-title">Descarga</div>
         <p className="hint">Genera tu index.html completo con todo lo ajustado en Pose, Cámara, Movimiento, Duración y Objetos — listo para subir a GitHub Pages, o copialo directo sin descargar.</p>
