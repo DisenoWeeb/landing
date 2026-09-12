@@ -261,7 +261,7 @@ import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Stars, useTexture, Billboard } from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
 /* ============================================================
    CONFIG: client.config
@@ -332,7 +332,7 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [-0.55, -0.53, 3.95], scale: 0.15, rotationY: 0 },
-      { progress: 1, easing: "easeIn", position: [-3.6, -0.53, 18.75], scale: 0.15, rotationY: 0 },
+      { progress: 1, easing: "easeIn", position: [-0.55, -0.53, 3.95], scale: 0.15, rotationY: 0 },
     ],
   },
   {
@@ -395,7 +395,7 @@ const scenes = [
     id: "pose-1789141172615",
     progress: 0,
     easing: "smooth",
-    camera: { position: [-1.38, -0.03, 10], lookAt: [0, 0.4, 0], fov: 23.5, roll: 0 },
+    camera: { position: [-1.38, -0.03, 10], lookAt: [0, 0.61, 0], fov: 29.5, roll: 0 },
     light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#ffffff", rimIntensity: 0 },
     fog: { enabled: true, color: "#000000", far: 217.5 },
     background: { from: "#a8bddd", to: "#bda9ab", angle: 180 },
@@ -489,11 +489,11 @@ const SCROLL_LENGTH_VH = 165;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
-const VIGNETTE_ENABLED = false;
-const VIGNETTE_DARKNESS = 0.5;
-const VIGNETTE_OFFSET = 0.15;
+const VIGNETTE_ENABLED = true;
+const VIGNETTE_DARKNESS = 0.73;
+const VIGNETTE_OFFSET = 1;
 const BLOOM_ENABLED = false;
-const BLOOM_INTENSITY = 0.5;
+const BLOOM_INTENSITY = 30;
 /*@GEN:POSTFX_END*/
 
 function damp(current, target, lambda, dt) {
@@ -1050,10 +1050,9 @@ function Experience({ device }) {
           </Suspense>
         </ObjectBoundary>
       </Suspense>
-      {device.enablePostProcessing && (BLOOM_ENABLED || VIGNETTE_ENABLED) && (
+      {device.enablePostProcessing && BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
-          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
-          {VIGNETTE_ENABLED && <Vignette eskil={false} offset={VIGNETTE_OFFSET} darkness={VIGNETTE_DARKNESS} />}
+          <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
         </EffectComposer>
       )}
     </>
@@ -1081,7 +1080,7 @@ function HeroText() {
 
   return (
     <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-      
+     
     </div>
   );
 }
@@ -1305,6 +1304,18 @@ function App() {
           <Experience device={device} />
         </Canvas>
         <BackgroundGradient stageRef={stageRef} />
+        {VIGNETTE_ENABLED && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 3,
+              pointerEvents: "none",
+              background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - VIGNETTE_OFFSET) * 100}%, rgba(0,0,0,${VIGNETTE_DARKNESS}) 100%)`,
+            }}
+          />
+        )}
         <CursorTrail />
         <HeroText />
         <SceneText />
