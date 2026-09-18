@@ -2147,7 +2147,6 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
   const opacities = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
   const emitAccum = useRef(0);
   const prevAnchor = useRef(null);
-  const prevProgress = useRef(null);
 
   useEffect(() => {
     if (materialRef.current) materialRef.current.uniforms.uColor.value.set(color);
@@ -2162,21 +2161,13 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
       group.visible = false;
       particles.current.length = 0;
       prevAnchor.current = null;
-      prevProgress.current = null;
       return;
     }
     group.visible = true;
 
     const ax = anchor.position.x, ay = anchor.position.y, az = anchor.position.z;
 
-    // Solo emite si el scroll realmente se movió este frame — filtra el
-    // "respirar" idle del personaje, que no cuenta como movimiento real.
-    const progress = useScrollStore.getState().smoothProgress;
-    const SCROLL_EPS = 0.00025;
-    const isScrolling = prevProgress.current !== null && Math.abs(progress - prevProgress.current) > SCROLL_EPS;
-    prevProgress.current = progress;
-
-    if (isScrolling && prevAnchor.current) {
+    if (prevAnchor.current) {
       emitAccum.current += delta;
       const emitEvery = 1 / Math.max(rate, 1);
       const from = prevAnchor.current;
@@ -2197,10 +2188,6 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
         });
         if (particles.current.length > maxParticles) particles.current.shift();
       }
-    } else {
-      // Sin scroll: no acumules emisión pendiente, así no larga una
-      // ráfaga de golpe apenas el usuario vuelve a mover la rueda.
-      emitAccum.current = 0;
     }
     prevAnchor.current = { x: ax, y: ay, z: az };
 
