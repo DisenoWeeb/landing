@@ -839,9 +839,11 @@ const TRAIL_FRAGMENT_SHADER = `
   void main() {
     vec2 uv = gl_PointCoord.xy - 0.5;
     float d = length(uv) * 2.0;
-    float alpha = smoothstep(1.0, 0.0, d);
-    alpha *= alpha * vOpacity;
-    gl_FragColor = vec4(uColor, alpha);
+    float glow = smoothstep(1.0, 0.0, d);
+    float core = smoothstep(0.35, 0.0, d);
+    float alpha = (glow * glow * 0.6 + core * 0.9) * vOpacity;
+    vec3 col = mix(uColor, vec3(1.0), core * 0.6);
+    gl_FragColor = vec4(col, alpha);
   }
 `;
 
@@ -885,7 +887,15 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
         const px = lerp(from.x, ax, isFinite(t) ? t : 1);
         const py = lerp(from.y, ay, isFinite(t) ? t : 1);
         const pz = lerp(from.z, az, isFinite(t) ? t : 1);
-        particles.current.push({ x: px, y: py, z: pz, age: 0 });
+        particles.current.push({
+          x: px, y: py, z: pz,
+          age: 0,
+          seed: Math.random() * Math.PI * 2,
+          ox: (Math.random() - 0.5) * size * 6,
+          oy: (Math.random() - 0.5) * size * 6,
+          oz: (Math.random() - 0.5) * size * 6,
+          sizeMul: 0.5 + Math.random() * 0.9,
+        });
         if (particles.current.length > maxParticles) particles.current.shift();
       }
     }
@@ -897,14 +907,17 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     }
 
     const n = Math.min(particles.current.length, maxParticles);
+    const now = performance.now() * 0.001;
     for (let i = 0; i < n; i++) {
       const p = particles.current[i];
       const t = clamp(p.age / life);
-      positions[i * 3] = p.x;
-      positions[i * 3 + 1] = p.y;
-      positions[i * 3 + 2] = p.z;
-      opacities[i] = 1 - t;
-      sizes[i] = size * (1 - t * 0.5);
+      const drift = t;
+      positions[i * 3] = p.x + p.ox * drift;
+      positions[i * 3 + 1] = p.y + p.oy * drift + t * size * 4;
+      positions[i * 3 + 2] = p.z + p.oz * drift;
+      const twinkle = 0.5 + 0.5 * Math.sin(now * 9 + p.seed * 7);
+      opacities[i] = (1 - t) * (1 - t) * (0.35 + 0.65 * twinkle);
+      sizes[i] = size * p.sizeMul * (1 - t * 0.35);
     }
 
     const geom = group.geometry;
@@ -915,7 +928,7 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
   });
 
   return (
-    <points ref={pointsRef} frustumCulled={false}>
+    <points key={maxParticles} ref={pointsRef} frustumCulled={false}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
         <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
@@ -933,7 +946,6 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     </points>
   );
 }
-
 /* ============================================================
    three/AnimatedCharacter.jsx
    ============================================================ */
@@ -2104,9 +2116,11 @@ const TRAIL_FRAGMENT_SHADER = `
   void main() {
     vec2 uv = gl_PointCoord.xy - 0.5;
     float d = length(uv) * 2.0;
-    float alpha = smoothstep(1.0, 0.0, d);
-    alpha *= alpha * vOpacity;
-    gl_FragColor = vec4(uColor, alpha);
+    float glow = smoothstep(1.0, 0.0, d);
+    float core = smoothstep(0.35, 0.0, d);
+    float alpha = (glow * glow * 0.6 + core * 0.9) * vOpacity;
+    vec3 col = mix(uColor, vec3(1.0), core * 0.6);
+    gl_FragColor = vec4(col, alpha);
   }
 `;
 
@@ -2150,7 +2164,15 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
         const px = lerp(from.x, ax, isFinite(t) ? t : 1);
         const py = lerp(from.y, ay, isFinite(t) ? t : 1);
         const pz = lerp(from.z, az, isFinite(t) ? t : 1);
-        particles.current.push({ x: px, y: py, z: pz, age: 0 });
+        particles.current.push({
+          x: px, y: py, z: pz,
+          age: 0,
+          seed: Math.random() * Math.PI * 2,
+          ox: (Math.random() - 0.5) * size * 6,
+          oy: (Math.random() - 0.5) * size * 6,
+          oz: (Math.random() - 0.5) * size * 6,
+          sizeMul: 0.5 + Math.random() * 0.9,
+        });
         if (particles.current.length > maxParticles) particles.current.shift();
       }
     }
@@ -2162,14 +2184,17 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     }
 
     const n = Math.min(particles.current.length, maxParticles);
+    const now = performance.now() * 0.001;
     for (let i = 0; i < n; i++) {
       const p = particles.current[i];
       const t = clamp(p.age / life);
-      positions[i * 3] = p.x;
-      positions[i * 3 + 1] = p.y;
-      positions[i * 3 + 2] = p.z;
-      opacities[i] = 1 - t;
-      sizes[i] = size * (1 - t * 0.5);
+      const drift = t;
+      positions[i * 3] = p.x + p.ox * drift;
+      positions[i * 3 + 1] = p.y + p.oy * drift + t * size * 4;
+      positions[i * 3 + 2] = p.z + p.oz * drift;
+      const twinkle = 0.5 + 0.5 * Math.sin(now * 9 + p.seed * 7);
+      opacities[i] = (1 - t) * (1 - t) * (0.35 + 0.65 * twinkle);
+      sizes[i] = size * p.sizeMul * (1 - t * 0.35);
     }
 
     const geom = group.geometry;
@@ -2180,7 +2205,7 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
   });
 
   return (
-    <points ref={pointsRef} frustumCulled={false}>
+    <points key={maxParticles} ref={pointsRef} frustumCulled={false}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
         <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
@@ -2198,7 +2223,6 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     </points>
   );
 }
-
 /* Contorno de celular: dibuja el rectángulo 9:16 más grande que entra
    en el visor actual (igual que "object-fit: contain"), para ver de
    entrada qué parte de la composición realmente se ve en un teléfono.
