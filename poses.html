@@ -304,10 +304,35 @@ const OBJECTS = [
     url: "./assets/models/bruzera.png",
     billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0.55, 0], scale: 2.04, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 0.55, 0], scale: 2.04, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 0.55, 0], scale: 2.04, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 0.55, 0], scale: 2.04, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 2, -9.85], scale: 6.42, rotationY: 0 },
+      { progress: 0.274, easing: "linear", position: [0, 2, -9.85], scale: 6.42, rotationY: 0 },
+      { progress: 0.516, easing: "linear", position: [0, 2, -9.85], scale: 6.42, rotationY: 0 },
+      { progress: 0.758, easing: "smooth", position: [0, 2, -9.85], scale: 6.42, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 2, -9.85], scale: 6.42, rotationY: 0 },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/bruzera3.png",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.25, 0], scale: 0.62, rotationY: 0 },
+      { progress: 0.274, easing: "linear", position: [0, 0.25, 0], scale: 0.62, rotationY: 0 },
+      { progress: 0.516, easing: "linear", position: [0, 0.25, 0], scale: 0.62, rotationY: 0 },
+      { progress: 0.758, easing: "smooth", position: [0, 0.25, 0], scale: 0.62, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 0.25, 0], scale: 0.62, rotationY: 0 },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/logobruzera.svg",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 2.75, -9], scale: 2.51, rotationY: 0 },
+      { progress: 0.274, easing: "linear", position: [0, 2.75, -9], scale: 2.51, rotationY: 0 },
+      { progress: 0.516, easing: "linear", position: [0, 2.75, -9], scale: 2.51, rotationY: 0 },
+      { progress: 0.758, easing: "smooth", position: [0, 2.75, -9], scale: 2.51, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 2.75, -9], scale: 2.51, rotationY: 0 },
     ],
   },
 ];
@@ -352,37 +377,46 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [0, 0, 3.5], lookAt: [-1.18, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: true, color: "#05070a", far: 20 },
-    background: { from: "#cbcbe6", to: "#f6c8c2", angle: 180 },
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 3.2, azimuth: 4, elevation: 41, rimColor: "#a97e82", rimIntensity: 0.15 },
+    fog: { enabled: true, color: "#05070a", far: 300 },
+    background: { from: "#7f8abd", to: "#ad999e", angle: 180 },
   },
   {
-    id: "pose-1789741334488",
-    progress: 0.333,
+    id: "pose-2",
+    progress: 0.274,
+    easing: "linear",
+    camera: { position: [0, 0, 3.5], lookAt: [-0.05, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 3.2, azimuth: 4, elevation: 41, rimColor: "#a97e82", rimIntensity: 0.15 },
+    fog: { enabled: true, color: "#05070a", far: 300 },
+    background: { from: "#7f8abd", to: "#ad999e", angle: 180 },
+  },
+  {
+    id: "pose-1789753231938",
+    progress: 0.516,
+    easing: "linear",
+    camera: { position: [0, 0, 3.5], lookAt: [-0.4, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 3.2, azimuth: 4, elevation: 41, rimColor: "#a97e82", rimIntensity: 0.15 },
+    fog: { enabled: true, color: "#05070a", far: 300 },
+    background: { from: "#7f8abd", to: "#ad999e", angle: 180 },
+  },
+  {
+    id: "pose-1789753344297",
+    progress: 0.758,
     easing: "smooth",
-    camera: { position: [0, 0, 3.5], lookAt: [0.61, 0.61, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: true, color: "#05070a", far: 20 },
-    background: { from: "#cbcbe6", to: "#f6c8c2", angle: 180 },
+    camera: { position: [0, 0, 3.5], lookAt: [-0.34, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 3.2, azimuth: 4, elevation: 41, rimColor: "#a97e82", rimIntensity: 0.15 },
+    fog: { enabled: true, color: "#05070a", far: 300 },
+    background: { from: "#7f8abd", to: "#ad999e", angle: 180 },
   },
   {
-    id: "pose-1789742054939",
-    progress: 0.667,
-    easing: "smooth",
-    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 16.9, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: true, color: "#05070a", far: 20 },
-    background: { from: "#cbcbe6", to: "#f6c8c2", angle: 180 },
-  },
-  {
-    id: "pose-1789742072545",
+    id: "pose-1789753427801",
     progress: 1,
     easing: "smooth",
-    camera: { position: [0, 0, 3.5], lookAt: [0.71, 0.5, 0], fov: 17.4, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: true, color: "#05070a", far: 20 },
-    background: { from: "#cbcbe6", to: "#f6c8c2", angle: 180 },
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.47, 0], fov: 23.5, roll: 0 },
+    light: { color: "#dfeeff", intensity: 3.2, azimuth: 4, elevation: 41, rimColor: "#a97e82", rimIntensity: 0.15 },
+    fog: { enabled: true, color: "#05070a", far: 300 },
+    background: { from: "#7f8abd", to: "#ad999e", angle: 180 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -393,10 +427,11 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1", progress: 0, easing: "smooth", pos: [-1.35, 0.3, 0], yaw: -145.5, pitch: 0 },
-  { id: "pose-1789741334488", progress: 0.333, easing: "smooth", pos: [0.2, 0.2, 2.45], yaw: -131.9, pitch: -7.6 },
-  { id: "pose-1789742054939", progress: 0.667, easing: "smooth", pos: [0, 0.2, 0.2], yaw: 20.9, pitch: -7.6 },
-  { id: "pose-1789742072545", progress: 1, easing: "smooth", pos: [0.85, 0.55, 1.25], yaw: 199, pitch: -7.6 },
+  { id: "pose-1", progress: 0, easing: "smooth", pos: [3.8, 0.65, -4.2], yaw: -0.6, pitch: 0 },
+  { id: "pose-2", progress: 0.274, easing: "linear", pos: [0.7, 1.55, -8.5], yaw: 28.9, pitch: 0 },
+  { id: "pose-1789753231938", progress: 0.516, easing: "linear", pos: [-2.6, 2.4, -8.5], yaw: 28.9, pitch: 0 },
+  { id: "pose-1789753344297", progress: 0.758, easing: "smooth", pos: [-2.35, 2.45, -7.6], yaw: 220, pitch: 13.9 },
+  { id: "pose-1789753427801", progress: 1, easing: "smooth", pos: [0.2, 0, 3.5], yaw: 200, pitch: -1.4 },
 ];
 
 function sampleMovement(progress) {
@@ -429,23 +464,31 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1789741334488",
-    progress: 0.333,
+    id: "pose-2",
+    progress: 0.274,
+    easing: "linear",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1789753231938",
+    progress: 0.516,
+    easing: "linear",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1789753344297",
+    progress: 0.758,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1789742054939",
-    progress: 0.667,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1789742072545",
+    id: "pose-1789753427801",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -478,23 +521,23 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 450;
+const SCROLL_LENGTH_VH = 620;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.13;
-const VIGNETTE_OFFSET = 0.14;
+const VIGNETTE_DARKNESS = 0.08;
+const VIGNETTE_OFFSET = 0.53;
 const BLOOM_ENABLED = false;
-const BLOOM_INTENSITY = 0.5;
+const BLOOM_INTENSITY = 2;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:TRAIL_START*/
 const TRAIL_ENABLED = true;
-const TRAIL_COLOR = "#ead290";
-const TRAIL_SIZE = 0.11;
+const TRAIL_COLOR = "#ffd873";
+const TRAIL_SIZE = 0.13;
 const TRAIL_LIFE = 10;
-const TRAIL_RATE = 120;
+const TRAIL_RATE = 240;
 /*@GEN:TRAIL_END*/
 
 function damp(current, target, lambda, dt) {
@@ -837,7 +880,7 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
 const CHAR_CENTER_Y = 0.05;
-const CHAR_SCALE = 0.08;
+const CHAR_SCALE = 0.09;
 /*@GEN:CHAR_TRANSFORM_END*/
 
 const _deltaEuler = new THREE.Euler();
