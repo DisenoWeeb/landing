@@ -396,7 +396,7 @@ const scenes = [
     progress: 0.5,
     easing: "linear",
     camera: { position: [0, 0, 3.5], lookAt: [-0.99, 0.5, 0], fov: 35, roll: 0 },
-    light: { color: "#dfeeff", intensity: 3.2, azimuth: 4, elevation: 41, rimColor: "#a97e82", rimIntensity: 0.15 },
+    light: { color: "#dfeeff", intensity: 4.75, azimuth: 0, elevation: -14, rimColor: "#a97e82", rimIntensity: 0.15 },
     fog: { enabled: true, color: "#05070a", far: 300 },
     background: { from: "#7f8abd", to: "#ad999e", angle: 180 },
   },
@@ -405,7 +405,7 @@ const scenes = [
     progress: 0.75,
     easing: "linear",
     camera: { position: [0, 0, 3.5], lookAt: [-0.99, 0.33, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 3.2, azimuth: 4, elevation: 41, rimColor: "#a97e82", rimIntensity: 0.15 },
+    light: { color: "#dfeeff", intensity: 4.65, azimuth: 18, elevation: -2, rimColor: "#a97e82", rimIntensity: 0.15 },
     fog: { enabled: true, color: "#05070a", far: 300 },
     background: { from: "#7f8abd", to: "#ad999e", angle: 180 },
   },
@@ -414,7 +414,7 @@ const scenes = [
     progress: 1,
     easing: "easeIn",
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.67, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 3.2, azimuth: 4, elevation: 41, rimColor: "#a97e82", rimIntensity: 0.15 },
+    light: { color: "#dfeeff", intensity: 3.2, azimuth: 329, elevation: -4, rimColor: "#a97e82", rimIntensity: 0.15 },
     fog: { enabled: true, color: "#05070a", far: 300 },
     background: { from: "#7f8abd", to: "#ad999e", angle: 180 },
   },
@@ -521,13 +521,13 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 800;
+const SCROLL_LENGTH_VH = 1620;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.08;
-const VIGNETTE_OFFSET = 0.53;
+const VIGNETTE_DARKNESS = 0.76;
+const VIGNETTE_OFFSET = 0.88;
 const BLOOM_ENABLED = false;
 const BLOOM_INTENSITY = 2;
 /*@GEN:POSTFX_END*/
