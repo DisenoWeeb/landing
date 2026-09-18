@@ -696,6 +696,14 @@ const BLOOM_ENABLED = false;
 const BLOOM_INTENSITY = 0.5;
 /*@GEN:POSTFX_END*/
 
+/*@GEN:TRAIL_START*/
+const TRAIL_ENABLED = true;
+const TRAIL_COLOR = "#ffd873";
+const TRAIL_SIZE = 0.175;
+const TRAIL_LIFE = 2.05;
+const TRAIL_RATE = 86;
+/*@GEN:TRAIL_END*/
+
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
 }
@@ -888,6 +896,125 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 }
 
 /* ============================================================
+   Estela de brillo (sparkle trail) — usada por el personaje
+   (bee.glb) para dejar un rastro de partículas brillantes a su
+   paso, que se van desvaneciendo. Es un sistema de partículas
+   simple con THREE.Points + shader propio (glow radial aditivo),
+   sin dependencias extra.
+   ============================================================ */
+const TRAIL_VERTEX_SHADER = `
+  attribute float aSize;
+  attribute float aOpacity;
+  varying float vOpacity;
+  void main() {
+    vOpacity = aOpacity;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize * (300.0 / max(-mvPosition.z, 0.001));
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+const TRAIL_FRAGMENT_SHADER = `
+  uniform vec3 uColor;
+  varying float vOpacity;
+  void main() {
+    vec2 uv = gl_PointCoord.xy - 0.5;
+    float d = length(uv) * 2.0;
+    float alpha = smoothstep(1.0, 0.0, d);
+    alpha *= alpha * vOpacity;
+    gl_FragColor = vec4(uColor, alpha);
+  }
+`;
+
+function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
+  const pointsRef = useRef(null);
+  const materialRef = useRef(null);
+  const particles = useRef([]);
+  const maxParticles = useMemo(() => Math.max(8, Math.ceil(rate * life) + 8), [rate, life]);
+  const positions = useMemo(() => new Float32Array(maxParticles * 3), [maxParticles]);
+  const sizes = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const opacities = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const emitAccum = useRef(0);
+  const prevAnchor = useRef(null);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uColor.value.set(color);
+  }, [color]);
+
+  useFrame((_, delta) => {
+    const group = pointsRef.current;
+    const anchor = anchorRef && anchorRef.current;
+    if (!group) return;
+
+    if (!enabled || !anchor) {
+      group.visible = false;
+      particles.current.length = 0;
+      prevAnchor.current = null;
+      return;
+    }
+    group.visible = true;
+
+    const ax = anchor.position.x, ay = anchor.position.y, az = anchor.position.z;
+
+    if (prevAnchor.current) {
+      emitAccum.current += delta;
+      const emitEvery = 1 / Math.max(rate, 1);
+      const from = prevAnchor.current;
+      while (emitAccum.current >= emitEvery) {
+        emitAccum.current -= emitEvery;
+        const t = 1 - emitAccum.current / delta;
+        const px = lerp(from.x, ax, isFinite(t) ? t : 1);
+        const py = lerp(from.y, ay, isFinite(t) ? t : 1);
+        const pz = lerp(from.z, az, isFinite(t) ? t : 1);
+        particles.current.push({ x: px, y: py, z: pz, age: 0 });
+        if (particles.current.length > maxParticles) particles.current.shift();
+      }
+    }
+    prevAnchor.current = { x: ax, y: ay, z: az };
+
+    for (let i = particles.current.length - 1; i >= 0; i--) {
+      particles.current[i].age += delta;
+      if (particles.current[i].age >= life) particles.current.splice(i, 1);
+    }
+
+    const n = Math.min(particles.current.length, maxParticles);
+    for (let i = 0; i < n; i++) {
+      const p = particles.current[i];
+      const t = clamp(p.age / life);
+      positions[i * 3] = p.x;
+      positions[i * 3 + 1] = p.y;
+      positions[i * 3 + 2] = p.z;
+      opacities[i] = 1 - t;
+      sizes[i] = size * (1 - t * 0.5);
+    }
+
+    const geom = group.geometry;
+    geom.attributes.position.needsUpdate = true;
+    geom.attributes.aOpacity.needsUpdate = true;
+    geom.attributes.aSize.needsUpdate = true;
+    geom.setDrawRange(0, n);
+  });
+
+  return (
+    <points ref={pointsRef} frustumCulled={false}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
+        <bufferAttribute attach="attributes-aOpacity" count={maxParticles} array={opacities} itemSize={1} />
+      </bufferGeometry>
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={TRAIL_VERTEX_SHADER}
+        fragmentShader={TRAIL_FRAGMENT_SHADER}
+        uniforms={{ uColor: { value: new THREE.Color(color) } }}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+/* ============================================================
    three/AnimatedCharacter.jsx
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
@@ -903,8 +1030,8 @@ function applyLocalDelta(bone, restQuat, ex, ey, ez) {
   bone.quaternion.copy(restQuat).multiply(_deltaQuat);
 }
 
-function AnimatedCharacter({ mouse }) {
-  const outerRef = useRef(null);
+function AnimatedCharacter({ mouse, anchorRef }) {
+  const outerRef = anchorRef;
   const pivotRef = useRef(null);
   const { scene } = useGLTF(CHARACTER_MODEL_URL);
   const bonesRef = useRef({});
@@ -1237,6 +1364,7 @@ function SceneEnvironment() {
 
 function Experience({ device }) {
   const mouse = useMouseParallax();
+  const charAnchorRef = useRef(null);
   return (
     <>
       <ScrollSmoother />
@@ -1248,42 +1376,24 @@ function Experience({ device }) {
         <SceneObjects />
         <ObjectBoundary>
           <Suspense fallback={null}>
-            <AnimatedCharacter mouse={mouse} />
+            <AnimatedCharacter mouse={mouse} anchorRef={charAnchorRef} />
           </Suspense>
         </ObjectBoundary>
       </Suspense>
+      <SparkleTrail
+        anchorRef={charAnchorRef}
+        enabled={TRAIL_ENABLED}
+        color={TRAIL_COLOR}
+        size={TRAIL_SIZE}
+        life={TRAIL_LIFE}
+        rate={TRAIL_RATE}
+      />
       {device.enablePostProcessing && BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
           <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
         </EffectComposer>
       )}
     </>
-  );
-}
-
-function HeroText() {
-  const ref = useRef(null);
-  const FADE_IN_END = 0.05;
-  const ZOOM_START = ST_TURN_END;
-
-  useEffect(() => {
-    const update = (progress) => {
-      if (!ref.current) return;
-      const fadeIn = smoothstep(0, FADE_IN_END, progress);
-      const zoomOut = smoothstep(ZOOM_START, 1, progress);
-      const scale = 1 + zoomOut * 14;
-      const opacity = fadeIn * (1 - zoomOut);
-      ref.current.style.opacity = String(opacity);
-      ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
-    };
-    update(useScrollStore.getState().smoothProgress);
-    return useScrollStore.subscribe((s) => update(s.smoothProgress));
-  }, []);
-
-  return (
-    <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-   
-    </div>
   );
 }
 
@@ -1519,7 +1629,6 @@ function App() {
           />
         )}
         <CursorTrail />
-        <HeroText />
         <SceneText />
         <ProgressIndicator />
         <div className="scroll-hint" aria-hidden="true">
