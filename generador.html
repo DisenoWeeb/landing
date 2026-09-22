@@ -616,6 +616,21 @@ const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.5;
 /*@GEN:POSTFX_END*/
 
+/*@GEN:REFLECTION_START*/
+const REFLECTION_ENABLED = false;
+const REFLECTION_RESOLUTION = 256;
+const REFLECTION_UPDATE_EVERY = 2;
+const REFLECTION_INTENSITY = 1;
+/*@GEN:REFLECTION_END*/
+  
+/*@GEN:TRAIL_START*/
+const TRAIL_ENABLED = true;
+const TRAIL_COLOR = "#ffd873";
+const TRAIL_SIZE = 0.05;
+const TRAIL_LIFE = 0.9;
+const TRAIL_RATE = 40;
+/*@GEN:TRAIL_END*/
+
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
 }
@@ -808,6 +823,210 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 }
 
 /* ============================================================
+   Estela de brillo (sparkle trail) — usada por el personaje
+   (bee.glb) para dejar un rastro de partículas brillantes a su
+   paso, que se van desvaneciendo. Es un sistema de partículas
+   simple con THREE.Points + shader propio (glow radial aditivo),
+   sin dependencias extra.
+   ============================================================ */
+const TRAIL_VERTEX_SHADER = `
+  attribute float aSize;
+  attribute float aOpacity;
+  varying float vOpacity;
+  void main() {
+    vOpacity = aOpacity;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize * (300.0 / max(-mvPosition.z, 0.001));
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+const TRAIL_FRAGMENT_SHADER = `
+  uniform vec3 uColor;
+  varying float vOpacity;
+  void main() {
+    vec2 uv = gl_PointCoord.xy - 0.5;
+    float d = length(uv) * 2.0;
+    float glow = smoothstep(1.0, 0.0, d);
+    float core = smoothstep(0.35, 0.0, d);
+    float alpha = (glow * glow * 0.6 + core * 0.9) * vOpacity;
+    vec3 col = mix(uColor, vec3(1.0), core * 0.6);
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
+function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
+  const pointsRef = useRef(null);
+  const materialRef = useRef(null);
+  const particles = useRef([]);
+  const maxParticles = useMemo(() => Math.max(8, Math.ceil(rate * life) + 8), [rate, life]);
+  const positions = useMemo(() => new Float32Array(maxParticles * 3), [maxParticles]);
+  const sizes = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const opacities = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const emitAccum = useRef(0);
+  const prevAnchor = useRef(null);
+  const prevProgress = useRef(null);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uColor.value.set(color);
+  }, [color]);
+
+  useFrame((_, delta) => {
+    const group = pointsRef.current;
+    const anchor = anchorRef && anchorRef.current;
+    if (!group) return;
+
+    if (!enabled || !anchor) {
+      group.visible = false;
+      particles.current.length = 0;
+      prevAnchor.current = null;
+      prevProgress.current = null;
+      return;
+    }
+    group.visible = true;
+
+    const ax = anchor.position.x, ay = anchor.position.y, az = anchor.position.z;
+
+    // Solo emite si el scroll realmente se movió este frame — filtra el
+    // "respirar" idle del personaje, que no cuenta como movimiento real.
+    const progress = useScrollStore.getState().smoothProgress;
+    const SCROLL_EPS = 0.00025;
+    const isScrolling = prevProgress.current !== null && Math.abs(progress - prevProgress.current) > SCROLL_EPS;
+    prevProgress.current = progress;
+
+    if (isScrolling && prevAnchor.current) {
+      emitAccum.current += delta;
+      const emitEvery = 1 / Math.max(rate, 1);
+      const from = prevAnchor.current;
+      while (emitAccum.current >= emitEvery) {
+        emitAccum.current -= emitEvery;
+        const t = 1 - emitAccum.current / delta;
+        const px = lerp(from.x, ax, isFinite(t) ? t : 1);
+        const py = lerp(from.y, ay, isFinite(t) ? t : 1);
+        const pz = lerp(from.z, az, isFinite(t) ? t : 1);
+        particles.current.push({
+          x: px, y: py, z: pz,
+          age: 0,
+          seed: Math.random() * Math.PI * 2,
+          ox: (Math.random() - 0.5) * size * 6,
+          oy: (Math.random() - 0.5) * size * 6,
+          oz: (Math.random() - 0.5) * size * 6,
+          sizeMul: 0.5 + Math.random() * 0.9,
+        });
+        if (particles.current.length > maxParticles) particles.current.shift();
+      }
+    } else {
+      // Sin scroll: no acumules emisión pendiente, así no larga una
+      // ráfaga de golpe apenas el usuario vuelve a mover la rueda.
+      emitAccum.current = 0;
+    }
+    prevAnchor.current = { x: ax, y: ay, z: az };
+
+    for (let i = particles.current.length - 1; i >= 0; i--) {
+      particles.current[i].age += delta;
+      if (particles.current[i].age >= life) particles.current.splice(i, 1);
+    }
+
+    const n = Math.min(particles.current.length, maxParticles);
+    const now = performance.now() * 0.001;
+    for (let i = 0; i < n; i++) {
+      const p = particles.current[i];
+      const t = clamp(p.age / life);
+      const drift = t;
+      positions[i * 3] = p.x + p.ox * drift;
+      positions[i * 3 + 1] = p.y + p.oy * drift + t * size * 4;
+      positions[i * 3 + 2] = p.z + p.oz * drift;
+      const twinkle = 0.5 + 0.5 * Math.sin(now * 9 + p.seed * 7);
+      opacities[i] = (1 - t) * (1 - t) * (0.35 + 0.65 * twinkle);
+      sizes[i] = size * p.sizeMul * (1 - t * 0.35);
+    }
+
+    const geom = group.geometry;
+    geom.attributes.position.needsUpdate = true;
+    geom.attributes.aOpacity.needsUpdate = true;
+    geom.attributes.aSize.needsUpdate = true;
+    geom.setDrawRange(0, n);
+  });
+
+  return (
+    <points key={maxParticles} ref={pointsRef} frustumCulled={false}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
+        <bufferAttribute attach="attributes-aOpacity" count={maxParticles} array={opacities} itemSize={1} />
+      </bufferGeometry>
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={TRAIL_VERTEX_SHADER}
+        fragmentShader={TRAIL_FRAGMENT_SHADER}
+        uniforms={{ uColor: { value: new THREE.Color(color) } }}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+  /* Cámara de reflejo (cube camera): ubicada en el Modelo principal, cada
+   ciertos frames fotografía los 360° a su alrededor (paredes, objetos,
+   el PNG del perro, etc. — todo lo que haya en la escena, salvo el
+   propio modelo, que se oculta un instante durante la captura) y usa
+   esa foto como reflejo en los materiales metálicos del modelo. La
+   cámara principal (la que ve el usuario) no necesita apuntar a lo que
+   se refleja — el reflejo se calcula aparte, en 360°, todo el tiempo. */
+function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensity }) {
+  const { gl, scene } = useThree();
+  const rtRef = useRef(null);
+  const camRef = useRef(null);
+  const frameRef = useRef(0);
+  const appliedRef = useRef(new Set());
+  const posRef = useRef(new THREE.Vector3());
+
+  useEffect(() => {
+    const rt = new THREE.WebGLCubeRenderTarget(resolution, {
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
+    });
+    rtRef.current = rt;
+    camRef.current = new THREE.CubeCamera(0.05, 1000, rt);
+    appliedRef.current = new Set();
+    return () => rt.dispose();
+  }, [resolution]);
+
+  useFrame(() => {
+    if (!enabled || !anchorRef.current || !camRef.current) return;
+    frameRef.current++;
+    if (frameRef.current % Math.max(1, updateEvery) !== 0) return;
+
+    const anchor = anchorRef.current;
+    anchor.getWorldPosition(posRef.current);
+    camRef.current.position.copy(posRef.current);
+
+    // Oculta el modelo un instante para que no se refleje a sí mismo.
+    const wasVisible = anchor.visible;
+    anchor.visible = false;
+    camRef.current.update(gl, scene);
+    anchor.visible = wasVisible;
+
+    const texture = rtRef.current.texture;
+    anchor.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((m) => {
+        if (!("envMap" in m)) return;
+        if (!appliedRef.current.has(m.uuid)) {
+          m.envMap = texture;
+          m.needsUpdate = true;
+          appliedRef.current.add(m.uuid);
+        }
+        if ("envMapIntensity" in m) m.envMapIntensity = intensity;
+      });
+    });
+  });
+
+  return null;
+}
+/* ============================================================
    three/AnimatedCharacter.jsx
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
@@ -823,8 +1042,8 @@ function applyLocalDelta(bone, restQuat, ex, ey, ez) {
   bone.quaternion.copy(restQuat).multiply(_deltaQuat);
 }
 
-function AnimatedCharacter({ mouse }) {
-  const outerRef = useRef(null);
+function AnimatedCharacter({ mouse, anchorRef }) {
+  const outerRef = anchorRef;
   const pivotRef = useRef(null);
   const { scene } = useGLTF(CHARACTER_MODEL_URL);
   const bonesRef = useRef({});
@@ -1017,6 +1236,93 @@ function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
 }
 
+/* Genera una textura a partir de texto (color + tipografía elegidos),
+   dibujándolo en un canvas — mismo enfoque que useHiResSvgTexture,
+   pero en vez de rasterizar un archivo, dibuja el string directamente.
+   Respeta saltos de línea manuales ("\n"); no hace auto-wrap, así el
+   usuario controla dónde corta cada renglón. */
+function useHiResTextTexture(text, opts) {
+  const {
+    color = "#ffffff",
+    font = "'Inter', sans-serif",
+    weight = 600,
+    align = "center",
+    outline = false,
+    outlineColor = "#000000",
+  } = opts || {};
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const fontSizePx = 200;
+    const lineHeight = fontSizePx * 1.2;
+    const padding = fontSizePx * 0.25;
+    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
+    const draw = () => {
+      if (cancelled) return;
+      const lines = (text || "").split("\n");
+      const measureCanvas = document.createElement("canvas");
+      const mctx = measureCanvas.getContext("2d");
+      mctx.font = fontSpec;
+      let maxLineWidth = 1;
+      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(maxLineWidth + padding * 2);
+      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
+      const ctx = canvas.getContext("2d");
+      ctx.font = fontSpec;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = align;
+      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
+      lines.forEach((line, i) => {
+        const y = padding + lineHeight * i + lineHeight / 2;
+        if (outline) {
+          ctx.lineJoin = "round";
+          ctx.lineWidth = fontSizePx * 0.08;
+          ctx.strokeStyle = outlineColor;
+          ctx.strokeText(line, xPos, y);
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(line, xPos, y);
+      });
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTexture(tex);
+    };
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load(fontSpec).catch(() => {}).then(draw);
+    } else {
+      draw();
+    }
+    return () => { cancelled = true; };
+  }, [text, color, font, weight, align, outline, outlineColor]);
+  return texture;
+}
+
+function SceneObjectText({ data }) {
+  const texture = useHiResTextTexture(data.text, {
+    color: data.textColor,
+    font: data.fontFamily,
+    weight: data.fontWeight,
+    align: data.textAlign,
+    outline: data.textOutline,
+    outlineColor: data.textOutlineColor,
+  });
+  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
+  if (!texture) return <group ref={groupRef} />;
+  const aspect = texture.image.width / texture.image.height;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
+
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const groupRef = useObjectTransformRef(data.keyframes, false);
@@ -1063,6 +1369,7 @@ function SceneObjectImage({ data }) {
   return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
 function SceneObject({ data }) {
+  if (data.type === "text") return <SceneObjectText data={data} />;
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
 }
 /* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
@@ -1094,6 +1401,7 @@ function SceneObjects() {
   );
 }
 OBJECTS.forEach((obj) => {
+  if (obj.type === "text") return; // el texto no tiene archivo que precargar
   if (obj.type === "image") useTexture.preload(obj.url);
   else useGLTF.preload(obj.url);
 });
@@ -1157,6 +1465,7 @@ function SceneEnvironment() {
 
 function Experience({ device }) {
   const mouse = useMouseParallax();
+  const charAnchorRef = useRef(null);
   return (
     <>
       <ScrollSmoother />
@@ -1168,42 +1477,33 @@ function Experience({ device }) {
         <SceneObjects />
         <ObjectBoundary>
           <Suspense fallback={null}>
-            <AnimatedCharacter mouse={mouse} />
+            <AnimatedCharacter mouse={mouse} anchorRef={charAnchorRef} />
           </Suspense>
         </ObjectBoundary>
       </Suspense>
+      <SparkleTrail
+        anchorRef={charAnchorRef}
+        enabled={TRAIL_ENABLED}
+        color={TRAIL_COLOR}
+        size={TRAIL_SIZE}
+        life={TRAIL_LIFE}
+        rate={TRAIL_RATE}
+      />
+
+        <ReflectionProbe
+        anchorRef={charAnchorRef}
+        enabled={REFLECTION_ENABLED}
+        resolution={REFLECTION_RESOLUTION}
+        updateEvery={REFLECTION_UPDATE_EVERY}
+        intensity={REFLECTION_INTENSITY}
+      />
+  
       {device.enablePostProcessing && BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
           <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
         </EffectComposer>
       )}
     </>
-  );
-}
-
-function HeroText() {
-  const ref = useRef(null);
-  const FADE_IN_END = 0.05;
-  const ZOOM_START = ST_TURN_END;
-
-  useEffect(() => {
-    const update = (progress) => {
-      if (!ref.current) return;
-      const fadeIn = smoothstep(0, FADE_IN_END, progress);
-      const zoomOut = smoothstep(ZOOM_START, 1, progress);
-      const scale = 1 + zoomOut * 14;
-      const opacity = fadeIn * (1 - zoomOut);
-      ref.current.style.opacity = String(opacity);
-      ref.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
-    };
-    update(useScrollStore.getState().smoothProgress);
-    return useScrollStore.subscribe((s) => update(s.smoothProgress));
-  }, []);
-
-  return (
-    <div ref={ref} className="hero-text" style={{ opacity: 0 }}>
-      Scroll Experience
-    </div>
   );
 }
 
@@ -1439,7 +1739,6 @@ function App() {
           />
         )}
         <CursorTrail />
-        <HeroText />
         <SceneText />
         <ProgressIndicator />
         <div className="scroll-hint" aria-hidden="true">
@@ -1782,8 +2081,9 @@ function LiveCameraTracker({ orbitRef, liveCameraRef, active }) {
   return null;
 }
 
-function MovedGroup({ movement, children }) {
-  const ref = useRef(null);
+function MovedGroup({ movement, anchorRef, children }) {
+  const localRef = useRef(null);
+  const ref = anchorRef || localRef;
   useFrame(() => {
     if (!ref.current || !movement) return;
     ref.current.position.set(movement.pos[0], movement.pos[1], movement.pos[2]);
@@ -1855,6 +2155,90 @@ function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
 }
 
+/* Misma implementación que en la plantilla final (ver tpl-source),
+   para que el texto se vea igual acá en el visor y en el index.html
+   exportado. */
+function useHiResTextTexture(text, opts) {
+  const {
+    color = "#ffffff",
+    font = "'Inter', sans-serif",
+    weight = 600,
+    align = "center",
+    outline = false,
+    outlineColor = "#000000",
+  } = opts || {};
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const fontSizePx = 200;
+    const lineHeight = fontSizePx * 1.2;
+    const padding = fontSizePx * 0.25;
+    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
+    const draw = () => {
+      if (cancelled) return;
+      const lines = (text || "").split("\n");
+      const measureCanvas = document.createElement("canvas");
+      const mctx = measureCanvas.getContext("2d");
+      mctx.font = fontSpec;
+      let maxLineWidth = 1;
+      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(maxLineWidth + padding * 2);
+      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
+      const ctx = canvas.getContext("2d");
+      ctx.font = fontSpec;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = align;
+      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
+      lines.forEach((line, i) => {
+        const y = padding + lineHeight * i + lineHeight / 2;
+        if (outline) {
+          ctx.lineJoin = "round";
+          ctx.lineWidth = fontSizePx * 0.08;
+          ctx.strokeStyle = outlineColor;
+          ctx.strokeText(line, xPos, y);
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(line, xPos, y);
+      });
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTexture(tex);
+    };
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load(fontSpec).catch(() => {}).then(draw);
+    } else {
+      draw();
+    }
+    return () => { cancelled = true; };
+  }, [text, color, font, weight, align, outline, outlineColor]);
+  return texture;
+}
+
+function ObjectPreviewText({ obj }) {
+  const texture = useHiResTextTexture(obj.text, {
+    color: obj.textColor,
+    font: obj.fontFamily,
+    weight: obj.fontWeight,
+    align: obj.textAlign,
+    outline: obj.textOutline,
+    outlineColor: obj.textOutlineColor,
+  });
+  if (!texture) return null;
+  const aspect = texture.image.width / texture.image.height;
+  const mesh = (
+    <mesh
+      scale={[obj.scale * aspect, obj.scale, 1]}
+      position={obj.billboard ? [0, 0, 0] : obj.position}
+      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
+}
+
 function ObjectPreviewImageRaster({ obj }) {
   const texture = useTexture(obj.previewUrl || obj.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
@@ -1890,13 +2274,14 @@ function ObjectPreviewImage({ obj }) {
   return isSvgUrl(obj.url) ? <ObjectPreviewImageSvg obj={obj} /> : <ObjectPreviewImageRaster obj={obj} />;
 }
 function ObjectPreview({ obj }) {
+  if (obj.type === "text") return <ObjectPreviewText obj={obj} />;
   return obj.type === "image" ? <ObjectPreviewImage obj={obj} /> : <ObjectPreviewModel obj={obj} />;
 }
 
 /* La estructura de la escena es SIEMPRE la misma (luces, grilla,
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
-function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY }) {
+function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection }) {
   return (
     <>
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
@@ -1928,13 +2313,32 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
             </Suspense>
           </ObjectBoundary>
         ))}
-      <MovedGroup movement={movement}>
+      <MovedGroup movement={movement} anchorRef={charAnchorRef}>
         <ObjectBoundary>
           <Suspense fallback={null}>
             <Character pose={pose} onBonesFound={onBonesFound} modelUrl={modelUrl} scale={charScale} centerY={charCenterY} />
           </Suspense>
         </ObjectBoundary>
       </MovedGroup>
+            {trail && trail.enabled && (
+        <SparkleTrail
+          anchorRef={charAnchorRef}
+          enabled={trail.enabled}
+          color={trail.color}
+          size={trail.size}
+          life={trail.life}
+          rate={trail.rate}
+        />
+      )}
+      {reflection && (
+        <ReflectionProbe
+          anchorRef={charAnchorRef}
+          enabled={reflection.enabled}
+          resolution={reflection.resolution}
+          updateEvery={reflection.updateEvery}
+          intensity={reflection.intensity}
+        />
+      )}
       {sceneCameraActive ? (
         <SceneCameraDriver target={cameraTarget} active={true} />
       ) : (
@@ -1963,6 +2367,194 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
   );
 }
 
+/* Estela de brillo (sparkle trail) — misma implementación que la
+   plantilla final (ver bloque TRAIL_* embebido en tpl-source), para
+   que lo que se ve acá en el visor sea igual a lo que va a quedar en
+   el index.html exportado. */
+const TRAIL_VERTEX_SHADER = `
+  attribute float aSize;
+  attribute float aOpacity;
+  varying float vOpacity;
+  void main() {
+    vOpacity = aOpacity;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize * (300.0 / max(-mvPosition.z, 0.001));
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+const TRAIL_FRAGMENT_SHADER = `
+  uniform vec3 uColor;
+  varying float vOpacity;
+  void main() {
+    vec2 uv = gl_PointCoord.xy - 0.5;
+    float d = length(uv) * 2.0;
+    float glow = smoothstep(1.0, 0.0, d);
+    float core = smoothstep(0.35, 0.0, d);
+    float alpha = (glow * glow * 0.6 + core * 0.9) * vOpacity;
+    vec3 col = mix(uColor, vec3(1.0), core * 0.6);
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
+function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
+  const pointsRef = useRef(null);
+  const materialRef = useRef(null);
+  const particles = useRef([]);
+  const maxParticles = useMemo(() => Math.max(8, Math.ceil(rate * life) + 8), [rate, life]);
+  const positions = useMemo(() => new Float32Array(maxParticles * 3), [maxParticles]);
+  const sizes = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const opacities = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const emitAccum = useRef(0);
+  const prevAnchor = useRef(null);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uColor.value.set(color);
+  }, [color]);
+
+  useFrame((_, delta) => {
+    const group = pointsRef.current;
+    const anchor = anchorRef && anchorRef.current;
+    if (!group) return;
+
+    if (!enabled || !anchor) {
+      group.visible = false;
+      particles.current.length = 0;
+      prevAnchor.current = null;
+      return;
+    }
+    group.visible = true;
+
+    const ax = anchor.position.x, ay = anchor.position.y, az = anchor.position.z;
+
+    if (prevAnchor.current) {
+      emitAccum.current += delta;
+      const emitEvery = 1 / Math.max(rate, 1);
+      const from = prevAnchor.current;
+      while (emitAccum.current >= emitEvery) {
+        emitAccum.current -= emitEvery;
+        const t = 1 - emitAccum.current / delta;
+        const px = lerp(from.x, ax, isFinite(t) ? t : 1);
+        const py = lerp(from.y, ay, isFinite(t) ? t : 1);
+        const pz = lerp(from.z, az, isFinite(t) ? t : 1);
+        particles.current.push({
+          x: px, y: py, z: pz,
+          age: 0,
+          seed: Math.random() * Math.PI * 2,
+          ox: (Math.random() - 0.5) * size * 6,
+          oy: (Math.random() - 0.5) * size * 6,
+          oz: (Math.random() - 0.5) * size * 6,
+          sizeMul: 0.5 + Math.random() * 0.9,
+        });
+        if (particles.current.length > maxParticles) particles.current.shift();
+      }
+    }
+    prevAnchor.current = { x: ax, y: ay, z: az };
+
+    for (let i = particles.current.length - 1; i >= 0; i--) {
+      particles.current[i].age += delta;
+      if (particles.current[i].age >= life) particles.current.splice(i, 1);
+    }
+
+    const n = Math.min(particles.current.length, maxParticles);
+    const now = performance.now() * 0.001;
+    for (let i = 0; i < n; i++) {
+      const p = particles.current[i];
+      const t = clamp(p.age / life);
+      const drift = t;
+      positions[i * 3] = p.x + p.ox * drift;
+      positions[i * 3 + 1] = p.y + p.oy * drift + t * size * 4;
+      positions[i * 3 + 2] = p.z + p.oz * drift;
+      const twinkle = 0.5 + 0.5 * Math.sin(now * 9 + p.seed * 7);
+      opacities[i] = (1 - t) * (1 - t) * (0.35 + 0.65 * twinkle);
+      sizes[i] = size * p.sizeMul * (1 - t * 0.35);
+    }
+
+    const geom = group.geometry;
+    geom.attributes.position.needsUpdate = true;
+    geom.attributes.aOpacity.needsUpdate = true;
+    geom.attributes.aSize.needsUpdate = true;
+    geom.setDrawRange(0, n);
+  });
+
+  return (
+    <points key={maxParticles} ref={pointsRef} frustumCulled={false}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
+        <bufferAttribute attach="attributes-aOpacity" count={maxParticles} array={opacities} itemSize={1} />
+      </bufferGeometry>
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={TRAIL_VERTEX_SHADER}
+        fragmentShader={TRAIL_FRAGMENT_SHADER}
+        uniforms={{ uColor: { value: new THREE.Color(color) } }}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+  /* Cámara de reflejo (cube camera): ubicada en el Modelo principal, cada
+   ciertos frames fotografía los 360° a su alrededor (paredes, objetos,
+   el PNG del perro, etc. — todo lo que haya en la escena, salvo el
+   propio modelo, que se oculta un instante durante la captura) y usa
+   esa foto como reflejo en los materiales metálicos del modelo. La
+   cámara principal (la que ve el usuario) no necesita apuntar a lo que
+   se refleja — el reflejo se calcula aparte, en 360°, todo el tiempo. */
+function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensity }) {
+  const { gl, scene } = useThree();
+  const rtRef = useRef(null);
+  const camRef = useRef(null);
+  const frameRef = useRef(0);
+  const appliedRef = useRef(new Set());
+  const posRef = useRef(new THREE.Vector3());
+
+  useEffect(() => {
+    const rt = new THREE.WebGLCubeRenderTarget(resolution, {
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
+    });
+    rtRef.current = rt;
+    camRef.current = new THREE.CubeCamera(0.05, 1000, rt);
+    appliedRef.current = new Set();
+    return () => rt.dispose();
+  }, [resolution]);
+
+  useFrame(() => {
+    if (!enabled || !anchorRef.current || !camRef.current) return;
+    frameRef.current++;
+    if (frameRef.current % Math.max(1, updateEvery) !== 0) return;
+
+    const anchor = anchorRef.current;
+    anchor.getWorldPosition(posRef.current);
+    camRef.current.position.copy(posRef.current);
+
+    // Oculta el modelo un instante para que no se refleje a sí mismo.
+    const wasVisible = anchor.visible;
+    anchor.visible = false;
+    camRef.current.update(gl, scene);
+    anchor.visible = wasVisible;
+
+    const texture = rtRef.current.texture;
+    anchor.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((m) => {
+        if (!("envMap" in m)) return;
+        if (!appliedRef.current.has(m.uuid)) {
+          m.envMap = texture;
+          m.needsUpdate = true;
+          appliedRef.current.add(m.uuid);
+        }
+        if ("envMapIntensity" in m) m.envMapIntensity = intensity;
+      });
+    });
+  });
+
+  return null;
+}
 /* Contorno de celular: dibuja el rectángulo 9:16 más grande que entra
    en el visor actual (igual que "object-fit: contain"), para ver de
    entrada qué parte de la composición realmente se ve en un teléfono.
@@ -2093,9 +2685,29 @@ const BLOOM_ENABLED = ${postFx.bloomEnabled ? "true" : "false"};
 const BLOOM_INTENSITY = ${postFx.bloomIntensity};`;
 }
 
+/* Genera el bloque de configuración de la estela de brillo, con el
+   mismo formato que espera el marcador @GEN:TRAIL en la plantilla
+   final. */
+function generateTrailCode(trail) {
+  const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
+  return `const TRAIL_ENABLED = ${trail.enabled ? "true" : "false"};
+const TRAIL_COLOR = "${trail.color}";
+const TRAIL_SIZE = ${fmtNum(trail.size)};
+const TRAIL_LIFE = ${fmtNum(trail.life)};
+const TRAIL_RATE = ${fmtNum(trail.rate)};`;
+}
+
+function generateReflectionCode(reflection) {
+  return `const REFLECTION_ENABLED = ${reflection.enabled ? "true" : "false"};
+const REFLECTION_RESOLUTION = ${reflection.resolution};
+const REFLECTION_UPDATE_EVERY = ${reflection.updateEvery};
+const REFLECTION_INTENSITY = ${reflection.intensity};`;
+}
+  
 function generateObjectsCode(objects, transformsByKf, stages, easings) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
+  const esc = (s) => JSON.stringify(s == null ? "" : s);
   const objLines = objects.map((o) => {
     const transforms = transformsByKf[o.id] || {};
     const kfLines = stages.map((kf, idx) => {
@@ -2103,6 +2715,22 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
       const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
       return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)} },`;
     }).join("\n");
+    if (o.type === "text") {
+      return `  {
+    type: "text",
+    text: ${esc(o.text)},
+    textColor: "${o.textColor || "#ffffff"}",
+    fontFamily: ${esc(o.fontFamily || "'Inter', sans-serif")},
+    fontWeight: ${o.fontWeight || 600},
+    textAlign: "${o.textAlign || "center"}",
+    textOutline: ${o.textOutline ? "true" : "false"},
+    textOutlineColor: "${o.textOutlineColor || "#000000"}",
+    billboard: ${o.billboard ? "true" : "false"},
+    keyframes: [
+${kfLines}
+    ],
+  },`;
+    }
     return `  {
     type: "${o.type === "image" ? "image" : "model"}",
     url: "${o.url}",
@@ -2115,7 +2743,7 @@ ${kfLines}
   return `const OBJECTS = [\n${objLines || "  // (sin objetos)"}\n];`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode) {
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -2132,6 +2760,8 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
   tpl = swap(tpl, "/*@GEN:BONES_START*/", "/*@GEN:BONES_END*/", boneCode);
   tpl = swap(tpl, "/*@GEN:SCROLL_LENGTH_START*/", "/*@GEN:SCROLL_LENGTH_END*/", scrollLengthCode);
   tpl = swap(tpl, "/*@GEN:POSTFX_START*/", "/*@GEN:POSTFX_END*/", postFxCode);
+  tpl = swap(tpl, "/*@GEN:TRAIL_START*/", "/*@GEN:TRAIL_END*/", trailCode);
+  tpl = swap(tpl, "/*@GEN:REFLECTION_START*/", "/*@GEN:REFLECTION_END*/", reflectionCode);
   tpl = swap(tpl, "/*@GEN:OBJECTS_START*/", "/*@GEN:OBJECTS_END*/", objectsCode);
   tpl = swap(tpl, "/*@GEN:CHAR_TRANSFORM_START*/", "/*@GEN:CHAR_TRANSFORM_END*/", charTransformCode);
   return tpl;
@@ -2169,6 +2799,32 @@ function App() {
     bloomIntensity: 0.5,
   });
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
+  /* Estela de brillo (sparkle trail) que deja el personaje (bee.glb) a
+     su paso, y se va desvaneciendo. A diferencia de postFx, esta SÍ se
+     ve en vivo en el visor de este editor (misma implementación que
+     la plantilla final), para poder ajustarla con feedback inmediato
+     antes de descargar. Color dorado por defecto, a tono con el
+     brillo de referencia tipo abeja/polen. */
+  const [trail, setTrail] = useState({
+    enabled: true,
+    color: "#ffd873",
+    size: 0.05,
+    life: 0.9,
+    rate: 40,
+  });
+  const setTrailField = (field, value) => setTrail((prev) => ({ ...prev, [field]: value }));
+    /* Reflejo de ambiente en tiempo real sobre el Modelo principal (metal).
+     resolution = nitidez del reflejo (más alto = más pesado). updateEvery
+     = cada cuántos frames se recalcula (1 = todos los frames, más preciso
+     pero más pesado; 3-5 rinde mejor, sobre todo en celular). */
+  const [reflection, setReflection] = useState({
+    enabled: false,
+    resolution: 256,
+    updateEvery: 2,
+    intensity: 1,
+  });
+  const setReflectionField = (field, value) => setReflection((prev) => ({ ...prev, [field]: value }));
+  const charAnchorRef = useRef(null);
   const [stages, setStages] = useState(makeDefaultStages);
   const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
   const [easings, setEasings] = useState(() => DEFAULT_DURATIONS_VH.map(() => "smooth"));
@@ -2353,6 +3009,20 @@ function App() {
   const setObjectType = (id, type) => {
     setObjects((prev) => prev.map((o) => {
       if (o.id !== id) return o;
+      if (type === "text") {
+        return {
+          ...o,
+          type: "text",
+          billboard: o.billboard ?? true,
+          text: o.text ?? "Texto",
+          textColor: o.textColor ?? "#ffffff",
+          fontFamily: o.fontFamily ?? "'Inter', sans-serif",
+          fontWeight: o.fontWeight ?? 600,
+          textAlign: o.textAlign ?? "center",
+          textOutline: o.textOutline ?? false,
+          textOutlineColor: o.textOutlineColor ?? "#000000",
+        };
+      }
       let url = o.url;
       if (type === "image" && /\.glb$/i.test(url)) url = url.replace(/\.glb$/i, ".png");
       if (type === "model" && /\.(svg|png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(svg|png|jpe?g|webp)$/i, ".glb");
@@ -2507,6 +3177,8 @@ function App() {
   const modelUrlCode = useMemo(() => generateModelUrlCode(modelUrl), [modelUrl]);
   const charTransformCode = useMemo(() => generateCharTransformCode(charScale, charCenterY), [charScale, charCenterY]);
   const postFxCode = useMemo(() => generatePostFxCode(postFx), [postFx]);
+  const trailCode = useMemo(() => generateTrailCode(trail), [trail]);
+  const reflectionCode = useMemo(() => generateReflectionCode(reflection), [reflection]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
@@ -2532,6 +3204,8 @@ function App() {
     charScale,
     charCenterY,
     postFx,
+    trail,
+    reflection,
     stages,
     durationsVh,
     easings,
@@ -2549,6 +3223,8 @@ function App() {
     setCharScale(typeof p.charScale === "number" ? p.charScale : 0.4);
     setCharCenterY(typeof p.charCenterY === "number" ? p.charCenterY : 0.05);
     if (p.postFx) setPostFx((prev) => ({ ...prev, ...p.postFx }));
+    if (p.trail) setTrail((prev) => ({ ...prev, ...p.trail }));
+    if (p.reflection) setReflection((prev) => ({ ...prev, ...p.reflection }));
     const loadedStages = p.stages && p.stages.length ? p.stages : makeDefaultStages();
     setStages(loadedStages);
     setDurationsVh(p.durationsVh || DEFAULT_DURATIONS_VH);
@@ -2637,7 +3313,7 @@ function App() {
   };
 
   const downloadFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode);
+        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2651,7 +3327,7 @@ function App() {
   };
 
   const copyFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode);
+        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode);
     copy(html, "full");
   };
 
@@ -2680,7 +3356,7 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
         </div>
         <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} />
+                    <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection} />
         </Canvas>
         {showFx && postFx.vignetteEnabled && (
           <div
@@ -2700,7 +3376,7 @@ function App() {
       <div className="panel">
         <div>
           <h1>Pose, Cámara, Movimiento &amp; Objetos</h1>
-          <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos, con el contorno de celular (9:16) marcando qué se ve realmente en pantalla chica. Cada control tiene ahora un campo numérico al lado del slider para escribir el valor exacto. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
+          <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos, con el contorno de celular (9:16) marcando qué se ve realmente en pantalla chica. Cada control tiene ahora un campo numérico al lado del slider para escribir el valor exacto. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, texto, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
         </div>
 
         <div className="cam-group">
@@ -2719,8 +3395,72 @@ function App() {
             <input type="range" min={-2} max={2} step={0.01} value={charCenterY} onChange={(e) => setCharCenterY(Number(e.target.value))} />
             <input type="number" className="axis-num" step={0.01} value={charCenterY} onChange={(e) => setCharCenterY(Number(e.target.value))} />
           </div>
+                    <label className="toggle-row" style={{ marginTop: 6, marginBottom: 6 }}>
+            <input type="checkbox" checked={reflection.enabled} onChange={(e) => setReflectionField("enabled", e.target.checked)} />
+            Reflejo de ambiente en tiempo real (metal)
+          </label>
+          {reflection.enabled && (
+            <>
+              <div className="axis-row">
+                <label style={{ width: 90, fontSize: 10.5 }}>Resolución</label>
+                <select
+                  value={reflection.resolution}
+                  onChange={(e) => setReflectionField("resolution", Number(e.target.value))}
+                  style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
+                >
+                  <option value={128}>128 (más rápido)</option>
+                  <option value={256}>256</option>
+                  <option value={512}>512 (más nítido)</option>
+                </select>
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 90, fontSize: 10.5 }}>Actualizar cada</label>
+                <input type="range" min={1} max={10} step={1} value={reflection.updateEvery} onChange={(e) => setReflectionField("updateEvery", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={1} value={reflection.updateEvery} onChange={(e) => setReflectionField("updateEvery", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 90, fontSize: 10.5 }}>Intensidad</label>
+                <input type="range" min={0} max={3} step={0.05} value={reflection.intensity} onChange={(e) => setReflectionField("intensity", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.05} value={reflection.intensity} onChange={(e) => setReflectionField("intensity", Number(e.target.value))} />
+              </div>
+              <p className="hint">Solo tiene efecto visible si el material del modelo tiene Metálico alto y Rugosidad baja. "Actualizar cada" en 3-5 rinde mejor en celular sin perder demasiada calidad.</p>
+            </>
+          )}
           <p className="hint">Escala y Centro Y ahora se ven EN VIVO en este visor (antes el visor siempre mostraba el modelo a un tamaño fijo sin importar lo que cambiaras en el código) y quedan grabados en el index.html final al descargar. "Centro Y" sube/baja el modelo para alinearlo al piso o a la grilla — probá valores hasta que se vea bien apoyado.</p>
           <p className="hint">El objeto que animás con Pose/Cámara/Movimiento. Puede ser un personaje con esqueleto (huesos) o un objeto rígido sin huesos — un perfume, un producto, un logo 3D. Si no tiene huesos, la pestaña Pose no hace nada: usá solo Movimiento para hacerlo flotar/girar por etapa.</p>
+        </div>
+
+        <div className="cam-group">
+          <div className="cam-group-title">Estela de brillo (bee)</div>
+          <p className="hint">Rastro de partículas brillantes que el personaje va dejando a su paso y que se desvanece solo, como el brillo de polen detrás de una abeja. Solo emite mientras hay scroll real — se ve en vivo acá en el visor y queda grabado en el index.html final.</p>
+          <label className="toggle-row" style={{ marginBottom: 6 }}>
+            <input type="checkbox" checked={trail.enabled} onChange={(e) => setTrailField("enabled", e.target.checked)} />
+            Activar estela
+          </label>
+          {trail.enabled && (
+            <>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Color</label>
+                <input type="color" value={trail.color} onChange={(e) => setTrailField("color", e.target.value)} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Tamaño</label>
+                <input type="range" min={0.005} max={0.3} step={0.005} value={trail.size} onChange={(e) => setTrailField("size", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.005} value={trail.size} onChange={(e) => setTrailField("size", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Duración</label>
+                <input type="range" min={0.1} max={3} step={0.05} value={trail.life} onChange={(e) => setTrailField("life", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.05} value={trail.life} onChange={(e) => setTrailField("life", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Densidad</label>
+                <input type="range" min={2} max={120} step={1} value={trail.rate} onChange={(e) => setTrailField("rate", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={1} value={trail.rate} onChange={(e) => setTrailField("rate", Number(e.target.value))} />
+              </div>
+              <p className="hint">Duración = cuánto tarda cada chispa en desvanecerse (en segundos). Densidad = cuántas chispas por segundo deja el personaje al moverse — más densidad, estela más continua; menos, más punteada.</p>
+            </>
+          )}
         </div>
 
         <div className="cam-group">
@@ -3047,11 +3787,13 @@ function App() {
 
         {section === "objects" && (
           <>
-            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas) o imágenes planas (.svg/.png/.jpg, tipo cartel, logo o sprite). Para imágenes/SVG podés subir el archivo directo (el de Corel Draw funciona tal cual) y lo ves de una en el visor. El navegador no puede copiarlo solo a la carpeta del proyecto — para eso usá el botón "Descargar" y guardalo con ese mismo nombre en <code>assets/models/</code> junto al resto de los archivos.</p>
+            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas), imágenes planas (.svg/.png/.jpg, tipo cartel, logo o sprite) o texto (con su propio color y tipografía). Para imágenes/SVG podés subir el archivo directo (el de Corel Draw funciona tal cual) y lo ves de una en el visor. El navegador no puede copiarlo solo a la carpeta del proyecto — para eso usá el botón "Descargar" y guardalo con ese mismo nombre en <code>assets/models/</code> junto al resto de los archivos.</p>
             <p className="hint">La escala/posición/rotación de cada objeto ahora es <strong>por etapa</strong> (la misma "Etapa" de arriba) — así podés hacer que floten, se acerquen o giren durante el scroll, igual que el personaje. Si no tocás nada en una etapa nueva, el objeto queda quieto donde estaba.</p>
             <div className="btn-row"><button className="btn" onClick={copyAllObjectTransformsFromPrev}>Copiar posiciones de TODOS desde la etapa anterior</button></div>
             {objects.map((obj, idx) => {
               const isImage = obj.type === "image";
+              const isText = obj.type === "text";
+              const isModel = !isImage && !isText;
               const t = (objectTransformsByKf[obj.id] && objectTransformsByKf[obj.id][activeStage]) || defaultObjectTransform();
               return (
                 <div className="obj-block" key={obj.id}>
@@ -3061,9 +3803,71 @@ function App() {
                     <button className="btn danger" style={{ fontSize: 10, padding: "3px 6px" }} onClick={() => removeObject(obj.id)}>🗑</button>
                   </div>
                   <div className="btn-row" style={{ marginBottom: 6 }}>
-                    <button className={`btn ${!isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "model")}>Modelo (.glb)</button>
+                    <button className={`btn ${isModel ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "model")}>Modelo (.glb)</button>
                     <button className={`btn ${isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "image")}>Imagen / SVG</button>
+                    <button className={`btn ${isText ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "text")}>Texto</button>
                   </div>
+                  {isText && (
+                    <div className="cam-group" style={{ paddingBottom: 8, marginBottom: 8 }}>
+                      <div className="axis-row" style={{ alignItems: "flex-start" }}>
+                        <label style={{ width: 60, fontSize: 10.5, marginTop: 6 }}>Texto</label>
+                        <textarea
+                          value={obj.text || ""}
+                          onChange={(e) => updateObject(obj.id, { text: e.target.value })}
+                          rows={3}
+                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", color: "#f5f6f2", borderRadius: 4, padding: "6px 8px", fontSize: 12, fontFamily: "inherit", resize: "vertical" }}
+                        />
+                      </div>
+                      <p className="hint">Usá Enter para saltos de línea manuales — no hay ajuste automático, así vos controlás dónde corta cada renglón.</p>
+                      <div className="axis-row">
+                        <label style={{ width: 60, fontSize: 10.5 }}>Color</label>
+                        <input type="color" value={obj.textColor || "#ffffff"} onChange={(e) => updateObject(obj.id, { textColor: e.target.value })} />
+                      </div>
+                      <div className="axis-row">
+                        <label style={{ width: 60, fontSize: 10.5 }}>Tipografía</label>
+                        <select
+                          value={obj.fontFamily || "'Inter', sans-serif"}
+                          onChange={(e) => updateObject(obj.id, { fontFamily: e.target.value })}
+                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
+                        >
+                          <option value="'Inter', sans-serif">Inter (sans)</option>
+                          <option value="'Space Grotesk', sans-serif">Space Grotesk (display)</option>
+                          <option value="Georgia, 'Times New Roman', serif">Serif</option>
+                          <option value="'Courier New', monospace">Monoespaciada</option>
+                          <option value="system-ui, sans-serif">Sans genérica del sistema</option>
+                        </select>
+                      </div>
+                      <div className="axis-row">
+                        <label style={{ width: 60, fontSize: 10.5 }}>Peso</label>
+                        <select
+                          value={obj.fontWeight || 600}
+                          onChange={(e) => updateObject(obj.id, { fontWeight: Number(e.target.value) })}
+                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
+                        >
+                          <option value={300}>Liviana (300)</option>
+                          <option value={400}>Normal (400)</option>
+                          <option value={500}>Media (500)</option>
+                          <option value={600}>Semi-negrita (600)</option>
+                          <option value={700}>Negrita (700)</option>
+                        </select>
+                      </div>
+                      <div className="btn-row" style={{ marginBottom: 6 }}>
+                        <button className={`btn ${(obj.textAlign || "center") === "left" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "left" })}>Izquierda</button>
+                        <button className={`btn ${(obj.textAlign || "center") === "center" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "center" })}>Centro</button>
+                        <button className={`btn ${(obj.textAlign || "center") === "right" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "right" })}>Derecha</button>
+                      </div>
+                      <label className="toggle-row" style={{ marginBottom: 6 }}>
+                        <input type="checkbox" checked={!!obj.textOutline} onChange={(e) => updateObject(obj.id, { textOutline: e.target.checked })} />
+                        Contorno (ayuda a leer sobre fondos claros/oscuros)
+                      </label>
+                      {obj.textOutline && (
+                        <div className="axis-row">
+                          <label style={{ width: 60, fontSize: 10.5 }}>Color contorno</label>
+                          <input type="color" value={obj.textOutlineColor || "#000000"} onChange={(e) => updateObject(obj.id, { textOutlineColor: e.target.value })} />
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {isImage && (
                     <div className="btn-row" style={{ marginBottom: 6 }}>
                       <label className="btn" style={{ cursor: "pointer" }}>
@@ -3082,11 +3886,13 @@ function App() {
                       )}
                     </div>
                   )}
-                  <div className="axis-row">
-                    <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
-                    <input type="text" value={obj.url} onChange={(e) => setObjectUrl(obj.id, e.target.value)} />
-                  </div>
-                  {!isImage && /\.(svg|png|jpe?g|webp)$/i.test(obj.url) && (
+                  {!isText && (
+                    <div className="axis-row">
+                      <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
+                      <input type="text" value={obj.url} onChange={(e) => setObjectUrl(obj.id, e.target.value)} />
+                    </div>
+                  )}
+                  {isModel && /\.(svg|png|jpe?g|webp)$/i.test(obj.url) && (
                     <p className="hint" style={{ color: "#ff9a9a" }}>⚠ Esta ruta termina en imagen/SVG pero el tipo está en "Modelo (.glb)" — así el navegador va a intentar leerla como .glb y va a fallar. Tocá el botón "Imagen / SVG" de arriba.</p>
                   )}
                   {isImage && /\.glb$/i.test(obj.url) && (
@@ -3095,7 +3901,7 @@ function App() {
                   {isImage && obj.previewUrl && (
                     <p className="hint">Estás viendo el archivo subido en este visor. Cuando descargues el index.html, acordate de guardar "{obj.url.split("/").pop()}" (botón de arriba) en esa misma ruta, o el navegador no lo va a encontrar.</p>
                   )}
-                  {isImage && (
+                  {(isImage || isText) && (
                     <label className="toggle-row" style={{ marginBottom: 6 }}>
                       <input type="checkbox" checked={!!obj.billboard} onChange={(e) => updateObject(obj.id, { billboard: e.target.checked })} />
                       Billboard (siempre mira a cámara)
@@ -3116,14 +3922,14 @@ function App() {
                       <input type="number" className="axis-num" step={0.05} value={t.position[i]} onChange={(e) => setObjectTransform(obj.id, "position", axis, Number(e.target.value))} />
                     </div>
                   ))}
-                  {!(isImage && obj.billboard) && (
+                  {!((isImage || isText) && obj.billboard) && (
                     <div className="axis-row">
                       <label>°</label>
                       <input type="range" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(e) => setObjectTransform(obj.id, "rotationY", null, Number(e.target.value))} />
                       <input type="number" className="axis-num" step={0.1} value={t.rotationY} onChange={(e) => setObjectTransform(obj.id, "rotationY", null, Number(e.target.value))} />
                     </div>
                   )}
-                  {isImage && obj.billboard && <p className="hint">Con billboard activado, la rotación no aplica — la imagen siempre gira para mirar a cámara.</p>}
+                  {(isImage || isText) && obj.billboard && <p className="hint">Con billboard activado, la rotación no aplica — {isText ? "el texto" : "la imagen"} siempre gira para mirar a cámara.</p>}
                 </div>
               );
             })}
