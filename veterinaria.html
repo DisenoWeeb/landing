@@ -1,8 +1,8 @@
-
 <!DOCTYPE html>
-<html lang="es"><head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Pose, Cámara, Movimiento &amp; Objetos Generator</title>
 <style>
   html, body { margin: 0; padding: 0; background: #0f0f1a; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
@@ -52,1957 +52,27 @@
   textarea.code { width: 100%; height: 160px; resize: vertical; background: #05050a; color: #cdeb8f; border: 1px solid rgba(200,255,0,0.25); border-radius: 6px; padding: 10px; font-family: ui-monospace, monospace; font-size: 10px; line-height: 1.4; box-sizing: border-box; }
   .copied { color: #c8ff00; font-size: 11px; }
 </style>
-<script type="module">function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
-import { createRoot } from "react-dom/client";
-import * as THREE from "three";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, OrbitControls, Grid, useTexture, Billboard } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
-const DEFAULT_MODEL_URL = "./assets/models/bowl1.glb";
-const BONE_DEFS = [["spine1", "Spine01"], ["spine2", "Spine02"], ["neck", "NeckTwist01"], ["head", "Head"], ["lClavicle", "L_Clavicle"], ["rClavicle", "R_Clavicle"], ["lForearm", "L_Forearm"], ["rForearm", "R_Forearm"], ["lHand", "L_Hand"], ["rHand", "R_Hand"], ["lThigh", "L_Thigh"], ["rThigh", "R_Thigh"], ["lCalf", "L_Calf"], ["rCalf", "R_Calf"], ["lFoot", "L_Foot"], ["rFoot", "R_Foot"]];
-const BONE_KEYS = BONE_DEFS.map(([k]) => k);
-const rad = d => d * Math.PI / 180;
-const deg = r => r * 180 / Math.PI;
-const clamp = (v, min = 0, max = 1) => Math.min(max, Math.max(min, v));
-const lerp = (a, b, t) => a + (b - a) * t;
-function smoothstep(edge0, edge1, x) {
-  const t = clamp((x - edge0) / (edge1 - edge0));
-  return t * t * (3 - 2 * t);
-}
-
-/* Curva de velocidad ("easing") por tramo — usada por samplePose /
-   sampleCamera / sampleMovement / sampleFx más abajo para que la
-   pestaña Preview respete lo elegido en "Duración". */
-function applyEasing(t, kind) {
-  switch (kind) {
-    case "linear":
-      return t;
-    case "easeIn":
-      return t * t;
-    case "easeOut":
-      return 1 - (1 - t) * (1 - t);
-    case "smooth":
-    default:
-      return smoothstep(0, 1, t);
-  }
-}
-
-/* ============================================================
-   Etapas ("poses") — ahora en CANTIDAD VARIABLE. Ya no hay una lista
-   fija de 6 nombres semánticos (Frente/Acercamiento/Giro/...); las
-   etapas se llaman genéricamente "Pose 1", "Pose 2", etc. y se pueden
-   agregar o quitar libremente desde la pestaña Pose/Cámara/Movimiento.
-   Pose, Cámara, Movimiento y su Ambiente (luz/niebla/fondo) comparten
-   siempre las mismas etapas.
-   ============================================================ */
-function makeDefaultStages() {
-  return [{
-    id: "pose-1",
-    label: "Pose 1"
-  }, {
-    id: "pose-2",
-    label: "Pose 2"
-  }, {
-    id: "pose-3",
-    label: "Pose 3"
-  }, {
-    id: "pose-4",
-    label: "Pose 4"
-  }, {
-    id: "pose-5",
-    label: "Pose 5"
-  }, {
-    id: "pose-6",
-    label: "Pose 6"
-  }];
-}
-/* Duración de cada tramo (en vh de scroll), entre etapa[i] y etapa[i+1].
-   Un valor menos que la cantidad de etapas. La suma de estos valores es
-   el largo total del scroll. Editable desde la pestaña "Duración". */
-const DEFAULT_DURATIONS_VH = [170, 275, 125, 190, 190];
-function stagesWithProgress(stageList, durationsVh) {
-  const total = durationsVh.reduce((a, b) => a + b, 0) || 1;
-  let acc = 0;
-  const out = [_objectSpread(_objectSpread({}, stageList[0]), {}, {
-    progress: 0
-  })];
-  for (let i = 0; i < durationsVh.length; i++) {
-    acc += durationsVh[i];
-    out.push(_objectSpread(_objectSpread({}, stageList[i + 1]), {}, {
-      progress: acc / total
-    }));
-  }
-  return out;
-}
-const roundProgress = p => Math.round(p * 1000) / 1000;
-const zeroPose = () => Object.fromEntries(BONE_KEYS.map(k => [k, {
-  x: 0,
-  y: 0,
-  z: 0
-}]));
-const defaultCamera = () => ({
-  position: [0, 0, 3.5],
-  lookAt: [0, 0.5, 0],
-  fov: 30,
-  roll: 0
-});
-const defaultMovement = () => ({
-  pos: [0, 0, 0],
-  yaw: 0,
-  pitch: 0
-});
-const defaultFx = () => ({
-  light: {
-    color: "#dfeeff",
-    intensity: 0.7,
-    azimuth: 45,
-    elevation: 35,
-    rimColor: "#49d3ff",
-    rimIntensity: 1.4
-  },
-  fog: {
-    enabled: true,
-    color: "#05070a",
-    far: 20
-  },
-  background: {
-    mode: "solid",
-    from: "#05070a",
-    to: "#05070a",
-    angle: 180
-  }
-});
-
-/* Todo arranca en cero / neutro: ninguna etapa tiene pose, cámara,
-   movimiento ni ambiente predefinidos (salvo el ambiente, que arranca
-   con un valor neutro razonable). Se arma a gusto desde la herramienta. */
-function initialPoses(stageList) {
-  return Object.fromEntries(stageList.map(kf => [kf.id, zeroPose()]));
-}
-function initialCameras(stageList) {
-  return Object.fromEntries(stageList.map(kf => [kf.id, defaultCamera()]));
-}
-function initialMovements(stageList) {
-  return Object.fromEntries(stageList.map(kf => [kf.id, defaultMovement()]));
-}
-function initialFx(stageList) {
-  return Object.fromEntries(stageList.map(kf => [kf.id, defaultFx()]));
-}
-function samplePose(posesByKf, progress, stages, easings) {
-  const p = clamp(progress, 0, 1);
-  if (p <= stages[0].progress) return posesByKf[stages[0].id];
-  const last = stages[stages.length - 1];
-  if (p >= last.progress) return posesByKf[last.id];
-  let i = 0;
-  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
-  const a = stages[i],
-    b = stages[i + 1];
-  const span = b.progress - a.progress || 1;
-  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
-  const pa = posesByKf[a.id],
-    pb = posesByKf[b.id];
-  const out = {};
-  BONE_KEYS.forEach(k => {
-    out[k] = {
-      x: lerp(pa[k].x, pb[k].x, t),
-      y: lerp(pa[k].y, pb[k].y, t),
-      z: lerp(pa[k].z, pb[k].z, t)
-    };
-  });
-  return out;
-}
-function lerpVec3(a, b, t) {
-  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
-}
-function sampleCamera(camsByKf, progress, stages, easings) {
-  const p = clamp(progress, 0, 1);
-  if (p <= stages[0].progress) return camsByKf[stages[0].id];
-  const last = stages[stages.length - 1];
-  if (p >= last.progress) return camsByKf[last.id];
-  let i = 0;
-  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
-  const a = stages[i],
-    b = stages[i + 1];
-  const span = b.progress - a.progress || 1;
-  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
-  const ca = camsByKf[a.id],
-    cb = camsByKf[b.id];
-  return {
-    position: lerpVec3(ca.position, cb.position, t),
-    lookAt: lerpVec3(ca.lookAt, cb.lookAt, t),
-    fov: lerp(ca.fov, cb.fov, t),
-    roll: lerp(ca.roll || 0, cb.roll || 0, t)
-  };
-}
-function sampleMovement(movesByKf, progress, stages, easings) {
-  const p = clamp(progress, 0, 1);
-  if (p <= stages[0].progress) return movesByKf[stages[0].id];
-  const last = stages[stages.length - 1];
-  if (p >= last.progress) return movesByKf[last.id];
-  let i = 0;
-  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
-  const a = stages[i],
-    b = stages[i + 1];
-  const span = b.progress - a.progress || 1;
-  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
-  const ma = movesByKf[a.id],
-    mb = movesByKf[b.id];
-  return {
-    pos: lerpVec3(ma.pos, mb.pos, t),
-    yaw: lerp(ma.yaw, mb.yaw, t),
-    pitch: lerp(ma.pitch, mb.pitch, t)
-  };
-}
-
-/* Igual patrón que sampleMovement, pero por objeto: interpola
-   posición/escala/rotación de un objeto de entorno entre las dos
-   etapas que rodean el progreso actual. */
-function sampleObjectTransform(transformsByStage, progress, stages, easings) {
-  const p = clamp(progress, 0, 1);
-  if (p <= stages[0].progress) return transformsByStage[stages[0].id];
-  const last = stages[stages.length - 1];
-  if (p >= last.progress) return transformsByStage[last.id];
-  let i = 0;
-  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
-  const a = stages[i],
-    b = stages[i + 1];
-  const span = b.progress - a.progress || 1;
-  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
-  const ta = transformsByStage[a.id],
-    tb = transformsByStage[b.id];
-  return {
-    position: lerpVec3(ta.position, tb.position, t),
-    scale: lerp(ta.scale, tb.scale, t),
-    rotationY: lerp(ta.rotationY, tb.rotationY, t)
-  };
-}
-function lerpColorHex(a, b, t) {
-  const ca = new THREE.Color(a);
-  const cb = new THREE.Color(b);
-  ca.lerp(cb, t);
-  return "#" + ca.getHexString();
-}
-function lerpAngleDeg(a, b, t) {
-  let diff = ((b - a + 180) % 360 + 360) % 360 - 180;
-  return a + diff * t;
-}
-function lightDirFromAngles(azimuthDeg, elevationDeg, distance) {
-  const az = azimuthDeg * Math.PI / 180;
-  const el = elevationDeg * Math.PI / 180;
-  return [distance * Math.cos(el) * Math.sin(az), distance * Math.sin(el), distance * Math.cos(el) * Math.cos(az)];
-}
-
-/* Igual que sampleCamera/sampleMovement pero para Ambiente (luz, rim,
-   niebla, fondo), para poder previsualizarlo también interpolado en la
-   pestaña Preview. Fuera de Preview se usa el valor crudo de la etapa
-   activa (ver App). */
-function sampleFx(fxByKf, progress, stages, easings) {
-  const p = clamp(progress, 0, 1);
-  if (p <= stages[0].progress) return fxByKf[stages[0].id];
-  const last = stages[stages.length - 1];
-  if (p >= last.progress) return fxByKf[last.id];
-  let i = 0;
-  while (i < stages.length - 1 && stages[i + 1].progress < p) i++;
-  const a = stages[i],
-    b = stages[i + 1];
-  const span = b.progress - a.progress || 1;
-  const t = applyEasing(clamp((p - a.progress) / span), easings[i]);
-  const fa = fxByKf[a.id],
-    fb = fxByKf[b.id];
-  return {
-    light: {
-      color: lerpColorHex(fa.light.color, fb.light.color, t),
-      intensity: lerp(fa.light.intensity, fb.light.intensity, t),
-      azimuth: lerpAngleDeg(fa.light.azimuth ?? 45, fb.light.azimuth ?? 45, t),
-      elevation: lerp(fa.light.elevation ?? 35, fb.light.elevation ?? 35, t),
-      rimColor: lerpColorHex(fa.light.rimColor, fb.light.rimColor, t),
-      rimIntensity: lerp(fa.light.rimIntensity, fb.light.rimIntensity, t)
-    },
-    fog: {
-      enabled: t < 0.5 ? fa.fog.enabled ?? true : fb.fog.enabled ?? true,
-      color: lerpColorHex(fa.fog.color, fb.fog.color, t),
-      far: lerp(fa.fog.far, fb.fog.far, t)
-    },
-    background: {
-      from: lerpColorHex(fa.background.from, fb.background.from, t),
-      to: lerpColorHex(fa.background.to, fb.background.to, t),
-      angle: lerp(fa.background.angle ?? 180, fb.background.angle ?? 180, t)
-    }
-  };
-}
-
-/* ---- Personaje ----
-   Se monta UNA sola vez y sólo cambian sus props, para que cambiar de
-   pestaña o de etapa activa nunca provoque un remount de <primitive>
-   (un remount forzaría a recapturar como "rest pose" una pose ya
-   deformada). Este detalle es exclusivo de esta herramienta de
-   edición: en el archivo final exportado el personaje siempre se
-   monta una sola vez.
-
-   `scale` y `centerY` ahora se reciben como props (antes estaban
-   hardcodeados como scale={1.7} / position={[0,-0.9,0]}), para que la
-   pestaña "Modelo principal" del panel pueda controlarlos en vivo —
-   igual que Escala/Posición en un objeto de la pestaña "Objetos". */
-function Character({
-  pose,
-  onBonesFound,
-  modelUrl,
-  scale,
-  centerY
-}) {
-  const {
-    scene
-  } = useGLTF(modelUrl);
-  const bonesRef = useRef({});
-  const restRef = useRef({});
-  useEffect(() => {
-    const bones = {};
-    const rest = {};
-    const found = {};
-    BONE_DEFS.forEach(([key, boneName]) => {
-      const bone = scene.getObjectByName(boneName);
-      if (bone) {
-        bones[key] = bone;
-        rest[key] = bone.quaternion.clone();
-        found[key] = true;
-      } else found[key] = false;
-    });
-    bonesRef.current = bones;
-    restRef.current = rest;
-    onBonesFound(found);
-  }, [scene]);
-  useFrame(() => {
-    const bones = bonesRef.current,
-      rest = restRef.current;
-    BONE_KEYS.forEach(key => {
-      const bone = bones[key],
-        r = rest[key];
-      if (!bone || !r) return;
-      const xyz = pose[key];
-      const dq = new THREE.Quaternion().setFromEuler(new THREE.Euler(rad(xyz.x), rad(xyz.y), rad(xyz.z), "XYZ"));
-      bone.quaternion.copy(r).multiply(dq);
-    });
-  });
-  return /*#__PURE__*/React.createElement("primitive", {
-    object: scene,
-    position: [0, -centerY, 0],
-    scale: scale
-  });
-}
-useGLTF.preload(DEFAULT_MODEL_URL);
-function SceneCameraDriver({
-  target,
-  active
-}) {
-  const {
-    camera
-  } = useThree();
-  useFrame(() => {
-    if (!active || !target) return;
-    camera.position.set(target.position[0], target.position[1], target.position[2]);
-    camera.up.set(0, 1, 0);
-    camera.lookAt(target.lookAt[0], target.lookAt[1], target.lookAt[2]);
-    if (target.roll) camera.rotateZ(target.roll * Math.PI / 180);
-    if ("fov" in camera) {
-      camera.fov = target.fov;
-      camera.updateProjectionMatrix();
-    }
-  });
-  return null;
-}
-
-/* Mientras "Cámara libre" está activa, este componente lee en cada
-   frame la posición/target/fov real de la cámara orbitada a mano y los
-   guarda en liveCameraRef — así el botón "Capturar cámara libre" (en
-   la pestaña Cámara) puede tomar exactamente lo que estás viendo y
-   guardarlo como keyframe de la etapa activa. Control total: lo que
-   armás a mano con el mouse se puede volcar directo a la animación. */
-function LiveCameraTracker({
-  orbitRef,
-  liveCameraRef,
-  active
-}) {
-  const {
-    camera
-  } = useThree();
-  useFrame(() => {
-    if (!active) return;
-    const controls = orbitRef.current;
-    const targetVec = controls ? controls.target : null;
-    liveCameraRef.current = {
-      position: [camera.position.x, camera.position.y, camera.position.z],
-      lookAt: targetVec ? [targetVec.x, targetVec.y, targetVec.z] : [0, 0, 0],
-      fov: "fov" in camera ? camera.fov : 30
-    };
-  });
-  return null;
-}
-function MovedGroup({
-  movement,
-  anchorRef,
-  children
-}) {
-  const localRef = useRef(null);
-  const ref = anchorRef || localRef;
-  useFrame(() => {
-    if (!ref.current || !movement) return;
-    ref.current.position.set(movement.pos[0], movement.pos[1], movement.pos[2]);
-    ref.current.rotation.set(rad(movement.pitch), rad(movement.yaw), 0);
-  });
-  return /*#__PURE__*/React.createElement("group", {
-    ref: ref
-  }, children);
-}
-
-/* Si un .glb de objeto todavía no está copiado junto a este archivo,
-   useGLTF tira un error de carga (404). Este boundary evita que eso
-   rompa toda la herramienta — cada objeto tiene su propio boundary,
-   así uno que falte no tumba a los demás. */
-class ObjectBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      hasError: false
-    };
-  }
-  static getDerivedStateFromError() {
-    return {
-      hasError: true
-    };
-  }
-  componentDidCatch() {}
-  render() {
-    if (this.state.hasError) return null;
-    return this.props.children;
-  }
-}
-function ObjectPreviewModel({
-  obj
-}) {
-  const {
-    scene
-  } = useGLTF(obj.url);
-  return /*#__PURE__*/React.createElement("primitive", {
-    object: scene,
-    scale: obj.scale,
-    position: obj.position,
-    rotation: [0, obj.rotationY * Math.PI / 180, 0]
-  });
-}
-/* Los navegadores rasterizan un SVG a un tamaño chico por defecto (a
-   veces 300x150px) antes de poder usarlo como textura — por eso se ve
-   pixelado al escalarlo grande. Esto lo vuelve a dibujar en un canvas
-   de alta resolución (respetando el aspecto real del archivo) antes
-   de crear la textura, así se ve nítido. Solo aplica a .svg; una
-   imagen .png/.jpg ya es un bitmap y no gana nada con este paso, así
-   que sigue el camino normal (useTexture). */
-function useHiResSvgTexture(url, targetLong = 3072) {
-  const [texture, setTexture] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (cancelled) return;
-      const w0 = img.naturalWidth || 300;
-      const h0 = img.naturalHeight || 150;
-      const aspect = w0 / h0 || 1;
-      const canvas = document.createElement("canvas");
-      if (aspect >= 1) {
-        canvas.width = targetLong;
-        canvas.height = Math.round(targetLong / aspect);
-      } else {
-        canvas.height = targetLong;
-        canvas.width = Math.round(targetLong * aspect);
-      }
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      setTexture(tex);
-    };
-    img.onerror = () => {
-      if (!cancelled) setTexture(null);
-    };
-    img.src = url;
-    return () => {
-      cancelled = true;
-    };
-  }, [url, targetLong]);
-  return texture;
-}
-function isSvgUrl(url) {
-  return /\.svg($|\?)/i.test(url || "");
-}
-
-/* Misma implementación que en la plantilla final (ver tpl-source),
-   para que el texto se vea igual acá en el visor y en el index.html
-   exportado. */
-function useHiResTextTexture(text, opts) {
-  const {
-    color = "#ffffff",
-    font = "'Inter', sans-serif",
-    weight = 600,
-    align = "center",
-    outline = false,
-    outlineColor = "#000000"
-  } = opts || {};
-  const [texture, setTexture] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    const fontSizePx = 200;
-    const lineHeight = fontSizePx * 1.2;
-    const padding = fontSizePx * 0.25;
-    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
-    const draw = () => {
-      if (cancelled) return;
-      const lines = (text || "").split("\n");
-      const measureCanvas = document.createElement("canvas");
-      const mctx = measureCanvas.getContext("2d");
-      mctx.font = fontSpec;
-      let maxLineWidth = 1;
-      lines.forEach(l => {
-        maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width);
-      });
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(maxLineWidth + padding * 2);
-      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
-      const ctx = canvas.getContext("2d");
-      ctx.font = fontSpec;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = align;
-      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
-      lines.forEach((line, i) => {
-        const y = padding + lineHeight * i + lineHeight / 2;
-        if (outline) {
-          ctx.lineJoin = "round";
-          ctx.lineWidth = fontSizePx * 0.08;
-          ctx.strokeStyle = outlineColor;
-          ctx.strokeText(line, xPos, y);
-        }
-        ctx.fillStyle = color;
-        ctx.fillText(line, xPos, y);
-      });
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      setTexture(tex);
-    };
-    if (document.fonts && document.fonts.load) {
-      document.fonts.load(fontSpec).catch(() => {}).then(draw);
-    } else {
-      draw();
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [text, color, font, weight, align, outline, outlineColor]);
-  return texture;
-}
-function ObjectPreviewText({
-  obj
-}) {
-  const texture = useHiResTextTexture(obj.text, {
-    color: obj.textColor,
-    font: obj.fontFamily,
-    weight: obj.fontWeight,
-    align: obj.textAlign,
-    outline: obj.textOutline,
-    outlineColor: obj.textOutlineColor
-  });
-  if (!texture) return null;
-  const aspect = texture.image.width / texture.image.height;
-  const mesh = /*#__PURE__*/React.createElement("mesh", {
-    scale: [obj.scale * aspect, obj.scale, 1],
-    position: obj.billboard ? [0, 0, 0] : obj.position,
-    rotation: obj.billboard ? [0, 0, 0] : [0, obj.rotationY * Math.PI / 180, 0]
-  }, /*#__PURE__*/React.createElement("planeGeometry", {
-    args: [1, 1]
-  }), /*#__PURE__*/React.createElement("meshBasicMaterial", {
-    map: texture,
-    transparent: true,
-    toneMapped: false
-  }));
-  return obj.billboard ? /*#__PURE__*/React.createElement(Billboard, {
-    position: obj.position
-  }, mesh) : mesh;
-}
-function ObjectPreviewImageRaster({
-  obj
-}) {
-  const texture = useTexture(obj.previewUrl || obj.url);
-  const aspect = texture.image ? texture.image.width / texture.image.height : 1;
-  const mesh = /*#__PURE__*/React.createElement("mesh", {
-    scale: [obj.scale * aspect, obj.scale, 1],
-    position: obj.billboard ? [0, 0, 0] : obj.position,
-    rotation: obj.billboard ? [0, 0, 0] : [0, obj.rotationY * Math.PI / 180, 0]
-  }, /*#__PURE__*/React.createElement("planeGeometry", {
-    args: [1, 1]
-  }), /*#__PURE__*/React.createElement("meshBasicMaterial", {
-    map: texture,
-    transparent: true,
-    toneMapped: false
-  }));
-  return obj.billboard ? /*#__PURE__*/React.createElement(Billboard, {
-    position: obj.position
-  }, mesh) : mesh;
-}
-function ObjectPreviewImageSvg({
-  obj
-}) {
-  const texture = useHiResSvgTexture(obj.previewUrl || obj.url);
-  if (!texture) return null;
-  const aspect = texture.image.width / texture.image.height;
-  const mesh = /*#__PURE__*/React.createElement("mesh", {
-    scale: [obj.scale * aspect, obj.scale, 1],
-    position: obj.billboard ? [0, 0, 0] : obj.position,
-    rotation: obj.billboard ? [0, 0, 0] : [0, obj.rotationY * Math.PI / 180, 0]
-  }, /*#__PURE__*/React.createElement("planeGeometry", {
-    args: [1, 1]
-  }), /*#__PURE__*/React.createElement("meshBasicMaterial", {
-    map: texture,
-    transparent: true,
-    toneMapped: false
-  }));
-  return obj.billboard ? /*#__PURE__*/React.createElement(Billboard, {
-    position: obj.position
-  }, mesh) : mesh;
-}
-function ObjectPreviewImage({
-  obj
-}) {
-  return isSvgUrl(obj.url) ? /*#__PURE__*/React.createElement(ObjectPreviewImageSvg, {
-    obj: obj
-  }) : /*#__PURE__*/React.createElement(ObjectPreviewImageRaster, {
-    obj: obj
-  });
-}
-function ObjectPreview({
-  obj
-}) {
-  if (obj.type === "text") return /*#__PURE__*/React.createElement(ObjectPreviewText, {
-    obj: obj
-  });
-  return obj.type === "image" ? /*#__PURE__*/React.createElement(ObjectPreviewImage, {
-    obj: obj
-  }) : /*#__PURE__*/React.createElement(ObjectPreviewModel, {
-    obj: obj
-  });
-}
-
-/* La estructura de la escena es SIEMPRE la misma (luces, grilla,
-   MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
-   forma entre pestañas, así React nunca desmonta el personaje. */
-function Scene({
-  pose,
-  onBonesFound,
-  cameraTarget,
-  sceneCameraActive,
-  autoRotate,
-  movement,
-  objects,
-  showObjects,
-  showGrid,
-  fx,
-  showFx,
-  orbitRef,
-  liveCameraRef,
-  modelUrl,
-  postFx,
-  charScale,
-  charCenterY,
-  charAnchorRef,
-  trail,
-  reflection
-}) {
-  return /*#__PURE__*/React.createElement(React.Fragment, null, showFx && fx.fog.enabled !== false && /*#__PURE__*/React.createElement("fogExp2", {
-    attach: "fog",
-    args: [fx.fog.color, 1 / Math.max(fx.fog.far, 1)]
-  }), /*#__PURE__*/React.createElement("hemisphereLight", {
-    color: "#cfe8ff",
-    groundColor: "#1a1410",
-    intensity: 0.35
-  }), /*#__PURE__*/React.createElement("ambientLight", {
-    intensity: 0.28
-  }), /*#__PURE__*/React.createElement("directionalLight", {
-    color: showFx ? fx.light.color : "#ffffff",
-    position: showFx ? lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 6) : [3, 4, 5],
-    intensity: showFx ? fx.light.intensity : 0.9
-  }), /*#__PURE__*/React.createElement("directionalLight", {
-    position: [-3, 2, -2],
-    intensity: 0.4
-  }), /*#__PURE__*/React.createElement("pointLight", {
-    color: showFx ? fx.light.rimColor : "#ffffff",
-    position: [-2.5, -1, -2],
-    intensity: showFx ? fx.light.rimIntensity : 0,
-    distance: 12
-  }), showGrid && /*#__PURE__*/React.createElement(Grid, {
-    args: [300, 300],
-    position: [0, -0.02, 0],
-    cellSize: 2,
-    cellThickness: 0.8,
-    cellColor: "#333",
-    sectionSize: 20,
-    sectionThickness: 1.6,
-    sectionColor: "#555",
-    fadeDistance: 140,
-    fadeStrength: 1,
-    infiniteGrid: true
-  }), showObjects && objects.filter(o => o.visible).map(o => /*#__PURE__*/React.createElement(ObjectBoundary, {
-    key: o.id
-  }, /*#__PURE__*/React.createElement(Suspense, {
-    fallback: null
-  }, /*#__PURE__*/React.createElement(ObjectPreview, {
-    obj: o
-  })))), /*#__PURE__*/React.createElement(MovedGroup, {
-    movement: movement,
-    anchorRef: charAnchorRef
-  }, /*#__PURE__*/React.createElement(ObjectBoundary, null, /*#__PURE__*/React.createElement(Suspense, {
-    fallback: null
-  }, /*#__PURE__*/React.createElement(Character, {
-    pose: pose,
-    onBonesFound: onBonesFound,
-    modelUrl: modelUrl,
-    scale: charScale,
-    centerY: charCenterY
-  })))), trail && trail.enabled && /*#__PURE__*/React.createElement(SparkleTrail, {
-    anchorRef: charAnchorRef,
-    enabled: trail.enabled,
-    color: trail.color,
-    size: trail.size,
-    life: trail.life,
-    rate: trail.rate
-  }), reflection && /*#__PURE__*/React.createElement(ReflectionProbe, {
-    anchorRef: charAnchorRef,
-    enabled: reflection.enabled,
-    resolution: reflection.resolution,
-    updateEvery: reflection.updateEvery,
-    intensity: reflection.intensity
-  }), sceneCameraActive ? /*#__PURE__*/React.createElement(SceneCameraDriver, {
-    target: cameraTarget,
-    active: true
-  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(OrbitControls, {
-    ref: orbitRef,
-    makeDefault: true,
-    target: cameraTarget ? cameraTarget.lookAt : [0, 0.5, 0],
-    autoRotate: autoRotate,
-    autoRotateSpeed: 2.2
-  }), /*#__PURE__*/React.createElement(LiveCameraTracker, {
-    orbitRef: orbitRef,
-    liveCameraRef: liveCameraRef,
-    active: true
-  })), postFx && postFx.bloomEnabled && /*#__PURE__*/React.createElement(EffectComposer, {
-    multisampling: 0
-  }, /*#__PURE__*/React.createElement(Bloom, {
-    intensity: postFx.bloomIntensity,
-    luminanceThreshold: 0.25,
-    luminanceSmoothing: 0.9,
-    mipmapBlur: true,
-    height: 240
-  })));
-}
-
-/* Estela de brillo (sparkle trail) — misma implementación que la
-   plantilla final (ver bloque TRAIL_* embebido en tpl-source), para
-   que lo que se ve acá en el visor sea igual a lo que va a quedar en
-   el index.html exportado. */
-const TRAIL_VERTEX_SHADER = `
-  attribute float aSize;
-  attribute float aOpacity;
-  varying float vOpacity;
-  void main() {
-    vOpacity = aOpacity;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * (300.0 / max(-mvPosition.z, 0.001));
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-const TRAIL_FRAGMENT_SHADER = `
-  uniform vec3 uColor;
-  varying float vOpacity;
-  void main() {
-    vec2 uv = gl_PointCoord.xy - 0.5;
-    float d = length(uv) * 2.0;
-    float glow = smoothstep(1.0, 0.0, d);
-    float core = smoothstep(0.35, 0.0, d);
-    float alpha = (glow * glow * 0.6 + core * 0.9) * vOpacity;
-    vec3 col = mix(uColor, vec3(1.0), core * 0.6);
-    gl_FragColor = vec4(col, alpha);
-  }
-`;
-function SparkleTrail({
-  anchorRef,
-  enabled,
-  color,
-  size,
-  life,
-  rate
-}) {
-  const pointsRef = useRef(null);
-  const materialRef = useRef(null);
-  const particles = useRef([]);
-  const maxParticles = useMemo(() => Math.max(8, Math.ceil(rate * life) + 8), [rate, life]);
-  const positions = useMemo(() => new Float32Array(maxParticles * 3), [maxParticles]);
-  const sizes = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
-  const opacities = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
-  const emitAccum = useRef(0);
-  const prevAnchor = useRef(null);
-  useEffect(() => {
-    if (materialRef.current) materialRef.current.uniforms.uColor.value.set(color);
-  }, [color]);
-  useFrame((_, delta) => {
-    const group = pointsRef.current;
-    const anchor = anchorRef && anchorRef.current;
-    if (!group) return;
-    if (!enabled || !anchor) {
-      group.visible = false;
-      particles.current.length = 0;
-      prevAnchor.current = null;
-      return;
-    }
-    group.visible = true;
-    const ax = anchor.position.x,
-      ay = anchor.position.y,
-      az = anchor.position.z;
-    if (prevAnchor.current) {
-      emitAccum.current += delta;
-      const emitEvery = 1 / Math.max(rate, 1);
-      const from = prevAnchor.current;
-      while (emitAccum.current >= emitEvery) {
-        emitAccum.current -= emitEvery;
-        const t = 1 - emitAccum.current / delta;
-        const px = lerp(from.x, ax, isFinite(t) ? t : 1);
-        const py = lerp(from.y, ay, isFinite(t) ? t : 1);
-        const pz = lerp(from.z, az, isFinite(t) ? t : 1);
-        particles.current.push({
-          x: px,
-          y: py,
-          z: pz,
-          age: 0,
-          seed: Math.random() * Math.PI * 2,
-          ox: (Math.random() - 0.5) * size * 6,
-          oy: (Math.random() - 0.5) * size * 6,
-          oz: (Math.random() - 0.5) * size * 6,
-          sizeMul: 0.5 + Math.random() * 0.9
-        });
-        if (particles.current.length > maxParticles) particles.current.shift();
-      }
-    }
-    prevAnchor.current = {
-      x: ax,
-      y: ay,
-      z: az
-    };
-    for (let i = particles.current.length - 1; i >= 0; i--) {
-      particles.current[i].age += delta;
-      if (particles.current[i].age >= life) particles.current.splice(i, 1);
-    }
-    const n = Math.min(particles.current.length, maxParticles);
-    const now = performance.now() * 0.001;
-    for (let i = 0; i < n; i++) {
-      const p = particles.current[i];
-      const t = clamp(p.age / life);
-      const drift = t;
-      positions[i * 3] = p.x + p.ox * drift;
-      positions[i * 3 + 1] = p.y + p.oy * drift + t * size * 4;
-      positions[i * 3 + 2] = p.z + p.oz * drift;
-      const twinkle = 0.5 + 0.5 * Math.sin(now * 9 + p.seed * 7);
-      opacities[i] = (1 - t) * (1 - t) * (0.35 + 0.65 * twinkle);
-      sizes[i] = size * p.sizeMul * (1 - t * 0.35);
-    }
-    const geom = group.geometry;
-    geom.attributes.position.needsUpdate = true;
-    geom.attributes.aOpacity.needsUpdate = true;
-    geom.attributes.aSize.needsUpdate = true;
-    geom.setDrawRange(0, n);
-  });
-  return /*#__PURE__*/React.createElement("points", {
-    key: maxParticles,
-    ref: pointsRef,
-    frustumCulled: false
-  }, /*#__PURE__*/React.createElement("bufferGeometry", null, /*#__PURE__*/React.createElement("bufferAttribute", {
-    attach: "attributes-position",
-    count: maxParticles,
-    array: positions,
-    itemSize: 3
-  }), /*#__PURE__*/React.createElement("bufferAttribute", {
-    attach: "attributes-aSize",
-    count: maxParticles,
-    array: sizes,
-    itemSize: 1
-  }), /*#__PURE__*/React.createElement("bufferAttribute", {
-    attach: "attributes-aOpacity",
-    count: maxParticles,
-    array: opacities,
-    itemSize: 1
-  })), /*#__PURE__*/React.createElement("shaderMaterial", {
-    ref: materialRef,
-    vertexShader: TRAIL_VERTEX_SHADER,
-    fragmentShader: TRAIL_FRAGMENT_SHADER,
-    uniforms: {
-      uColor: {
-        value: new THREE.Color(color)
-      }
-    },
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending
-  }));
-}
-
-/* Cámara de reflejo (cube camera): ubicada en el Modelo principal, cada
- ciertos frames fotografía los 360° a su alrededor (paredes, objetos,
- el PNG del perro, etc. — todo lo que haya en la escena, salvo el
- propio modelo, que se oculta un instante durante la captura) y usa
- esa foto como reflejo en los materiales metálicos del modelo. La
- cámara principal (la que ve el usuario) no necesita apuntar a lo que
- se refleja — el reflejo se calcula aparte, en 360°, todo el tiempo. */
-function ReflectionProbe({
-  anchorRef,
-  enabled,
-  resolution,
-  updateEvery,
-  intensity
-}) {
-  const {
-    gl,
-    scene
-  } = useThree();
-  const rtRef = useRef(null);
-  const camRef = useRef(null);
-  const frameRef = useRef(0);
-  const appliedRef = useRef(new Set());
-  const posRef = useRef(new THREE.Vector3());
-  useEffect(() => {
-    const rt = new THREE.WebGLCubeRenderTarget(resolution, {
-      generateMipmaps: true,
-      minFilter: THREE.LinearMipmapLinearFilter
-    });
-    rtRef.current = rt;
-    camRef.current = new THREE.CubeCamera(0.05, 1000, rt);
-    appliedRef.current = new Set();
-    return () => rt.dispose();
-  }, [resolution]);
-  useFrame(() => {
-    if (!enabled || !anchorRef.current || !camRef.current) return;
-    frameRef.current++;
-    if (frameRef.current % Math.max(1, updateEvery) !== 0) return;
-    const anchor = anchorRef.current;
-    anchor.getWorldPosition(posRef.current);
-    camRef.current.position.copy(posRef.current);
-
-    // Oculta el modelo un instante para que no se refleje a sí mismo.
-    const wasVisible = anchor.visible;
-    anchor.visible = false;
-    camRef.current.update(gl, scene);
-    anchor.visible = wasVisible;
-    const texture = rtRef.current.texture;
-    anchor.traverse(child => {
-      if (!child.isMesh || !child.material) return;
-      const mats = Array.isArray(child.material) ? child.material : [child.material];
-      mats.forEach(m => {
-        if (!("envMap" in m)) return;
-        if (!appliedRef.current.has(m.uuid)) {
-          m.envMap = texture;
-          m.needsUpdate = true;
-          appliedRef.current.add(m.uuid);
-        }
-        if ("envMapIntensity" in m) m.envMapIntensity = intensity;
-      });
-    });
-  });
-  return null;
-}
-/* Contorno de celular: dibuja el rectángulo 9:16 más grande que entra
-   en el visor actual (igual que "object-fit: contain"), para ver de
-   entrada qué parte de la composición realmente se ve en un teléfono.
-   Se recalcula con ResizeObserver porque el visor cambia de tamaño al
-   abrir/cerrar el panel o redimensionar la ventana. */
-function MobileFrameOverlay({
-  containerRef,
-  ratio = 9 / 16
-}) {
-  const [box, setBox] = useState(null);
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const compute = () => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      if (!w || !h) return;
-      let fw = h * ratio;
-      let fh = h;
-      if (fw > w) {
-        fw = w;
-        fh = w / ratio;
-      }
-      setBox({
-        w: fw,
-        h: fh,
-        left: (w - fw) / 2,
-        top: (h - fh) / 2
-      });
-    };
-    compute();
-    const ro = new ResizeObserver(compute);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [containerRef, ratio]);
-  if (!box) return null;
-  return /*#__PURE__*/React.createElement("div", {
-    className: "mobile-frame",
-    style: {
-      width: box.w,
-      height: box.h,
-      left: box.left,
-      top: box.top
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "mobile-frame__label"
-  }, "Celular \xB7 9:16"));
-}
-
-/* ---- Generadores de código (mismo formato que espera el template) ---- */
-function generateBoneArrayCode(posesByKf, stages, easings) {
-  const fmt = n => {
-    const r = rad(n);
-    return (Math.abs(r) < 0.0001 ? 0 : r).toFixed(4);
-  };
-  const kfLines = stages.map((kf, idx) => {
-    const pose = posesByKf[kf.id];
-    const easing = idx === 0 ? "smooth" : easings[idx - 1] || "smooth";
-    const boneLines = BONE_KEYS.map(k => {
-      const v = pose[k];
-      if (v.x === 0 && v.y === 0 && v.z === 0) return null;
-      return `        ${k}: [${fmt(v.x)}, ${fmt(v.y)}, ${fmt(v.z)}],`;
-    }).filter(Boolean).join("\n");
-    return `  {\n    id: "${kf.id}",\n    progress: ${roundProgress(kf.progress)},\n    easing: "${easing}",\n    bones: {\n${boneLines || "      // (sin cambios respecto al rest pose)"}\n    },\n  },`;
-  }).join("\n");
-  return `const BONE_POSE_KEYFRAMES = [\n${kfLines}\n];`;
-}
-function generateScenesArrayCode(camsByKf, fxByKf, stages, easings) {
-  const fmtNum = n => Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000;
-  const fmtVec = v => `[${v.map(fmtNum).join(", ")}]`;
-  const kfLines = stages.map((kf, idx) => {
-    const cam = camsByKf[kf.id];
-    const f = fxByKf[kf.id];
-    const easing = idx === 0 ? "smooth" : easings[idx - 1] || "smooth";
-    return `  {
-    id: "${kf.id}",
-    progress: ${roundProgress(kf.progress)},
-    easing: "${easing}",
-    camera: { position: ${fmtVec(cam.position)}, lookAt: ${fmtVec(cam.lookAt)}, fov: ${fmtNum(cam.fov)}, roll: ${fmtNum(cam.roll || 0)} },
-    light: { color: "${f.light.color}", intensity: ${f.light.intensity}, azimuth: ${fmtNum(f.light.azimuth)}, elevation: ${fmtNum(f.light.elevation)}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity} },
-    fog: { enabled: ${f.fog.enabled === false ? "false" : "true"}, color: "${f.fog.color}", far: ${f.fog.far} },
-    background: { from: "${f.background.from}", to: "${f.background.to}", angle: ${fmtNum(f.background.angle)} },
-  },`;
-  }).join("\n");
-  return `const scenes = [\n${kfLines}\n];`;
-}
-function generateMovementDefsCode(movesByKf, stages, easings) {
-  const fmtNum = n => Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000;
-  const kfLines = stages.map((kf, idx) => {
-    const mv = movesByKf[kf.id];
-    const easing = idx === 0 ? "smooth" : easings[idx - 1] || "smooth";
-    return `  { id: "${kf.id}", progress: ${roundProgress(kf.progress)}, easing: "${easing}", pos: [${mv.pos.map(fmtNum).join(", ")}], yaw: ${fmtNum(mv.yaw)}, pitch: ${fmtNum(mv.pitch)} },`;
-  }).join("\n");
-  return `const MOVEMENT_KEYFRAMES = [
-${kfLines}
-];
-
-function sampleMovement(progress) {
-  const list = MOVEMENT_KEYFRAMES;
-  const p = clamp(progress, 0, 1);
-  if (p <= list[0].progress) return list[0];
-  const last = list[list.length - 1];
-  if (p >= last.progress) return last;
-  let i = 0;
-  while (i < list.length - 1 && list[i + 1].progress < p) i++;
-  const a = list[i], b = list[i + 1];
-  const span = b.progress - a.progress || 1;
-  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
-  return {
-    pos: [lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t)],
-    yaw: lerp(a.yaw, b.yaw, t),
-    pitch: lerp(a.pitch, b.pitch, t),
-  };
-}`;
-}
-function generateScrollLengthCode(totalVh) {
-  const n = Math.round(totalVh);
-  return `const SCROLL_LENGTH_VH = ${n};`;
-}
-function generateModelUrlCode(url) {
-  return `const CHARACTER_MODEL_URL = "${url}";`;
-}
-
-/* Nuevo: genera el bloque de escala/centrado del personaje, con el
-   mismo formato/nombre de variables que ya usa la plantilla final
-   (CHAR_CENTER_Y / CHAR_SCALE), para que quede grabado en el
-   index.html descargado en vez de perderse. */
-function generateCharTransformCode(scale, centerY) {
-  const fmtNum = n => Math.abs(n) < 0.0001 ? 0 : Math.round(n * 10000) / 10000;
-  return `const CHAR_CENTER_Y = ${fmtNum(centerY)};
-const CHAR_SCALE = ${fmtNum(scale)};`;
-}
-function generatePostFxCode(postFx) {
-  return `const VIGNETTE_ENABLED = ${postFx.vignetteEnabled ? "true" : "false"};
-const VIGNETTE_DARKNESS = ${postFx.vignetteDarkness};
-const VIGNETTE_OFFSET = ${postFx.vignetteOffset};
-const BLOOM_ENABLED = ${postFx.bloomEnabled ? "true" : "false"};
-const BLOOM_INTENSITY = ${postFx.bloomIntensity};`;
-}
-
-/* Genera el bloque de configuración de la estela de brillo, con el
-   mismo formato que espera el marcador @GEN:TRAIL en la plantilla
-   final. */
-function generateTrailCode(trail) {
-  const fmtNum = n => Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000;
-  return `const TRAIL_ENABLED = ${trail.enabled ? "true" : "false"};
-const TRAIL_COLOR = "${trail.color}";
-const TRAIL_SIZE = ${fmtNum(trail.size)};
-const TRAIL_LIFE = ${fmtNum(trail.life)};
-const TRAIL_RATE = ${fmtNum(trail.rate)};`;
-}
-function generateReflectionCode(reflection) {
-  return `const REFLECTION_ENABLED = ${reflection.enabled ? "true" : "false"};
-const REFLECTION_RESOLUTION = ${reflection.resolution};
-const REFLECTION_UPDATE_EVERY = ${reflection.updateEvery};
-const REFLECTION_INTENSITY = ${reflection.intensity};`;
-}
-function generateObjectsCode(objects, transformsByKf, stages, easings) {
-  const fmtNum = n => Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000;
-  const fmtVec = v => `[${v.map(fmtNum).join(", ")}]`;
-  const esc = s => JSON.stringify(s == null ? "" : s);
-  const objLines = objects.map(o => {
-    const transforms = transformsByKf[o.id] || {};
-    const kfLines = stages.map((kf, idx) => {
-      const t = transforms[kf.id] || {
-        position: [0, 0, 0],
-        scale: 1,
-        rotationY: 0
-      };
-      const easing = idx === 0 ? "smooth" : easings[idx - 1] || "smooth";
-      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)} },`;
-    }).join("\n");
-    if (o.type === "text") {
-      return `  {
-    type: "text",
-    text: ${esc(o.text)},
-    textColor: "${o.textColor || "#ffffff"}",
-    fontFamily: ${esc(o.fontFamily || "'Inter', sans-serif")},
-    fontWeight: ${o.fontWeight || 600},
-    textAlign: "${o.textAlign || "center"}",
-    textOutline: ${o.textOutline ? "true" : "false"},
-    textOutlineColor: "${o.textOutlineColor || "#000000"}",
-    billboard: ${o.billboard ? "true" : "false"},
-    keyframes: [
-${kfLines}
-    ],
-  },`;
-    }
-    return `  {
-    type: "${o.type === "image" ? "image" : "model"}",
-    url: "${o.url}",
-    billboard: ${o.billboard ? "true" : "false"},
-    keyframes: [
-${kfLines}
-    ],
-  },`;
-  }).join("\n");
-  return `const OBJECTS = [\n${objLines || "  // (sin objetos)"}\n];`;
-}
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode) {
-  const tplEl = document.getElementById("tpl-source");
-  let tpl = tplEl.value;
-  const swap = (src, startMark, endMark, code) => {
-    const start = src.indexOf(startMark);
-    const end = src.indexOf(endMark);
-    if (start === -1 || end === -1) return src;
-    const before = src.slice(0, start + startMark.length);
-    const after = src.slice(end);
-    return `${before}\n${code}\n${after}`;
-  };
-  tpl = swap(tpl, "/*@GEN:MODEL_URL_START*/", "/*@GEN:MODEL_URL_END*/", modelUrlCode);
-  tpl = swap(tpl, "/*@GEN:SCENES_START*/", "/*@GEN:SCENES_END*/", scenesCode);
-  tpl = swap(tpl, "/*@GEN:MOVEMENT_DEFS_START*/", "/*@GEN:MOVEMENT_DEFS_END*/", movementCode);
-  tpl = swap(tpl, "/*@GEN:BONES_START*/", "/*@GEN:BONES_END*/", boneCode);
-  tpl = swap(tpl, "/*@GEN:SCROLL_LENGTH_START*/", "/*@GEN:SCROLL_LENGTH_END*/", scrollLengthCode);
-  tpl = swap(tpl, "/*@GEN:POSTFX_START*/", "/*@GEN:POSTFX_END*/", postFxCode);
-  tpl = swap(tpl, "/*@GEN:TRAIL_START*/", "/*@GEN:TRAIL_END*/", trailCode);
-  tpl = swap(tpl, "/*@GEN:REFLECTION_START*/", "/*@GEN:REFLECTION_END*/", reflectionCode);
-  tpl = swap(tpl, "/*@GEN:OBJECTS_START*/", "/*@GEN:OBJECTS_END*/", objectsCode);
-  tpl = swap(tpl, "/*@GEN:CHAR_TRANSFORM_START*/", "/*@GEN:CHAR_TRANSFORM_END*/", charTransformCode);
-  return tpl;
-}
-
-/* ---- App ---- */
-function App() {
-  const [section, setSection] = useState("pose"); // pose | camera | movement | timing | objects | preview
-
-  const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL_URL);
-  /* Escala y centrado vertical del personaje principal. Antes estaban
-     hardcodeados (scale={1.7}, position={[0,-0.9,0]}) en el visor del
-     editor, y sin ningún marcador @GEN en la plantilla final — por
-     eso cambiar CHAR_SCALE a mano en el index.html descargado no
-     tenía efecto acá, y se perdía si volvías a descargar. Ahora viven
-     en el mismo lugar que el resto de los controles (Pose/Cámara/
-     Movimiento/Objetos): se ven en vivo en el visor y se graban en el
-     index.html final. Los valores por defecto (0.4 / 0.05) están
-     calibrados para bowl1.glb (que sin escalar mide ~4.83 de ancho x
-     2.44 de alto x 3.95 de profundidad); si cambiás de modelo, tocá
-     el slider hasta que se vea bien — no hace falta calcular nada. */
-  const [charScale, setCharScale] = useState(0.4);
-  const [charCenterY, setCharCenterY] = useState(0.05);
-  /* Efectos de post-proceso del sitio exportado (viñeta/brillo). Son
-     globales, no por etapa — y el visor de este editor NO los aplica
-     (no tiene ese pipeline montado), así que lo que ves acá es sin
-     viñeta/brillo siempre; el resultado final los aplica si los
-     activás. La viñeta viene apagada por defecto porque puede tapar
-     bordes de composiciones que dependen de fundirse con el fondo. */
-  const [postFx, setPostFx] = useState({
-    vignetteEnabled: false,
-    vignetteDarkness: 0.5,
-    vignetteOffset: 0.15,
-    bloomEnabled: true,
-    bloomIntensity: 0.5
-  });
-  const setPostFxField = (field, value) => setPostFx(prev => _objectSpread(_objectSpread({}, prev), {}, {
-    [field]: value
-  }));
-  /* Estela de brillo (sparkle trail) que deja el personaje (bowl1.glb) a
-     su paso, y se va desvaneciendo. A diferencia de postFx, esta SÍ se
-     ve en vivo en el visor de este editor (misma implementación que
-     la plantilla final), para poder ajustarla con feedback inmediato
-     antes de descargar. Color dorado por defecto, a tono con el
-     brillo de referencia tipo abeja/polen. */
-  const [trail, setTrail] = useState({
-    enabled: true,
-    color: "#ffd873",
-    size: 0.05,
-    life: 0.9,
-    rate: 40
-  });
-  const setTrailField = (field, value) => setTrail(prev => _objectSpread(_objectSpread({}, prev), {}, {
-    [field]: value
-  }));
-  /* Reflejo de ambiente en tiempo real sobre el Modelo principal (metal).
-   resolution = nitidez del reflejo (más alto = más pesado). updateEvery
-   = cada cuántos frames se recalcula (1 = todos los frames, más preciso
-   pero más pesado; 3-5 rinde mejor, sobre todo en celular). */
-  const [reflection, setReflection] = useState({
-    enabled: false,
-    resolution: 256,
-    updateEvery: 2,
-    intensity: 1
-  });
-  const setReflectionField = (field, value) => setReflection(prev => _objectSpread(_objectSpread({}, prev), {}, {
-    [field]: value
-  }));
-  const charAnchorRef = useRef(null);
-  const [stages, setStages] = useState(makeDefaultStages);
-  const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
-  const [easings, setEasings] = useState(() => DEFAULT_DURATIONS_VH.map(() => "smooth"));
-  const [posesByKf, setPosesByKf] = useState(() => initialPoses(makeDefaultStages()));
-  const [camsByKf, setCamsByKf] = useState(() => initialCameras(makeDefaultStages()));
-  const [movesByKf, setMovesByKf] = useState(() => initialMovements(makeDefaultStages()));
-  const [fxByKf, setFxByKf] = useState(() => initialFx(makeDefaultStages()));
-  const stagesComputed = useMemo(() => stagesWithProgress(stages, durationsVh), [stages, durationsVh]);
-  const totalVh = useMemo(() => durationsVh.reduce((a, b) => a + b, 0), [durationsVh]);
-  const setDurationAt = (i, value) => {
-    setDurationsVh(prev => {
-      const next = [...prev];
-      next[i] = value;
-      return next;
-    });
-  };
-  const setEasingAt = (i, value) => {
-    setEasings(prev => {
-      const next = [...prev];
-      next[i] = value;
-      return next;
-    });
-  };
-
-  // Una sola etapa activa, compartida por Pose / Cámara / Movimiento.
-  const [activeStage, setActiveStage] = useState(() => makeDefaultStages()[0].id);
-  const addStage = () => {
-    const n = stages.length + 1;
-    const newId = `pose-${Date.now()}`;
-    const lastId = stages[stages.length - 1].id;
-    setStages(prev => [...prev, {
-      id: newId,
-      label: `Pose ${n}`
-    }]);
-    setDurationsVh(prev => [...prev, 150]);
-    setEasings(prev => [...prev, "smooth"]);
-    setPosesByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [newId]: JSON.parse(JSON.stringify(prev[lastId] || zeroPose()))
-    }));
-    setCamsByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultCamera()))
-    }));
-    setMovesByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultMovement()))
-    }));
-    setFxByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultFx()))
-    }));
-    setObjectTransformsByKf(prev => {
-      const next = _objectSpread({}, prev);
-      Object.keys(next).forEach(objId => {
-        next[objId] = _objectSpread(_objectSpread({}, next[objId]), {}, {
-          [newId]: JSON.parse(JSON.stringify(next[objId][lastId] || {
-            position: [0, 0, 0],
-            scale: 1,
-            rotationY: 0
-          }))
-        });
-      });
-      return next;
-    });
-    setActiveStage(newId);
-  };
-  const removeStage = id => {
-    const idx = stages.findIndex(s => s.id === id);
-    if (stages.length <= 2 || idx === -1) return;
-    const remIdx = idx === 0 ? 0 : idx - 1;
-    setStages(prev => prev.filter(s => s.id !== id));
-    setDurationsVh(prev => {
-      const next = [...prev];
-      next.splice(remIdx, 1);
-      return next;
-    });
-    setEasings(prev => {
-      const next = [...prev];
-      next.splice(remIdx, 1);
-      return next;
-    });
-    setPosesByKf(prev => {
-      const next = _objectSpread({}, prev);
-      delete next[id];
-      return next;
-    });
-    setCamsByKf(prev => {
-      const next = _objectSpread({}, prev);
-      delete next[id];
-      return next;
-    });
-    setMovesByKf(prev => {
-      const next = _objectSpread({}, prev);
-      delete next[id];
-      return next;
-    });
-    setFxByKf(prev => {
-      const next = _objectSpread({}, prev);
-      delete next[id];
-      return next;
-    });
-    setObjectTransformsByKf(prev => {
-      const next = _objectSpread({}, prev);
-      Object.keys(next).forEach(objId => {
-        const forObj = _objectSpread({}, next[objId]);
-        delete forObj[id];
-        next[objId] = forObj;
-      });
-      return next;
-    });
-    if (activeStage === id) {
-      const remaining = stages.filter(s => s.id !== id);
-      setActiveStage(remaining[Math.max(0, idx - 1)]?.id || remaining[0]?.id);
-    }
-  };
-  const renameStage = (id, label) => setStages(prev => prev.map(s => s.id === id ? _objectSpread(_objectSpread({}, s), {}, {
-    label
-  }) : s));
-  const [scrub, setScrub] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playSpeed, setPlaySpeed] = useState(1);
-
-  /* Reproduce automáticamente el "progress" de 0 a 1 (pasa de largo el
-     scroll manual) para poder ver la coordinación real entre cámara,
-     personaje y ambiente sin tener que arrastrar el slider a mano.
-     "Velocidad" es un multiplicador sobre un recorrido nominal de 10s. */
-  useEffect(() => {
-    if (!isPlaying) return;
-    const durationMs = 10000 / playSpeed;
-    let raf;
-    let startTime = null;
-    let startScrub = scrub >= 0.999 ? 0 : scrub;
-    if (scrub >= 0.999) setScrub(0);
-    const tick = now => {
-      if (startTime === null) startTime = now;
-      const elapsed = now - startTime;
-      const p = startScrub + elapsed / durationMs;
-      if (p >= 1) {
-        setScrub(1);
-        setIsPlaying(false);
-        return;
-      }
-      setScrub(p);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying, playSpeed]);
-  const [freeOrbit, setFreeOrbit] = useState(false);
-  const [autoRotate, setAutoRotate] = useState(false);
-  const [foundMap, setFoundMap] = useState({});
-  const [copiedWhich, setCopiedWhich] = useState(null);
-  const [downloaded, setDownloaded] = useState(false);
-
-  // Objetos de entorno (antes "Entorno" / un solo universo.glb). Ahora
-  // se pueden agregar tantos como haga falta, cada uno con su propio
-  // archivo (modelo .glb o imagen .png/.jpg). La posición/escala/giro
-  // de cada uno vive POR ETAPA (objectTransformsByKf) — igual que la
-  // Cámara o el Movimiento del personaje — así también pueden moverse
-  // a lo largo del scroll y no quedan estáticos.
-  const [objects, setObjects] = useState(() => [{
-    id: "obj-universo",
-    label: "Universo (rampa)",
-    type: "model",
-    url: "./assets/models/universo.glb",
-    previewUrl: null,
-    billboard: false,
-    visible: true
-  }]);
-  const defaultObjectTransform = () => ({
-    position: [0, 0, 0],
-    scale: 1,
-    rotationY: 0
-  });
-  const [objectTransformsByKf, setObjectTransformsByKf] = useState(() => {
-    const stageList = makeDefaultStages();
-    return {
-      "obj-universo": Object.fromEntries(stageList.map(s => [s.id, {
-        position: [0, -0.2, 2.2],
-        scale: 5,
-        rotationY: 0
-      }]))
-    };
-  });
-  const [showObjects, setShowObjects] = useState(true);
-  const [showGrid, setShowGrid] = useState(true);
-  const [showFx, setShowFx] = useState(true);
-  const [showMobileFrame, setShowMobileFrame] = useState(true);
-  const viewportRef = useRef(null);
-  const addObject = () => {
-    const n = objects.length + 1;
-    const newId = `obj-${Date.now()}`;
-    setObjects(prev => [...prev, {
-      id: newId,
-      label: `Objeto ${n}`,
-      type: "model",
-      url: `./assets/models/objeto${n}.glb`,
-      previewUrl: null,
-      billboard: false,
-      visible: true
-    }]);
-    setObjectTransformsByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [newId]: Object.fromEntries(stagesComputed.map(s => [s.id, defaultObjectTransform()]))
-    }));
-  };
-  const removeObject = id => {
-    setObjects(prev => prev.filter(o => o.id !== id));
-    setObjectTransformsByKf(prev => {
-      const next = _objectSpread({}, prev);
-      delete next[id];
-      return next;
-    });
-  };
-  const updateObject = (id, patch) => setObjects(prev => prev.map(o => o.id === id ? _objectSpread(_objectSpread({}, o), patch) : o));
-  const setObjectTransform = (id, field, axis, value) => {
-    setObjectTransformsByKf(prev => {
-      const forObj = _objectSpread({}, prev[id]);
-      const cur = _objectSpread({}, forObj[activeStage]);
-      if (field === "position") {
-        const pos = [...cur.position];
-        pos["xyz".indexOf(axis)] = value;
-        cur.position = pos;
-      } else {
-        cur[field] = value;
-      }
-      forObj[activeStage] = cur;
-      return _objectSpread(_objectSpread({}, prev), {}, {
-        [id]: forObj
-      });
-    });
-  };
-  const copyObjectTransformFromPrev = id => {
-    if (stageIndex <= 0) return;
-    const prevId = stagesComputed[stageIndex - 1].id;
-    setObjectTransformsByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [id]: _objectSpread(_objectSpread({}, prev[id]), {}, {
-        [activeStage]: JSON.parse(JSON.stringify(prev[id][prevId]))
-      })
-    }));
-  };
-  const copyAllObjectTransformsFromPrev = () => {
-    if (stageIndex <= 0) return;
-    const prevId = stagesComputed[stageIndex - 1].id;
-    setObjectTransformsByKf(prev => {
-      const next = _objectSpread({}, prev);
-      objects.forEach(o => {
-        next[o.id] = _objectSpread(_objectSpread({}, next[o.id]), {}, {
-          [activeStage]: JSON.parse(JSON.stringify(prev[o.id][prevId]))
-        });
-      });
-      return next;
-    });
-  };
-  const setObjectType = (id, type) => {
-    setObjects(prev => prev.map(o => {
-      if (o.id !== id) return o;
-      if (type === "text") {
-        return _objectSpread(_objectSpread({}, o), {}, {
-          type: "text",
-          billboard: o.billboard ?? true,
-          text: o.text ?? "Texto",
-          textColor: o.textColor ?? "#ffffff",
-          fontFamily: o.fontFamily ?? "'Inter', sans-serif",
-          fontWeight: o.fontWeight ?? 600,
-          textAlign: o.textAlign ?? "center",
-          textOutline: o.textOutline ?? false,
-          textOutlineColor: o.textOutlineColor ?? "#000000"
-        });
-      }
-      let url = o.url;
-      if (type === "image" && /\.glb$/i.test(url)) url = url.replace(/\.glb$/i, ".png");
-      if (type === "model" && /\.(svg|png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(svg|png|jpe?g|webp)$/i, ".glb");
-      return _objectSpread(_objectSpread({}, o), {}, {
-        type,
-        url,
-        previewUrl: type === "model" ? null : o.previewUrl,
-        billboard: type === "image" ? o.billboard ?? true : false
-      });
-    }));
-  };
-  /* Subida real de archivo (SVG exportado de Corel Draw, PNG, JPG). El
-     navegador no puede escribir el archivo en el disco del proyecto —
-     eso lo hace el botón "Descargar" de abajo, con el mismo nombre que
-     va a usar el index.html final — pero sí puede leerlo localmente
-     con URL.createObjectURL para mostrarlo YA en el visor 3D, sin
-     esperar a que lo copies a mano. */
-  const uploadObjectFile = (id, file) => {
-    if (!file) return;
-    const blobUrl = URL.createObjectURL(file);
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    updateObject(id, {
-      type: "image",
-      previewUrl: blobUrl,
-      url: `./assets/models/${safeName}`,
-      billboard: true
-    });
-  };
-  /* Si editás el campo "Archivo" a mano (en vez de usar "Subir
-     archivo"), esto evita el bug de dejar una imagen/SVG con el tipo
-     "Modelo" seleccionado — lo que hace que el navegador intente
-     leerla con el cargador de .glb y falle ("no es JSON válido"). */
-  const setObjectUrl = (id, newUrl) => {
-    setObjects(prev => prev.map(o => {
-      if (o.id !== id) return o;
-      const isImgExt = /\.(svg|png|jpe?g|webp)$/i.test(newUrl);
-      const isGlbExt = /\.glb$/i.test(newUrl);
-      let patch = {
-        url: newUrl
-      };
-      if (isImgExt && o.type !== "image") patch = _objectSpread(_objectSpread({}, patch), {}, {
-        type: "image",
-        billboard: o.billboard ?? true,
-        previewUrl: null
-      });
-      if (isGlbExt && o.type !== "model") patch = _objectSpread(_objectSpread({}, patch), {}, {
-        type: "model",
-        billboard: false,
-        previewUrl: null
-      });
-      return _objectSpread(_objectSpread({}, o), patch);
-    }));
-  };
-  const stageIndex = stagesComputed.findIndex(s => s.id === activeStage);
-  const setBoneAxis = (boneKey, axis, value) => {
-    setPosesByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [activeStage]: _objectSpread(_objectSpread({}, prev[activeStage]), {}, {
-        [boneKey]: _objectSpread(_objectSpread({}, prev[activeStage][boneKey]), {}, {
-          [axis]: value
-        })
-      })
-    }));
-  };
-  const resetBone = boneKey => {
-    setPosesByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [activeStage]: _objectSpread(_objectSpread({}, prev[activeStage]), {}, {
-        [boneKey]: {
-          x: 0,
-          y: 0,
-          z: 0
-        }
-      })
-    }));
-  };
-  const copyPoseFromPrev = () => {
-    if (stageIndex <= 0) return;
-    const prevId = stagesComputed[stageIndex - 1].id;
-    setPosesByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [activeStage]: JSON.parse(JSON.stringify(prev[prevId]))
-    }));
-  };
-  const setCamField = (field, axis, value) => {
-    setCamsByKf(prev => {
-      const cam = _objectSpread({}, prev[activeStage]);
-      if (field === "fov" || field === "roll") cam[field] = value;else {
-        cam[field] = [...cam[field]];
-        cam[field]["xyz".indexOf(axis)] = value;
-      }
-      return _objectSpread(_objectSpread({}, prev), {}, {
-        [activeStage]: cam
-      });
-    });
-  };
-  const orbitRef = useRef(null);
-  const liveCameraRef = useRef(null);
-  const captureFreeCamera = () => {
-    const live = liveCameraRef.current;
-    if (!live) return;
-    setCamsByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [activeStage]: {
-        position: live.position,
-        lookAt: live.lookAt,
-        fov: live.fov,
-        roll: prev[activeStage].roll || 0
-      }
-    }));
-  };
-  const setFxField = (group, field, value) => {
-    setFxByKf(prev => {
-      const fx = _objectSpread({}, prev[activeStage]);
-      fx[group] = _objectSpread(_objectSpread({}, fx[group]), {}, {
-        [field]: value
-      });
-      return _objectSpread(_objectSpread({}, prev), {}, {
-        [activeStage]: fx
-      });
-    });
-  };
-  /* Genera un segundo color con contraste real (más oscuro/claro que
-     el primero) para que, al pasar a "Degradado", el cambio se note
-     de una — antes copiaba el mismo color en los dos extremos y por
-     eso el botón parecía no hacer nada. */
-  const nudgeColor = hex => {
-    const c = new THREE.Color(hex);
-    const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-    const target = new THREE.Color(lum > 0.5 ? "#000000" : "#ffffff");
-    c.lerp(target, 0.55);
-    return "#" + c.getHexString();
-  };
-  const setBackgroundMode = mode => {
-    setFxByKf(prev => {
-      const fx = _objectSpread({}, prev[activeStage]);
-      const bg = fx.background;
-      if (mode === "solid") {
-        fx.background = _objectSpread(_objectSpread({}, bg), {}, {
-          mode: "solid",
-          to: bg.from
-        });
-      } else {
-        fx.background = _objectSpread(_objectSpread({}, bg), {}, {
-          mode: "gradient",
-          to: bg.to !== bg.from ? bg.to : nudgeColor(bg.from)
-        });
-      }
-      return _objectSpread(_objectSpread({}, prev), {}, {
-        [activeStage]: fx
-      });
-    });
-  };
-  const setBackgroundColor = (field, value) => {
-    setFxByKf(prev => {
-      const fx = _objectSpread({}, prev[activeStage]);
-      const bg = _objectSpread(_objectSpread({}, fx.background), {}, {
-        [field]: value
-      });
-      if (fx.background.mode !== "gradient" && field === "from") bg.to = value;
-      fx.background = bg;
-      return _objectSpread(_objectSpread({}, prev), {}, {
-        [activeStage]: fx
-      });
-    });
-  };
-  const copyCamFromPrev = () => {
-    if (stageIndex <= 0) return;
-    const prevId = stagesComputed[stageIndex - 1].id;
-    setCamsByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [activeStage]: JSON.parse(JSON.stringify(prev[prevId]))
-    }));
-    setFxByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [activeStage]: JSON.parse(JSON.stringify(prev[prevId]))
-    }));
-  };
-  const setMoveField = (field, axis, value) => {
-    setMovesByKf(prev => {
-      const mv = _objectSpread({}, prev[activeStage]);
-      if (field === "yaw" || field === "pitch") mv[field] = value;else {
-        mv.pos = [...mv.pos];
-        mv.pos["xyz".indexOf(axis)] = value;
-      }
-      return _objectSpread(_objectSpread({}, prev), {}, {
-        [activeStage]: mv
-      });
-    });
-  };
-  const copyMoveFromPrev = () => {
-    if (stageIndex <= 0) return;
-    const prevId = stagesComputed[stageIndex - 1].id;
-    setMovesByKf(prev => _objectSpread(_objectSpread({}, prev), {}, {
-      [activeStage]: JSON.parse(JSON.stringify(prev[prevId]))
-    }));
-  };
-  const applyYawPreset = deg_ => setMoveField("yaw", null, deg_);
-  const applyPitchPreset = deg_ => setMoveField("pitch", null, deg_);
-  const isPreview = section === "preview";
-  const currentPose = isPreview ? samplePose(posesByKf, scrub, stagesComputed, easings) : posesByKf[activeStage];
-  const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stagesComputed, easings) : camsByKf[activeStage];
-  const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stagesComputed, easings) : movesByKf[activeStage];
-  const renderFx = isPreview ? sampleFx(fxByKf, scrub, stagesComputed, easings) : fxByKf[activeStage];
-  const renderObjects = useMemo(() => objects.map(o => {
-    const transforms = objectTransformsByKf[o.id];
-    if (!transforms) return _objectSpread(_objectSpread({}, o), defaultObjectTransform());
-    const t = isPreview ? sampleObjectTransform(transforms, scrub, stagesComputed, easings) : transforms[activeStage] || defaultObjectTransform();
-    return _objectSpread(_objectSpread({}, o), t);
-  }), [objects, objectTransformsByKf, isPreview, scrub, stagesComputed, easings, activeStage]);
-  const sceneCameraActive = !freeOrbit;
-  const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed, easings), [posesByKf, stagesComputed, easings]);
-  const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf, fxByKf, stagesComputed, easings), [camsByKf, fxByKf, stagesComputed, easings]);
-  const movementCode = useMemo(() => generateMovementDefsCode(movesByKf, stagesComputed, easings), [movesByKf, stagesComputed, easings]);
-  const scrollLengthCode = useMemo(() => generateScrollLengthCode(totalVh), [totalVh]);
-  const objectsCode = useMemo(() => generateObjectsCode(objects, objectTransformsByKf, stagesComputed, easings), [objects, objectTransformsByKf, stagesComputed, easings]);
-  const modelUrlCode = useMemo(() => generateModelUrlCode(modelUrl), [modelUrl]);
-  const charTransformCode = useMemo(() => generateCharTransformCode(charScale, charCenterY), [charScale, charCenterY]);
-  const postFxCode = useMemo(() => generatePostFxCode(postFx), [postFx]);
-  const trailCode = useMemo(() => generateTrailCode(trail), [trail]);
-  const reflectionCode = useMemo(() => generateReflectionCode(reflection), [reflection]);
-  const copy = async (text, which) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedWhich(which);
-      setTimeout(() => setCopiedWhich(null), 1500);
-    } catch (e) {/* fallback: seleccionar manualmente */}
-  };
-
-  /* Guarda/carga el ESTADO DE EDICIÓN completo (etapas, poses, cámara,
-     movimiento, ambiente, objetos y sus animaciones) como un .json
-     aparte — distinto del index.html final. Esto es lo que hay que
-     usar para "seguir mañana donde quedaste". Los blobs de vista
-     previa (SVG/imagen subida) no se guardan porque no sobreviven
-     entre sesiones — al recargar el proyecto, la ruta del archivo
-     queda intacta pero hay que volver a "Subir archivo" si querés
-     verla de nuevo en el visor. */
-  const [projectLoadError, setProjectLoadError] = useState(null);
-  const [projectLoaded, setProjectLoaded] = useState(false);
-  const buildProjectSnapshot = () => ({
-    kind: "weeb-scroll-project",
-    version: 1,
-    savedAt: new Date().toISOString(),
-    modelUrl,
-    charScale,
-    charCenterY,
-    postFx,
-    trail,
-    reflection,
-    stages,
-    durationsVh,
-    easings,
-    posesByKf,
-    camsByKf,
-    movesByKf,
-    fxByKf,
-    objects: objects.map(o => _objectSpread(_objectSpread({}, o), {}, {
-      previewUrl: null
-    })),
-    objectTransformsByKf
-  });
-  const restoreProjectState = p => {
-    if (!p || p.kind !== "weeb-scroll-project") throw new Error("no es un archivo de proyecto de esta herramienta");
-    setModelUrl(p.modelUrl || DEFAULT_MODEL_URL);
-    setCharScale(typeof p.charScale === "number" ? p.charScale : 0.4);
-    setCharCenterY(typeof p.charCenterY === "number" ? p.charCenterY : 0.05);
-    if (p.postFx) setPostFx(prev => _objectSpread(_objectSpread({}, prev), p.postFx));
-    if (p.trail) setTrail(prev => _objectSpread(_objectSpread({}, prev), p.trail));
-    if (p.reflection) setReflection(prev => _objectSpread(_objectSpread({}, prev), p.reflection));
-    const loadedStages = p.stages && p.stages.length ? p.stages : makeDefaultStages();
-    setStages(loadedStages);
-    setDurationsVh(p.durationsVh || DEFAULT_DURATIONS_VH);
-    setEasings(p.easings || loadedStages.slice(1).map(() => "smooth"));
-    setPosesByKf(p.posesByKf || {});
-    setCamsByKf(p.camsByKf || {});
-    setMovesByKf(p.movesByKf || {});
-    setFxByKf(p.fxByKf || {});
-    setObjects(p.objects || []);
-    setObjectTransformsByKf(p.objectTransformsByKf || {});
-    setActiveStage(loadedStages[0].id);
-  };
-
-  /* Al abrir un archivo que "Guardar como editor" generó, este mismo
-     componente ya viene con el progreso embebido (base64, en un tag
-     invisible fuera de #root). Se detecta y se carga solo, una vez,
-     al montar. */
-  useEffect(() => {
-    const el = document.getElementById("embedded-project-b64");
-    const b64 = el && el.textContent.trim();
-    if (!b64) return;
-    try {
-      const json = decodeURIComponent(escape(atob(b64)));
-      restoreProjectState(JSON.parse(json));
-      setProjectLoaded(true);
-      setTimeout(() => setProjectLoaded(false), 2500);
-    } catch (e) {
-      console.warn("No se pudo restaurar el progreso embebido:", e);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const saveProject = () => {
-    const project = buildProjectSnapshot();
-    const blob = new Blob([JSON.stringify(project, null, 2)], {
-      type: "application/json"
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "proyecto.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-  const loadProject = file => {
-    if (!file) return;
-    setProjectLoadError(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        restoreProjectState(JSON.parse(reader.result));
-        setProjectLoaded(true);
-        setTimeout(() => setProjectLoaded(false), 2500);
-      } catch (e) {
-        setProjectLoadError("No se pudo leer ese archivo como proyecto (¿es el .json que bajaste con \"Guardar proyecto\" de esta misma herramienta?).");
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  /* Genera una COPIA COMPLETA de esta misma herramienta (HTML + los
-     dos scripts, tal cual están corriendo ahora mismo — React nunca
-     toca el texto de un <script>, así que sigue siendo el código
-     original) con tu progreso actual metido adentro en base64. Al
-     abrir ese archivo de nuevo — doble clic, o subido a GitHub Pages
-     con el nombre que quieras — arranca ya con todo cargado. */
-  const [projectName, setProjectName] = useState("proyecto");
-  const saveProjectAsEditor = () => {
-    const project = buildProjectSnapshot();
-    const json = JSON.stringify(project);
-    const b64 = btoa(unescape(encodeURIComponent(json)));
-    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-    html = html.replace(/<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/, `<script id="embedded-project-b64" type="text/plain">eyJraW5kIjoid2VlYi1zY3JvbGwtcHJvamVjdCIsInZlcnNpb24iOjEsInNhdmVkQXQiOiIyMDI2LTA5LTIzVDEyOjIxOjA0Ljg5M1oiLCJtb2RlbFVybCI6Ii4vYXNzZXRzL21vZGVscy9ib3dsMS5nbGIiLCJjaGFyU2NhbGUiOjgsImNoYXJDZW50ZXJZIjowLjA1LCJwb3N0RngiOnsidmlnbmV0dGVFbmFibGVkIjp0cnVlLCJ2aWduZXR0ZURhcmtuZXNzIjoxLCJ2aWduZXR0ZU9mZnNldCI6MSwiYmxvb21FbmFibGVkIjp0cnVlLCJibG9vbUludGVuc2l0eSI6MC4xMX0sInRyYWlsIjp7ImVuYWJsZWQiOmZhbHNlLCJjb2xvciI6IiNmZmQ4NzMiLCJzaXplIjowLjA1LCJsaWZlIjowLjksInJhdGUiOjQwfSwicmVmbGVjdGlvbiI6eyJlbmFibGVkIjp0cnVlLCJyZXNvbHV0aW9uIjo1MTIsInVwZGF0ZUV2ZXJ5IjoxLCJpbnRlbnNpdHkiOjAuNX0sInN0YWdlcyI6W3siaWQiOiJwb3NlLTE3OTAxMDM4Njg2OTEiLCJsYWJlbCI6IlBvc2UgMyJ9LHsiaWQiOiJwb3NlLTE3OTAxMDQ4MTI2NDIiLCJsYWJlbCI6IlBvc2UgMyJ9XSwiZHVyYXRpb25zVmgiOlsxNTBdLCJlYXNpbmdzIjpbInNtb290aCJdLCJwb3Nlc0J5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7InNwaW5lMSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwic3BpbmUyIjp7IngiOjAsInkiOjAsInoiOjB9LCJuZWNrIjp7IngiOjAsInkiOjAsInoiOjB9LCJoZWFkIjp7IngiOjAsInkiOjAsInoiOjB9LCJsQ2xhdmljbGUiOnsieCI6MCwieSI6MCwieiI6MH0sInJDbGF2aWNsZSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibEZvcmVhcm0iOnsieCI6MCwieSI6MCwieiI6MH0sInJGb3JlYXJtIjp7IngiOjAsInkiOjAsInoiOjB9LCJsSGFuZCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickhhbmQiOnsieCI6MCwieSI6MCwieiI6MH0sImxUaGlnaCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwiclRoaWdoIjp7IngiOjAsInkiOjAsInoiOjB9LCJsQ2FsZiI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickNhbGYiOnsieCI6MCwieSI6MCwieiI6MH0sImxGb290Ijp7IngiOjAsInkiOjAsInoiOjB9LCJyRm9vdCI6eyJ4IjowLCJ5IjowLCJ6IjowfX0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJzcGluZTEiOnsieCI6MCwieSI6MCwieiI6MH0sInNwaW5lMiI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibmVjayI6eyJ4IjowLCJ5IjowLCJ6IjowfSwiaGVhZCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibENsYXZpY2xlIjp7IngiOjAsInkiOjAsInoiOjB9LCJyQ2xhdmljbGUiOnsieCI6MCwieSI6MCwieiI6MH0sImxGb3JlYXJtIjp7IngiOjAsInkiOjAsInoiOjB9LCJyRm9yZWFybSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibEhhbmQiOnsieCI6MCwieSI6MCwieiI6MH0sInJIYW5kIjp7IngiOjAsInkiOjAsInoiOjB9LCJsVGhpZ2giOnsieCI6MCwieSI6MCwieiI6MH0sInJUaGlnaCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibENhbGYiOnsieCI6MCwieSI6MCwieiI6MH0sInJDYWxmIjp7IngiOjAsInkiOjAsInoiOjB9LCJsRm9vdCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickZvb3QiOnsieCI6MCwieSI6MCwieiI6MH19fSwiY2Ftc0J5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7InBvc2l0aW9uIjpbLTQuNzY2OTgyNzIwOTM2OTc4LDMuMzUxMTM0NDg2Mzc3ODA1NiwtMy45Nzc5NDM2MjUzNDQxMjAzXSwibG9va0F0IjpbMTQuOTksLTExLjI3LDcuMTJdLCJmb3YiOjE1MCwicm9sbCI6MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6Wy0yLjE3LDEuNiwwLjI4XSwibG9va0F0IjpbMTIsLTExLjkzLC0yLjU5XSwiZm92IjoxNS40LCJyb2xsIjowfX0sIm1vdmVzQnlLZiI6eyJwb3NlLTE3OTAxMDM4Njg2OTEiOnsicG9zIjpbMCwwLDBdLCJ5YXciOjAsInBpdGNoIjowfSwicG9zZS0xNzkwMTA0ODEyNjQyIjp7InBvcyI6WzAsMCwwXSwieWF3IjowLCJwaXRjaCI6MH19LCJmeEJ5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7ImxpZ2h0Ijp7ImNvbG9yIjoiI2RmZWVmZiIsImludGVuc2l0eSI6MC43LCJhemltdXRoIjo0NSwiZWxldmF0aW9uIjozNSwicmltQ29sb3IiOiIjNDlkM2ZmIiwicmltSW50ZW5zaXR5IjoxLjR9LCJmb2ciOnsiZW5hYmxlZCI6ZmFsc2UsImNvbG9yIjoiIzA1MDcwYSIsImZhciI6MjB9LCJiYWNrZ3JvdW5kIjp7Im1vZGUiOiJzb2xpZCIsImZyb20iOiIjMDUwNzBhIiwidG8iOiIjMDUwNzBhIiwiYW5nbGUiOjE4MH19LCJwb3NlLTE3OTAxMDQ4MTI2NDIiOnsibGlnaHQiOnsiY29sb3IiOiIjZGZlZWZmIiwiaW50ZW5zaXR5IjowLjcsImF6aW11dGgiOjQ1LCJlbGV2YXRpb24iOjM1LCJyaW1Db2xvciI6IiM0OWQzZmYiLCJyaW1JbnRlbnNpdHkiOjEuNH0sImZvZyI6eyJlbmFibGVkIjpmYWxzZSwiY29sb3IiOiIjMDUwNzBhIiwiZmFyIjoyMH0sImJhY2tncm91bmQiOnsibW9kZSI6InNvbGlkIiwiZnJvbSI6IiMwNTA3MGEiLCJ0byI6IiMwNTA3MGEiLCJhbmdsZSI6MTgwfX19LCJvYmplY3RzIjpbeyJpZCI6Im9iai0xNzkwMTAzMjc0MDExIiwibGFiZWwiOiJPYmpldG8gMSIsInR5cGUiOiJtb2RlbCIsInVybCI6Ii4vYXNzZXRzL21vZGVscy9lc2ZlcmEuZ2xiIiwicHJldmlld1VybCI6bnVsbCwiYmlsbGJvYXJkIjpmYWxzZSwidmlzaWJsZSI6dHJ1ZX0seyJpZCI6Im9iai0xNzkwMTAzNjAwODgzIiwibGFiZWwiOiJPYmpldG8gMyIsInR5cGUiOiJpbWFnZSIsInVybCI6Ii4vYXNzZXRzL21vZGVscy9yZWZsZWpvMi5qcGciLCJwcmV2aWV3VXJsIjpudWxsLCJiaWxsYm9hcmQiOmZhbHNlLCJ2aXNpYmxlIjp0cnVlfV0sIm9iamVjdFRyYW5zZm9ybXNCeUtmIjp7Im9iai0xNzkwMTAzMjc0MDExIjp7InBvc2UtMTc5MDEwMzg2ODY5MSI6eyJwb3NpdGlvbiI6WzAsNCwwXSwic2NhbGUiOjAuOTYsInJvdGF0aW9uWSI6MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6WzAsNCwwXSwic2NhbGUiOjIuMzgsInJvdGF0aW9uWSI6MH19LCJvYmotMTc5MDEwMzYwMDg4MyI6eyJwb3NlLTE3OTAxMDM4Njg2OTEiOnsicG9zaXRpb24iOlstMS45NSwxLjYsLTldLCJzY2FsZSI6My42Niwicm90YXRpb25ZIjo5MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6Wy0xLjcsLTAuOSwwXSwic2NhbGUiOjYuOTEsInJvdGF0aW9uWSI6OTB9fX19</script></head>
+</head>
 <body>
-<div id="root"><div class="viewport" style="background: linear-gradient(rgb(5, 7, 10), rgb(5, 7, 10));"><div class="top-controls"><span>Vista: cámara de la escena (real)</span><label class="toggle-row"><input type="checkbox">Cámara libre (inspeccionar)</label><label class="toggle-row"><input type="checkbox" checked="">Mostrar objetos</label><label class="toggle-row"><input type="checkbox" checked="">Mostrar grilla</label><label class="toggle-row"><input type="checkbox" checked="">Mostrar ambiente (luz/niebla/fondo)</label><label class="toggle-row"><input type="checkbox" checked="">Contorno celular (9:16)</label></div><div style="position: relative; width: 100%; height: 100%; overflow: hidden; pointer-events: auto;"><div style="width: 100%; height: 100%;"><canvas data-engine="three.js r160" width="1395" height="869" style="display: block; width: 1116px; height: 695.2px;"></canvas></div></div><div aria-hidden="true" style="position: absolute; inset: 0px; z-index: 3; pointer-events: none; background: radial-gradient(transparent 0%, rgb(0, 0, 0) 100%);"></div><div class="mobile-frame" style="width: 390.938px; height: 695px; left: 362.531px; top: 0px;"><span class="mobile-frame__label">Celular · 9:16</span></div></div><div class="panel"><div><h1>Pose, Cámara, Movimiento &amp; Objetos</h1><p class="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos, con el contorno de celular (9:16) marcando qué se ve realmente en pantalla chica. Cada control tiene ahora un campo numérico al lado del slider para escribir el valor exacto. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, texto, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p></div><div class="cam-group"><div class="cam-group-title">Modelo principal</div><div class="axis-row"><label style="width: 46px; font-size: 10.5px;">Archivo</label><input type="text" value="./assets/models/bowl1.glb"></div><div class="axis-row"><label style="width: 46px; font-size: 10.5px;">Escala</label><input type="range" min="0.01" max="5" step="0.01" value="8"><input type="number" class="axis-num" step="0.01" value="8"></div><div class="axis-row"><label style="width: 46px; font-size: 10.5px;">Centro Y</label><input type="range" min="-2" max="2" step="0.01" value="0.05"><input type="number" class="axis-num" step="0.01" value="0.05"></div><label class="toggle-row" style="margin-top: 6px; margin-bottom: 6px;"><input type="checkbox">Reflejo de ambiente en tiempo real (metal)</label><div class="axis-row"><label style="width: 90px; font-size: 10.5px;">Resolución</label><select style="flex: 1 1 0%; background: rgba(255, 255, 255, 0.06); color: rgb(245, 246, 242); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; padding: 4px 6px; font-size: 11.5px;"><option value="128">128 (más rápido)</option><option value="256">256</option><option value="512">512 (más nítido)</option></select></div><div class="axis-row"><label style="width: 90px; font-size: 10.5px;">Actualizar cada</label><input type="range" min="1" max="10" step="1" value="1"><input type="number" class="axis-num" step="1" value="1"></div><div class="axis-row"><label style="width: 90px; font-size: 10.5px;">Intensidad</label><input type="range" min="0" max="3" step="0.05" value="0.5"><input type="number" class="axis-num" step="0.05" value="0.5"></div><p class="hint">Solo tiene efecto visible si el material del modelo tiene Metálico alto y Rugosidad baja. "Actualizar cada" en 3-5 rinde mejor en celular sin perder demasiada calidad.</p><p class="hint">Escala y Centro Y ahora se ven EN VIVO en este visor (antes el visor siempre mostraba el modelo a un tamaño fijo sin importar lo que cambiaras en el código) y quedan grabados en el index.html final al descargar. "Centro Y" sube/baja el modelo para alinearlo al piso o a la grilla — probá valores hasta que se vea bien apoyado.</p><p class="hint">El objeto que animás con Pose/Cámara/Movimiento. Puede ser un personaje con esqueleto (huesos) o un objeto rígido sin huesos — un perfume, un producto, un logo 3D. Si no tiene huesos, la pestaña Pose no hace nada: usá solo Movimiento para hacerlo flotar/girar por etapa.</p></div><div class="cam-group"><div class="cam-group-title">Estela de brillo (bee)</div><p class="hint">Rastro de partículas brillantes que el personaje va dejando a su paso y que se desvanece solo, como el brillo de polen detrás de una abeja. Solo emite mientras hay scroll real — se ve en vivo acá en el visor y queda grabado en el index.html final.</p><label class="toggle-row" style="margin-bottom: 6px;"><input type="checkbox" checked="">Activar estela</label></div><div class="cam-group"><div class="cam-group-title">Efectos</div><p class="hint">Se aplican en el visor y en el sitio exportado por igual. La viñeta oscurece los bordes de la pantalla en forma ovalada; si tu fondo tiene que fundirse limpio con la página, dejala apagada (viene así por defecto).</p><label class="toggle-row" style="margin-bottom: 6px;"><input type="checkbox">Viñeta (oscurece bordes)</label><div class="axis-row"><label style="width: 70px; font-size: 10.5px;">Oscuridad</label><input type="range" min="0" max="1" step="0.01" value="1"><input type="number" class="axis-num" step="0.01" value="1"></div><div class="axis-row"><label style="width: 70px; font-size: 10.5px;">Alcance</label><input type="range" min="0" max="1" step="0.01" value="1"><input type="number" class="axis-num" step="0.01" value="1"></div><label class="toggle-row" style="margin-bottom: 6px;"><input type="checkbox" checked="">Brillo (bloom, resalta las luces)</label><div class="axis-row"><label style="width: 70px; font-size: 10.5px;">Intensidad</label><input type="range" min="0" max="2" step="0.01" value="0.11"><input type="number" class="axis-num" step="0.01" value="0.11"></div></div><div class="section-tabs"><div class="section-tab active">Pose</div><div class="section-tab ">Cámara</div><div class="section-tab ">Movimiento</div><div class="section-tab ">Duración</div><div class="section-tab ">Objetos</div><div class="section-tab ">Preview</div></div><div class="section-title">Etapa (compartida por Pose / Cámara / Movimiento)</div><div class="kf-tabs"><div class="kf-tab active">Pose 3<span class="p">progress 0.00</span></div><div class="kf-tab ">Pose 3<span class="p">progress 1.00</span></div></div><div class="btn-row"><button class="btn primary">+ Agregar pose</button></div><div class="axis-row"><label style="width: 70px; font-size: 11px;">Nombre</label><input type="text" value="Pose 3"></div><p class="hint" style="color: rgb(200, 255, 0);">Este modelo no tiene huesos detectados (es un objeto rígido, como un producto o logo). Esta pestaña no va a tener efecto — andá a "Movimiento" para hacerlo flotar/girar por etapa.</p><div class="btn-row"><button class="btn">Copiar etapa anterior</button></div><div class="section-title">Huesos (16)</div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">Spine01 · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">Spine02 · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">NeckTwist01 · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">Head · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">L_Clavicle · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">R_Clavicle · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">L_Forearm · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">R_Forearm · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">L_Hand · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">R_Hand · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">L_Thigh · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">R_Thigh · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">L_Calf · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">R_Calf · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">L_Foot · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="bone-block" style="opacity: 0.4;"><div class="bone-name">R_Foot · FALTA</div><div class="axis-row"><label>X</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Y</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><div class="axis-row"><label>Z</label><input type="range" min="-180" max="180" step="0.1" value="0"><input type="number" class="axis-num" step="0.1" value="0"></div><button class="btn" style="font-size: 10px; padding: 2px 6px;">reset</button></div><div class="section-title">Proyecto (para seguir editando después)</div><p class="hint">Esto NO es el sitio final — es para vos, mientras trabajás. "Guardar como editor" te baja una copia de ESTA MISMA herramienta con tu progreso ya adentro: la nombrás como quieras, la subís a GitHub o la guardás donde sea, y el día que la abras arranca justo donde la dejaste. No hace falta cargar nada aparte.</p><div class="axis-row"><label style="width: 90px; font-size: 10.5px;">Nombre</label><input type="text" placeholder="veterinaria" value="proyecto"></div><div class="btn-row"><button class="btn primary">💾 Guardar como editor (editor_proyecto.html)</button></div><details style="margin-top: 4px;" open=""><summary style="cursor: pointer; font-size: 11.5px; color: rgba(245, 246, 242, 0.7);">Opción liviana: guardar solo los datos (.json)</summary><p class="hint" style="margin-top: 6px;">Un archivo bien chico con solo tu progreso (sin el código de la herramienta). Sirve si preferís mandarlo por chat o guardarlo aparte — para seguir editando, abrís esta herramienta de nuevo y lo cargás con el botón de abajo.</p><div class="btn-row"><button class="btn">💾 Guardar datos (.json)</button><label class="btn" style="cursor: pointer;">📂 Cargar datos (.json)<input type="file" accept=".json,application/json" style="display: none;"></label></div></details><div class="section-title">Descarga</div><p class="hint">Genera tu index.html completo con todo lo ajustado en Pose, Cámara, Movimiento, Duración y Objetos — listo para subir a GitHub Pages, o copialo directo sin descargar.</p><div class="btn-row"><button class="btn primary">⬇ Descargar index.html completo</button></div><div class="btn-row"><button class="btn">⧉ Copiar index.html completo</button></div><div class="section-title">Código individual (opcional)</div><p class="hint">Por si preferís pegar a mano en tu propio archivo en vez de descargar el completo.</p><details><summary style="cursor: pointer; font-size: 11.5px; color: rgba(245, 246, 242, 0.7);">Ver bloques de código</summary><div style="margin-top: 8px;"><div class="section-title">Huesos</div><textarea class="code" readonly="">const BONE_POSE_KEYFRAMES = [
-  {
-    id: "pose-1790103868691",
-    progress: 0,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790104812642",
-    progress: 1,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-];</textarea><div class="btn-row"><button class="btn">Copiar</button></div><div class="section-title">Cámara (scenes)</div><textarea class="code" readonly="">const scenes = [
-  {
-    id: "pose-1790103868691",
-    progress: 0,
-    easing: "smooth",
-    camera: { position: [-4.767, 3.351, -3.978], lookAt: [14.99, -11.27, 7.12], fov: 150, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#05070a", to: "#05070a", angle: 180 },
-  },
-  {
-    id: "pose-1790104812642",
-    progress: 1,
-    easing: "smooth",
-    camera: { position: [-2.17, 1.6, 0.28], lookAt: [12, -11.93, -2.59], fov: 15.4, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
-    fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#05070a", to: "#05070a", angle: 180 },
-  },
-];</textarea><div class="btn-row"><button class="btn">Copiar</button></div><div class="section-title">Movimiento</div><textarea class="code" readonly="">const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1790103868691", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790104812642", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-];
+<div id="root"></div>
+<script id="embedded-project-b64" type="text/plain">eyJraW5kIjoid2VlYi1zY3JvbGwtcHJvamVjdCIsInZlcnNpb24iOjEsInNhdmVkQXQiOiIyMDI2LTA5LTIyVDE5OjU0OjA0LjAwMFoiLCJtb2RlbFVybCI6Ii4vYXNzZXRzL21vZGVscy9ib3dsMS5nbGIiLCJjaGFyU2NhbGUiOjgsImNoYXJDZW50ZXJZIjowLjA1LCJwb3N0RngiOnsidmlnbmV0dGVFbmFibGVkIjp0cnVlLCJ2aWduZXR0ZURhcmtuZXNzIjoxLCJ2aWduZXR0ZU9mZnNldCI6MSwiYmxvb21FbmFibGVkIjp0cnVlLCJibG9vbUludGVuc2l0eSI6MC4xMX0sInRyYWlsIjp7ImVuYWJsZWQiOmZhbHNlLCJjb2xvciI6IiNmZmQ4NzMiLCJzaXplIjowLjA1LCJsaWZlIjowLjksInJhdGUiOjQwfSwicmVmbGVjdGlvbiI6eyJlbmFibGVkIjp0cnVlLCJyZXNvbHV0aW9uIjo1MTIsInVwZGF0ZUV2ZXJ5IjoxLCJpbnRlbnNpdHkiOjAuNX0sInN0YWdlcyI6W3siaWQiOiJwb3NlLTE3OTAxMDM4Njg2OTEiLCJsYWJlbCI6IlBvc2UgMyJ9LHsiaWQiOiJwb3NlLTE3OTAxMDQ4MTI2NDIiLCJsYWJlbCI6IlBvc2UgMyJ9XSwiZHVyYXRpb25zVmgiOlsxNTBdLCJlYXNpbmdzIjpbInNtb290aCJdLCJwb3Nlc0J5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7InNwaW5lMSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwic3BpbmUyIjp7IngiOjAsInkiOjAsInoiOjB9LCJuZWNrIjp7IngiOjAsInkiOjAsInoiOjB9LCJoZWFkIjp7IngiOjAsInkiOjAsInoiOjB9LCJsQ2xhdmljbGUiOnsieCI6MCwieSI6MCwieiI6MH0sInJDbGF2aWNsZSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibEZvcmVhcm0iOnsieCI6MCwieSI6MCwieiI6MH0sInJGb3JlYXJtIjp7IngiOjAsInkiOjAsInoiOjB9LCJsSGFuZCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickhhbmQiOnsieCI6MCwieSI6MCwieiI6MH0sImxUaGlnaCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwiclRoaWdoIjp7IngiOjAsInkiOjAsInoiOjB9LCJsQ2FsZiI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickNhbGYiOnsieCI6MCwieSI6MCwieiI6MH0sImxGb290Ijp7IngiOjAsInkiOjAsInoiOjB9LCJyRm9vdCI6eyJ4IjowLCJ5IjowLCJ6IjowfX0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJzcGluZTEiOnsieCI6MCwieSI6MCwieiI6MH0sInNwaW5lMiI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibmVjayI6eyJ4IjowLCJ5IjowLCJ6IjowfSwiaGVhZCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibENsYXZpY2xlIjp7IngiOjAsInkiOjAsInoiOjB9LCJyQ2xhdmljbGUiOnsieCI6MCwieSI6MCwieiI6MH0sImxGb3JlYXJtIjp7IngiOjAsInkiOjAsInoiOjB9LCJyRm9yZWFybSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibEhhbmQiOnsieCI6MCwieSI6MCwieiI6MH0sInJIYW5kIjp7IngiOjAsInkiOjAsInoiOjB9LCJsVGhpZ2giOnsieCI6MCwieSI6MCwieiI6MH0sInJUaGlnaCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibENhbGYiOnsieCI6MCwieSI6MCwieiI6MH0sInJDYWxmIjp7IngiOjAsInkiOjAsInoiOjB9LCJsRm9vdCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickZvb3QiOnsieCI6MCwieSI6MCwieiI6MH19fSwiY2Ftc0J5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7InBvc2l0aW9uIjpbLTQuNzY2OTgyNzIwOTM2OTc4LDMuMzUxMTM0NDg2Mzc3ODA1NiwtMy45Nzc5NDM2MjUzNDQxMjAzXSwibG9va0F0IjpbMTQuOTksLTExLjI3LDcuMTJdLCJmb3YiOjE1MCwicm9sbCI6MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6Wy0yLjE3LDEuNiwwLjI4XSwibG9va0F0IjpbMTIsLTExLjkzLC0yLjU5XSwiZm92IjoxNS40LCJyb2xsIjowfX0sIm1vdmVzQnlLZiI6eyJwb3NlLTE3OTAxMDM4Njg2OTEiOnsicG9zIjpbMCwwLDBdLCJ5YXciOjAsInBpdGNoIjowfSwicG9zZS0xNzkwMTA0ODEyNjQyIjp7InBvcyI6WzAsMCwwXSwieWF3IjowLCJwaXRjaCI6MH19LCJmeEJ5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7ImxpZ2h0Ijp7ImNvbG9yIjoiI2RmZWVmZiIsImludGVuc2l0eSI6MC43LCJhemltdXRoIjo0NSwiZWxldmF0aW9uIjozNSwicmltQ29sb3IiOiIjNDlkM2ZmIiwicmltSW50ZW5zaXR5IjoxLjR9LCJmb2ciOnsiZW5hYmxlZCI6ZmFsc2UsImNvbG9yIjoiIzA1MDcwYSIsImZhciI6MjB9LCJiYWNrZ3JvdW5kIjp7Im1vZGUiOiJzb2xpZCIsImZyb20iOiIjMDUwNzBhIiwidG8iOiIjMDUwNzBhIiwiYW5nbGUiOjE4MH19LCJwb3NlLTE3OTAxMDQ4MTI2NDIiOnsibGlnaHQiOnsiY29sb3IiOiIjZGZlZWZmIiwiaW50ZW5zaXR5IjowLjcsImF6aW11dGgiOjQ1LCJlbGV2YXRpb24iOjM1LCJyaW1Db2xvciI6IiM0OWQzZmYiLCJyaW1JbnRlbnNpdHkiOjEuNH0sImZvZyI6eyJlbmFibGVkIjpmYWxzZSwiY29sb3IiOiIjMDUwNzBhIiwiZmFyIjoyMH0sImJhY2tncm91bmQiOnsibW9kZSI6InNvbGlkIiwiZnJvbSI6IiMwNTA3MGEiLCJ0byI6IiMwNTA3MGEiLCJhbmdsZSI6MTgwfX19LCJvYmplY3RzIjpbeyJpZCI6Im9iai0xNzkwMTAzMjc0MDExIiwibGFiZWwiOiJPYmpldG8gMSIsInR5cGUiOiJtb2RlbCIsInVybCI6Ii4vYXNzZXRzL21vZGVscy9lc2ZlcmEuZ2xiIiwicHJldmlld1VybCI6bnVsbCwiYmlsbGJvYXJkIjpmYWxzZSwidmlzaWJsZSI6dHJ1ZX0seyJpZCI6Im9iai0xNzkwMTAzNjAwODgzIiwibGFiZWwiOiJPYmpldG8gMyIsInR5cGUiOiJpbWFnZSIsInVybCI6Ii4vYXNzZXRzL21vZGVscy9yZWZsZWpvMi5qcGciLCJwcmV2aWV3VXJsIjpudWxsLCJiaWxsYm9hcmQiOmZhbHNlLCJ2aXNpYmxlIjp0cnVlfV0sIm9iamVjdFRyYW5zZm9ybXNCeUtmIjp7Im9iai0xNzkwMTAzMjc0MDExIjp7InBvc2UtMTc5MDEwMzg2ODY5MSI6eyJwb3NpdGlvbiI6WzAsNCwwXSwic2NhbGUiOjAuOTYsInJvdGF0aW9uWSI6MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6WzAsNCwwXSwic2NhbGUiOjIuMzgsInJvdGF0aW9uWSI6MH19LCJvYmotMTc5MDEwMzYwMDg4MyI6eyJwb3NlLTE3OTAxMDM4Njg2OTEiOnsicG9zaXRpb24iOlstMS45NSwxLjYsLTldLCJzY2FsZSI6My42Niwicm90YXRpb25ZIjo5MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6Wy0xLjcsLTAuOSwwXSwic2NhbGUiOjYuOTEsInJvdGF0aW9uWSI6OTB9fX19</script>
 
-function sampleMovement(progress) {
-  const list = MOVEMENT_KEYFRAMES;
-  const p = clamp(progress, 0, 1);
-  if (p &lt;= list[0].progress) return list[0];
-  const last = list[list.length - 1];
-  if (p &gt;= last.progress) return last;
-  let i = 0;
-  while (i &lt; list.length - 1 &amp;&amp; list[i + 1].progress &lt; p) i++;
-  const a = list[i], b = list[i + 1];
-  const span = b.progress - a.progress || 1;
-  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
-  return {
-    pos: [lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t)],
-    yaw: lerp(a.yaw, b.yaw, t),
-    pitch: lerp(a.pitch, b.pitch, t),
-  };
-}</textarea><div class="btn-row"><button class="btn">Copiar</button></div><div class="section-title">Objetos</div><textarea class="code" readonly="">const OBJECTS = [
-  {
-    type: "model",
-    url: "./assets/models/esfera.glb",
-    billboard: false,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 4, 0], scale: 0.96, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 4, 0], scale: 2.38, rotationY: 0 },
-    ],
-  },
-  {
-    type: "image",
-    url: "./assets/models/reflejo2.jpg",
-    billboard: false,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [-1.95, 1.6, -9], scale: 3.66, rotationY: 90 },
-      { progress: 1, easing: "smooth", position: [-1.7, -0.9, 0], scale: 6.91, rotationY: 90 },
-    ],
-  },
-];</textarea><div class="btn-row"><button class="btn">Copiar</button></div></div></details></div></div>
-<script id="embedded-project-b64" type="text/plain"></script>
+<textarea id="tpl-source" style="display:none">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scroll Experience</title>
 
-<textarea id="tpl-source" style="display:none">&lt;!DOCTYPE html&gt;
-&lt;html lang="es"&gt;
-&lt;head&gt;
-&lt;meta charset="UTF-8" /&gt;
-&lt;meta name="viewport" content="width=device-width, initial-scale=1.0" /&gt;
-&lt;title&gt;Scroll Experience&lt;/title&gt;
-
-&lt;link rel="preconnect" href="https://fonts.googleapis.com" /&gt;
-&lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /&gt;
-&lt;link
-  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@300;400;500&amp;display=swap"
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap"
   rel="stylesheet"
-/&gt;
+/>
 
-&lt;style&gt;
+<style>
   :root {
     --brand-accent: #49d3ff;
     --brand-accent-2: #6ee7c9;
@@ -2219,12 +289,12 @@ function sampleMovement(progress) {
   .scroll-spacer { width: 100%; }
 
   .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
-&lt;/style&gt;
-&lt;/head&gt;
-&lt;body&gt;
-&lt;div id="root"&gt;&lt;/div&gt;
+</style>
+</head>
+<body>
+<div id="root"></div>
 
-&lt;script type="importmap"&gt;
+<script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@18.3.1",
@@ -2239,11 +309,11 @@ function sampleMovement(progress) {
     "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber"
   }
 }
-&lt;/script&gt;
+</script>
 
-&lt;script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"&gt;&lt;/script&gt;
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
 
-&lt;script type="text/babel" data-type="module" data-presets="react"&gt;
+<script type="text/babel" data-type="module" data-presets="react">
 
 import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
@@ -2403,11 +473,11 @@ const MOVEMENT_KEYFRAMES = [
 function sampleMovement(progress) {
   const list = MOVEMENT_KEYFRAMES;
   const p = clamp(progress, 0, 1);
-  if (p &lt;= list[0].progress) return list[0];
+  if (p <= list[0].progress) return list[0];
   const last = list[list.length - 1];
-  if (p &gt;= last.progress) return last;
+  if (p >= last.progress) return last;
   let i = 0;
-  while (i &lt; list.length - 1 &amp;&amp; list[i + 1].progress &lt; p) i++;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
   const span = b.progress - a.progress || 1;
   const t = smoothstep(0, 1, clamp((p - a.progress) / span));
@@ -2515,18 +585,18 @@ const BONE_POSE_KEYFRAMES = [
 function sampleBonePose(progress) {
   const list = BONE_POSE_KEYFRAMES;
   const p = clamp(progress, 0, 1);
-  const pick = (kf) =&gt; kf.bones;
-  if (p &lt;= list[0].progress) return pick(list[0]);
+  const pick = (kf) => kf.bones;
+  if (p <= list[0].progress) return pick(list[0]);
   const last = list[list.length - 1];
-  if (p &gt;= last.progress) return pick(last);
+  if (p >= last.progress) return pick(last);
   let i = 0;
-  while (i &lt; list.length - 1 &amp;&amp; list[i + 1].progress &lt; p) i++;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
   const span = b.progress - a.progress || 1;
   const t = applyEasing(clamp((p - a.progress) / span), b.easing);
   const out = {};
   const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
-  keys.forEach((k) =&gt; {
+  keys.forEach((k) => {
     const va = a.bones[k] || [0, 0, 0];
     const vb = b.bones[k] || [0, 0, 0];
     out[k] = [lerp(va[0], vb[0], t), lerp(va[1], vb[1], t), lerp(va[2], vb[2], t)];
@@ -2569,7 +639,7 @@ function clamp(value, min = 0, max = 1) {
 }
 
 function getDeviceProfile() {
-  const isMobile = typeof window !== "undefined" &amp;&amp; window.matchMedia("(max-width: 768px)").matches;
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   return {
     isMobile,
     dpr: isMobile ? [1, 2] : [1, 1.5],
@@ -2614,12 +684,12 @@ function sceneToState(kf) {
 
 function blendScenes(list, rawProgress) {
   const progress = clamp(rawProgress, 0, 1);
-  if (progress &lt;= list[0].progress) return sceneToState(list[0]);
+  if (progress <= list[0].progress) return sceneToState(list[0]);
   const last = list[list.length - 1];
-  if (progress &gt;= last.progress) return sceneToState(last);
+  if (progress >= last.progress) return sceneToState(last);
 
   let i = 0;
-  while (i &lt; list.length - 1 &amp;&amp; list[i + 1].progress &lt; progress) i++;
+  while (i < list.length - 1 && list[i + 1].progress < progress) i++;
   const a = list[i];
   const b = list[i + 1];
   const span = b.progress - a.progress || 1;
@@ -2641,7 +711,7 @@ function blendScenes(list, rawProgress) {
       rimIntensity: lerp(a.light.rimIntensity, b.light.rimIntensity, t),
     },
     fog: {
-      enabled: t &lt; 0.5 ? (a.fog.enabled ?? true) : (b.fog.enabled ?? true),
+      enabled: t < 0.5 ? (a.fog.enabled ?? true) : (b.fog.enabled ?? true),
       color: lerpColor(a.fog.color, b.fog.color, t),
       far: lerp(a.fog.far, b.fog.far, t),
     },
@@ -2653,28 +723,28 @@ function blendScenes(list, rawProgress) {
   };
 }
 
-const useScrollStore = create((set) =&gt; ({
+const useScrollStore = create((set) => ({
   progress: 0,
   smoothProgress: 0,
-  setProgress: (p) =&gt; set({ progress: p }),
-  setSmoothProgress: (p) =&gt; set({ smoothProgress: p }),
+  setProgress: (p) => set({ progress: p }),
+  setSmoothProgress: (p) => set({ smoothProgress: p }),
 }));
 
 function useScrollProgress(spacerRef) {
-  useEffect(() =&gt; {
-    const compute = () =&gt; {
+  useEffect(() => {
+    const compute = () => {
       const el = spacerRef.current;
       if (!el) return;
       const total = el.offsetHeight - window.innerHeight;
-      const raw = total &gt; 0 ? window.scrollY / total : 0;
+      const raw = total > 0 ? window.scrollY / total : 0;
       const p = clamp(raw, 0, 1);
       useScrollStore.getState().setProgress(p);
-      document.body.classList.toggle("app-root--scrolled", window.scrollY &gt; 20);
+      document.body.classList.toggle("app-root--scrolled", window.scrollY > 20);
     };
     compute();
     window.addEventListener("scroll", compute, { passive: true });
     window.addEventListener("resize", compute);
-    return () =&gt; {
+    return () => {
       window.removeEventListener("scroll", compute);
       window.removeEventListener("resize", compute);
     };
@@ -2682,21 +752,21 @@ function useScrollProgress(spacerRef) {
 }
 
 function useArrowKeyScroll(step = 140) {
-  useEffect(() =&gt; {
-    const onKeyDown = (e) =&gt; {
-      if (e.key !== "ArrowDown" &amp;&amp; e.key !== "ArrowUp") return;
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
       e.preventDefault();
       window.scrollBy({ top: e.key === "ArrowDown" ? step : -step, behavior: "smooth" });
     };
     window.addEventListener("keydown", onKeyDown);
-    return () =&gt; window.removeEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [step]);
 }
 
 function ScrollSmoother() {
-  useFrame((_, delta) =&gt; {
+  useFrame((_, delta) => {
     const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
     setSmoothProgress(damp(smoothProgress, progress, 4, delta));
   });
@@ -2705,14 +775,14 @@ function ScrollSmoother() {
 
 function useMouseParallax() {
   const mouse = useRef({ x: 0, y: 0 });
-  useEffect(() =&gt; {
-    const onMove = (e) =&gt; {
+  useEffect(() => {
+    const onMove = (e) => {
       if (e.pointerType !== "mouse") return;
       mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
     };
     window.addEventListener("pointermove", onMove, { passive: true });
-    return () =&gt; window.removeEventListener("pointermove", onMove);
+    return () => window.removeEventListener("pointermove", onMove);
   }, []);
   return mouse;
 }
@@ -2723,7 +793,7 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
   const currentLookAt = useRef(new THREE.Vector3());
   const dampedRoll = useRef(0);
 
-  useFrame((_, delta) =&gt; {
+  useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
     const [px, py, pz] = state.camera.position;
@@ -2788,21 +858,21 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
   const pointsRef = useRef(null);
   const materialRef = useRef(null);
   const particles = useRef([]);
-  const maxParticles = useMemo(() =&gt; Math.max(8, Math.ceil(rate * life) + 8), [rate, life]);
-  const positions = useMemo(() =&gt; new Float32Array(maxParticles * 3), [maxParticles]);
-  const sizes = useMemo(() =&gt; new Float32Array(maxParticles), [maxParticles]);
-  const opacities = useMemo(() =&gt; new Float32Array(maxParticles), [maxParticles]);
+  const maxParticles = useMemo(() => Math.max(8, Math.ceil(rate * life) + 8), [rate, life]);
+  const positions = useMemo(() => new Float32Array(maxParticles * 3), [maxParticles]);
+  const sizes = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const opacities = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
   const emitAccum = useRef(0);
   const prevAnchor = useRef(null);
   const prevProgress = useRef(null);
 
-  useEffect(() =&gt; {
+  useEffect(() => {
     if (materialRef.current) materialRef.current.uniforms.uColor.value.set(color);
   }, [color]);
 
-  useFrame((_, delta) =&gt; {
+  useFrame((_, delta) => {
     const group = pointsRef.current;
-    const anchor = anchorRef &amp;&amp; anchorRef.current;
+    const anchor = anchorRef && anchorRef.current;
     if (!group) return;
 
     if (!enabled || !anchor) {
@@ -2820,14 +890,14 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     // "respirar" idle del personaje, que no cuenta como movimiento real.
     const progress = useScrollStore.getState().smoothProgress;
     const SCROLL_EPS = 0.00025;
-    const isScrolling = prevProgress.current !== null &amp;&amp; Math.abs(progress - prevProgress.current) &gt; SCROLL_EPS;
+    const isScrolling = prevProgress.current !== null && Math.abs(progress - prevProgress.current) > SCROLL_EPS;
     prevProgress.current = progress;
 
-    if (isScrolling &amp;&amp; prevAnchor.current) {
+    if (isScrolling && prevAnchor.current) {
       emitAccum.current += delta;
       const emitEvery = 1 / Math.max(rate, 1);
       const from = prevAnchor.current;
-      while (emitAccum.current &gt;= emitEvery) {
+      while (emitAccum.current >= emitEvery) {
         emitAccum.current -= emitEvery;
         const t = 1 - emitAccum.current / delta;
         const px = lerp(from.x, ax, isFinite(t) ? t : 1);
@@ -2842,7 +912,7 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
           oz: (Math.random() - 0.5) * size * 6,
           sizeMul: 0.5 + Math.random() * 0.9,
         });
-        if (particles.current.length &gt; maxParticles) particles.current.shift();
+        if (particles.current.length > maxParticles) particles.current.shift();
       }
     } else {
       // Sin scroll: no acumules emisión pendiente, así no larga una
@@ -2851,14 +921,14 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     }
     prevAnchor.current = { x: ax, y: ay, z: az };
 
-    for (let i = particles.current.length - 1; i &gt;= 0; i--) {
+    for (let i = particles.current.length - 1; i >= 0; i--) {
       particles.current[i].age += delta;
-      if (particles.current[i].age &gt;= life) particles.current.splice(i, 1);
+      if (particles.current[i].age >= life) particles.current.splice(i, 1);
     }
 
     const n = Math.min(particles.current.length, maxParticles);
     const now = performance.now() * 0.001;
-    for (let i = 0; i &lt; n; i++) {
+    for (let i = 0; i < n; i++) {
       const p = particles.current[i];
       const t = clamp(p.age / life);
       const drift = t;
@@ -2878,13 +948,13 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
   });
 
   return (
-    &lt;points key={maxParticles} ref={pointsRef} frustumCulled={false}&gt;
-      &lt;bufferGeometry&gt;
-        &lt;bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} /&gt;
-        &lt;bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} /&gt;
-        &lt;bufferAttribute attach="attributes-aOpacity" count={maxParticles} array={opacities} itemSize={1} /&gt;
-      &lt;/bufferGeometry&gt;
-      &lt;shaderMaterial
+    <points key={maxParticles} ref={pointsRef} frustumCulled={false}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
+        <bufferAttribute attach="attributes-aOpacity" count={maxParticles} array={opacities} itemSize={1} />
+      </bufferGeometry>
+      <shaderMaterial
         ref={materialRef}
         vertexShader={TRAIL_VERTEX_SHADER}
         fragmentShader={TRAIL_FRAGMENT_SHADER}
@@ -2892,8 +962,8 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
-      /&gt;
-    &lt;/points&gt;
+      />
+    </points>
   );
 }
 
@@ -2912,7 +982,7 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
   const appliedRef = useRef(new Set());
   const posRef = useRef(new THREE.Vector3());
 
-  useEffect(() =&gt; {
+  useEffect(() => {
     const rt = new THREE.WebGLCubeRenderTarget(resolution, {
       generateMipmaps: true,
       minFilter: THREE.LinearMipmapLinearFilter,
@@ -2920,10 +990,10 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
     rtRef.current = rt;
     camRef.current = new THREE.CubeCamera(0.05, 1000, rt);
     appliedRef.current = new Set();
-    return () =&gt; rt.dispose();
+    return () => rt.dispose();
   }, [resolution]);
 
-  useFrame(() =&gt; {
+  useFrame(() => {
     if (!enabled || !anchorRef.current || !camRef.current) return;
     frameRef.current++;
     if (frameRef.current % Math.max(1, updateEvery) !== 0) return;
@@ -2939,10 +1009,10 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
     anchor.visible = wasVisible;
 
     const texture = rtRef.current.texture;
-    anchor.traverse((child) =&gt; {
+    anchor.traverse((child) => {
       if (!child.isMesh || !child.material) return;
       const mats = Array.isArray(child.material) ? child.material : [child.material];
-      mats.forEach((m) =&gt; {
+      mats.forEach((m) => {
         if (!("envMap" in m)) return;
         if (!appliedRef.current.has(m.uuid)) {
           m.envMap = texture;
@@ -2985,7 +1055,7 @@ function AnimatedCharacter({ mouse, anchorRef }) {
     thigh: 0, calf: 0, foot: 0,
   });
 
-  useEffect(() =&gt; {
+  useEffect(() => {
     const names = {
       spine1: "Spine01", spine2: "Spine02", head: "Head", neck: "NeckTwist01",
       lClavicle: "L_Clavicle", rClavicle: "R_Clavicle",
@@ -2997,7 +1067,7 @@ function AnimatedCharacter({ mouse, anchorRef }) {
     };
     const bones = {};
     const rest = {};
-    Object.entries(names).forEach(([key, boneName]) =&gt; {
+    Object.entries(names).forEach(([key, boneName]) => {
       const bone = scene.getObjectByName(boneName);
       if (bone) {
         bones[key] = bone;
@@ -3008,7 +1078,7 @@ function AnimatedCharacter({ mouse, anchorRef }) {
     restRef.current = rest;
   }, [scene]);
 
-  useFrame((_, delta) =&gt; {
+  useFrame((_, delta) => {
     clockRef.current += delta;
     const t = clockRef.current;
     const progress = useScrollStore.getState().smoothProgress;
@@ -3061,7 +1131,7 @@ function AnimatedCharacter({ mouse, anchorRef }) {
     };
 
     const _pose = sampleBonePose(progress);
-    Object.entries(_pose).forEach(([key, [ex, ey, ez]]) =&gt; {
+    Object.entries(_pose).forEach(([key, [ex, ey, ez]]) => {
       const bone = bones[key];
       const r = rest[key];
       if (!bone || !r) return;
@@ -3074,11 +1144,11 @@ function AnimatedCharacter({ mouse, anchorRef }) {
   });
 
   return (
-    &lt;group ref={outerRef} position={[0, -0.95, -1.3]}&gt;
-      &lt;group ref={pivotRef}&gt;
-        &lt;primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} /&gt;
-      &lt;/group&gt;
-    &lt;/group&gt;
+    <group ref={outerRef} position={[0, -0.95, -1.3]}>
+      <group ref={pivotRef}>
+        <primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} />
+      </group>
+    </group>
   );
 }
 useGLTF.preload(CHARACTER_MODEL_URL);
@@ -3096,11 +1166,11 @@ useGLTF.preload(CHARACTER_MODEL_URL);
 function sampleObjectKeyframes(keyframes, progress) {
   const list = keyframes;
   const p = clamp(progress, 0, 1);
-  if (p &lt;= list[0].progress) return list[0];
+  if (p <= list[0].progress) return list[0];
   const last = list[list.length - 1];
-  if (p &gt;= last.progress) return last;
+  if (p >= last.progress) return last;
   let i = 0;
-  while (i &lt; list.length - 1 &amp;&amp; list[i + 1].progress &lt; p) i++;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
   const span = b.progress - a.progress || 1;
   const t = applyEasing(clamp((p - a.progress) / span), b.easing);
@@ -3113,7 +1183,7 @@ function sampleObjectKeyframes(keyframes, progress) {
 
 function useObjectTransformRef(keyframes, billboard) {
   const groupRef = useRef(null);
-  useFrame((_, delta) =&gt; {
+  useFrame((_, delta) => {
     const g = groupRef.current;
     if (!g) return;
     const progress = useScrollStore.getState().smoothProgress;
@@ -3138,16 +1208,16 @@ function useObjectTransformRef(keyframes, billboard) {
    camino normal (useTexture). */
 function useHiResSvgTexture(url, targetLong) {
   const [texture, setTexture] = useState(null);
-  useEffect(() =&gt; {
+  useEffect(() => {
     let cancelled = false;
     const img = new Image();
-    img.onload = () =&gt; {
+    img.onload = () => {
       if (cancelled) return;
       const w0 = img.naturalWidth || 300;
       const h0 = img.naturalHeight || 150;
       const aspect = w0 / h0 || 1;
       const canvas = document.createElement("canvas");
-      if (aspect &gt;= 1) { canvas.width = targetLong; canvas.height = Math.round(targetLong / aspect); }
+      if (aspect >= 1) { canvas.width = targetLong; canvas.height = Math.round(targetLong / aspect); }
       else { canvas.height = targetLong; canvas.width = Math.round(targetLong * aspect); }
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -3156,9 +1226,9 @@ function useHiResSvgTexture(url, targetLong) {
       tex.needsUpdate = true;
       setTexture(tex);
     };
-    img.onerror = () =&gt; { if (!cancelled) setTexture(null); };
+    img.onerror = () => { if (!cancelled) setTexture(null); };
     img.src = url;
-    return () =&gt; { cancelled = true; };
+    return () => { cancelled = true; };
   }, [url, targetLong]);
   return texture;
 }
@@ -3181,20 +1251,20 @@ function useHiResTextTexture(text, opts) {
     outlineColor = "#000000",
   } = opts || {};
   const [texture, setTexture] = useState(null);
-  useEffect(() =&gt; {
+  useEffect(() => {
     let cancelled = false;
     const fontSizePx = 200;
     const lineHeight = fontSizePx * 1.2;
     const padding = fontSizePx * 0.25;
     const fontSpec = `${weight} ${fontSizePx}px ${font}`;
-    const draw = () =&gt; {
+    const draw = () => {
       if (cancelled) return;
       const lines = (text || "").split("\n");
       const measureCanvas = document.createElement("canvas");
       const mctx = measureCanvas.getContext("2d");
       mctx.font = fontSpec;
       let maxLineWidth = 1;
-      lines.forEach((l) =&gt; { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
+      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
       const canvas = document.createElement("canvas");
       canvas.width = Math.ceil(maxLineWidth + padding * 2);
       canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
@@ -3203,7 +1273,7 @@ function useHiResTextTexture(text, opts) {
       ctx.textBaseline = "middle";
       ctx.textAlign = align;
       const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
-      lines.forEach((line, i) =&gt; {
+      lines.forEach((line, i) => {
         const y = padding + lineHeight * i + lineHeight / 2;
         if (outline) {
           ctx.lineJoin = "round";
@@ -3218,12 +1288,12 @@ function useHiResTextTexture(text, opts) {
       tex.needsUpdate = true;
       setTexture(tex);
     };
-    if (document.fonts &amp;&amp; document.fonts.load) {
-      document.fonts.load(fontSpec).catch(() =&gt; {}).then(draw);
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load(fontSpec).catch(() => {}).then(draw);
     } else {
       draw();
     }
-    return () =&gt; { cancelled = true; };
+    return () => { cancelled = true; };
   }, [text, color, font, weight, align, outline, outlineColor]);
   return texture;
 }
@@ -3238,18 +1308,18 @@ function SceneObjectText({ data }) {
     outlineColor: data.textOutlineColor,
   });
   const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
-  if (!texture) return &lt;group ref={groupRef} /&gt;;
+  if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
-    &lt;mesh scale={[aspect, 1, 1]}&gt;
-      &lt;planeGeometry args={[1, 1]} /&gt;
-      &lt;meshBasicMaterial map={texture} transparent toneMapped={false} /&gt;
-    &lt;/mesh&gt;
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
   );
   return (
-    &lt;group ref={groupRef}&gt;
-      {data.billboard ? &lt;Billboard&gt;{mesh}&lt;/Billboard&gt; : mesh}
-    &lt;/group&gt;
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
   );
 }
 
@@ -3257,9 +1327,9 @@ function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const groupRef = useObjectTransformRef(data.keyframes, false);
   return (
-    &lt;group ref={groupRef}&gt;
-      &lt;primitive object={scene} /&gt;
-    &lt;/group&gt;
+    <group ref={groupRef}>
+      <primitive object={scene} />
+    </group>
   );
 }
 function SceneObjectImageRaster({ data }) {
@@ -3267,40 +1337,40 @@ function SceneObjectImageRaster({ data }) {
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
   const mesh = (
-    &lt;mesh scale={[aspect, 1, 1]}&gt;
-      &lt;planeGeometry args={[1, 1]} /&gt;
-      &lt;meshBasicMaterial map={texture} transparent toneMapped={false} /&gt;
-    &lt;/mesh&gt;
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
   );
   return (
-    &lt;group ref={groupRef}&gt;
-      {data.billboard ? &lt;Billboard&gt;{mesh}&lt;/Billboard&gt; : mesh}
-    &lt;/group&gt;
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
   );
 }
 function SceneObjectImageSvg({ data }) {
   const texture = useHiResSvgTexture(data.url, 3072);
   const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
-  if (!texture) return &lt;group ref={groupRef} /&gt;;
+  if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
-    &lt;mesh scale={[aspect, 1, 1]}&gt;
-      &lt;planeGeometry args={[1, 1]} /&gt;
-      &lt;meshBasicMaterial map={texture} transparent toneMapped={false} /&gt;
-    &lt;/mesh&gt;
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
   );
   return (
-    &lt;group ref={groupRef}&gt;
-      {data.billboard ? &lt;Billboard&gt;{mesh}&lt;/Billboard&gt; : mesh}
-    &lt;/group&gt;
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
   );
 }
 function SceneObjectImage({ data }) {
-  return isSvgUrl(data.url) ? &lt;SceneObjectImageSvg data={data} /&gt; : &lt;SceneObjectImageRaster data={data} /&gt;;
+  return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
 function SceneObject({ data }) {
-  if (data.type === "text") return &lt;SceneObjectText data={data} /&gt;;
-  return data.type === "image" ? &lt;SceneObjectImage data={data} /&gt; : &lt;SceneObjectModel data={data} /&gt;;
+  if (data.type === "text") return <SceneObjectText data={data} />;
+  return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
 }
 /* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
    servidor (404) o falla al leerse, esto evita que tumbe TODA la
@@ -3311,7 +1381,7 @@ function SceneObject({ data }) {
 class ObjectBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error) { console.warn("No se pudo cargar un objeto de la escena:", error &amp;&amp; error.message); }
+  componentDidCatch(error) { console.warn("No se pudo cargar un objeto de la escena:", error && error.message); }
   render() {
     if (this.state.hasError) return null;
     return this.props.children;
@@ -3319,18 +1389,18 @@ class ObjectBoundary extends React.Component {
 }
 function SceneObjects() {
   return (
-    &lt;&gt;
-      {OBJECTS.map((obj, i) =&gt; (
-        &lt;ObjectBoundary key={i}&gt;
-          &lt;Suspense fallback={null}&gt;
-            &lt;SceneObject data={obj} /&gt;
-          &lt;/Suspense&gt;
-        &lt;/ObjectBoundary&gt;
+    <>
+      {OBJECTS.map((obj, i) => (
+        <ObjectBoundary key={i}>
+          <Suspense fallback={null}>
+            <SceneObject data={obj} />
+          </Suspense>
+        </ObjectBoundary>
       ))}
-    &lt;/&gt;
+    </>
   );
 }
-OBJECTS.forEach((obj) =&gt; {
+OBJECTS.forEach((obj) => {
   if (obj.type === "text") return; // el texto no tiene archivo que precargar
   if (obj.type === "image") useTexture.preload(obj.url);
   else useGLTF.preload(obj.url);
@@ -3341,7 +1411,7 @@ function Lighting() {
   const rimRef = useRef(null);
   const dampedPos = useRef(new THREE.Vector3(...lightDirFromAngles(45, 35, 6)));
 
-  useFrame((_, delta) =&gt; {
+  useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
     if (keyRef.current) {
@@ -3360,13 +1430,13 @@ function Lighting() {
   });
 
   return (
-    &lt;&gt;
-      &lt;hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} /&gt;
-      &lt;ambientLight intensity={0.32} /&gt;
-      &lt;directionalLight ref={keyRef} intensity={0.9} /&gt;
-      &lt;directionalLight position={[-3, 2, -2]} intensity={0.5} /&gt;
-      &lt;pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} /&gt;
-    &lt;/&gt;
+    <>
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} />
+      <ambientLight intensity={0.32} />
+      <directionalLight ref={keyRef} intensity={0.9} />
+      <directionalLight position={[-3, 2, -2]} intensity={0.5} />
+      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
+    </>
   );
 }
 
@@ -3374,11 +1444,11 @@ function SceneEnvironment() {
   const { scene } = useThree();
   const fog = useRef(new THREE.FogExp2("#05070a", 0.12));
 
-  useEffect(() =&gt; {
+  useEffect(() => {
     scene.background = null;
   }, [scene]);
 
-  useFrame(() =&gt; {
+  useFrame(() => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
     if (state.fog.enabled) {
@@ -3397,43 +1467,43 @@ function Experience({ device }) {
   const mouse = useMouseParallax();
   const charAnchorRef = useRef(null);
   return (
-    &lt;&gt;
-      &lt;ScrollSmoother /&gt;
-      &lt;SceneEnvironment /&gt;
-      &lt;CameraRig mouse={mouse} /&gt;
-      &lt;Lighting /&gt;
-      &lt;Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} /&gt;
-      &lt;Suspense fallback={null}&gt;
-        &lt;SceneObjects /&gt;
-        &lt;ObjectBoundary&gt;
-          &lt;Suspense fallback={null}&gt;
-            &lt;AnimatedCharacter mouse={mouse} anchorRef={charAnchorRef} /&gt;
-          &lt;/Suspense&gt;
-        &lt;/ObjectBoundary&gt;
-      &lt;/Suspense&gt;
-      &lt;SparkleTrail
+    <>
+      <ScrollSmoother />
+      <SceneEnvironment />
+      <CameraRig mouse={mouse} />
+      <Lighting />
+      <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
+      <Suspense fallback={null}>
+        <SceneObjects />
+        <ObjectBoundary>
+          <Suspense fallback={null}>
+            <AnimatedCharacter mouse={mouse} anchorRef={charAnchorRef} />
+          </Suspense>
+        </ObjectBoundary>
+      </Suspense>
+      <SparkleTrail
         anchorRef={charAnchorRef}
         enabled={TRAIL_ENABLED}
         color={TRAIL_COLOR}
         size={TRAIL_SIZE}
         life={TRAIL_LIFE}
         rate={TRAIL_RATE}
-      /&gt;
+      />
 
-        &lt;ReflectionProbe
+        <ReflectionProbe
         anchorRef={charAnchorRef}
         enabled={REFLECTION_ENABLED}
         resolution={REFLECTION_RESOLUTION}
         updateEvery={REFLECTION_UPDATE_EVERY}
         intensity={REFLECTION_INTENSITY}
-      /&gt;
+      />
   
-      {device.enablePostProcessing &amp;&amp; BLOOM_ENABLED &amp;&amp; (
-        &lt;EffectComposer multisampling={0}&gt;
-          &lt;Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} /&gt;
-        &lt;/EffectComposer&gt;
+      {device.enablePostProcessing && BLOOM_ENABLED && (
+        <EffectComposer multisampling={0}>
+          <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
+        </EffectComposer>
       )}
-    &lt;/&gt;
+    </>
   );
 }
 
@@ -3445,9 +1515,9 @@ function textWeight(kf, progress, window_ = 0.14) {
 function SceneText() {
   const refs = useRef([]);
 
-  useEffect(() =&gt; {
-    const update = (progress) =&gt; {
-      scenes.forEach((kf, i) =&gt; {
+  useEffect(() => {
+    const update = (progress) => {
+      scenes.forEach((kf, i) => {
         const el = refs.current[i];
         if (!el || !kf.text) return;
         const weight = textWeight(kf, progress);
@@ -3456,71 +1526,71 @@ function SceneText() {
           kf.text.align === "center"
             ? `translateX(-50%) translateY(${(1 - weight) * 24}px)`
             : `translateY(${(1 - weight) * 24}px)`;
-        el.style.pointerEvents = weight &gt; 0.5 ? "auto" : "none";
+        el.style.pointerEvents = weight > 0.5 ? "auto" : "none";
       });
     };
     update(useScrollStore.getState().smoothProgress);
-    const unsubscribe = useScrollStore.subscribe((s) =&gt; update(s.smoothProgress));
+    const unsubscribe = useScrollStore.subscribe((s) => update(s.smoothProgress));
     return unsubscribe;
   }, []);
 
   return (
-    &lt;div className="scene-text-layer"&gt;
-      {scenes.map((kf, i) =&gt;
+    <div className="scene-text-layer">
+      {scenes.map((kf, i) =>
         kf.text ? (
-          &lt;div
+          <div
             key={kf.id}
-            ref={(el) =&gt; { refs.current[i] = el; }}
+            ref={(el) => { refs.current[i] = el; }}
             className={`scene-text scene-text--${kf.text.align}`}
             style={{ opacity: 0 }}
-          &gt;
-            {kf.text.eyebrow &amp;&amp; &lt;span className="scene-text__eyebrow"&gt;{kf.text.eyebrow}&lt;/span&gt;}
-            &lt;h2 className="scene-text__title"&gt;{kf.text.title}&lt;/h2&gt;
-            {kf.text.subtitle &amp;&amp; &lt;p className="scene-text__subtitle"&gt;{kf.text.subtitle}&lt;/p&gt;}
-          &lt;/div&gt;
+          >
+            {kf.text.eyebrow && <span className="scene-text__eyebrow">{kf.text.eyebrow}</span>}
+            <h2 className="scene-text__title">{kf.text.title}</h2>
+            {kf.text.subtitle && <p className="scene-text__subtitle">{kf.text.subtitle}</p>}
+          </div>
         ) : null
       )}
-    &lt;/div&gt;
+    </div>
   );
 }
 
-const CTA_START = scenes.find((s) =&gt; s.showCTA)?.progress ?? 1;
+const CTA_START = scenes.find((s) => s.showCTA)?.progress ?? 1;
 const FADE_WINDOW = 0.06;
 
 function CTAButton() {
   const ref = useRef(null);
 
-  useEffect(() =&gt; {
-    const update = (progress) =&gt; {
+  useEffect(() => {
+    const update = (progress) => {
       if (!ref.current) return;
       const weight = clamp((progress - (CTA_START - FADE_WINDOW)) / FADE_WINDOW);
       ref.current.style.opacity = String(weight);
       ref.current.style.transform = `translateX(-50%) translateY(${(1 - weight) * 16}px)`;
-      ref.current.style.pointerEvents = weight &gt; 0.6 ? "auto" : "none";
+      ref.current.style.pointerEvents = weight > 0.6 ? "auto" : "none";
     };
     update(useScrollStore.getState().smoothProgress);
-    return useScrollStore.subscribe((s) =&gt; update(s.smoothProgress));
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
   }, []);
 
   return (
-    &lt;div ref={ref} className="cta-layer" style={{ opacity: 0 }}&gt;
-      &lt;a className="cta-button" href={clientConfig.cta.href}&gt;
+    <div ref={ref} className="cta-layer" style={{ opacity: 0 }}>
+      <a className="cta-button" href={clientConfig.cta.href}>
         {clientConfig.cta.label}
-      &lt;/a&gt;
-    &lt;/div&gt;
+      </a>
+    </div>
   );
 }
 
 function BackgroundGradient({ stageRef }) {
-  useEffect(() =&gt; {
-    const update = (progress) =&gt; {
+  useEffect(() => {
+    const update = (progress) => {
       const el = stageRef.current;
       if (!el) return;
       const state = blendScenes(scenes, progress);
       el.style.background = `linear-gradient(${state.background.angle}deg, ${state.background.from}, ${state.background.to})`;
     };
     update(useScrollStore.getState().smoothProgress);
-    return useScrollStore.subscribe((s) =&gt; update(s.smoothProgress));
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
   }, [stageRef]);
 
   return null;
@@ -3529,27 +1599,27 @@ function BackgroundGradient({ stageRef }) {
 function ProgressIndicator() {
   const fillRef = useRef(null);
 
-  useEffect(() =&gt; {
-    const update = (progress) =&gt; {
+  useEffect(() => {
+    const update = (progress) => {
       if (fillRef.current) fillRef.current.style.height = `${progress * 100}%`;
     };
     update(useScrollStore.getState().smoothProgress);
-    return useScrollStore.subscribe((s) =&gt; update(s.smoothProgress));
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
   }, []);
 
   return (
-    &lt;div className="progress-rail" aria-hidden="true"&gt;
-      &lt;div className="progress-rail__track"&gt;
-        &lt;div ref={fillRef} className="progress-rail__fill" /&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
+    <div className="progress-rail" aria-hidden="true">
+      <div className="progress-rail__track">
+        <div ref={fillRef} className="progress-rail__fill" />
+      </div>
+    </div>
   );
 }
 
 function CursorTrail() {
   const canvasRef = useRef(null);
 
-  useEffect(() =&gt; {
+  useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -3558,7 +1628,7 @@ function CursorTrail() {
     let points = [];
     let rafId = 0;
 
-    const resize = () =&gt; {
+    const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
       canvas.width = width * dpr;
@@ -3569,29 +1639,29 @@ function CursorTrail() {
     };
     resize();
 
-    const addPoint = (x, y) =&gt; {
+    const addPoint = (x, y) => {
       points.push({ x, y, life: 1 });
-      if (points.length &gt; 40) points.shift();
+      if (points.length > 40) points.shift();
     };
-    const onPointerMove = (e) =&gt; addPoint(e.clientX, e.clientY);
-    const onTouchMove = (e) =&gt; {
-      if (e.touches &amp;&amp; e.touches[0]) addPoint(e.touches[0].clientX, e.touches[0].clientY);
+    const onPointerMove = (e) => addPoint(e.clientX, e.clientY);
+    const onTouchMove = (e) => {
+      if (e.touches && e.touches[0]) addPoint(e.touches[0].clientX, e.touches[0].clientY);
     };
 
     window.addEventListener("resize", resize);
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: true });
 
-    const draw = () =&gt; {
+    const draw = () => {
       ctx.clearRect(0, 0, width, height);
-      points.forEach((p) =&gt; { p.life *= 0.94; });
-      points = points.filter((p) =&gt; p.life &gt; 0.02);
+      points.forEach((p) => { p.life *= 0.94; });
+      points = points.filter((p) => p.life > 0.02);
 
-      if (points.length &gt; 1) {
+      if (points.length > 1) {
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.globalCompositeOperation = "lighter";
-        for (let i = 1; i &lt; points.length; i++) {
+        for (let i = 1; i < points.length; i++) {
           const p0 = points[i - 1];
           const p1 = points[i];
           const alpha = Math.min(p0.life, p1.life) * 0.55;
@@ -3610,7 +1680,7 @@ function CursorTrail() {
     };
     rafId = requestAnimationFrame(draw);
 
-    return () =&gt; {
+    return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onPointerMove);
@@ -3618,7 +1688,7 @@ function CursorTrail() {
     };
   }, []);
 
-  return &lt;canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" /&gt;;
+  return <canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" />;
 }
 
 function App() {
@@ -3626,16 +1696,16 @@ function App() {
   const stageRef = useRef(null);
   useScrollProgress(spacerRef);
   useArrowKeyScroll();
-  const device = useMemo(() =&gt; getDeviceProfile(), []);
+  const device = useMemo(() => getDeviceProfile(), []);
   const [ready, setReady] = useState(false);
 
-  useEffect(() =&gt; {
-    const t = setTimeout(() =&gt; setReady(true), 60);
-    return () =&gt; clearTimeout(t);
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 60);
+    return () => clearTimeout(t);
   }, []);
 
   return (
-    &lt;div
+    <div
       className="app-root"
       style={{
         "--brand-accent": clientConfig.colors.accent,
@@ -3646,18 +1716,18 @@ function App() {
         "--font-display": clientConfig.fonts.display,
         "--font-body": clientConfig.fonts.body,
       }}
-    &gt;
-      &lt;div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}&gt;
-        &lt;Canvas
+    >
+      <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
+        <Canvas
           dpr={device.dpr}
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
-        &gt;
-          &lt;Experience device={device} /&gt;
-        &lt;/Canvas&gt;
-        &lt;BackgroundGradient stageRef={stageRef} /&gt;
-        {VIGNETTE_ENABLED &amp;&amp; (
-          &lt;div
+        >
+          <Experience device={device} />
+        </Canvas>
+        <BackgroundGradient stageRef={stageRef} />
+        {VIGNETTE_ENABLED && (
+          <div
             aria-hidden="true"
             style={{
               position: "absolute",
@@ -3666,26 +1736,26 @@ function App() {
               pointerEvents: "none",
               background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - VIGNETTE_OFFSET) * 100}%, rgba(0,0,0,${VIGNETTE_DARKNESS}) 100%)`,
             }}
-          /&gt;
+          />
         )}
-        &lt;CursorTrail /&gt;
-        &lt;SceneText /&gt;
-        &lt;ProgressIndicator /&gt;
-        &lt;div className="scroll-hint" aria-hidden="true"&gt;
-          &lt;span&gt;Scroll&lt;/span&gt;
-          &lt;div className="scroll-hint__line" /&gt;
-        &lt;/div&gt;
-      &lt;/div&gt;
-      &lt;div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} /&gt;
-    &lt;/div&gt;
+        <CursorTrail />
+        <SceneText />
+        <ProgressIndicator />
+        <div className="scroll-hint" aria-hidden="true">
+          <span>Scroll</span>
+          <div className="scroll-hint__line" />
+        </div>
+      </div>
+      <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
+    </div>
   );
 }
 
-createRoot(document.getElementById("root")).render(&lt;App /&gt;);
+createRoot(document.getElementById("root")).render(<App />);
 
-&lt;/script&gt;
-&lt;/body&gt;
-&lt;/html&gt;
+</script>
+</body>
+</html>
 
 </textarea>
 
@@ -5939,6 +4009,5 @@ function App() {
 createRoot(document.getElementById("root")).render(<App />);
 
 </script>
-
-
-<span id="PING_CONTENT_PUSH_NOTIFICATION" style="display: none;"></span></body></html>
+</body>
+</html>
