@@ -290,9 +290,33 @@
 
   .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
 </style>
+<script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
+
+<script>
+  /* Scroll con inercia (Lenis). No requiere tocar el resto del código:
+     Lenis intercepta la rueda/touch y anima window.scrollTo() de forma
+     suave, disparando eventos "scroll" nativos igual que siempre — así
+     que useScrollProgress() sigue funcionando sin cambios, solo que
+     ahora el movimiento llega amortiguado en vez de "a saltos". */
+  (function () {
+    if (typeof Lenis === "undefined") return;
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      smoothTouch: false, // en mobile el scroll táctil nativo se siente mejor
+    });
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+    window.__lenis = lenis; // por si algún otro script necesita pausarlo/reanudarlo
+  })();
+</script>
 
 <script type="importmap">
 {
@@ -3296,9 +3320,18 @@ function App() {
     const project = buildProjectSnapshot();
     const json = JSON.stringify(project);
     const b64 = btoa(unescape(encodeURIComponent(json)));
-    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    /* No usamos document.documentElement.outerHTML directo: eso serializa
+       el DOM YA RENDERIZADO (con toda la interfaz pintada adentro de
+       #root), lo que infla el archivo y puede dejar tags duplicados.
+       Clonamos el documento y vaciamos el clon de #root antes de
+       serializar, para bajar siempre una copia limpia (equivalente al
+       archivo fuente original) con el proyecto embebido adentro. */
+    const docClone = document.documentElement.cloneNode(true);
+    const rootClone = docClone.querySelector("#root");
+    if (rootClone) rootClone.innerHTML = "";
+    let html = "<!DOCTYPE html>\n" + docClone.outerHTML;
     html = html.replace(
-      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/,
+      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/g,
       `<script id="embedded-project-b64" type="text/plain">${b64}</scri` + `pt>`
     );
     const blob = new Blob([html], { type: "text/html" });
