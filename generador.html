@@ -3622,7 +3622,7 @@ function App() {
     if (rootClone) rootClone.innerHTML = "";
     let html = "<!DOCTYPE html>\n" + docClone.outerHTML;
     html = html.replace(
-      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/g,
+      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/,
       `<script id="embedded-project-b64" type="text/plain">${b64}</scri` + `pt>`
     );
     const blob = new Blob([html], { type: "text/html" });
