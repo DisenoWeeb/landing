@@ -333,10 +333,77 @@ const OBJECTS = [
     url: "./assets/models/piso.glb",
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.254, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.508, easing: "easeIn", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 1, easing: "easeOut", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, -0.1, 0], scale: 20, rotationY: 0 },
+      { progress: 0.5, easing: "smooth", position: [0, -0.1, 0], scale: 20, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, -0.1, 0], scale: 20, rotationY: 0 },
+    ],
+  },
+  {
+    type: "text",
+    text: "NUTRICIÓN",
+    textColor: "#ffffff",
+    fontFamily: "system-ui, sans-serif",
+    fontWeight: 700,
+    textAlign: "center",
+    textOutline: false,
+    textOutlineColor: "#ffffff",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 3.7, 0], scale: 0.62, rotationY: 0 },
+      { progress: 0.5, easing: "smooth", position: [0, 3.7, 0], scale: 0.62, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 15, 0], scale: 0.62, rotationY: 0 },
+    ],
+  },
+  {
+    type: "text",
+    text: "Elegir bien, tambien es cuidar.",
+    textColor: "#ffffff",
+    fontFamily: "system-ui, sans-serif",
+    fontWeight: 400,
+    textAlign: "center",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 3.35, 0], scale: 0.31, rotationY: 0 },
+      { progress: 0.5, easing: "smooth", position: [0, 3.35, 0], scale: 0.31, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 15, 0], scale: 0.31, rotationY: 0 },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/003059ce-de91-4f44-af7b-b67e34195a6c.png",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 1.95, 0], scale: 1.42, rotationY: 0 },
+      { progress: 0.5, easing: "smooth", position: [0, 1.95, 0], scale: 1.42, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 15, 0], scale: 1.42, rotationY: 0 },
+    ],
+  },
+  {
+    type: "text",
+    text: "NO\nTODOS\nNECESITAN\nLO MISMO",
+    textColor: "#ffffff",
+    fontFamily: "system-ui, sans-serif",
+    fontWeight: 700,
+    textAlign: "left",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [4.32, 3.6, -2.35], scale: 1.3, rotationY: 0 },
+      { progress: 0.5, easing: "smooth", position: [4.32, 3.6, -2.35], scale: 1.3, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [4.32, 3.6, -2.35], scale: 1.3, rotationY: 0 },
+    ],
+  },
+  {
+    type: "model",
+    url: "./assets/models/free_loft_17_interior_floors_view_of_the_city.glb",
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [-30, -17.7, -23], scale: 4.26, rotationY: -82.1 },
+      { progress: 0.5, easing: "smooth", position: [-30, -17.7, -23], scale: 4.26, rotationY: -82.1 },
+      { progress: 1, easing: "smooth", position: [-30, -17.7, -23], scale: 4.26, rotationY: -82.1 },
     ],
   },
 ];
@@ -378,40 +445,31 @@ function applyEasing(t, kind) {
 /*@GEN:SCENES_START*/
 const scenes = [
   {
-    id: "pose-1790220547011",
+    id: "pose-1790223251011",
     progress: 0,
     easing: "smooth",
-    camera: { position: [-0.385, 0.711, 4.455], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 4.6 },
-    background: { from: "#05070a", to: "#000000", angle: 200 },
+    camera: { position: [-3.218, 0.916, 0.683], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    light: { color: "#fc2eff", intensity: 1.5, azimuth: 360, elevation: 90, rimColor: "#c01bb2", rimIntensity: 100 },
+    fog: { enabled: true, color: "#030717", far: 24 },
+    background: { from: "#000000", to: "#6f88d3", angle: 193 },
   },
   {
-    id: "pose-1790223251011",
-    progress: 0.254,
+    id: "pose-1790289462271",
+    progress: 0.5,
     easing: "smooth",
-    camera: { position: [2.205, 1.933, 4.031], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 4.6 },
-    background: { from: "#05070a", to: "#000000", angle: 200 },
+    camera: { position: [-2.745, 0.808, -0.055], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    light: { color: "#fc2eff", intensity: 1.5, azimuth: 360, elevation: 90, rimColor: "#c01bb2", rimIntensity: 100 },
+    fog: { enabled: true, color: "#030717", far: 24 },
+    background: { from: "#000000", to: "#6f88d3", angle: 193 },
   },
   {
-    id: "pose-1790223504241",
-    progress: 0.508,
-    easing: "easeIn",
-    camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 22.5, roll: 0 },
-    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 4.6 },
-    background: { from: "#05070a", to: "#000000", angle: 200 },
-  },
-  {
-    id: "pose-1790226501524",
+    id: "pose-1790289600843",
     progress: 1,
-    easing: "easeOut",
-    camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 1, roll: 0 },
-    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 4.6 },
-    background: { from: "#05070a", to: "#000000", angle: 200 },
+    easing: "smooth",
+    camera: { position: [-4.332, 2.565, 12.097], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    light: { color: "#fc2eff", intensity: 1.5, azimuth: 360, elevation: 90, rimColor: "#c01bb2", rimIntensity: 100 },
+    fog: { enabled: true, color: "#030717", far: 24 },
+    background: { from: "#000000", to: "#6f88d3", angle: 193 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -422,10 +480,9 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1790220547011", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223251011", progress: 0.254, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223504241", progress: 0.508, easing: "easeIn", pos: [0, 0.17, 0], yaw: 180, pitch: 0 },
-  { id: "pose-1790226501524", progress: 1, easing: "easeOut", pos: [0, 0.17, 0], yaw: 360, pitch: 0 },
+  { id: "pose-1790223251011", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790289462271", progress: 0.5, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790289600843", progress: 1, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -450,7 +507,7 @@ function sampleMovement(progress) {
 /*@GEN:BONES_START*/
 const BONE_POSE_KEYFRAMES = [
   {
-    id: "pose-1790220547011",
+    id: "pose-1790223251011",
     progress: 0,
     easing: "smooth",
     bones: {
@@ -458,25 +515,17 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790223251011",
-    progress: 0.254,
+    id: "pose-1790289462271",
+    progress: 0.5,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1790223504241",
-    progress: 0.508,
-    easing: "easeIn",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790226501524",
+    id: "pose-1790289600843",
     progress: 1,
-    easing: "easeOut",
+    easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
@@ -507,34 +556,34 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 1300;
+const SCROLL_LENGTH_VH = 300;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.79;
-const VIGNETTE_OFFSET = 0.47;
+const VIGNETTE_DARKNESS = 1;
+const VIGNETTE_OFFSET = 0.82;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.67;
+const BLOOM_INTENSITY = 0.14;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.51;
-const BEAM_WIDTH = 1.4;
-const BEAM_HEIGHT = 11;
+const BEAM_OPACITY = 0.39;
+const BEAM_WIDTH = 1.3;
+const BEAM_HEIGHT = 15.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = true;
 const REFLECTION_RESOLUTION = 512;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 2;
+const REFLECTION_INTENSITY = 0.85;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
 const TRAIL_ENABLED = false;
-const TRAIL_COLOR = "#a01894";
-const TRAIL_SIZE = 0.26;
+const TRAIL_COLOR = "#bc18dc";
+const TRAIL_SIZE = 0.415;
 const TRAIL_LIFE = 3;
-const TRAIL_RATE = 120;
+const TRAIL_RATE = 70;
 /*@GEN:TRAIL_END*/
 
 function damp(current, target, lambda, dt) {
@@ -1016,7 +1065,7 @@ function LightBeam({ enabled, opacity, width, height }) {
    three/AnimatedCharacter.jsx
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
-const CHAR_CENTER_Y = 0.01;
+const CHAR_CENTER_Y = 0.12;
 const CHAR_SCALE = 5;
 /*@GEN:CHAR_TRANSFORM_END*/
 
@@ -1511,7 +1560,7 @@ function Experience({ device }) {
 
       <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} />
   
-      {device.enablePostProcessing && BLOOM_ENABLED && (
+      {BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
           <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
         </EffectComposer>
