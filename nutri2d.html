@@ -329,16 +329,6 @@ const CHARACTER_MODEL_URL = "./assets/models/bowl1.glb";
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
   {
-    type: "model",
-    url: "./assets/models/piso.glb",
-    billboard: false,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [0, -0.1, 0], scale: 20, rotationY: 0 },
-      { progress: 0.5, easing: "smooth", position: [0, -0.1, 0], scale: 20, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, -0.1, 0], scale: 20, rotationY: 0 },
-    ],
-  },
-  {
     type: "text",
     text: "TODOS  LOS DIAS",
     textColor: "#ffffff",
@@ -349,9 +339,9 @@ const OBJECTS = [
     textOutlineColor: "#ffffff",
     billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 2.65, 0], scale: 0.39, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0.6, 2.65, -0.05], scale: 0.37, rotationY: 0 },
       { progress: 0.5, easing: "smooth", position: [0.1, 3.05, 0], scale: 0.49, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 12, 0], scale: 0.62, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 30, 0], scale: 0.62, rotationY: 0 },
     ],
   },
   {
@@ -365,9 +355,9 @@ const OBJECTS = [
     textOutlineColor: "#000000",
     billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 2.45, 0], scale: 0.23, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [1.1, 2.55, -0.1], scale: 0.23, rotationY: 0 },
       { progress: 0.5, easing: "smooth", position: [0, 3.35, 0], scale: 0.25, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 12, 0], scale: 0.31, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 20, 0], scale: 0.31, rotationY: 0 },
     ],
   },
   {
@@ -422,28 +412,28 @@ const scenes = [
     id: "pose-1790223251011",
     progress: 0,
     easing: "smooth",
-    camera: { position: [-3.218, 0.916, 0.683], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 1.5, azimuth: 360, elevation: 90, rimColor: "#c01bb2", rimIntensity: 100 },
-    fog: { enabled: true, color: "#030717", far: 24 },
-    background: { from: "#000000", to: "#6f88d3", angle: 193 },
+    camera: { position: [-3.688, 1.186, 0.538], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    light: { color: "#290a80", intensity: 22, azimuth: 360, elevation: 90, rimColor: "#000000", rimIntensity: 5 },
+    fog: { enabled: true, color: "#000414", far: 4.6 },
+    background: { from: "#000000", to: "#102665", angle: 193 },
   },
   {
     id: "pose-1790289462271",
     progress: 0.5,
     easing: "smooth",
-    camera: { position: [-2.745, 0.808, -0.055], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 1.5, azimuth: 360, elevation: 90, rimColor: "#c01bb2", rimIntensity: 100 },
-    fog: { enabled: true, color: "#030717", far: 24 },
-    background: { from: "#000000", to: "#6f88d3", angle: 193 },
+    camera: { position: [-2.835, 0.506, 2.11], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    light: { color: "#290a80", intensity: 22, azimuth: 360, elevation: 90, rimColor: "#000000", rimIntensity: 5 },
+    fog: { enabled: true, color: "#000414", far: 11.1 },
+    background: { from: "#000000", to: "#102665", angle: 193 },
   },
   {
     id: "pose-1790290372827",
     progress: 1,
     easing: "smooth",
-    camera: { position: [-6.505, 0.69, 0.573], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 1.5, azimuth: 360, elevation: 90, rimColor: "#c01bb2", rimIntensity: 100 },
-    fog: { enabled: true, color: "#030717", far: 24 },
-    background: { from: "#000000", to: "#6f88d3", angle: 193 },
+    camera: { position: [-3.895, 0.35, 0.976], lookAt: [-0.03, 3.09, 0], fov: 69.2, roll: 0 },
+    light: { color: "#290a80", intensity: 22, azimuth: 360, elevation: 90, rimColor: "#000000", rimIntensity: 5 },
+    fog: { enabled: true, color: "#000414", far: 11.1 },
+    background: { from: "#000000", to: "#102665", angle: 193 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -538,18 +528,18 @@ const VIGNETTE_ENABLED = true;
 const VIGNETTE_DARKNESS = 0.18;
 const VIGNETTE_OFFSET = 0.26;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.14;
+const BLOOM_INTENSITY = 0.1;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.39;
-const BEAM_WIDTH = 1.9;
-const BEAM_HEIGHT = 19.5;
+const BEAM_OPACITY = 0.17;
+const BEAM_WIDTH = 2.7;
+const BEAM_HEIGHT = 12;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = true;
-const REFLECTION_RESOLUTION = 512;
+const REFLECTION_RESOLUTION = 256;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 0.85;
+const REFLECTION_INTENSITY = 0.35;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
