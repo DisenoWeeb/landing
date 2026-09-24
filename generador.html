@@ -1135,43 +1135,6 @@ function LightBeam({ enabled, opacity, width, height }) {
     </group>
   );
 }
-/* Spotlight real con sombra, alineado con el mismo rayo: esto es lo que
-   realmente "planta" el objeto en el piso (la malla del rayo de arriba
-   es solo el efecto visual del haz en el aire, pero no proyecta sombra
-   por sí sola — la sombra la da esta luz de verdad). */
-function BeamShadowLight({ enabled, width, height }) {
-  const lightRef = useRef(null);
-  const posVec = useRef(new THREE.Vector3());
-
-  useFrame(() => {
-    if (!enabled || !lightRef.current) return;
-    const progress = useScrollStore.getState().smoothProgress;
-    const state = blendScenes(scenes, progress);
-    const dir = lightDirFromAngles(state.light.azimuth, state.light.elevation, 1);
-    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
-    posVec.current.copy(dirVec).multiplyScalar(height);
-    lightRef.current.position.copy(posVec.current);
-    lightRef.current.color.set(state.light.color);
-    lightRef.current.intensity = state.light.intensity * 1.5;
-    lightRef.current.target.position.set(0, 0, 0);
-    lightRef.current.target.updateMatrixWorld();
-  });
-
-  if (!enabled) return null;
-
-  return (
-    <spotLight
-      ref={lightRef}
-      angle={Math.atan2(width * 0.5, height)}
-      penumbra={0.7}
-      castShadow
-      shadow-mapSize={[1024, 1024]}
-      shadow-bias={-0.0015}
-      distance={height * 2.2}
-      decay={1.4}
-    />
-  );
-}
 /* ============================================================
    three/AnimatedCharacter.jsx
    ============================================================ */
@@ -1590,7 +1553,19 @@ function Lighting() {
     <>
       <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} />
       <ambientLight intensity={0.32} />
-      <directionalLight ref={keyRef} intensity={0.9} />
+      <directionalLight
+        ref={keyRef}
+        intensity={0.9}
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0015}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+      />
       <directionalLight position={[-3, 2, -2]} intensity={0.5} />
       <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
     </>
@@ -1656,7 +1631,6 @@ function Experience({ device }) {
       />
 
       <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} />
-      <BeamShadowLight enabled={BEAM_ENABLED} width={BEAM_WIDTH} height={BEAM_HEIGHT} />
   
       {device.enablePostProcessing && BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
@@ -2502,7 +2476,20 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
       <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
       <ambientLight intensity={0.28} />
-      <directionalLight color={showFx ? fx.light.color : "#ffffff"} position={showFx ? lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 6) : [3, 4, 5]} intensity={showFx ? fx.light.intensity : 0.9} />
+      <directionalLight
+        color={showFx ? fx.light.color : "#ffffff"}
+        position={showFx ? lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 6) : [3, 4, 5]}
+        intensity={showFx ? fx.light.intensity : 0.9}
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0015}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+      />
       <directionalLight position={[-3, 2, -2]} intensity={0.4} />
       <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={showFx ? fx.light.rimIntensity : 0} distance={12} />
       {showGrid && (
@@ -2558,14 +2545,6 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
         <LightBeamEditor
           enabled={postFx.beamEnabled}
           opacity={postFx.beamOpacity ?? 0.5}
-          width={postFx.beamWidth ?? 2.5}
-          height={postFx.beamHeight ?? 14}
-          fx={fx}
-        />
-      )}
-      {showFx && postFx && postFx.beamEnabled && (
-        <BeamShadowLightEditor
-          enabled={postFx.beamEnabled}
           width={postFx.beamWidth ?? 2.5}
           height={postFx.beamHeight ?? 14}
           fx={fx}
@@ -2854,37 +2833,6 @@ function LightBeamEditor({ enabled, opacity, width, height, fx }) {
         </mesh>
       ))}
     </group>
-  );
-}
-function BeamShadowLightEditor({ enabled, width, height, fx }) {
-  const lightRef = useRef(null);
-  const posVec = useRef(new THREE.Vector3());
-
-  useFrame(() => {
-    if (!enabled || !lightRef.current || !fx) return;
-    const dir = lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 1);
-    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
-    posVec.current.copy(dirVec).multiplyScalar(height);
-    lightRef.current.position.copy(posVec.current);
-    lightRef.current.color.set(fx.light.color);
-    lightRef.current.intensity = (fx.light.intensity ?? 1) * 1.5;
-    lightRef.current.target.position.set(0, 0, 0);
-    lightRef.current.target.updateMatrixWorld();
-  });
-
-  if (!enabled) return null;
-
-  return (
-    <spotLight
-      ref={lightRef}
-      angle={Math.atan2(width * 0.5, height)}
-      penumbra={0.7}
-      castShadow
-      shadow-mapSize={[1024, 1024]}
-      shadow-bias={-0.0015}
-      distance={height * 2.2}
-      decay={1.4}
-    />
   );
 }
 /* Contorno de celular: dibuja el rectángulo 9:16 más grande que entra
