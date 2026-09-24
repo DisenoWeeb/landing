@@ -1214,7 +1214,7 @@ function AnimatedCharacter({ mouse, anchorRef }) {
 
     pivot.rotation.y = damp(pivot.rotation.y, (m.yaw * Math.PI) / 180, 4.5, delta);
     pivot.rotation.x = damp(pivot.rotation.x, (m.pitch * Math.PI) / 180, 4.5, delta);
-    pivot.rotation.z = damp(pivot.rotation.z, Math.sin(t * 0.35) * 0.04, 4, delta);
+    
     /*@GEN:MOVEMENT_END*/
 
     const chain = chainRef.current;
