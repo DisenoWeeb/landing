@@ -459,7 +459,7 @@ const scenes = [
     progress: 0,
     easing: "smooth",
     camera: { position: [-0.584, 0.11, 4.237], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 20, azimuth: 229, elevation: 85, rimColor: "#e100ff", rimIntensity: 300 },
+    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#e100ff", rimIntensity: 3.55 },
     fog: { enabled: true, color: "#000000", far: 10.1 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
@@ -646,25 +646,25 @@ const VIGNETTE_ENABLED = true;
 const VIGNETTE_DARKNESS = 0;
 const VIGNETTE_OFFSET = 0;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.03;
+const BLOOM_INTENSITY = 0.09;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.99;
-const BEAM_WIDTH = 1.4;
-const BEAM_HEIGHT = 33.5;
+const BEAM_OPACITY = 0.24;
+const BEAM_WIDTH = 0.9;
+const BEAM_HEIGHT = 12;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = true;
-const REFLECTION_RESOLUTION = 512;
+const REFLECTION_RESOLUTION = 256;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 1.85;
+const REFLECTION_INTENSITY = 0.5;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
-const TRAIL_ENABLED = false;
+const TRAIL_ENABLED = true;
 const TRAIL_COLOR = "#a01894";
-const TRAIL_SIZE = 0.185;
-const TRAIL_LIFE = 3;
+const TRAIL_SIZE = 0.3;
+const TRAIL_LIFE = 2.2;
 const TRAIL_RATE = 120;
 /*@GEN:TRAIL_END*/
 
@@ -1147,7 +1147,7 @@ function LightBeam({ enabled, opacity, width, height }) {
    three/AnimatedCharacter.jsx
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
-const CHAR_CENTER_Y = 0.01;
+const CHAR_CENTER_Y = 0.12;
 const CHAR_SCALE = 5;
 /*@GEN:CHAR_TRANSFORM_END*/
 
