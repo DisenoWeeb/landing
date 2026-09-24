@@ -339,40 +339,6 @@ const OBJECTS = [
       { progress: 1, easing: "easeOut", position: [0, 0, 0], scale: 20, rotationY: 0 },
     ],
   },
-  {
-    type: "text",
-    text: "HAY ALGUIEN\nQUE TE ESPERA",
-    textColor: "#f4f5c2",
-    fontFamily: "system-ui, sans-serif",
-    fontWeight: 700,
-    textAlign: "center",
-    textOutline: false,
-    textOutlineColor: "#000000",
-    billboard: true,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.05, rotationY: 0 },
-      { progress: 0.254, easing: "smooth", position: [1.6, 2.15, 2.95], scale: 0.3, rotationY: 0 },
-      { progress: 0.508, easing: "easeIn", position: [0, -3.55, -17.15], scale: 1.09, rotationY: 0 },
-      { progress: 1, easing: "easeOut", position: [0, -3.55, -17.15], scale: 1.09, rotationY: 0 },
-    ],
-  },
-  {
-    type: "text",
-    text: "todos los días, a la misma hora",
-    textColor: "#aeaf8a",
-    fontFamily: "'Inter', sans-serif",
-    fontWeight: 600,
-    textAlign: "center",
-    textOutline: false,
-    textOutlineColor: "#000000",
-    billboard: true,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [0, -3.75, 0], scale: 0.83, rotationY: 0 },
-      { progress: 0.254, easing: "smooth", position: [1.7, 1.97, 3.15], scale: 0.07, rotationY: 0 },
-      { progress: 0.508, easing: "easeIn", position: [1.7, 1.95, 23], scale: 0.05, rotationY: 0 },
-      { progress: 1, easing: "easeOut", position: [0, 0, 0], scale: 1, rotationY: 0 },
-    ],
-  },
 ];
 /*@GEN:OBJECTS_END*/
 
@@ -417,7 +383,7 @@ const scenes = [
     easing: "smooth",
     camera: { position: [-0.385, 0.711, 4.455], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
     light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 4.6 },
+    fog: { enabled: true, color: "#000000", far: 16 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
@@ -426,7 +392,7 @@ const scenes = [
     easing: "smooth",
     camera: { position: [2.205, 1.933, 4.031], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
     light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 4.6 },
+    fog: { enabled: true, color: "#000000", far: 16 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
@@ -435,7 +401,7 @@ const scenes = [
     easing: "easeIn",
     camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 22.5, roll: 0 },
     light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 4.6 },
+    fog: { enabled: true, color: "#000000", far: 16 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
@@ -444,7 +410,7 @@ const scenes = [
     easing: "easeOut",
     camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 1, roll: 0 },
     light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 4.6 },
+    fog: { enabled: true, color: "#000000", far: 16 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
 ];
@@ -546,10 +512,10 @@ const SCROLL_LENGTH_VH = 1300;
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 1;
-const VIGNETTE_OFFSET = 0.78;
+const VIGNETTE_DARKNESS = 0.81;
+const VIGNETTE_OFFSET = 0.46;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 2;
+const BLOOM_INTENSITY = 0.49;
 const BEAM_ENABLED = true;
 const BEAM_OPACITY = 0.51;
 const BEAM_WIDTH = 0.5;
@@ -1464,7 +1430,19 @@ function Lighting() {
     <>
       <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} />
       <ambientLight intensity={0.32} />
-      <directionalLight ref={keyRef} intensity={0.9} />
+      <directionalLight
+        ref={keyRef}
+        intensity={0.9}
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0015}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+      />
       <directionalLight position={[-3, 2, -2]} intensity={0.5} />
       <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
     </>
