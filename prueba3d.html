@@ -515,22 +515,22 @@ const VIGNETTE_ENABLED = true;
 const VIGNETTE_DARKNESS = 1;
 const VIGNETTE_OFFSET = 0.78;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.3;
+const BLOOM_INTENSITY = 0.67;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.99;
-const BEAM_WIDTH = 0.7;
-const BEAM_HEIGHT = 40;
+const BEAM_OPACITY = 1;
+const BEAM_WIDTH = 1.4;
+const BEAM_HEIGHT = 21.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = true;
 const REFLECTION_RESOLUTION = 512;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 0.95;
+const REFLECTION_INTENSITY = 2;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
-const TRAIL_ENABLED = true;
+const TRAIL_ENABLED = false;
 const TRAIL_COLOR = "#a01894";
 const TRAIL_SIZE = 0.26;
 const TRAIL_LIFE = 3;
@@ -1087,7 +1087,7 @@ function AnimatedCharacter({ mouse, anchorRef }) {
     // distinto entre el editor y el sitio final descargado.
     outer.position.x = damp(outer.position.x, m.pos[0], 3, delta);
     outer.position.y = damp(outer.position.y, m.pos[1] + idleFloat, 5, delta);
-    
+    outer.position.z = damp(outer.position.z, m.pos[2], 2.0, delta);
 
     pivot.rotation.y = damp(pivot.rotation.y, (m.yaw * Math.PI) / 180, 4.5, delta);
     pivot.rotation.x = damp(pivot.rotation.x, (m.pitch * Math.PI) / 180, 4.5, delta);
