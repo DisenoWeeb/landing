@@ -1187,6 +1187,12 @@ function AnimatedCharacter({ mouse, anchorRef }) {
     restRef.current = rest;
   }, [scene]);
 
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
+  }, [scene]);
+
   useFrame((_, delta) => {
     clockRef.current += delta;
     const t = clockRef.current;
@@ -1435,6 +1441,11 @@ function SceneObjectText({ data }) {
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const groupRef = useObjectTransformRef(data.keyframes, false);
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
+  }, [scene]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
@@ -1874,6 +1885,7 @@ function App() {
       <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
         <Canvas
           dpr={device.dpr}
+          shadows="soft"
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
         >
@@ -3629,7 +3641,7 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showFx} onChange={(e) => setShowFx(e.target.checked)} />Mostrar ambiente (luz/niebla/fondo)</label>
           <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
         </div>
-        <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
+        <Canvas shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
                     <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection} />
         </Canvas>
         {showFx && postFx.vignetteEnabled && (
