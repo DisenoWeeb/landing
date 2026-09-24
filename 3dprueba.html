@@ -333,11 +333,9 @@ const OBJECTS = [
     url: "./assets/models/piso.glb",
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.228, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.455, easing: "easeIn", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.897, easing: "easeOut", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 1.77, rotationY: 0 },
+      { progress: 0.375, easing: "smooth", position: [0, 0, 0], scale: 14.04, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 14.04, rotationY: 0 },
     ],
   },
 ];
@@ -382,46 +380,28 @@ const scenes = [
     id: "pose-1790220547011",
     progress: 0,
     easing: "smooth",
-    camera: { position: [-0.385, 0.711, 4.455], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 10, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 8.1 },
+    camera: { position: [-0.584, 0.11, 4.237], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 10.1 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
     id: "pose-1790223251011",
-    progress: 0.228,
+    progress: 0.375,
     easing: "smooth",
-    camera: { position: [2.205, 1.933, 4.031], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 10, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 8.1 },
+    camera: { position: [6.13, 3.87, -3.3], lookAt: [-0.03, 2.01, 0], fov: 69.2, roll: 0 },
+    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 10.1 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
-    id: "pose-1790223504241",
-    progress: 0.455,
-    easing: "easeIn",
-    camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 22.5, roll: 0 },
-    light: { color: "#fc2eff", intensity: 10, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 8.1 },
-    background: { from: "#05070a", to: "#000000", angle: 200 },
-  },
-  {
-    id: "pose-1790226501524",
-    progress: 0.897,
-    easing: "easeOut",
-    camera: { position: [-0.021, 6.784, -0.012], lookAt: [0, 1.84, 0], fov: 1, roll: 0 },
-    light: { color: "#fc2eff", intensity: 10, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 3.1 },
-    background: { from: "#05070a", to: "#000000", angle: 200 },
-  },
-  {
-    id: "pose-1790255436385",
+    id: "pose-1790257773013",
     progress: 1,
     easing: "smooth",
-    camera: { position: [-0.021, 6.784, -0.012], lookAt: [0, 1.84, 0], fov: 0.5, roll: 0 },
-    light: { color: "#02005c", intensity: 5, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 3.5 },
-    background: { from: "#05070a", to: "#000000", angle: 200 },
+    camera: { position: [-0.067, 5.798, 0], lookAt: [-0.03, 0.71, 0], fov: 31.5, roll: 0 },
+    light: { color: "#0533bd", intensity: 0, azimuth: 296, elevation: 68, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: false, color: "#000000", far: 10.1 },
+    background: { from: "#05347a", to: "#000000", angle: 253 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -433,10 +413,8 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1790220547011", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223251011", progress: 0.228, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223504241", progress: 0.455, easing: "easeIn", pos: [0, 0.17, 0], yaw: 180, pitch: 0 },
-  { id: "pose-1790226501524", progress: 0.897, easing: "easeOut", pos: [0, 0.17, 0], yaw: 27, pitch: 0 },
-  { id: "pose-1790255436385", progress: 1, easing: "smooth", pos: [0, 0.17, 0], yaw: 27, pitch: 0 },
+  { id: "pose-1790223251011", progress: 0.375, easing: "smooth", pos: [0, 0.17, 0], yaw: -180, pitch: 0 },
+  { id: "pose-1790257773013", progress: 1, easing: "smooth", pos: [0, 0.17, 0], yaw: -180, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -470,30 +448,14 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1790223251011",
-    progress: 0.228,
+    progress: 0.375,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1790223504241",
-    progress: 0.455,
-    easing: "easeIn",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790226501524",
-    progress: 0.897,
-    easing: "easeOut",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790255436385",
+    id: "pose-1790257773013",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -526,26 +488,26 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 1450;
+const SCROLL_LENGTH_VH = 880;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.79;
-const VIGNETTE_OFFSET = 0.47;
+const VIGNETTE_DARKNESS = 0.36;
+const VIGNETTE_OFFSET = 0.34;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.53;
+const BLOOM_INTENSITY = 1.01;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 1;
+const BEAM_OPACITY = 0.99;
 const BEAM_WIDTH = 1.4;
-const BEAM_HEIGHT = 11;
+const BEAM_HEIGHT = 33.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = true;
-const REFLECTION_RESOLUTION = 512;
+const REFLECTION_RESOLUTION = 256;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 1.6;
+const REFLECTION_INTENSITY = 3;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
