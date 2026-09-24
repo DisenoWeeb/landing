@@ -18,7 +18,7 @@
   .section-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
   .section-tab { flex: 1 1 30%; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 12px; font-weight: 600; }
   .section-tab.active { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; }
-  .kf-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .kf-tabs { display: flex; flex-wrap: wrap; gap: 6px; max-height: 160px; overflow-y: auto; padding-right: 2px; }
   .kf-tab { flex: 1 1 30%; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 11px; line-height: 1.3; }
   .kf-tab.active { background: rgba(200,255,0,0.15); border-color: #c8ff00; color: #c8ff00; }
   .kf-tab .p { display: block; font-size: 9.5px; color: rgba(245,246,242,0.5); }
@@ -55,7 +55,7 @@
 </head>
 <body>
 <div id="root"></div>
-<script id="embedded-project-b64" type="text/plain"></script>
+<script id="embedded-project-b64" type="text/plain">eyJraW5kIjoid2VlYi1zY3JvbGwtcHJvamVjdCIsInZlcnNpb24iOjEsInNhdmVkQXQiOiIyMDI2LTA5LTI0VDAxOjA0OjIxLjg5NVoiLCJtb2RlbFVybCI6Ii4vYXNzZXRzL21vZGVscy9ib3dsMS5nbGIiLCJjaGFyU2NhbGUiOjUsImNoYXJDZW50ZXJZIjowLCJwb3N0RngiOnsidmlnbmV0dGVFbmFibGVkIjp0cnVlLCJ2aWduZXR0ZURhcmtuZXNzIjoxLCJ2aWduZXR0ZU9mZnNldCI6MC41NCwiYmxvb21FbmFibGVkIjpmYWxzZSwiYmxvb21JbnRlbnNpdHkiOjB9LCJ0cmFpbCI6eyJlbmFibGVkIjpmYWxzZSwiY29sb3IiOiIjZmZkODczIiwic2l6ZSI6MC4zLCJsaWZlIjowLjksInJhdGUiOjQwfSwicmVmbGVjdGlvbiI6eyJlbmFibGVkIjp0cnVlLCJyZXNvbHV0aW9uIjo1MTIsInVwZGF0ZUV2ZXJ5IjoxLCJpbnRlbnNpdHkiOjB9LCJzdGFnZXMiOlt7ImlkIjoicG9zZS0xNzkwMTAzODY4NjkxIiwibGFiZWwiOiJQb3NlIDMifSx7ImlkIjoicG9zZS0xNzkwMTA0ODEyNjQyIiwibGFiZWwiOiJQb3NlIDMifV0sImR1cmF0aW9uc1ZoIjpbMTUwXSwiZWFzaW5ncyI6WyJsaW5lYXIiXSwicG9zZXNCeUtmIjp7InBvc2UtMTc5MDEwMzg2ODY5MSI6eyJzcGluZTEiOnsieCI6MCwieSI6MCwieiI6MH0sInNwaW5lMiI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibmVjayI6eyJ4IjowLCJ5IjowLCJ6IjowfSwiaGVhZCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibENsYXZpY2xlIjp7IngiOjAsInkiOjAsInoiOjB9LCJyQ2xhdmljbGUiOnsieCI6MCwieSI6MCwieiI6MH0sImxGb3JlYXJtIjp7IngiOjAsInkiOjAsInoiOjB9LCJyRm9yZWFybSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibEhhbmQiOnsieCI6MCwieSI6MCwieiI6MH0sInJIYW5kIjp7IngiOjAsInkiOjAsInoiOjB9LCJsVGhpZ2giOnsieCI6MCwieSI6MCwieiI6MH0sInJUaGlnaCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibENhbGYiOnsieCI6MCwieSI6MCwieiI6MH0sInJDYWxmIjp7IngiOjAsInkiOjAsInoiOjB9LCJsRm9vdCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickZvb3QiOnsieCI6MCwieSI6MCwieiI6MH19LCJwb3NlLTE3OTAxMDQ4MTI2NDIiOnsic3BpbmUxIjp7IngiOjAsInkiOjAsInoiOjB9LCJzcGluZTIiOnsieCI6MCwieSI6MCwieiI6MH0sIm5lY2siOnsieCI6MCwieSI6MCwieiI6MH0sImhlYWQiOnsieCI6MCwieSI6MCwieiI6MH0sImxDbGF2aWNsZSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickNsYXZpY2xlIjp7IngiOjAsInkiOjAsInoiOjB9LCJsRm9yZWFybSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickZvcmVhcm0iOnsieCI6MCwieSI6MCwieiI6MH0sImxIYW5kIjp7IngiOjAsInkiOjAsInoiOjB9LCJySGFuZCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibFRoaWdoIjp7IngiOjAsInkiOjAsInoiOjB9LCJyVGhpZ2giOnsieCI6MCwieSI6MCwieiI6MH0sImxDYWxmIjp7IngiOjAsInkiOjAsInoiOjB9LCJyQ2FsZiI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibEZvb3QiOnsieCI6MCwieSI6MCwieiI6MH0sInJGb290Ijp7IngiOjAsInkiOjAsInoiOjB9fX0sImNhbXNCeUtmIjp7InBvc2UtMTc5MDEwMzg2ODY5MSI6eyJwb3NpdGlvbiI6Wy00LjIzMTQ5OTgwMDA3MjIyNzUsMC43NTA2NzY3MjczMTUzNzYsLTAuMTg2OTIwMDEyOTMyNjk4NThdLCJsb29rQXQiOlstMC42MSwxLjg0LDBdLCJmb3YiOjkwLCJyb2xsIjowfSwicG9zZS0xNzkwMTA0ODEyNjQyIjp7InBvc2l0aW9uIjpbMTEuOTgsMi4xNywwLjA5XSwibG9va0F0IjpbMCwyLjY5LC0wLjI0XSwiZm92Ijo0OC40LCJyb2xsIjowfX0sIm1vdmVzQnlLZiI6eyJwb3NlLTE3OTAxMDM4Njg2OTEiOnsicG9zIjpbMCwwLjE3LDBdLCJ5YXciOjAsInBpdGNoIjowfSwicG9zZS0xNzkwMTA0ODEyNjQyIjp7InBvcyI6WzAsMCwwXSwieWF3IjowLCJwaXRjaCI6MH19LCJmeEJ5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7ImxpZ2h0Ijp7ImNvbG9yIjoiIzg4MTk4YSIsImludGVuc2l0eSI6MTAsImF6aW11dGgiOjg4LCJlbGV2YXRpb24iOjM2LCJyaW1Db2xvciI6IiM0OWQzZmYiLCJyaW1JbnRlbnNpdHkiOjB9LCJmb2ciOnsiZW5hYmxlZCI6dHJ1ZSwiY29sb3IiOiIjMDAwMDAwIiwiZmFyIjoxMC42fSwiYmFja2dyb3VuZCI6eyJtb2RlIjoiZ3JhZGllbnQiLCJmcm9tIjoiIzA1MDcwYSIsInRvIjoiIzAwMDAwMCIsImFuZ2xlIjoyMDB9fSwicG9zZS0xNzkwMTA0ODEyNjQyIjp7ImxpZ2h0Ijp7ImNvbG9yIjoiI2MwMWJhMiIsImludGVuc2l0eSI6MjkwLCJhemltdXRoIjowLCJlbGV2YXRpb24iOjQzLCJyaW1Db2xvciI6IiNkMTBmZWIiLCJyaW1JbnRlbnNpdHkiOjUwfSwiZm9nIjp7ImVuYWJsZWQiOnRydWUsImNvbG9yIjoiIzA1MDcwYSIsImZhciI6MjYuMX0sImJhY2tncm91bmQiOnsibW9kZSI6ImdyYWRpZW50IiwiZnJvbSI6IiMwMDAwMDAiLCJ0byI6IiMwZjA0MTAiLCJhbmdsZSI6MTgwfX19LCJvYmplY3RzIjpbeyJpZCI6Im9iai0xNzkwMjA2MzY5NDY2IiwibGFiZWwiOiJPYmpldG8gMSIsInR5cGUiOiJpbWFnZSIsInVybCI6Ii4vYXNzZXRzL21vZGVscy9wYXJ0aWN1bGFzX3Jvc2EucG5nIiwicHJldmlld1VybCI6bnVsbCwiYmlsbGJvYXJkIjp0cnVlLCJ2aXNpYmxlIjp0cnVlfSx7ImlkIjoib2JqLTE3OTAyMDY2NDYzMzEiLCJsYWJlbCI6Ik9iamV0byAyIiwidHlwZSI6Im1vZGVsIiwidXJsIjoiLi9hc3NldHMvbW9kZWxzL3Bpc28uZ2xiIiwicHJldmlld1VybCI6bnVsbCwiYmlsbGJvYXJkIjpmYWxzZSwidmlzaWJsZSI6dHJ1ZX1dLCJvYmplY3RUcmFuc2Zvcm1zQnlLZiI6eyJvYmotMTc5MDIwNjM2OTQ2NiI6eyJwb3NlLTE3OTAxMDM4Njg2OTEiOnsicG9zaXRpb24iOlstMC4zLDEuOTUsMF0sInNjYWxlIjoyLjcxLCJyb3RhdGlvblkiOjB9LCJwb3NlLTE3OTAxMDQ4MTI2NDIiOnsicG9zaXRpb24iOlswLDAsMF0sInNjYWxlIjoxLCJyb3RhdGlvblkiOjB9fSwib2JqLTE3OTAyMDY2NDYzMzEiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7InBvc2l0aW9uIjpbMCwwLDBdLCJzY2FsZSI6MTMuMDksInJvdGF0aW9uWSI6MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6WzAsMCwwXSwic2NhbGUiOjEsInJvdGF0aW9uWSI6MH19fX0=</script>
 
 <textarea id="tpl-source" style="display:none">
 <!DOCTYPE html>
@@ -177,6 +177,11 @@
     margin: 0 0 0.75rem 0;
     color: var(--color-text);
   }
+  .kinetic-word { display: inline-block; }
+  .kinetic-char {
+    display: inline-block;
+    will-change: transform, opacity, filter;
+  }
   .scene-text__subtitle {
     font-family: var(--font-body);
     font-weight: 300;
@@ -290,9 +295,33 @@
 
   .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
 </style>
+<script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
+
+<script>
+  /* Scroll con inercia (Lenis). No requiere tocar el resto del código:
+     Lenis intercepta la rueda/touch y anima window.scrollTo() de forma
+     suave, disparando eventos "scroll" nativos igual que siempre — así
+     que useScrollProgress() sigue funcionando sin cambios, solo que
+     ahora el movimiento llega amortiguado en vez de "a saltos". */
+  (function () {
+    if (typeof Lenis === "undefined") return;
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      smoothTouch: false, // en mobile el scroll táctil nativo se siente mejor
+    });
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+    window.__lenis = lenis; // por si algún otro script necesita pausarlo/reanudarlo
+  })();
+</script>
 
 <script type="importmap">
 {
@@ -346,7 +375,7 @@ const clientConfig = {
 };
 
 /*@GEN:MODEL_URL_START*/
-const CHARACTER_MODEL_URL = "./assets/models/bee.glb";
+const CHARACTER_MODEL_URL = "./assets/models/bowl1.glb";
 /*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
@@ -616,6 +645,13 @@ const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.5;
 /*@GEN:POSTFX_END*/
 
+/*@GEN:REFLECTION_START*/
+const REFLECTION_ENABLED = false;
+const REFLECTION_RESOLUTION = 256;
+const REFLECTION_UPDATE_EVERY = 2;
+const REFLECTION_INTENSITY = 1;
+/*@GEN:REFLECTION_END*/
+  
 /*@GEN:TRAIL_START*/
 const TRAIL_ENABLED = true;
 const TRAIL_COLOR = "#ffd873";
@@ -817,7 +853,7 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
 
 /* ============================================================
    Estela de brillo (sparkle trail) — usada por el personaje
-   (bee.glb) para dejar un rastro de partículas brillantes a su
+   (bowl1.glb) para dejar un rastro de partículas brillantes a su
    paso, que se van desvaneciendo. Es un sistema de partículas
    simple con THREE.Points + shader propio (glow radial aditivo),
    sin dependencias extra.
@@ -959,6 +995,146 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     </points>
   );
 }
+
+  /* Cámara de reflejo (cube camera): ubicada en el Modelo principal, cada
+   ciertos frames fotografía los 360° a su alrededor (paredes, objetos,
+   el PNG del perro, etc. — todo lo que haya en la escena, salvo el
+   propio modelo, que se oculta un instante durante la captura) y usa
+   esa foto como reflejo en los materiales metálicos del modelo. La
+   cámara principal (la que ve el usuario) no necesita apuntar a lo que
+   se refleja — el reflejo se calcula aparte, en 360°, todo el tiempo. */
+function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensity }) {
+  const { gl, scene } = useThree();
+  const rtRef = useRef(null);
+  const camRef = useRef(null);
+  const frameRef = useRef(0);
+  const appliedRef = useRef(new Set());
+  const posRef = useRef(new THREE.Vector3());
+
+  useEffect(() => {
+    const rt = new THREE.WebGLCubeRenderTarget(resolution, {
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
+    });
+    rtRef.current = rt;
+    camRef.current = new THREE.CubeCamera(0.05, 1000, rt);
+    appliedRef.current = new Set();
+    return () => rt.dispose();
+  }, [resolution]);
+
+  useFrame(() => {
+    if (!enabled || !anchorRef.current || !camRef.current) return;
+    frameRef.current++;
+    if (frameRef.current % Math.max(1, updateEvery) !== 0) return;
+
+    const anchor = anchorRef.current;
+    anchor.getWorldPosition(posRef.current);
+    camRef.current.position.copy(posRef.current);
+
+    // Oculta el modelo un instante para que no se refleje a sí mismo.
+    const wasVisible = anchor.visible;
+    anchor.visible = false;
+    camRef.current.update(gl, scene);
+    anchor.visible = wasVisible;
+
+    const texture = rtRef.current.texture;
+    anchor.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((m) => {
+        if (!("envMap" in m)) return;
+        if (!appliedRef.current.has(m.uuid)) {
+          m.envMap = texture;
+          m.needsUpdate = true;
+          appliedRef.current.add(m.uuid);
+        }
+        if ("envMapIntensity" in m) m.envMapIntensity = intensity;
+      });
+    });
+  });
+
+  return null;
+}
+
+/* Textura de degradado para el rayo de luz: brillante en el centro,
+   transparente en los bordes y en las puntas (arriba/abajo) — se genera
+   una sola vez con canvas, no hace falta subir ningún asset. */
+let _beamTextureCache = null;
+function getBeamTexture() {
+  if (_beamTextureCache) return _beamTextureCache;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, size, 0);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.5, "rgba(255,255,255,1)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const vgrad = ctx.createLinearGradient(0, 0, 0, size);
+  vgrad.addColorStop(0, "rgba(0,0,0,1)");
+  vgrad.addColorStop(0.12, "rgba(0,0,0,0)");
+  vgrad.addColorStop(0.82, "rgba(0,0,0,0)");
+  vgrad.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = vgrad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  _beamTextureCache = tex;
+  return tex;
+}
+
+/* Rayo de luz volumétrico (fake): 3 planos cruzados con degradado
+   aditivo, apuntando siempre hacia la dirección/color de la luz de la
+   etapa actual (se actualiza solo — nunca hay que tocar un color a
+   mano acá). No es raymarching real, pero con blending aditivo encima
+   de la niebla se lee como un haz de luz que baja, sin pesar nada.
+   Por ahora apunta al origen de la escena (0,0,0) — si tu objeto
+   principal no está ahí, movelo o avisame para agregar un offset. */
+function LightBeam({ enabled, opacity, width, height }) {
+  const groupRef = useRef(null);
+  const matRefs = useRef([]);
+  const texture = useMemo(() => getBeamTexture(), []);
+
+  useFrame(() => {
+    if (!enabled || !groupRef.current) return;
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    const dir = lightDirFromAngles(state.light.azimuth, state.light.elevation, 1);
+    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+    groupRef.current.position.set(dirVec.x * height * 0.5, dirVec.y * height * 0.5, dirVec.z * height * 0.5);
+    groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
+    matRefs.current.forEach((m) => {
+      if (!m) return;
+      m.color.set(state.light.color);
+      m.opacity = opacity;
+    });
+  });
+
+  if (!enabled) return null;
+
+  return (
+    <group ref={groupRef}>
+      {[0, 60, 120].map((deg, i) => (
+        <mesh key={deg} rotation={[0, (deg * Math.PI) / 180, 0]}>
+          <planeGeometry args={[width, height]} />
+          <meshBasicMaterial
+            ref={(m) => { matRefs.current[i] = m; }}
+            map={texture}
+            transparent
+            opacity={opacity}
+            color="#ffffff"
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
 /* ============================================================
    three/AnimatedCharacter.jsx
    ============================================================ */
@@ -1009,6 +1185,12 @@ function AnimatedCharacter({ mouse, anchorRef }) {
     });
     bonesRef.current = bones;
     restRef.current = rest;
+  }, [scene]);
+
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
   }, [scene]);
 
   useFrame((_, delta) => {
@@ -1169,9 +1351,101 @@ function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
 }
 
+/* Genera una textura a partir de texto (color + tipografía elegidos),
+   dibujándolo en un canvas — mismo enfoque que useHiResSvgTexture,
+   pero en vez de rasterizar un archivo, dibuja el string directamente.
+   Respeta saltos de línea manuales ("\n"); no hace auto-wrap, así el
+   usuario controla dónde corta cada renglón. */
+function useHiResTextTexture(text, opts) {
+  const {
+    color = "#ffffff",
+    font = "'Inter', sans-serif",
+    weight = 600,
+    align = "center",
+    outline = false,
+    outlineColor = "#000000",
+  } = opts || {};
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const fontSizePx = 200;
+    const lineHeight = fontSizePx * 1.2;
+    const padding = fontSizePx * 0.25;
+    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
+    const draw = () => {
+      if (cancelled) return;
+      const lines = (text || "").split("\n");
+      const measureCanvas = document.createElement("canvas");
+      const mctx = measureCanvas.getContext("2d");
+      mctx.font = fontSpec;
+      let maxLineWidth = 1;
+      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(maxLineWidth + padding * 2);
+      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
+      const ctx = canvas.getContext("2d");
+      ctx.font = fontSpec;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = align;
+      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
+      lines.forEach((line, i) => {
+        const y = padding + lineHeight * i + lineHeight / 2;
+        if (outline) {
+          ctx.lineJoin = "round";
+          ctx.lineWidth = fontSizePx * 0.08;
+          ctx.strokeStyle = outlineColor;
+          ctx.strokeText(line, xPos, y);
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(line, xPos, y);
+      });
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTexture(tex);
+    };
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load(fontSpec).catch(() => {}).then(draw);
+    } else {
+      draw();
+    }
+    return () => { cancelled = true; };
+  }, [text, color, font, weight, align, outline, outlineColor]);
+  return texture;
+}
+
+function SceneObjectText({ data }) {
+  const texture = useHiResTextTexture(data.text, {
+    color: data.textColor,
+    font: data.fontFamily,
+    weight: data.fontWeight,
+    align: data.textAlign,
+    outline: data.textOutline,
+    outlineColor: data.textOutlineColor,
+  });
+  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
+  if (!texture) return <group ref={groupRef} />;
+  const aspect = texture.image.width / texture.image.height;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
+
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const groupRef = useObjectTransformRef(data.keyframes, false);
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
+  }, [scene]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
@@ -1215,6 +1489,7 @@ function SceneObjectImage({ data }) {
   return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
 function SceneObject({ data }) {
+  if (data.type === "text") return <SceneObjectText data={data} />;
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
 }
 /* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
@@ -1246,6 +1521,7 @@ function SceneObjects() {
   );
 }
 OBJECTS.forEach((obj) => {
+  if (obj.type === "text") return; // el texto no tiene archivo que precargar
   if (obj.type === "image") useTexture.preload(obj.url);
   else useGLTF.preload(obj.url);
 });
@@ -1333,6 +1609,17 @@ function Experience({ device }) {
         life={TRAIL_LIFE}
         rate={TRAIL_RATE}
       />
+
+        <ReflectionProbe
+        anchorRef={charAnchorRef}
+        enabled={REFLECTION_ENABLED}
+        resolution={REFLECTION_RESOLUTION}
+        updateEvery={REFLECTION_UPDATE_EVERY}
+        intensity={REFLECTION_INTENSITY}
+      />
+
+      <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} />
+  
       {device.enablePostProcessing && BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
           <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
@@ -1347,8 +1634,37 @@ function textWeight(kf, progress, window_ = 0.14) {
   return clamp(1 - d / window_);
 }
 
+/* Divide un título en palabras (para que no corten mal el renglón) y cada
+   palabra en caracteres — cada <span> de caracter se anima individualmente
+   para el efecto de tipografía cinética (entra/sale en cascada con el
+   scroll, no como bloque entero). Guarda cada span en charRefsArr. */
+function renderKineticTitle(text, charRefsArr) {
+  charRefsArr.length = 0;
+  const words = String(text || "").split(" ");
+  let globalIndex = 0;
+  return words.map((word, wi) => (
+    <span key={wi} className="kinetic-word">
+      {word.split("").map((ch, ci) => {
+        const idx = globalIndex++;
+        return (
+          <span
+            key={ci}
+            ref={(el) => { charRefsArr[idx] = el; }}
+            className="kinetic-char"
+            style={{ opacity: 0 }}
+          >
+            {ch}
+          </span>
+        );
+      })}
+      {wi < words.length - 1 ? "\u00A0" : ""}
+    </span>
+  ));
+}
+
 function SceneText() {
   const refs = useRef([]);
+  const charRefsByScene = useRef(scenes.map(() => []));
 
   useEffect(() => {
     const update = (progress) => {
@@ -1356,12 +1672,26 @@ function SceneText() {
         const el = refs.current[i];
         if (!el || !kf.text) return;
         const weight = textWeight(kf, progress);
-        el.style.opacity = String(weight);
+        el.style.opacity = String(weight > 0 ? 1 : 0); // el contenedor solo controla visibilidad/posición del bloque
         el.style.transform =
           kf.text.align === "center"
-            ? `translateX(-50%) translateY(${(1 - weight) * 24}px)`
-            : `translateY(${(1 - weight) * 24}px)`;
+            ? `translateX(-50%) translateY(${(1 - weight) * 10}px)`
+            : `translateY(${(1 - weight) * 10}px)`;
         el.style.pointerEvents = weight > 0.5 ? "auto" : "none";
+
+        // Reveal en cascada por caracter (tipografía cinética)
+        const chars = charRefsByScene.current[i];
+        if (chars && chars.length) {
+          const stagger = 0.6; // qué tan "esparcida" queda la cascada entre el primer y el último caracter
+          const n = chars.length;
+          chars.forEach((cel, j) => {
+            if (!cel) return;
+            const localW = clamp(weight * (1 + stagger) - (j / n) * stagger);
+            cel.style.opacity = String(localW);
+            cel.style.transform = `translateY(${(1 - localW) * 14}px)`;
+            cel.style.filter = `blur(${(1 - localW) * 3}px)`;
+          });
+        }
       });
     };
     update(useScrollStore.getState().smoothProgress);
@@ -1380,7 +1710,7 @@ function SceneText() {
             style={{ opacity: 0 }}
           >
             {kf.text.eyebrow && <span className="scene-text__eyebrow">{kf.text.eyebrow}</span>}
-            <h2 className="scene-text__title">{kf.text.title}</h2>
+            <h2 className="scene-text__title">{renderKineticTitle(kf.text.title, charRefsByScene.current[i])}</h2>
             {kf.text.subtitle && <p className="scene-text__subtitle">{kf.text.subtitle}</p>}
           </div>
         ) : null
@@ -1555,6 +1885,7 @@ function App() {
       <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
         <Canvas
           dpr={device.dpr}
+          shadows="soft"
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
         >
@@ -1620,7 +1951,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Grid, useTexture, Billboard } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
-const DEFAULT_MODEL_URL = "./assets/models/bee.glb";
+const DEFAULT_MODEL_URL = "./assets/models/bowl1.glb";
 
 const BONE_DEFS = [
   ["spine1", "Spine01"], ["spine2", "Spine02"], ["neck", "NeckTwist01"], ["head", "Head"],
@@ -1990,6 +2321,90 @@ function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
 }
 
+/* Misma implementación que en la plantilla final (ver tpl-source),
+   para que el texto se vea igual acá en el visor y en el index.html
+   exportado. */
+function useHiResTextTexture(text, opts) {
+  const {
+    color = "#ffffff",
+    font = "'Inter', sans-serif",
+    weight = 600,
+    align = "center",
+    outline = false,
+    outlineColor = "#000000",
+  } = opts || {};
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const fontSizePx = 200;
+    const lineHeight = fontSizePx * 1.2;
+    const padding = fontSizePx * 0.25;
+    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
+    const draw = () => {
+      if (cancelled) return;
+      const lines = (text || "").split("\n");
+      const measureCanvas = document.createElement("canvas");
+      const mctx = measureCanvas.getContext("2d");
+      mctx.font = fontSpec;
+      let maxLineWidth = 1;
+      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(maxLineWidth + padding * 2);
+      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
+      const ctx = canvas.getContext("2d");
+      ctx.font = fontSpec;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = align;
+      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
+      lines.forEach((line, i) => {
+        const y = padding + lineHeight * i + lineHeight / 2;
+        if (outline) {
+          ctx.lineJoin = "round";
+          ctx.lineWidth = fontSizePx * 0.08;
+          ctx.strokeStyle = outlineColor;
+          ctx.strokeText(line, xPos, y);
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(line, xPos, y);
+      });
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTexture(tex);
+    };
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load(fontSpec).catch(() => {}).then(draw);
+    } else {
+      draw();
+    }
+    return () => { cancelled = true; };
+  }, [text, color, font, weight, align, outline, outlineColor]);
+  return texture;
+}
+
+function ObjectPreviewText({ obj }) {
+  const texture = useHiResTextTexture(obj.text, {
+    color: obj.textColor,
+    font: obj.fontFamily,
+    weight: obj.fontWeight,
+    align: obj.textAlign,
+    outline: obj.textOutline,
+    outlineColor: obj.textOutlineColor,
+  });
+  if (!texture) return null;
+  const aspect = texture.image.width / texture.image.height;
+  const mesh = (
+    <mesh
+      scale={[obj.scale * aspect, obj.scale, 1]}
+      position={obj.billboard ? [0, 0, 0] : obj.position}
+      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+    </mesh>
+  );
+  return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
+}
+
 function ObjectPreviewImageRaster({ obj }) {
   const texture = useTexture(obj.previewUrl || obj.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
@@ -2025,13 +2440,14 @@ function ObjectPreviewImage({ obj }) {
   return isSvgUrl(obj.url) ? <ObjectPreviewImageSvg obj={obj} /> : <ObjectPreviewImageRaster obj={obj} />;
 }
 function ObjectPreview({ obj }) {
+  if (obj.type === "text") return <ObjectPreviewText obj={obj} />;
   return obj.type === "image" ? <ObjectPreviewImage obj={obj} /> : <ObjectPreviewModel obj={obj} />;
 }
 
 /* La estructura de la escena es SIEMPRE la misma (luces, grilla,
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
-function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail }) {
+function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection }) {
   return (
     <>
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
@@ -2070,7 +2486,7 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           </Suspense>
         </ObjectBoundary>
       </MovedGroup>
-      {trail && trail.enabled && (
+            {trail && trail.enabled && (
         <SparkleTrail
           anchorRef={charAnchorRef}
           enabled={trail.enabled}
@@ -2078,6 +2494,24 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           size={trail.size}
           life={trail.life}
           rate={trail.rate}
+        />
+      )}
+      {reflection && (
+        <ReflectionProbe
+          anchorRef={charAnchorRef}
+          enabled={reflection.enabled}
+          resolution={reflection.resolution}
+          updateEvery={reflection.updateEvery}
+          intensity={reflection.intensity}
+        />
+      )}
+      {showFx && postFx && postFx.beamEnabled && (
+        <LightBeamEditor
+          enabled={postFx.beamEnabled}
+          opacity={postFx.beamOpacity ?? 0.5}
+          width={postFx.beamWidth ?? 2.5}
+          height={postFx.beamHeight ?? 14}
+          fx={fx}
         />
       )}
       {sceneCameraActive ? (
@@ -2236,6 +2670,135 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     </points>
   );
 }
+
+  /* Cámara de reflejo (cube camera): ubicada en el Modelo principal, cada
+   ciertos frames fotografía los 360° a su alrededor (paredes, objetos,
+   el PNG del perro, etc. — todo lo que haya en la escena, salvo el
+   propio modelo, que se oculta un instante durante la captura) y usa
+   esa foto como reflejo en los materiales metálicos del modelo. La
+   cámara principal (la que ve el usuario) no necesita apuntar a lo que
+   se refleja — el reflejo se calcula aparte, en 360°, todo el tiempo. */
+function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensity }) {
+  const { gl, scene } = useThree();
+  const rtRef = useRef(null);
+  const camRef = useRef(null);
+  const frameRef = useRef(0);
+  const appliedRef = useRef(new Set());
+  const posRef = useRef(new THREE.Vector3());
+
+  useEffect(() => {
+    const rt = new THREE.WebGLCubeRenderTarget(resolution, {
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
+    });
+    rtRef.current = rt;
+    camRef.current = new THREE.CubeCamera(0.05, 1000, rt);
+    appliedRef.current = new Set();
+    return () => rt.dispose();
+  }, [resolution]);
+
+  useFrame(() => {
+    if (!enabled || !anchorRef.current || !camRef.current) return;
+    frameRef.current++;
+    if (frameRef.current % Math.max(1, updateEvery) !== 0) return;
+
+    const anchor = anchorRef.current;
+    anchor.getWorldPosition(posRef.current);
+    camRef.current.position.copy(posRef.current);
+
+    // Oculta el modelo un instante para que no se refleje a sí mismo.
+    const wasVisible = anchor.visible;
+    anchor.visible = false;
+    camRef.current.update(gl, scene);
+    anchor.visible = wasVisible;
+
+    const texture = rtRef.current.texture;
+    anchor.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((m) => {
+        if (!("envMap" in m)) return;
+        if (!appliedRef.current.has(m.uuid)) {
+          m.envMap = texture;
+          m.needsUpdate = true;
+          appliedRef.current.add(m.uuid);
+        }
+        if ("envMapIntensity" in m) m.envMapIntensity = intensity;
+      });
+    });
+  });
+
+  return null;
+}
+/* Igual que LightBeam del sitio final, pero para la vista previa del
+   editor: acá no hay scroll ni blendScenes, el color/dirección salen
+   directo de la etapa activa (fx.light). */
+let _beamTextureCacheEditor = null;
+function getBeamTextureEditor() {
+  if (_beamTextureCacheEditor) return _beamTextureCacheEditor;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, size, 0);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.5, "rgba(255,255,255,1)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const vgrad = ctx.createLinearGradient(0, 0, 0, size);
+  vgrad.addColorStop(0, "rgba(0,0,0,1)");
+  vgrad.addColorStop(0.12, "rgba(0,0,0,0)");
+  vgrad.addColorStop(0.82, "rgba(0,0,0,0)");
+  vgrad.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = vgrad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  _beamTextureCacheEditor = tex;
+  return tex;
+}
+function LightBeamEditor({ enabled, opacity, width, height, fx }) {
+  const groupRef = useRef(null);
+  const matRefs = useRef([]);
+  const texture = useMemo(() => getBeamTextureEditor(), []);
+
+  useFrame(() => {
+    if (!enabled || !groupRef.current || !fx) return;
+    const dir = lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 1);
+    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+    groupRef.current.position.set(dirVec.x * height * 0.5, dirVec.y * height * 0.5, dirVec.z * height * 0.5);
+    groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
+    matRefs.current.forEach((m) => {
+      if (!m) return;
+      m.color.set(fx.light.color);
+      m.opacity = opacity;
+    });
+  });
+
+  if (!enabled) return null;
+
+  return (
+    <group ref={groupRef}>
+      {[0, 60, 120].map((deg, i) => (
+        <mesh key={deg} rotation={[0, (deg * Math.PI) / 180, 0]}>
+          <planeGeometry args={[width, height]} />
+          <meshBasicMaterial
+            ref={(m) => { matRefs.current[i] = m; }}
+            map={texture}
+            transparent
+            opacity={opacity}
+            color="#ffffff"
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
 /* Contorno de celular: dibuja el rectángulo 9:16 más grande que entra
    en el visor actual (igual que "object-fit: contain"), para ver de
    entrada qué parte de la composición realmente se ve en un teléfono.
@@ -2363,7 +2926,11 @@ function generatePostFxCode(postFx) {
 const VIGNETTE_DARKNESS = ${postFx.vignetteDarkness};
 const VIGNETTE_OFFSET = ${postFx.vignetteOffset};
 const BLOOM_ENABLED = ${postFx.bloomEnabled ? "true" : "false"};
-const BLOOM_INTENSITY = ${postFx.bloomIntensity};`;
+const BLOOM_INTENSITY = ${postFx.bloomIntensity};
+const BEAM_ENABLED = ${postFx.beamEnabled ? "true" : "false"};
+const BEAM_OPACITY = ${postFx.beamOpacity ?? 0.5};
+const BEAM_WIDTH = ${postFx.beamWidth ?? 2.5};
+const BEAM_HEIGHT = ${postFx.beamHeight ?? 14};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -2378,9 +2945,17 @@ const TRAIL_LIFE = ${fmtNum(trail.life)};
 const TRAIL_RATE = ${fmtNum(trail.rate)};`;
 }
 
+function generateReflectionCode(reflection) {
+  return `const REFLECTION_ENABLED = ${reflection.enabled ? "true" : "false"};
+const REFLECTION_RESOLUTION = ${reflection.resolution};
+const REFLECTION_UPDATE_EVERY = ${reflection.updateEvery};
+const REFLECTION_INTENSITY = ${reflection.intensity};`;
+}
+  
 function generateObjectsCode(objects, transformsByKf, stages, easings) {
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
+  const esc = (s) => JSON.stringify(s == null ? "" : s);
   const objLines = objects.map((o) => {
     const transforms = transformsByKf[o.id] || {};
     const kfLines = stages.map((kf, idx) => {
@@ -2388,6 +2963,22 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
       const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
       return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)} },`;
     }).join("\n");
+    if (o.type === "text") {
+      return `  {
+    type: "text",
+    text: ${esc(o.text)},
+    textColor: "${o.textColor || "#ffffff"}",
+    fontFamily: ${esc(o.fontFamily || "'Inter', sans-serif")},
+    fontWeight: ${o.fontWeight || 600},
+    textAlign: "${o.textAlign || "center"}",
+    textOutline: ${o.textOutline ? "true" : "false"},
+    textOutlineColor: "${o.textOutlineColor || "#000000"}",
+    billboard: ${o.billboard ? "true" : "false"},
+    keyframes: [
+${kfLines}
+    ],
+  },`;
+    }
     return `  {
     type: "${o.type === "image" ? "image" : "model"}",
     url: "${o.url}",
@@ -2400,7 +2991,7 @@ ${kfLines}
   return `const OBJECTS = [\n${objLines || "  // (sin objetos)"}\n];`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode) {
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -2418,6 +3009,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
   tpl = swap(tpl, "/*@GEN:SCROLL_LENGTH_START*/", "/*@GEN:SCROLL_LENGTH_END*/", scrollLengthCode);
   tpl = swap(tpl, "/*@GEN:POSTFX_START*/", "/*@GEN:POSTFX_END*/", postFxCode);
   tpl = swap(tpl, "/*@GEN:TRAIL_START*/", "/*@GEN:TRAIL_END*/", trailCode);
+  tpl = swap(tpl, "/*@GEN:REFLECTION_START*/", "/*@GEN:REFLECTION_END*/", reflectionCode);
   tpl = swap(tpl, "/*@GEN:OBJECTS_START*/", "/*@GEN:OBJECTS_END*/", objectsCode);
   tpl = swap(tpl, "/*@GEN:CHAR_TRANSFORM_START*/", "/*@GEN:CHAR_TRANSFORM_END*/", charTransformCode);
   return tpl;
@@ -2436,7 +3028,7 @@ function App() {
      en el mismo lugar que el resto de los controles (Pose/Cámara/
      Movimiento/Objetos): se ven en vivo en el visor y se graban en el
      index.html final. Los valores por defecto (0.4 / 0.05) están
-     calibrados para bee.glb (que sin escalar mide ~4.83 de ancho x
+     calibrados para bowl1.glb (que sin escalar mide ~4.83 de ancho x
      2.44 de alto x 3.95 de profundidad); si cambiás de modelo, tocá
      el slider hasta que se vea bien — no hace falta calcular nada. */
   const [charScale, setCharScale] = useState(0.4);
@@ -2453,9 +3045,13 @@ function App() {
     vignetteOffset: 0.15,
     bloomEnabled: true,
     bloomIntensity: 0.5,
+    beamEnabled: false,
+    beamOpacity: 0.5,
+    beamWidth: 2.5,
+    beamHeight: 14,
   });
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
-  /* Estela de brillo (sparkle trail) que deja el personaje (bee.glb) a
+  /* Estela de brillo (sparkle trail) que deja el personaje (bowl1.glb) a
      su paso, y se va desvaneciendo. A diferencia de postFx, esta SÍ se
      ve en vivo en el visor de este editor (misma implementación que
      la plantilla final), para poder ajustarla con feedback inmediato
@@ -2469,6 +3065,17 @@ function App() {
     rate: 40,
   });
   const setTrailField = (field, value) => setTrail((prev) => ({ ...prev, [field]: value }));
+    /* Reflejo de ambiente en tiempo real sobre el Modelo principal (metal).
+     resolution = nitidez del reflejo (más alto = más pesado). updateEvery
+     = cada cuántos frames se recalcula (1 = todos los frames, más preciso
+     pero más pesado; 3-5 rinde mejor, sobre todo en celular). */
+  const [reflection, setReflection] = useState({
+    enabled: false,
+    resolution: 256,
+    updateEvery: 2,
+    intensity: 1,
+  });
+  const setReflectionField = (field, value) => setReflection((prev) => ({ ...prev, [field]: value }));
   const charAnchorRef = useRef(null);
   const [stages, setStages] = useState(makeDefaultStages);
   const [durationsVh, setDurationsVh] = useState(DEFAULT_DURATIONS_VH);
@@ -2651,9 +3258,54 @@ function App() {
       return next;
     });
   };
+  /* Fija la posición/escala/rotación ACTUAL de un objeto (la de la etapa
+     que estás viendo ahora) en TODAS las etapas de una — para objetos que
+     no se mueven, evita tener que entrar pose por pose a acomodarlo. */
+  const applyObjectTransformToAllStages = (id) => {
+    const current = objectTransformsByKf[id] && objectTransformsByKf[id][activeStage];
+    if (!current) return;
+    const snapshot = JSON.parse(JSON.stringify(current));
+    setObjectTransformsByKf((prev) => {
+      const forObj = { ...prev[id] };
+      stagesComputed.forEach((kf) => { forObj[kf.id] = JSON.parse(JSON.stringify(snapshot)); });
+      return { ...prev, [id]: forObj };
+    });
+  };
+  /* Igual que arriba pero para TODOS los objetos a la vez — útil recién
+     agregaste varios objetos nuevos y quedaron todos amontonados al
+     centro: los acomodás una vez en la etapa que estés viendo y con este
+     botón quedan fijos así en las 20 (o las que sean) poses de un saque. */
+  const applyAllObjectTransformsToAllStages = () => {
+    setObjectTransformsByKf((prev) => {
+      const next = { ...prev };
+      objects.forEach((o) => {
+        const current = prev[o.id] && prev[o.id][activeStage];
+        if (!current) return;
+        const snapshot = JSON.parse(JSON.stringify(current));
+        const forObj = { ...next[o.id] };
+        stagesComputed.forEach((kf) => { forObj[kf.id] = JSON.parse(JSON.stringify(snapshot)); });
+        next[o.id] = forObj;
+      });
+      return next;
+    });
+  };
   const setObjectType = (id, type) => {
     setObjects((prev) => prev.map((o) => {
       if (o.id !== id) return o;
+      if (type === "text") {
+        return {
+          ...o,
+          type: "text",
+          billboard: o.billboard ?? true,
+          text: o.text ?? "Texto",
+          textColor: o.textColor ?? "#ffffff",
+          fontFamily: o.fontFamily ?? "'Inter', sans-serif",
+          fontWeight: o.fontWeight ?? 600,
+          textAlign: o.textAlign ?? "center",
+          textOutline: o.textOutline ?? false,
+          textOutlineColor: o.textOutlineColor ?? "#000000",
+        };
+      }
       let url = o.url;
       if (type === "image" && /\.glb$/i.test(url)) url = url.replace(/\.glb$/i, ".png");
       if (type === "model" && /\.(svg|png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(svg|png|jpe?g|webp)$/i, ".glb");
@@ -2809,6 +3461,7 @@ function App() {
   const charTransformCode = useMemo(() => generateCharTransformCode(charScale, charCenterY), [charScale, charCenterY]);
   const postFxCode = useMemo(() => generatePostFxCode(postFx), [postFx]);
   const trailCode = useMemo(() => generateTrailCode(trail), [trail]);
+  const reflectionCode = useMemo(() => generateReflectionCode(reflection), [reflection]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
@@ -2835,6 +3488,7 @@ function App() {
     charCenterY,
     postFx,
     trail,
+    reflection,
     stages,
     durationsVh,
     easings,
@@ -2853,6 +3507,7 @@ function App() {
     setCharCenterY(typeof p.charCenterY === "number" ? p.charCenterY : 0.05);
     if (p.postFx) setPostFx((prev) => ({ ...prev, ...p.postFx }));
     if (p.trail) setTrail((prev) => ({ ...prev, ...p.trail }));
+    if (p.reflection) setReflection((prev) => ({ ...prev, ...p.reflection }));
     const loadedStages = p.stages && p.stages.length ? p.stages : makeDefaultStages();
     setStages(loadedStages);
     setDurationsVh(p.durationsVh || DEFAULT_DURATIONS_VH);
@@ -2924,9 +3579,12 @@ function App() {
     const project = buildProjectSnapshot();
     const json = JSON.stringify(project);
     const b64 = btoa(unescape(encodeURIComponent(json)));
-    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    const docClone = document.documentElement.cloneNode(true);
+    const rootClone = docClone.querySelector("#root");
+    if (rootClone) rootClone.innerHTML = "";
+    let html = "<!DOCTYPE html>\n" + docClone.outerHTML;
     html = html.replace(
-      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/,
+      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/g,
       `<script id="embedded-project-b64" type="text/plain">${b64}</scri` + `pt>`
     );
     const blob = new Blob([html], { type: "text/html" });
@@ -2941,7 +3599,7 @@ function App() {
   };
 
   const downloadFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode);
+        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2955,7 +3613,7 @@ function App() {
   };
 
   const copyFullHtml = () => {
-    const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode);
+        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode);
     copy(html, "full");
   };
 
@@ -2983,8 +3641,8 @@ function App() {
           <label className="toggle-row"><input type="checkbox" checked={showFx} onChange={(e) => setShowFx(e.target.checked)} />Mostrar ambiente (luz/niebla/fondo)</label>
           <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
         </div>
-        <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} />
+        <Canvas shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
+                    <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection} />
         </Canvas>
         {showFx && postFx.vignetteEnabled && (
           <div
@@ -3004,7 +3662,7 @@ function App() {
       <div className="panel">
         <div>
           <h1>Pose, Cámara, Movimiento &amp; Objetos</h1>
-          <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos, con el contorno de celular (9:16) marcando qué se ve realmente en pantalla chica. Cada control tiene ahora un campo numérico al lado del slider para escribir el valor exacto. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
+          <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos, con el contorno de celular (9:16) marcando qué se ve realmente en pantalla chica. Cada control tiene ahora un campo numérico al lado del slider para escribir el valor exacto. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, texto, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
         </div>
 
         <div className="cam-group">
@@ -3023,13 +3681,44 @@ function App() {
             <input type="range" min={-2} max={2} step={0.01} value={charCenterY} onChange={(e) => setCharCenterY(Number(e.target.value))} />
             <input type="number" className="axis-num" step={0.01} value={charCenterY} onChange={(e) => setCharCenterY(Number(e.target.value))} />
           </div>
+                    <label className="toggle-row" style={{ marginTop: 6, marginBottom: 6 }}>
+            <input type="checkbox" checked={reflection.enabled} onChange={(e) => setReflectionField("enabled", e.target.checked)} />
+            Reflejo de ambiente en tiempo real (metal)
+          </label>
+          {reflection.enabled && (
+            <>
+              <div className="axis-row">
+                <label style={{ width: 90, fontSize: 10.5 }}>Resolución</label>
+                <select
+                  value={reflection.resolution}
+                  onChange={(e) => setReflectionField("resolution", Number(e.target.value))}
+                  style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
+                >
+                  <option value={128}>128 (más rápido)</option>
+                  <option value={256}>256</option>
+                  <option value={512}>512 (más nítido)</option>
+                </select>
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 90, fontSize: 10.5 }}>Actualizar cada</label>
+                <input type="range" min={1} max={10} step={1} value={reflection.updateEvery} onChange={(e) => setReflectionField("updateEvery", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={1} value={reflection.updateEvery} onChange={(e) => setReflectionField("updateEvery", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 90, fontSize: 10.5 }}>Intensidad</label>
+                <input type="range" min={0} max={3} step={0.05} value={reflection.intensity} onChange={(e) => setReflectionField("intensity", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.05} value={reflection.intensity} onChange={(e) => setReflectionField("intensity", Number(e.target.value))} />
+              </div>
+              <p className="hint">Solo tiene efecto visible si el material del modelo tiene Metálico alto y Rugosidad baja. "Actualizar cada" en 3-5 rinde mejor en celular sin perder demasiada calidad.</p>
+            </>
+          )}
           <p className="hint">Escala y Centro Y ahora se ven EN VIVO en este visor (antes el visor siempre mostraba el modelo a un tamaño fijo sin importar lo que cambiaras en el código) y quedan grabados en el index.html final al descargar. "Centro Y" sube/baja el modelo para alinearlo al piso o a la grilla — probá valores hasta que se vea bien apoyado.</p>
           <p className="hint">El objeto que animás con Pose/Cámara/Movimiento. Puede ser un personaje con esqueleto (huesos) o un objeto rígido sin huesos — un perfume, un producto, un logo 3D. Si no tiene huesos, la pestaña Pose no hace nada: usá solo Movimiento para hacerlo flotar/girar por etapa.</p>
         </div>
 
         <div className="cam-group">
           <div className="cam-group-title">Estela de brillo (bee)</div>
-          <p className="hint">Rastro de partículas brillantes que el personaje va dejando a su paso y que se desvanece solo, como el brillo de polen detrás de una abeja. Se ve en vivo acá en el visor y queda grabado en el index.html final.</p>
+          <p className="hint">Rastro de partículas brillantes que el personaje va dejando a su paso y que se desvanece solo, como el brillo de polen detrás de una abeja. Solo emite mientras hay scroll real — se ve en vivo acá en el visor y queda grabado en el index.html final.</p>
           <label className="toggle-row" style={{ marginBottom: 6 }}>
             <input type="checkbox" checked={trail.enabled} onChange={(e) => setTrailField("enabled", e.target.checked)} />
             Activar estela
@@ -3092,6 +3781,30 @@ function App() {
               <input type="number" className="axis-num" step={0.01} value={postFx.bloomIntensity} onChange={(e) => setPostFxField("bloomIntensity", Number(e.target.value))} />
             </div>
           )}
+          <label className="toggle-row" style={{ marginBottom: 6 }}>
+            <input type="checkbox" checked={postFx.beamEnabled} onChange={(e) => setPostFxField("beamEnabled", e.target.checked)} />
+            Rayo de luz (haz volumétrico, sigue el color/dirección de la Luz de la etapa)
+          </label>
+          {postFx.beamEnabled && (
+            <>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Opacidad</label>
+                <input type="range" min={0} max={1} step={0.01} value={postFx.beamOpacity} onChange={(e) => setPostFxField("beamOpacity", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.01} value={postFx.beamOpacity} onChange={(e) => setPostFxField("beamOpacity", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Ancho</label>
+                <input type="range" min={0.2} max={10} step={0.1} value={postFx.beamWidth} onChange={(e) => setPostFxField("beamWidth", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.1} value={postFx.beamWidth} onChange={(e) => setPostFxField("beamWidth", Number(e.target.value))} />
+              </div>
+              <div className="axis-row">
+                <label style={{ width: 70, fontSize: 10.5 }}>Largo</label>
+                <input type="range" min={2} max={40} step={0.5} value={postFx.beamHeight} onChange={(e) => setPostFxField("beamHeight", Number(e.target.value))} />
+                <input type="number" className="axis-num" step={0.5} value={postFx.beamHeight} onChange={(e) => setPostFxField("beamHeight", Number(e.target.value))} />
+              </div>
+              <p className="hint">El rayo baja desde la dirección de la Luz (azimuth/elevación, en la pestaña "Movimiento") apuntando al centro de la escena (0,0,0) — el color también sale de ahí, no hace falta elegirlo acá. Si tu objeto principal no está en el centro, subí el "Largo" o movelo para que el rayo lo alcance.</p>
+            </>
+          )}
         </div>
 
         <div className="section-tabs">
@@ -3106,6 +3819,23 @@ function App() {
         {showStageTabs && (
           <>
             <div className="section-title">Etapa (compartida por Pose / Cámara / Movimiento)</div>
+            <div className="btn-row" style={{ alignItems: "center", marginBottom: 4 }}>
+              <button
+                className="btn"
+                style={{ padding: "6px 10px" }}
+                disabled={stageIndex <= 0}
+                onClick={() => setActiveStage(stagesComputed[Math.max(0, stageIndex - 1)].id)}
+              >← Anterior</button>
+              <span style={{ fontSize: 11.5, color: "rgba(245,246,242,0.7)", padding: "0 4px" }}>
+                Etapa {stageIndex + 1} de {stagesComputed.length}
+              </span>
+              <button
+                className="btn"
+                style={{ padding: "6px 10px" }}
+                disabled={stageIndex >= stagesComputed.length - 1}
+                onClick={() => setActiveStage(stagesComputed[Math.min(stagesComputed.length - 1, stageIndex + 1)].id)}
+              >Siguiente →</button>
+            </div>
             <div className="kf-tabs">
               {stagesComputed.map((kf) => (
                 <div key={kf.id} className={`kf-tab ${activeStage === kf.id ? "active" : ""}`} onClick={() => setActiveStage(kf.id)}>{kf.label}<span className="p">progress {kf.progress.toFixed(2)}</span></div>
@@ -3384,11 +4114,17 @@ function App() {
 
         {section === "objects" && (
           <>
-            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas) o imágenes planas (.svg/.png/.jpg, tipo cartel, logo o sprite). Para imágenes/SVG podés subir el archivo directo (el de Corel Draw funciona tal cual) y lo ves de una en el visor. El navegador no puede copiarlo solo a la carpeta del proyecto — para eso usá el botón "Descargar" y guardalo con ese mismo nombre en <code>assets/models/</code> junto al resto de los archivos.</p>
+            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas), imágenes planas (.svg/.png/.jpg, tipo cartel, logo o sprite) o texto (con su propio color y tipografía). Para imágenes/SVG podés subir el archivo directo (el de Corel Draw funciona tal cual) y lo ves de una en el visor. El navegador no puede copiarlo solo a la carpeta del proyecto — para eso usá el botón "Descargar" y guardalo con ese mismo nombre en <code>assets/models/</code> junto al resto de los archivos.</p>
             <p className="hint">La escala/posición/rotación de cada objeto ahora es <strong>por etapa</strong> (la misma "Etapa" de arriba) — así podés hacer que floten, se acerquen o giren durante el scroll, igual que el personaje. Si no tocás nada en una etapa nueva, el objeto queda quieto donde estaba.</p>
-            <div className="btn-row"><button className="btn" onClick={copyAllObjectTransformsFromPrev}>Copiar posiciones de TODOS desde la etapa anterior</button></div>
+            <div className="btn-row">
+              <button className="btn" onClick={copyAllObjectTransformsFromPrev}>Copiar posiciones de TODOS desde la etapa anterior</button>
+              <button className="btn primary" onClick={applyAllObjectTransformsToAllStages}>📌 Fijar posición actual de TODOS en TODAS las poses</button>
+            </div>
+            <p className="hint">El botón de arriba a la derecha es el atajo para objetos nuevos: acomodalos una vez en esta etapa y quedan así en las 20 (o las que tengas) poses de un saque, sin entrar una por una.</p>
             {objects.map((obj, idx) => {
               const isImage = obj.type === "image";
+              const isText = obj.type === "text";
+              const isModel = !isImage && !isText;
               const t = (objectTransformsByKf[obj.id] && objectTransformsByKf[obj.id][activeStage]) || defaultObjectTransform();
               return (
                 <div className="obj-block" key={obj.id}>
@@ -3398,9 +4134,71 @@ function App() {
                     <button className="btn danger" style={{ fontSize: 10, padding: "3px 6px" }} onClick={() => removeObject(obj.id)}>🗑</button>
                   </div>
                   <div className="btn-row" style={{ marginBottom: 6 }}>
-                    <button className={`btn ${!isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "model")}>Modelo (.glb)</button>
+                    <button className={`btn ${isModel ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "model")}>Modelo (.glb)</button>
                     <button className={`btn ${isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "image")}>Imagen / SVG</button>
+                    <button className={`btn ${isText ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "text")}>Texto</button>
                   </div>
+                  {isText && (
+                    <div className="cam-group" style={{ paddingBottom: 8, marginBottom: 8 }}>
+                      <div className="axis-row" style={{ alignItems: "flex-start" }}>
+                        <label style={{ width: 60, fontSize: 10.5, marginTop: 6 }}>Texto</label>
+                        <textarea
+                          value={obj.text || ""}
+                          onChange={(e) => updateObject(obj.id, { text: e.target.value })}
+                          rows={3}
+                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", color: "#f5f6f2", borderRadius: 4, padding: "6px 8px", fontSize: 12, fontFamily: "inherit", resize: "vertical" }}
+                        />
+                      </div>
+                      <p className="hint">Usá Enter para saltos de línea manuales — no hay ajuste automático, así vos controlás dónde corta cada renglón.</p>
+                      <div className="axis-row">
+                        <label style={{ width: 60, fontSize: 10.5 }}>Color</label>
+                        <input type="color" value={obj.textColor || "#ffffff"} onChange={(e) => updateObject(obj.id, { textColor: e.target.value })} />
+                      </div>
+                      <div className="axis-row">
+                        <label style={{ width: 60, fontSize: 10.5 }}>Tipografía</label>
+                        <select
+                          value={obj.fontFamily || "'Inter', sans-serif"}
+                          onChange={(e) => updateObject(obj.id, { fontFamily: e.target.value })}
+                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
+                        >
+                          <option value="'Inter', sans-serif">Inter (sans)</option>
+                          <option value="'Space Grotesk', sans-serif">Space Grotesk (display)</option>
+                          <option value="Georgia, 'Times New Roman', serif">Serif</option>
+                          <option value="'Courier New', monospace">Monoespaciada</option>
+                          <option value="system-ui, sans-serif">Sans genérica del sistema</option>
+                        </select>
+                      </div>
+                      <div className="axis-row">
+                        <label style={{ width: 60, fontSize: 10.5 }}>Peso</label>
+                        <select
+                          value={obj.fontWeight || 600}
+                          onChange={(e) => updateObject(obj.id, { fontWeight: Number(e.target.value) })}
+                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
+                        >
+                          <option value={300}>Liviana (300)</option>
+                          <option value={400}>Normal (400)</option>
+                          <option value={500}>Media (500)</option>
+                          <option value={600}>Semi-negrita (600)</option>
+                          <option value={700}>Negrita (700)</option>
+                        </select>
+                      </div>
+                      <div className="btn-row" style={{ marginBottom: 6 }}>
+                        <button className={`btn ${(obj.textAlign || "center") === "left" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "left" })}>Izquierda</button>
+                        <button className={`btn ${(obj.textAlign || "center") === "center" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "center" })}>Centro</button>
+                        <button className={`btn ${(obj.textAlign || "center") === "right" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "right" })}>Derecha</button>
+                      </div>
+                      <label className="toggle-row" style={{ marginBottom: 6 }}>
+                        <input type="checkbox" checked={!!obj.textOutline} onChange={(e) => updateObject(obj.id, { textOutline: e.target.checked })} />
+                        Contorno (ayuda a leer sobre fondos claros/oscuros)
+                      </label>
+                      {obj.textOutline && (
+                        <div className="axis-row">
+                          <label style={{ width: 60, fontSize: 10.5 }}>Color contorno</label>
+                          <input type="color" value={obj.textOutlineColor || "#000000"} onChange={(e) => updateObject(obj.id, { textOutlineColor: e.target.value })} />
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {isImage && (
                     <div className="btn-row" style={{ marginBottom: 6 }}>
                       <label className="btn" style={{ cursor: "pointer" }}>
@@ -3419,11 +4217,13 @@ function App() {
                       )}
                     </div>
                   )}
-                  <div className="axis-row">
-                    <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
-                    <input type="text" value={obj.url} onChange={(e) => setObjectUrl(obj.id, e.target.value)} />
-                  </div>
-                  {!isImage && /\.(svg|png|jpe?g|webp)$/i.test(obj.url) && (
+                  {!isText && (
+                    <div className="axis-row">
+                      <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
+                      <input type="text" value={obj.url} onChange={(e) => setObjectUrl(obj.id, e.target.value)} />
+                    </div>
+                  )}
+                  {isModel && /\.(svg|png|jpe?g|webp)$/i.test(obj.url) && (
                     <p className="hint" style={{ color: "#ff9a9a" }}>⚠ Esta ruta termina en imagen/SVG pero el tipo está en "Modelo (.glb)" — así el navegador va a intentar leerla como .glb y va a fallar. Tocá el botón "Imagen / SVG" de arriba.</p>
                   )}
                   {isImage && /\.glb$/i.test(obj.url) && (
@@ -3432,7 +4232,7 @@ function App() {
                   {isImage && obj.previewUrl && (
                     <p className="hint">Estás viendo el archivo subido en este visor. Cuando descargues el index.html, acordate de guardar "{obj.url.split("/").pop()}" (botón de arriba) en esa misma ruta, o el navegador no lo va a encontrar.</p>
                   )}
-                  {isImage && (
+                  {(isImage || isText) && (
                     <label className="toggle-row" style={{ marginBottom: 6 }}>
                       <input type="checkbox" checked={!!obj.billboard} onChange={(e) => updateObject(obj.id, { billboard: e.target.checked })} />
                       Billboard (siempre mira a cámara)
@@ -3440,6 +4240,7 @@ function App() {
                   )}
                   <div className="btn-row" style={{ marginBottom: 6 }}>
                     <button className="btn" onClick={() => copyObjectTransformFromPrev(obj.id)}>Copiar este objeto desde la etapa anterior</button>
+                    <button className="btn primary" onClick={() => applyObjectTransformToAllStages(obj.id)}>📌 Fijar en TODAS las poses</button>
                   </div>
                   <div className="axis-row">
                     <label>×</label>
@@ -3453,14 +4254,14 @@ function App() {
                       <input type="number" className="axis-num" step={0.05} value={t.position[i]} onChange={(e) => setObjectTransform(obj.id, "position", axis, Number(e.target.value))} />
                     </div>
                   ))}
-                  {!(isImage && obj.billboard) && (
+                  {!((isImage || isText) && obj.billboard) && (
                     <div className="axis-row">
                       <label>°</label>
                       <input type="range" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(e) => setObjectTransform(obj.id, "rotationY", null, Number(e.target.value))} />
                       <input type="number" className="axis-num" step={0.1} value={t.rotationY} onChange={(e) => setObjectTransform(obj.id, "rotationY", null, Number(e.target.value))} />
                     </div>
                   )}
-                  {isImage && obj.billboard && <p className="hint">Con billboard activado, la rotación no aplica — la imagen siempre gira para mirar a cámara.</p>}
+                  {(isImage || isText) && obj.billboard && <p className="hint">Con billboard activado, la rotación no aplica — {isText ? "el texto" : "la imagen"} siempre gira para mirar a cámara.</p>}
                 </div>
               );
             })}
