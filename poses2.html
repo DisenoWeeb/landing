@@ -329,25 +329,13 @@ const CHARACTER_MODEL_URL = "./assets/models/bowl1.glb";
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
   {
-    type: "image",
-    url: "./assets/models/particulas_rosa.png",
-    billboard: true,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [0, -0.5, 0], scale: 1.63, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 2.15, 0], scale: 1.63, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 8.8, -1.5], scale: 1.63, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 8.8, -1.5], scale: 1.63, rotationY: 0 },
-    ],
-  },
-  {
     type: "model",
     url: "./assets/models/piso.glb",
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0.5, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0 },
     ],
   },
   {
@@ -362,9 +350,8 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [2.15, 2.55, 9.85], scale: 2.11, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 3.15, 0], scale: 1.43, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 3.15, -17.55], scale: 1.43, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 3.15, -17.55], scale: 1.43, rotationY: 0 },
+      { progress: 0.5, easing: "linear", position: [0, 3.15, 0], scale: 1.43, rotationY: 0 },
+      { progress: 1, easing: "linear", position: [0, 3.15, -17.55], scale: 1.43, rotationY: 0 },
     ],
   },
 ];
@@ -416,29 +403,20 @@ const scenes = [
   },
   {
     id: "pose-1790223251011",
-    progress: 0.333,
-    easing: "smooth",
-    camera: { position: [-0.385, 0.711, 4.455], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    progress: 0.5,
+    easing: "linear",
+    camera: { position: [2.205, 1.933, 4.031], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
     light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
     fog: { enabled: true, color: "#000000", far: 4.6 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
     id: "pose-1790223504241",
-    progress: 0.667,
-    easing: "smooth",
-    camera: { position: [4.62, 2.36, 4.455], lookAt: [-0.03, 0.9, 0], fov: 50.1, roll: 0 },
+    progress: 1,
+    easing: "linear",
+    camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 22.5, roll: 0 },
     light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
     fog: { enabled: true, color: "#000000", far: 4.6 },
-    background: { from: "#05070a", to: "#000000", angle: 200 },
-  },
-  {
-    id: "pose-1790224524606",
-    progress: 1,
-    easing: "smooth",
-    camera: { position: [0.264, 5.813, -6.972], lookAt: [-0.03, 0.9, 0], fov: 50.1, roll: 0 },
-    light: { color: "#920a94", intensity: 20, azimuth: 206, elevation: 61, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 12.5 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
 ];
@@ -451,9 +429,8 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1790220547011", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223251011", progress: 0.333, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223504241", progress: 0.667, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790224524606", progress: 1, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790223251011", progress: 0.5, easing: "linear", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790223504241", progress: 1, easing: "linear", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -487,24 +464,16 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1790223251011",
-    progress: 0.333,
-    easing: "smooth",
+    progress: 0.5,
+    easing: "linear",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "pose-1790223504241",
-    progress: 0.667,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790224524606",
     progress: 1,
-    easing: "smooth",
+    easing: "linear",
     bones: {
       // (sin cambios respecto al rest pose)
     },
@@ -535,34 +504,34 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 450;
+const SCROLL_LENGTH_VH = 660;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.3;
-const VIGNETTE_OFFSET = 0.19;
+const VIGNETTE_DARKNESS = 1;
+const VIGNETTE_OFFSET = 0.78;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.92;
+const BLOOM_INTENSITY = 2;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.39;
-const BEAM_WIDTH = 3.8;
-const BEAM_HEIGHT = 10.5;
+const BEAM_OPACITY = 0.51;
+const BEAM_WIDTH = 0.5;
+const BEAM_HEIGHT = 22.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
-const REFLECTION_ENABLED = true;
-const REFLECTION_RESOLUTION = 256;
+const REFLECTION_ENABLED = false;
+const REFLECTION_RESOLUTION = 512;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 1;
+const REFLECTION_INTENSITY = 0;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
 const TRAIL_ENABLED = true;
-const TRAIL_COLOR = "#ffffff";
-const TRAIL_SIZE = 0.075;
-const TRAIL_LIFE = 8.25;
-const TRAIL_RATE = 30;
+const TRAIL_COLOR = "#a01894";
+const TRAIL_SIZE = 0.26;
+const TRAIL_LIFE = 3;
+const TRAIL_RATE = 120;
 /*@GEN:TRAIL_END*/
 
 function damp(current, target, lambda, dt) {
