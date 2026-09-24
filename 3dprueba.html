@@ -512,10 +512,10 @@ const SCROLL_LENGTH_VH = 1300;
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.81;
-const VIGNETTE_OFFSET = 0.46;
+const VIGNETTE_DARKNESS = 1;
+const VIGNETTE_OFFSET = 0.78;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.49;
+const BLOOM_INTENSITY = 0.3;
 const BEAM_ENABLED = true;
 const BEAM_OPACITY = 0.51;
 const BEAM_WIDTH = 0.5;
@@ -1082,7 +1082,9 @@ function AnimatedCharacter({ mouse, anchorRef }) {
 
     /*@GEN:MOVEMENT_START*/
     const m = sampleMovement(progress);
-    const idleFloat = Math.sin(t * 0.8) * 0.022;
+    const idleFloat = 0; // desactivado: hacía que CUALQUIER modelo (bowl incluido) flotara solo,
+    // y esto NO pasaba en el editor (ahí no existía este bamboleo) — por eso se veía
+    // distinto entre el editor y el sitio final descargado.
     outer.position.x = damp(outer.position.x, m.pos[0], 3, delta);
     outer.position.y = damp(outer.position.y, m.pos[1] + idleFloat, 5, delta);
     outer.position.z = damp(outer.position.z, m.pos[2], 2.0, delta);
@@ -1136,7 +1138,7 @@ function AnimatedCharacter({ mouse, anchorRef }) {
   });
 
   return (
-    <group ref={outerRef} position={[0, -0.95, -1.3]}>
+    <group ref={outerRef} position={[0, 0, 0]}>
       <group ref={pivotRef}>
         <primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} />
       </group>
@@ -1428,8 +1430,8 @@ function Lighting() {
 
   return (
     <>
-      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} />
-      <ambientLight intensity={0.32} />
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
+      <ambientLight intensity={0.28} />
       <directionalLight
         ref={keyRef}
         intensity={0.9}
