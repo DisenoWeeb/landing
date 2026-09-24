@@ -334,24 +334,43 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.5, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0.407, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0.815, easing: "easeIn", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 1, easing: "easeOut", position: [0, 0, 0], scale: 20, rotationY: 0 },
     ],
   },
   {
     type: "text",
-    text: "Hay alguien \nque te espera\ntodos los días.",
-    textColor: "#ffffff",
-    fontFamily: "Georgia, 'Times New Roman', serif",
+    text: "TODAVÍA\nNO LLEGÓ",
+    textColor: "#f4f5c2",
+    fontFamily: "system-ui, sans-serif",
+    fontWeight: 700,
+    textAlign: "center",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.05, rotationY: 0 },
+      { progress: 0.407, easing: "smooth", position: [0.2, 2.7, 0.4], scale: 1.44, rotationY: 0 },
+      { progress: 0.815, easing: "easeIn", position: [0, -3.55, -17.15], scale: 1.09, rotationY: 0 },
+      { progress: 1, easing: "easeOut", position: [0, -3.55, -17.15], scale: 1.09, rotationY: 0 },
+    ],
+  },
+  {
+    type: "text",
+    text: "pero ya te está esperando",
+    textColor: "#aeaf8a",
+    fontFamily: "'Inter', sans-serif",
     fontWeight: 600,
     textAlign: "center",
     textOutline: false,
     textOutlineColor: "#000000",
     billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [2.15, 2.55, 9.85], scale: 2.11, rotationY: 0 },
-      { progress: 0.5, easing: "linear", position: [0, 3.15, 0], scale: 1.43, rotationY: 0 },
-      { progress: 1, easing: "linear", position: [0, 3.15, -17.55], scale: 1.43, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, -3.75, 0], scale: 0.83, rotationY: 0 },
+      { progress: 0.407, easing: "smooth", position: [1.7, 1.95, 3.15], scale: 0.05, rotationY: 0 },
+      { progress: 0.815, easing: "easeIn", position: [1.7, 1.95, 23], scale: 0.05, rotationY: 0 },
+      { progress: 1, easing: "easeOut", position: [0, 0, 0], scale: 1, rotationY: 0 },
     ],
   },
 ];
@@ -403,8 +422,8 @@ const scenes = [
   },
   {
     id: "pose-1790223251011",
-    progress: 0.5,
-    easing: "linear",
+    progress: 0.407,
+    easing: "smooth",
     camera: { position: [2.205, 1.933, 4.031], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
     light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
     fog: { enabled: true, color: "#000000", far: 4.6 },
@@ -412,9 +431,18 @@ const scenes = [
   },
   {
     id: "pose-1790223504241",
-    progress: 1,
-    easing: "linear",
+    progress: 0.815,
+    easing: "easeIn",
     camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 22.5, roll: 0 },
+    light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 4.6 },
+    background: { from: "#05070a", to: "#000000", angle: 200 },
+  },
+  {
+    id: "pose-1790226501524",
+    progress: 1,
+    easing: "easeOut",
+    camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 1, roll: 0 },
     light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
     fog: { enabled: true, color: "#000000", far: 4.6 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
@@ -429,8 +457,9 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1790220547011", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223251011", progress: 0.5, easing: "linear", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223504241", progress: 1, easing: "linear", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790223251011", progress: 0.407, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790223504241", progress: 0.815, easing: "easeIn", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790226501524", progress: 1, easing: "easeOut", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -464,16 +493,24 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1790223251011",
-    progress: 0.5,
-    easing: "linear",
+    progress: 0.407,
+    easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
     id: "pose-1790223504241",
+    progress: 0.815,
+    easing: "easeIn",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790226501524",
     progress: 1,
-    easing: "linear",
+    easing: "easeOut",
     bones: {
       // (sin cambios respecto al rest pose)
     },
@@ -504,7 +541,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 660;
+const SCROLL_LENGTH_VH = 810;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
