@@ -382,8 +382,8 @@ const scenes = [
     progress: 0,
     easing: "smooth",
     camera: { position: [-0.385, 0.711, 4.455], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 40, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 16 },
+    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 4.6 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
@@ -391,8 +391,8 @@ const scenes = [
     progress: 0.254,
     easing: "smooth",
     camera: { position: [2.205, 1.933, 4.031], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 16 },
+    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 4.6 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
@@ -400,8 +400,8 @@ const scenes = [
     progress: 0.508,
     easing: "easeIn",
     camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 22.5, roll: 0 },
-    light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 16 },
+    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 4.6 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
@@ -409,8 +409,8 @@ const scenes = [
     progress: 1,
     easing: "easeOut",
     camera: { position: [0.129, 7.164, -0.082], lookAt: [0.01, 1.84, 0], fov: 1, roll: 0 },
-    light: { color: "#fc2eff", intensity: 19, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: true, color: "#000000", far: 16 },
+    light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 4.6 },
     background: { from: "#05070a", to: "#000000", angle: 200 },
   },
 ];
@@ -512,21 +512,21 @@ const SCROLL_LENGTH_VH = 1300;
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 1;
-const VIGNETTE_OFFSET = 0.78;
+const VIGNETTE_DARKNESS = 0.79;
+const VIGNETTE_OFFSET = 0.47;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.67;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 2;
-const BEAM_WIDTH = 2.5;
-const BEAM_HEIGHT = 6;
+const BEAM_OPACITY = 0.51;
+const BEAM_WIDTH = 1.4;
+const BEAM_HEIGHT = 11;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = true;
 const REFLECTION_RESOLUTION = 512;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 5;
+const REFLECTION_INTENSITY = 2;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
