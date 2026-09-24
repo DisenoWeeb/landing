@@ -334,9 +334,9 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 1.77, rotationY: 0 },
-      { progress: 0.196, easing: "linear", position: [0, 0, 0], scale: 14.04, rotationY: 0 },
-      { progress: 0.522, easing: "linear", position: [0, 0, 0], scale: 14.04, rotationY: 0 },
-      { progress: 0.757, easing: "linear", position: [0, 0, 0], scale: 0.05, rotationY: 0 },
+      { progress: 0.248, easing: "linear", position: [0, 0, 0], scale: 14.04, rotationY: 0 },
+      { progress: 0.5, easing: "linear", position: [0, 0, 0], scale: 0.05, rotationY: 0 },
+      { progress: 0.748, easing: "linear", position: [0, 0, 0], scale: 0.05, rotationY: 0 },
       { progress: 1, easing: "linear", position: [0, 0, 0], scale: 0.05, rotationY: 0 },
     ],
   },
@@ -389,7 +389,7 @@ const scenes = [
   },
   {
     id: "pose-1790223251011",
-    progress: 0.196,
+    progress: 0.248,
     easing: "linear",
     camera: { position: [6.13, 3.87, -3.3], lookAt: [-0.03, 2.01, 0], fov: 69.2, roll: 0 },
     light: { color: "#fc2eff", intensity: 20, azimuth: 360, elevation: 90, rimColor: "#49d3ff", rimIntensity: 0 },
@@ -398,16 +398,16 @@ const scenes = [
   },
   {
     id: "pose-1790257773013",
-    progress: 0.522,
+    progress: 0.5,
     easing: "linear",
-    camera: { position: [-0.067, 5.798, 0], lookAt: [-0.03, 0.71, 0], fov: 31.5, roll: 0 },
+    camera: { position: [-0.067, 5.798, 0], lookAt: [-0.03, 0.71, 0], fov: 44.3, roll: 0 },
     light: { color: "#0533bd", intensity: 0, azimuth: 296, elevation: 68, rimColor: "#49d3ff", rimIntensity: 0 },
     fog: { enabled: true, color: "#000000", far: 6.1 },
     background: { from: "#05347a", to: "#000000", angle: 253 },
   },
   {
     id: "pose-1790258277582",
-    progress: 0.757,
+    progress: 0.748,
     easing: "linear",
     camera: { position: [-0.067, 5.798, 0], lookAt: [-0.03, 0.71, 0], fov: 71.3, roll: 0 },
     light: { color: "#0533bd", intensity: 5, azimuth: 301, elevation: -90, rimColor: "#49d3ff", rimIntensity: 0 },
@@ -418,10 +418,10 @@ const scenes = [
     id: "pose-1790258858437",
     progress: 1,
     easing: "linear",
-    camera: { position: [-0.067, 5.798, 0], lookAt: [-0.03, 0.71, 0], fov: 84.3, roll: 0 },
-    light: { color: "#a705bd", intensity: 5, azimuth: 301, elevation: 86, rimColor: "#49d3ff", rimIntensity: 0 },
-    fog: { enabled: false, color: "#000000", far: 6.1 },
-    background: { from: "#05347a", to: "#000000", angle: 253 },
+    camera: { position: [-0.067, 5.798, 0], lookAt: [-0.03, 0.71, 0], fov: 120, roll: 0 },
+    light: { color: "#eae09f", intensity: 0.3, azimuth: 270, elevation: 81, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: false, color: "#000000", far: 275 },
+    background: { from: "#05347a", to: "#990586", angle: 189 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -433,9 +433,9 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1790220547011", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223251011", progress: 0.196, easing: "linear", pos: [0, 0.17, 0], yaw: -180, pitch: 0 },
-  { id: "pose-1790257773013", progress: 0.522, easing: "linear", pos: [0, 0.17, 0], yaw: -180, pitch: 0 },
-  { id: "pose-1790258277582", progress: 0.757, easing: "linear", pos: [0, 3.85, 0], yaw: 180, pitch: 180 },
+  { id: "pose-1790223251011", progress: 0.248, easing: "linear", pos: [0, 0.17, 0], yaw: -180, pitch: 0 },
+  { id: "pose-1790257773013", progress: 0.5, easing: "linear", pos: [0, 0.17, 0], yaw: -180, pitch: 0 },
+  { id: "pose-1790258277582", progress: 0.748, easing: "linear", pos: [0, 3.85, 0], yaw: 180, pitch: 180 },
   { id: "pose-1790258858437", progress: 1, easing: "linear", pos: [0, 3.85, 0], yaw: 360, pitch: 360 },
 ];
 
@@ -470,7 +470,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1790223251011",
-    progress: 0.196,
+    progress: 0.248,
     easing: "linear",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -478,7 +478,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1790257773013",
-    progress: 0.522,
+    progress: 0.5,
     easing: "linear",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -486,7 +486,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1790258277582",
-    progress: 0.757,
+    progress: 0.748,
     easing: "linear",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -526,12 +526,12 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 1685;
+const SCROLL_LENGTH_VH = 1330;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.36;
+const VIGNETTE_DARKNESS = 0.14;
 const VIGNETTE_OFFSET = 0.34;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 1.01;
@@ -543,7 +543,7 @@ const BEAM_HEIGHT = 33.5;
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = true;
-const REFLECTION_RESOLUTION = 512;
+const REFLECTION_RESOLUTION = 256;
 const REFLECTION_UPDATE_EVERY = 1;
 const REFLECTION_INTENSITY = 3;
 /*@GEN:REFLECTION_END*/
