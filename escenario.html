@@ -315,7 +315,7 @@ const clientConfig = {
 };
 
 /*@GEN:MODEL_URL_START*/
-const CHARACTER_MODEL_URL = "./assets/models/";
+const CHARACTER_MODEL_URL = "./assets/models/bowl1.glb";
 /*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
@@ -333,8 +333,12 @@ const OBJECTS = [
     url: "./assets/models/esferanube.glb",
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 6.8, 0], scale: 20, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 6.8, 0], scale: 20, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 10, rotationY: 0 },
+      { progress: 0.355, easing: "smooth", position: [0, 0, 0], scale: 10, rotationY: 0 },
+      { progress: 0.516, easing: "smooth", position: [0, 0, 0], scale: 10, rotationY: 0 },
+      { progress: 0.677, easing: "smooth", position: [0, 0, 0], scale: 10, rotationY: 0 },
+      { progress: 0.839, easing: "smooth", position: [0, 0, 0], scale: 10, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 10, rotationY: 0 },
     ],
   },
   {
@@ -342,8 +346,38 @@ const OBJECTS = [
     url: "./assets/models/piso_bordes_abajo.glb",
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0.3, 0], scale: 0.76, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 0.3, 0], scale: 0.76, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.1, rotationY: 0 },
+      { progress: 0.355, easing: "smooth", position: [0, 0, 0], scale: 0.1, rotationY: 0 },
+      { progress: 0.516, easing: "smooth", position: [0, 0, 0], scale: 0.1, rotationY: 0 },
+      { progress: 0.677, easing: "smooth", position: [0, 0, 0], scale: 0.1, rotationY: 0 },
+      { progress: 0.839, easing: "smooth", position: [0, 0, 0], scale: 0.1, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 0.1, rotationY: 0 },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/logo_vet.svg",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 1.7, 0], scale: 1.35, rotationY: 0 },
+      { progress: 0.355, easing: "smooth", position: [0, 1.7, 0], scale: 1.35, rotationY: 0 },
+      { progress: 0.516, easing: "smooth", position: [0, 1.7, 0], scale: 1.35, rotationY: 0 },
+      { progress: 0.677, easing: "smooth", position: [0, 1.7, 0], scale: 1.35, rotationY: 0 },
+      { progress: 0.839, easing: "smooth", position: [0, 1.7, 0], scale: 1.35, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 1.7, 0], scale: 1.35, rotationY: 0 },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/003059ce-de91-4f44-af7b-b67e34195a6c.png",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0, 4], scale: 1, rotationY: 0 },
+      { progress: 0.355, easing: "smooth", position: [0, 0.9, 4], scale: 0.96, rotationY: 0 },
+      { progress: 0.516, easing: "smooth", position: [0, 0.9, 4], scale: 0.96, rotationY: 0 },
+      { progress: 0.677, easing: "smooth", position: [0, 0.9, 4], scale: 0.96, rotationY: 0 },
+      { progress: 0.839, easing: "smooth", position: [0, 0.9, 4], scale: 0.96, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 0.9, 4], scale: 0.96, rotationY: 0 },
     ],
   },
 ];
@@ -385,22 +419,58 @@ function applyEasing(t, kind) {
 /*@GEN:SCENES_START*/
 const scenes = [
   {
-    id: "pose-1790610611832",
+    id: "pose-1790220547011",
     progress: 0,
     easing: "smooth",
-    camera: { position: [2.849, 1.57, 7.176], lookAt: [-0.03, 3.07, 0], fov: 69.2, roll: 0 },
-    light: { color: "#471a66", intensity: 15, azimuth: 153, elevation: 70, rimColor: "#49d3ff", rimIntensity: 5 },
-    fog: { enabled: true, color: "#73479e", far: 68 },
-    background: { from: "#b47474", to: "#000000", angle: 200 },
+    camera: { position: [0, 0, 4], lookAt: [0, 0, 0], fov: 70, roll: 0 },
+    light: { color: "#c815cb", intensity: 19, azimuth: 180, elevation: 56, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 19.5 },
+    background: { from: "#05070a", to: "#000000", angle: 200 },
   },
   {
-    id: "pose-1790614053742",
+    id: "pose-1790223251011",
+    progress: 0.355,
+    easing: "smooth",
+    camera: { position: [0, 0, 6], lookAt: [0, 0, 0], fov: 70, roll: 0 },
+    light: { color: "#c815cb", intensity: 19, azimuth: 180, elevation: 56, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 19.5 },
+    background: { from: "#05070a", to: "#000000", angle: 200 },
+  },
+  {
+    id: "pose-1790632237509",
+    progress: 0.516,
+    easing: "smooth",
+    camera: { position: [6, 0, 0], lookAt: [0, 0, 0], fov: 70, roll: 0 },
+    light: { color: "#c815cb", intensity: 19, azimuth: 180, elevation: 56, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 19.5 },
+    background: { from: "#05070a", to: "#000000", angle: 200 },
+  },
+  {
+    id: "pose-1790632958755",
+    progress: 0.677,
+    easing: "smooth",
+    camera: { position: [0, 0, -6], lookAt: [0, 0, 0], fov: 70, roll: 0 },
+    light: { color: "#c815cb", intensity: 19, azimuth: 180, elevation: 56, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 19.5 },
+    background: { from: "#05070a", to: "#000000", angle: 200 },
+  },
+  {
+    id: "pose-1790633072495",
+    progress: 0.839,
+    easing: "smooth",
+    camera: { position: [-6, 0, 0], lookAt: [0, 0, 0], fov: 70, roll: 0 },
+    light: { color: "#c815cb", intensity: 19, azimuth: 180, elevation: 56, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 19.5 },
+    background: { from: "#05070a", to: "#000000", angle: 200 },
+  },
+  {
+    id: "pose-1790633100121",
     progress: 1,
     easing: "smooth",
-    camera: { position: [1.165, 2.04, -2.169], lookAt: [-0.03, 3.07, 0], fov: 69.2, roll: 0 },
-    light: { color: "#471a66", intensity: 15, azimuth: 153, elevation: 70, rimColor: "#49d3ff", rimIntensity: 5 },
-    fog: { enabled: true, color: "#73479e", far: 29 },
-    background: { from: "#b47474", to: "#000000", angle: 200 },
+    camera: { position: [0, 0, 6], lookAt: [0, 0, 0], fov: 70, roll: 0 },
+    light: { color: "#c815cb", intensity: 19, azimuth: 180, elevation: 56, rimColor: "#49d3ff", rimIntensity: 0 },
+    fog: { enabled: true, color: "#000000", far: 19.5 },
+    background: { from: "#05070a", to: "#000000", angle: 200 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -411,8 +481,12 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1790610611832", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790614053742", progress: 1, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790220547011", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790223251011", progress: 0.355, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790632237509", progress: 0.516, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790632958755", progress: 0.677, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790633072495", progress: 0.839, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790633100121", progress: 1, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -437,7 +511,7 @@ function sampleMovement(progress) {
 /*@GEN:BONES_START*/
 const BONE_POSE_KEYFRAMES = [
   {
-    id: "pose-1790610611832",
+    id: "pose-1790220547011",
     progress: 0,
     easing: "smooth",
     bones: {
@@ -445,7 +519,39 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790614053742",
+    id: "pose-1790223251011",
+    progress: 0.355,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790632237509",
+    progress: 0.516,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790632958755",
+    progress: 0.677,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790633072495",
+    progress: 0.839,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790633100121",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -478,34 +584,34 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 150;
+const SCROLL_LENGTH_VH = 930;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.6;
-const VIGNETTE_OFFSET = 0.6;
+const VIGNETTE_DARKNESS = 0.23;
+const VIGNETTE_OFFSET = 0.37;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.17;
+const BLOOM_INTENSITY = 0.16;
 const BEAM_ENABLED = true;
 const BEAM_OPACITY = 1;
-const BEAM_WIDTH = 10;
-const BEAM_HEIGHT = 40;
+const BEAM_WIDTH = 9.1;
+const BEAM_HEIGHT = 26.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
-const REFLECTION_ENABLED = false;
-const REFLECTION_RESOLUTION = 256;
+const REFLECTION_ENABLED = true;
+const REFLECTION_RESOLUTION = 512;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 1.2;
+const REFLECTION_INTENSITY = 0.95;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
 const TRAIL_ENABLED = true;
-const TRAIL_COLOR = "#ffffff";
-const TRAIL_SIZE = 0.5;
-const TRAIL_LIFE = 10;
-const TRAIL_RATE = 33;
+const TRAIL_COLOR = "#a01894";
+const TRAIL_SIZE = 0.28;
+const TRAIL_LIFE = 3;
+const TRAIL_RATE = 120;
 /*@GEN:TRAIL_END*/
 
 function damp(current, target, lambda, dt) {
@@ -998,7 +1104,7 @@ function LightBeam({ enabled, opacity, width, height }) {
    three/AnimatedCharacter.jsx
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
-const CHAR_CENTER_Y = -1.29;
+const CHAR_CENTER_Y = 0.14;
 const CHAR_SCALE = 5;
 /*@GEN:CHAR_TRANSFORM_END*/
 
