@@ -333,8 +333,9 @@ const OBJECTS = [
     url: "./assets/models/esferanube.glb",
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 3.35, 0], scale: 7.16, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 3.35, 0], scale: 7.16, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 3.35, 0], scale: 20, rotationY: 0 },
+      { progress: 0.688, easing: "smooth", position: [0, 3.35, 0], scale: 20, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 3.35, 0], scale: 20, rotationY: 0 },
     ],
   },
   {
@@ -342,8 +343,9 @@ const OBJECTS = [
     url: "./assets/models/piso_bordes_abajo.glb",
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.76, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 0.76, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.42, rotationY: 0 },
+      { progress: 0.688, easing: "smooth", position: [0, 0, 0], scale: 0.42, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 0.42, rotationY: 0 },
     ],
   },
 ];
@@ -389,18 +391,27 @@ const scenes = [
     progress: 0,
     easing: "smooth",
     camera: { position: [-4.617, 0.282, 0.281], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 52, azimuth: 232, elevation: 79, rimColor: "#49d3ff", rimIntensity: 0.8 },
-    fog: { enabled: true, color: "#000000", far: 14 },
-    background: { from: "#6d9de3", to: "#6d9de3", angle: 200 },
+    light: { color: "#6f2484", intensity: 10, azimuth: 222, elevation: 42, rimColor: "#49d3ff", rimIntensity: 5 },
+    fog: { enabled: true, color: "#000000", far: 26.5 },
+    background: { from: "#b47474", to: "#000000", angle: 200 },
   },
   {
     id: "pose-1790223251011",
+    progress: 0.688,
+    easing: "smooth",
+    camera: { position: [-3.01, 0.516, 3.593], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    light: { color: "#6f2484", intensity: 10, azimuth: 222, elevation: 42, rimColor: "#49d3ff", rimIntensity: 5 },
+    fog: { enabled: true, color: "#000000", far: 26.5 },
+    background: { from: "#b47474", to: "#000000", angle: 200 },
+  },
+  {
+    id: "pose-1790607205946",
     progress: 1,
     easing: "smooth",
-    camera: { position: [-0.166, 2.831, 6.876], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
-    light: { color: "#fc2eff", intensity: 52, azimuth: 232, elevation: 79, rimColor: "#49d3ff", rimIntensity: 0.8 },
-    fog: { enabled: true, color: "#000000", far: 14 },
-    background: { from: "#6d9de3", to: "#6d9de3", angle: 200 },
+    camera: { position: [8.647, -0.035, -4.494], lookAt: [-0.03, 1.84, 0], fov: 69.2, roll: 0 },
+    light: { color: "#6f2484", intensity: 10, azimuth: 222, elevation: 42, rimColor: "#49d3ff", rimIntensity: 5 },
+    fog: { enabled: true, color: "#000000", far: 26.5 },
+    background: { from: "#b47474", to: "#000000", angle: 200 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -412,7 +423,8 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1790220547011", progress: 0, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1790223251011", progress: 1, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790223251011", progress: 0.688, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1790607205946", progress: 1, easing: "smooth", pos: [0, 0.17, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -446,6 +458,14 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1790223251011",
+    progress: 0.688,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790607205946",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -478,7 +498,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 330;
+const SCROLL_LENGTH_VH = 480;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
@@ -486,26 +506,26 @@ const VIGNETTE_ENABLED = true;
 const VIGNETTE_DARKNESS = 0.64;
 const VIGNETTE_OFFSET = 0.78;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.03;
+const BLOOM_INTENSITY = 0;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.3;
-const BEAM_WIDTH = 4.4;
-const BEAM_HEIGHT = 18;
+const BEAM_OPACITY = 0.61;
+const BEAM_WIDTH = 2.4;
+const BEAM_HEIGHT = 11.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = true;
-const REFLECTION_RESOLUTION = 256;
+const REFLECTION_RESOLUTION = 128;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 1.95;
+const REFLECTION_INTENSITY = 0.35;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
-const TRAIL_ENABLED = false;
-const TRAIL_COLOR = "#a01894";
-const TRAIL_SIZE = 0.26;
-const TRAIL_LIFE = 3;
-const TRAIL_RATE = 120;
+const TRAIL_ENABLED = true;
+const TRAIL_COLOR = "#000000";
+const TRAIL_SIZE = 0.595;
+const TRAIL_LIFE = 10;
+const TRAIL_RATE = 65;
 /*@GEN:TRAIL_END*/
 
 function damp(current, target, lambda, dt) {
@@ -998,7 +1018,7 @@ function LightBeam({ enabled, opacity, width, height }) {
    three/AnimatedCharacter.jsx
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
-const CHAR_CENTER_Y = -0.05;
+const CHAR_CENTER_Y = 0.14;
 const CHAR_SCALE = 5;
 /*@GEN:CHAR_TRANSFORM_END*/
 
