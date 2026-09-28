@@ -1508,9 +1508,12 @@ const PARTICLE_LOGO = {
   gridMobile: 170,
   spread: 1.0,          // cuánto se alejan las partículas (1 = normal, 2 = el doble)
   maxScatter: 1.0,      // 0..1 — desintegración máxima durante el scroll
-  disperseSpeed: 7,     // qué tan rápido se desintegra al scrollear
-  reassembleSpeed: 2.4, // qué tan rápido se rearma al frenar (menor = más lento)
-  holdSeconds: 0.22,    // tiempo sin scroll antes de empezar a rearmarse
+  disperseSpeed: 9,     // qué tan rápido se desintegra al scrollear
+  suspendSeconds: 0.45, // pausa "suspendida" con las partículas flotando antes de rearmarse
+  snapSeconds: 0.3,     // duración del rearmado (chico = más "flum")
+  sizeGrow: 2.4,        // cuánto crecen las partículas al dispersarse (1 = no crecen)
+  brightness: 1.7,      // brillo extra mientras están dispersas (>1 activa el bloom)
+  glowOnSnap: 0.6,      // destello blanco al rearmarse (0 = sin destello)
   scrollEps: 0.0002,    // sensibilidad: cuánto debe moverse el progreso para contar como scroll
 };
 
@@ -1522,6 +1525,9 @@ const LOGO_PARTICLE_VERTEX = `
   uniform float uSize;
   uniform float uSpread;
   uniform float uViewportH;
+  uniform float uSizeGrow;
+  uniform float uBright;
+  uniform float uGlow;
   varying vec3 vColor;
   varying float vAlpha;
   varying float vK;
@@ -1543,11 +1549,14 @@ const LOGO_PARTICLE_VERTEX = `
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     float worldScale = length(modelMatrix[0].xyz);
     float px = uSize * worldScale * projectionMatrix[1][1] * uViewportH * 0.5 / max(-mv.z, 0.001);
-    gl_PointSize = max(px * (1.0 - e * 0.45), 1.0);
+    gl_PointSize = max(px * (1.0 + (uSizeGrow - 1.0) * e * (0.6 + 0.8 * aRand.w)), 1.0);
     gl_Position = projectionMatrix * mv;
 
-    vColor = aColor;
-    vAlpha = 1.0 - e * 0.5;
+    // Color: más brillante mientras vuela (así el bloom lo toma) + destello al rearmarse
+    vec3 c = aColor * (1.0 + (uBright - 1.0) * smoothstep(0.0, 0.35, e));
+    c = mix(c, vec3(1.0), uGlow * 0.45);
+    vColor = c;
+    vAlpha = 1.0;
     vK = e;
   }
 `;
@@ -1560,7 +1569,7 @@ const LOGO_PARTICLE_FRAGMENT = `
     float round = smoothstep(0.0, 0.15, vK);
     float d = mix(max(abs(uv.x), abs(uv.y)), length(uv), round); // cuadrado en reposo, círculo al dispersarse
     if (d > 0.5) discard;
-    float a = vAlpha * (1.0 - smoothstep(0.32, 0.5, d) * round);
+    float a = vAlpha * (1.0 - smoothstep(0.38, 0.5, d) * round);
     gl_FragColor = vec4(vColor, a);
   }
 `;
@@ -1605,7 +1614,8 @@ function SceneObjectImageSvgParticles({ data }) {
   const meshRef = useRef(null);
   const pointsRef = useRef(null);
   const amount = useRef(0);
-  const hold = useRef(0);
+  const hold = useRef(999);
+  const snap = useRef(null);
   const prevProgress = useRef(null);
   const { size, gl } = useThree();
 
@@ -1621,6 +1631,9 @@ function SceneObjectImageSvgParticles({ data }) {
     uSize: { value: 0.004 },
     uSpread: { value: PARTICLE_LOGO.spread },
     uViewportH: { value: 800 },
+    uSizeGrow: { value: PARTICLE_LOGO.sizeGrow },
+    uBright: { value: PARTICLE_LOGO.brightness },
+    uGlow: { value: 0 },
   }), []);
 
   useFrame((state, delta) => {
@@ -1629,13 +1642,26 @@ function SceneObjectImageSvgParticles({ data }) {
     const moved = prevProgress.current !== null && Math.abs(p - prevProgress.current) > PARTICLE_LOGO.scrollEps;
     prevProgress.current = p;
 
-    if (moved) hold.current = PARTICLE_LOGO.holdSeconds;
-    else hold.current = Math.max(0, hold.current - dt);
+    let glow = 0;
+    if (moved) {
+      hold.current = 0;
+      snap.current = null;
+    } else {
+      hold.current += dt;
+    }
 
-    const target = hold.current > 0 ? PARTICLE_LOGO.maxScatter : 0;
-    const lambda = target > amount.current ? PARTICLE_LOGO.disperseSpeed : PARTICLE_LOGO.reassembleSpeed;
-    amount.current = damp(amount.current, target, lambda, dt);
-    if (target === 0 && amount.current < 0.003) amount.current = 0;
+    if (hold.current < PARTICLE_LOGO.suspendSeconds) {
+      // Desintegrándose / suspendida en el aire
+      amount.current = damp(amount.current, PARTICLE_LOGO.maxScatter, PARTICLE_LOGO.disperseSpeed, dt);
+    } else if (amount.current > 0) {
+      // Rearmado rápido: arranca suave y se acelera hacia el final ("flum")
+      if (!snap.current) snap.current = { t: 0, from: amount.current };
+      snap.current.t += dt;
+      const k = Math.min(1, snap.current.t / PARTICLE_LOGO.snapSeconds);
+      amount.current = snap.current.from * (1 - k * k * k);
+      glow = PARTICLE_LOGO.glowOnSnap * Math.sin(k * Math.PI) * k;
+      if (k >= 1) { amount.current = 0; snap.current = null; }
+    }
 
     // En reposo se muestra la textura nítida; en movimiento, las partículas.
     const resting = amount.current === 0;
@@ -1647,6 +1673,9 @@ function SceneObjectImageSvgParticles({ data }) {
       uniforms.uTime.value = state.clock.elapsedTime;
       uniforms.uSize.value = particles.spacing * 1.25;
       uniforms.uSpread.value = PARTICLE_LOGO.spread;
+      uniforms.uSizeGrow.value = PARTICLE_LOGO.sizeGrow;
+      uniforms.uBright.value = PARTICLE_LOGO.brightness;
+      uniforms.uGlow.value = glow;
       uniforms.uViewportH.value = size.height * gl.getPixelRatio();
     }
   });
