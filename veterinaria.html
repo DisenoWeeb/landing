@@ -3,59 +3,142 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pose, Cámara, Movimiento &amp; Objetos Generator</title>
+<title>Weeb Scene</title>
 <style>
-  html, body { margin: 0; padding: 0; background: #0f0f1a; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
-  #root { width: 100%; height: 100%; display: flex; }
-  .viewport { flex: 1; position: relative; }
-  canvas { display: block; }
-  .top-controls { position: absolute; top: 12px; left: 12px; z-index: 5; color: rgba(245,246,242,0.6); font-size: 11.5px; display: flex; flex-direction: column; gap: 4px; }
-  .toggle-row { display: flex; align-items: center; gap: 6px; background: rgba(10,10,16,0.7); padding: 5px 8px; border-radius: 6px; }
-  .toggle-row input { accent-color: #c8ff00; }
-  .panel { width: 420px; height: 100%; background: rgba(10,10,16,0.96); color: #f5f6f2; overflow-y: auto; padding: 16px; box-sizing: border-box; font-size: 13px; border-left: 1px solid rgba(200,255,0,0.3); display: flex; flex-direction: column; gap: 14px; }
-  h1 { font-size: 15px; margin: 0 0 2px; color: #c8ff00; }
-  p.hint { color: rgba(245,246,242,0.6); font-size: 11.5px; margin: 0; line-height: 1.4; }
-  .section-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-  .section-tab { flex: 1 1 30%; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 12px; font-weight: 600; }
-  .section-tab.active { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; }
-  .kf-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-  .kf-tab { flex: 1 1 30%; padding: 8px 4px; text-align: center; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid transparent; font-size: 11px; line-height: 1.3; }
-  .kf-tab.active { background: rgba(200,255,0,0.15); border-color: #c8ff00; color: #c8ff00; }
-  .kf-tab .p { display: block; font-size: 9.5px; color: rgba(245,246,242,0.5); }
-  .kf-tab.active .p { color: rgba(200,255,0,0.7); }
-  .scrub-row { display: flex; align-items: center; gap: 8px; }
-  .scrub-row input[type=range] { flex: 1; }
-  .scrub-row .val { width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
-  .section-title { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,246,242,0.5); margin: 4px 0 -4px; }
-  .bone-block { padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .bone-name { font-weight: 600; margin-bottom: 4px; font-size: 12px; }
-  .axis-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
-  .axis-row label { width: 14px; color: rgba(245,246,242,0.7); font-size: 11px; }
-  .axis-row input[type=range] { flex: 1; }
-  .axis-row input[type=text] { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #f5f6f2; border-radius: 4px; padding: 4px 6px; font-size: 11.5px; }
-  .axis-row input[type=number] { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #f5f6f2; border-radius: 4px; padding: 4px 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
-  .axis-row input[type=color] { width: 32px; height: 24px; padding: 0; border: none; background: none; }
-  .curve-select option { background: #0a0a0a; color: #f5f6f2; }
-  .axis-row .val { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: rgba(245,246,242,0.8); font-size: 11px; }
-  .cam-group { padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .cam-group-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #7dfff0; }
-  .axis-row input[type=number].axis-num { width: 58px; flex: 0 0 auto; }
-  .mobile-frame { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 4; border: 1.5px solid rgba(200,255,0,0.85); box-shadow: 0 0 0 2000px rgba(0,0,0,0.45); border-radius: 14px; }
-  .mobile-frame__label { position: absolute; top: -22px; left: 0; font-size: 10.5px; color: #c8ff00; background: rgba(10,10,16,0.75); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
-  .obj-block { padding: 8px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: rgba(255,255,255,0.03); }
-  .obj-block-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-  .obj-block-header input[type=text] { flex: 1; }
-  .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
-  .btn { padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: #f5f6f2; cursor: pointer; font-size: 11.5px; }
-  .btn.primary { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; font-weight: 600; }
-  .btn.danger { border-color: rgba(255,90,90,0.5); color: #ff9a9a; }
-  textarea.code { width: 100%; height: 160px; resize: vertical; background: #05050a; color: #cdeb8f; border: 1px solid rgba(200,255,0,0.25); border-radius: 6px; padding: 10px; font-family: ui-monospace, monospace; font-size: 10px; line-height: 1.4; box-sizing: border-box; }
-  .copied { color: #c8ff00; font-size: 11px; }
+  :root { --bg0:#0a0c11; --bg1:#10131a; --bg2:#171b25; --line:#212736; --line2:#2e364a; --tx:#e6e9f0; --tx2:#8790a5; --acc:#49d3ff; --danger:#ff6b7d; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg0); height:100%; overflow:hidden; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--tx); }
+  body.dragging { cursor: ew-resize; user-select: none; }
+  #root { width:100%; height:100%; display:flex; }
+  .viewport { flex:1; position:relative; min-width:0; }
+  canvas { display:block; }
+  .grow { flex:1; }
+
+  /* viewport overlays */
+  .vp-bar { position:absolute; top:10px; left:10px; z-index:5; display:flex; gap:4px; flex-wrap:wrap; }
+  .vchip { padding:4px 9px; font-size:11px; border-radius:6px; cursor:pointer; user-select:none; color:var(--tx2); background:rgba(10,12,17,.75); border:1px solid var(--line2); backdrop-filter:blur(6px); }
+  .vchip.on { color:#04212b; background:var(--acc); border-color:var(--acc); font-weight:600; }
+  .vp-hud { position:absolute; left:10px; bottom:10px; z-index:5; font:600 11px ui-monospace, Menlo, monospace; color:var(--acc); background:rgba(10,12,17,.75); border:1px solid var(--line2); padding:4px 9px; border-radius:6px; }
+  .mk { pointer-events:none; white-space:nowrap; font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:10px; color:#0a0c11; background:var(--oc); opacity:.85; transform:translateY(-4px); }
+  .mk.sel { opacity:1; box-shadow:0 0 0 2px #fff; }
+  .mobile-frame { position:absolute; top:0; left:0; pointer-events:none; z-index:4; border:1.5px solid var(--acc); box-shadow:0 0 0 2000px rgba(0,0,0,.45); border-radius:14px; }
+  .mobile-frame__label { position:absolute; top:-22px; left:0; font-size:10.5px; color:var(--acc); background:rgba(10,12,17,.75); padding:2px 6px; border-radius:4px; white-space:nowrap; }
+
+  /* panel */
+  .panel { width:470px; height:100%; display:flex; background:var(--bg1); border-left:1px solid var(--line); font-size:12px; }
+  .rail { width:58px; flex:none; background:var(--bg0); border-right:1px solid var(--line); display:flex; flex-direction:column; padding:6px 0; gap:2px; }
+  .rail-btn { display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 0 7px; background:none; border:0; border-left:2px solid transparent; color:var(--tx2); cursor:pointer; font-size:9.5px; letter-spacing:.03em; }
+  .rail-btn:hover { color:var(--tx); background:var(--bg2); }
+  .rail-btn.on { color:var(--acc); border-left-color:var(--acc); background:var(--bg1); }
+  .main { flex:1; min-width:0; display:flex; flex-direction:column; position:relative; }
+  .topbar { display:flex; align-items:center; gap:4px; padding:7px 10px; border-bottom:1px solid var(--line); }
+  .brand { font:700 11px ui-monospace, Menlo, monospace; letter-spacing:.14em; color:var(--tx2); }
+  .brand b { color:var(--acc); }
+  .stagebar { padding:8px 10px; border-bottom:1px solid var(--line); background:var(--bg1); display:flex; flex-direction:column; gap:6px; }
+  .stage-row { display:flex; align-items:center; gap:4px; }
+  .chips { flex:1; display:flex; gap:3px; overflow-x:auto; scrollbar-width:none; padding:1px; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { flex:none; min-width:26px; height:26px; padding:0 6px; border-radius:5px; cursor:pointer; background:var(--bg2); border:1px solid var(--line2); color:var(--tx2); font:600 11px ui-monospace, Menlo, monospace; }
+  .chip:hover { color:var(--tx); }
+  .chip.on { background:var(--acc); color:#04212b; border-color:var(--acc); }
+  .stage-name { flex:1; }
+  .stage-meta { font:11px ui-monospace, Menlo, monospace; color:var(--tx2); }
+  .content { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .content::-webkit-scrollbar { width:8px; } .content::-webkit-scrollbar-thumb { background:var(--line2); border-radius:4px; }
+
+  /* controles */
+  .ibtn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; flex:none; border-radius:6px; cursor:pointer; color:var(--tx2); background:var(--bg2); border:1px solid var(--line2); padding:0; }
+  .ibtn:hover:not(:disabled) { color:var(--tx); border-color:var(--tx2); }
+  .ibtn:disabled { opacity:.35; cursor:default; }
+  .ibtn.acc { color:var(--acc); border-color:var(--acc); }
+  .ibtn.danger:hover:not(:disabled) { color:var(--danger); border-color:var(--danger); }
+  .mini { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; flex:none; background:none; border:0; border-radius:4px; color:var(--tx2); cursor:pointer; padding:0; }
+  .mini:hover { color:var(--tx); background:var(--bg2); }
+  .mini.danger:hover { color:var(--danger); }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:11.5px; color:var(--tx); background:var(--bg2); border:1px solid var(--line2); }
+  .btn:hover:not(:disabled) { border-color:var(--tx2); }
+  .btn:disabled { opacity:.35; cursor:default; }
+  .btn.acc { background:var(--acc); color:#04212b; border-color:var(--acc); font-weight:600; }
+  .btn.danger { color:var(--danger); border-color:rgba(255,107,125,.4); }
+  .tools { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  input[type=text], select, textarea { background:var(--bg0); color:var(--tx); border:1px solid var(--line2); border-radius:5px; padding:5px 7px; font:12px system-ui, sans-serif; min-width:0; }
+  input[type=text]:focus, select:focus, textarea:focus { outline:none; border-color:var(--acc); }
+  select option { background:var(--bg1); }
+  input[type=color] { width:30px; height:22px; padding:0; border:1px solid var(--line2); border-radius:4px; background:none; cursor:pointer; }
+  input[type=file] { display:none; }
+  .row { display:flex; align-items:center; gap:8px; min-height:26px; }
+  .lbl { width:58px; flex:none; color:var(--tx2); font-size:11px; }
+  .hex { font:11px ui-monospace, Menlo, monospace; color:var(--tx2); }
+  .path { flex:1; font-family: ui-monospace, Menlo, monospace !important; font-size:11px !important; }
+  .num { display:flex; align-items:center; background:var(--bg0); border:1px solid var(--line2); border-radius:5px; height:24px; overflow:hidden; min-width:0; }
+  .num:focus-within { border-color:var(--acc); }
+  .num-l { padding:0 6px; height:100%; display:flex; align-items:center; font:700 10px ui-monospace, Menlo, monospace; cursor:ew-resize; user-select:none; background:var(--bg2); }
+  .num input { width:100%; min-width:0; border:0; background:none; color:var(--tx); font:11.5px ui-monospace, Menlo, monospace; padding:0 6px; height:100%; text-align:right; }
+  .num input:focus { outline:none; }
+  .row > .num { width:64px; flex:none; }
+  .vec3 { flex:1; display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; }
+  .vec3 .num { width:auto; }
+  input[type=range] { -webkit-appearance:none; appearance:none; flex:1; min-width:0; height:16px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height:3px; border-radius:2px; background:linear-gradient(to right, var(--acc) var(--pct,0%), var(--line2) var(--pct,0%)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:11px; height:11px; margin-top:-4px; border-radius:50%; background:#fff; border:2px solid var(--acc); }
+  input[type=range]::-moz-range-track { height:3px; background:var(--line2); }
+  input[type=range]::-moz-range-progress { height:3px; background:var(--acc); }
+  input[type=range]::-moz-range-thumb { width:9px; height:9px; border-radius:50%; background:#fff; border:2px solid var(--acc); }
+  .sw { display:inline-flex; align-items:center; cursor:pointer; }
+  .sw input { display:none; }
+  .sw-track { width:28px; height:15px; border-radius:8px; background:var(--line2); position:relative; transition:.15s; }
+  .sw-track::after { content:""; position:absolute; top:2px; left:2px; width:11px; height:11px; border-radius:50%; background:#fff; transition:.15s; }
+  .sw input:checked + .sw-track { background:var(--acc); }
+  .sw input:checked + .sw-track::after { left:15px; }
+  .sw-txt { margin-left:7px; font-size:11.5px; }
+  .seg { display:flex; background:var(--bg0); border:1px solid var(--line2); border-radius:6px; overflow:hidden; }
+  .seg button { flex:1; padding:5px 6px; font-size:11px; border:0; background:none; color:var(--tx2); cursor:pointer; }
+  .seg button.on { background:var(--acc); color:#04212b; font-weight:600; }
+  .pre { display:flex; gap:4px; flex-wrap:wrap; margin-left:66px; }
+  .pre button { padding:3px 8px; font-size:10.5px; border-radius:10px; border:1px solid var(--line2); background:none; color:var(--tx2); cursor:pointer; }
+  .pre button:hover { color:var(--tx); border-color:var(--tx2); }
+
+  /* grupos */
+  .grp { background:var(--bg2); border:1px solid var(--line); border-radius:8px; }
+  .grp > header { display:flex; align-items:center; gap:6px; padding:7px 9px; cursor:pointer; user-select:none; }
+  .grp .chev { color:var(--tx2); font-size:9px; transition:.15s; }
+  .grp.open .chev { transform:rotate(90deg); }
+  .grp-t { font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; font-weight:700; color:var(--tx2); }
+  .grp-b { padding:2px 10px 10px; display:flex; flex-direction:column; gap:5px; }
+
+  /* huesos */
+  .bone { display:grid; grid-template-columns:86px repeat(3, 1fr) 22px; gap:4px; align-items:center; padding:2px 0 2px 6px; border-left:3px solid var(--line2); }
+  .bone.l { border-left-color:#49d3ff; } .bone.r { border-left-color:#ff8cc6; }
+  .bone-n { font-size:10.5px; color:var(--tx2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bone.dirty .bone-n { color:var(--tx); font-weight:600; }
+  .bone.missing { opacity:.3; }
+  .warn { color:#ffb454; font-size:11px; }
+  .empty { color:var(--tx2); font-size:11px; text-align:center; padding:14px 0; }
+
+  /* objetos (outliner) */
+  .outliner { display:flex; flex-direction:column; gap:3px; }
+  .orow { display:flex; align-items:center; gap:7px; padding:5px 6px 5px 8px; border-radius:6px; cursor:pointer; background:var(--bg2); border:1px solid transparent; border-left:4px solid var(--oc); }
+  .orow:hover { border-color:var(--line2); border-left-color:var(--oc); }
+  .orow.sel { background:color-mix(in srgb, var(--oc) 18%, var(--bg2)); border-color:var(--oc); }
+  .orow.off { opacity:.45; }
+  .oico { color:var(--oc); display:flex; }
+  .oname { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  .oed { border:1px solid var(--oc); border-top-width:3px; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:7px; background:var(--bg2); }
+  .oed-h { display:flex; align-items:center; gap:8px; }
+  .odot { width:10px; height:10px; border-radius:50%; background:var(--oc); flex:none; }
+  .oname-in { flex:1; font-weight:600 !important; }
+  .tr-n { width:38px; flex:none; font:600 11px ui-monospace, Menlo, monospace; color:var(--acc); }
+  .tl { display:flex; height:22px; border-radius:5px; overflow:hidden; gap:2px; }
+  .tl div { background:var(--line2); font:600 10px ui-monospace, Menlo, monospace; color:var(--tx2); display:flex; align-items:center; justify-content:center; min-width:16px; }
+  .stat { font:11px ui-monospace, Menlo, monospace; color:var(--tx2); }
+  textarea.code { width:100%; height:110px; resize:vertical; font:10.5px ui-monospace, Menlo, monospace; color:#9fe3b5; }
+  .toast { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); background:var(--acc); color:#04212b; padding:6px 14px; border-radius:16px; font-weight:600; font-size:11.5px; z-index:20; }
+  .err { color:var(--danger); font-size:11px; }
 </style>
 </head>
 <body>
 <div id="root"></div>
-<script id="embedded-project-b64" type="text/plain">eyJraW5kIjoid2VlYi1zY3JvbGwtcHJvamVjdCIsInZlcnNpb24iOjEsInNhdmVkQXQiOiIyMDI2LTA5LTIyVDE5OjU0OjA0LjAwMFoiLCJtb2RlbFVybCI6Ii4vYXNzZXRzL21vZGVscy9ib3dsMS5nbGIiLCJjaGFyU2NhbGUiOjgsImNoYXJDZW50ZXJZIjowLjA1LCJwb3N0RngiOnsidmlnbmV0dGVFbmFibGVkIjp0cnVlLCJ2aWduZXR0ZURhcmtuZXNzIjoxLCJ2aWduZXR0ZU9mZnNldCI6MSwiYmxvb21FbmFibGVkIjp0cnVlLCJibG9vbUludGVuc2l0eSI6MC4xMX0sInRyYWlsIjp7ImVuYWJsZWQiOmZhbHNlLCJjb2xvciI6IiNmZmQ4NzMiLCJzaXplIjowLjA1LCJsaWZlIjowLjksInJhdGUiOjQwfSwicmVmbGVjdGlvbiI6eyJlbmFibGVkIjp0cnVlLCJyZXNvbHV0aW9uIjo1MTIsInVwZGF0ZUV2ZXJ5IjoxLCJpbnRlbnNpdHkiOjAuNX0sInN0YWdlcyI6W3siaWQiOiJwb3NlLTE3OTAxMDM4Njg2OTEiLCJsYWJlbCI6IlBvc2UgMyJ9LHsiaWQiOiJwb3NlLTE3OTAxMDQ4MTI2NDIiLCJsYWJlbCI6IlBvc2UgMyJ9XSwiZHVyYXRpb25zVmgiOlsxNTBdLCJlYXNpbmdzIjpbInNtb290aCJdLCJwb3Nlc0J5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7InNwaW5lMSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwic3BpbmUyIjp7IngiOjAsInkiOjAsInoiOjB9LCJuZWNrIjp7IngiOjAsInkiOjAsInoiOjB9LCJoZWFkIjp7IngiOjAsInkiOjAsInoiOjB9LCJsQ2xhdmljbGUiOnsieCI6MCwieSI6MCwieiI6MH0sInJDbGF2aWNsZSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibEZvcmVhcm0iOnsieCI6MCwieSI6MCwieiI6MH0sInJGb3JlYXJtIjp7IngiOjAsInkiOjAsInoiOjB9LCJsSGFuZCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickhhbmQiOnsieCI6MCwieSI6MCwieiI6MH0sImxUaGlnaCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwiclRoaWdoIjp7IngiOjAsInkiOjAsInoiOjB9LCJsQ2FsZiI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickNhbGYiOnsieCI6MCwieSI6MCwieiI6MH0sImxGb290Ijp7IngiOjAsInkiOjAsInoiOjB9LCJyRm9vdCI6eyJ4IjowLCJ5IjowLCJ6IjowfX0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJzcGluZTEiOnsieCI6MCwieSI6MCwieiI6MH0sInNwaW5lMiI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibmVjayI6eyJ4IjowLCJ5IjowLCJ6IjowfSwiaGVhZCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibENsYXZpY2xlIjp7IngiOjAsInkiOjAsInoiOjB9LCJyQ2xhdmljbGUiOnsieCI6MCwieSI6MCwieiI6MH0sImxGb3JlYXJtIjp7IngiOjAsInkiOjAsInoiOjB9LCJyRm9yZWFybSI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibEhhbmQiOnsieCI6MCwieSI6MCwieiI6MH0sInJIYW5kIjp7IngiOjAsInkiOjAsInoiOjB9LCJsVGhpZ2giOnsieCI6MCwieSI6MCwieiI6MH0sInJUaGlnaCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwibENhbGYiOnsieCI6MCwieSI6MCwieiI6MH0sInJDYWxmIjp7IngiOjAsInkiOjAsInoiOjB9LCJsRm9vdCI6eyJ4IjowLCJ5IjowLCJ6IjowfSwickZvb3QiOnsieCI6MCwieSI6MCwieiI6MH19fSwiY2Ftc0J5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7InBvc2l0aW9uIjpbLTQuNzY2OTgyNzIwOTM2OTc4LDMuMzUxMTM0NDg2Mzc3ODA1NiwtMy45Nzc5NDM2MjUzNDQxMjAzXSwibG9va0F0IjpbMTQuOTksLTExLjI3LDcuMTJdLCJmb3YiOjE1MCwicm9sbCI6MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6Wy0yLjE3LDEuNiwwLjI4XSwibG9va0F0IjpbMTIsLTExLjkzLC0yLjU5XSwiZm92IjoxNS40LCJyb2xsIjowfX0sIm1vdmVzQnlLZiI6eyJwb3NlLTE3OTAxMDM4Njg2OTEiOnsicG9zIjpbMCwwLDBdLCJ5YXciOjAsInBpdGNoIjowfSwicG9zZS0xNzkwMTA0ODEyNjQyIjp7InBvcyI6WzAsMCwwXSwieWF3IjowLCJwaXRjaCI6MH19LCJmeEJ5S2YiOnsicG9zZS0xNzkwMTAzODY4NjkxIjp7ImxpZ2h0Ijp7ImNvbG9yIjoiI2RmZWVmZiIsImludGVuc2l0eSI6MC43LCJhemltdXRoIjo0NSwiZWxldmF0aW9uIjozNSwicmltQ29sb3IiOiIjNDlkM2ZmIiwicmltSW50ZW5zaXR5IjoxLjR9LCJmb2ciOnsiZW5hYmxlZCI6ZmFsc2UsImNvbG9yIjoiIzA1MDcwYSIsImZhciI6MjB9LCJiYWNrZ3JvdW5kIjp7Im1vZGUiOiJzb2xpZCIsImZyb20iOiIjMDUwNzBhIiwidG8iOiIjMDUwNzBhIiwiYW5nbGUiOjE4MH19LCJwb3NlLTE3OTAxMDQ4MTI2NDIiOnsibGlnaHQiOnsiY29sb3IiOiIjZGZlZWZmIiwiaW50ZW5zaXR5IjowLjcsImF6aW11dGgiOjQ1LCJlbGV2YXRpb24iOjM1LCJyaW1Db2xvciI6IiM0OWQzZmYiLCJyaW1JbnRlbnNpdHkiOjEuNH0sImZvZyI6eyJlbmFibGVkIjpmYWxzZSwiY29sb3IiOiIjMDUwNzBhIiwiZmFyIjoyMH0sImJhY2tncm91bmQiOnsibW9kZSI6InNvbGlkIiwiZnJvbSI6IiMwNTA3MGEiLCJ0byI6IiMwNTA3MGEiLCJhbmdsZSI6MTgwfX19LCJvYmplY3RzIjpbeyJpZCI6Im9iai0xNzkwMTAzMjc0MDExIiwibGFiZWwiOiJPYmpldG8gMSIsInR5cGUiOiJtb2RlbCIsInVybCI6Ii4vYXNzZXRzL21vZGVscy9lc2ZlcmEuZ2xiIiwicHJldmlld1VybCI6bnVsbCwiYmlsbGJvYXJkIjpmYWxzZSwidmlzaWJsZSI6dHJ1ZX0seyJpZCI6Im9iai0xNzkwMTAzNjAwODgzIiwibGFiZWwiOiJPYmpldG8gMyIsInR5cGUiOiJpbWFnZSIsInVybCI6Ii4vYXNzZXRzL21vZGVscy9yZWZsZWpvMi5qcGciLCJwcmV2aWV3VXJsIjpudWxsLCJiaWxsYm9hcmQiOmZhbHNlLCJ2aXNpYmxlIjp0cnVlfV0sIm9iamVjdFRyYW5zZm9ybXNCeUtmIjp7Im9iai0xNzkwMTAzMjc0MDExIjp7InBvc2UtMTc5MDEwMzg2ODY5MSI6eyJwb3NpdGlvbiI6WzAsNCwwXSwic2NhbGUiOjAuOTYsInJvdGF0aW9uWSI6MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6WzAsNCwwXSwic2NhbGUiOjIuMzgsInJvdGF0aW9uWSI6MH19LCJvYmotMTc5MDEwMzYwMDg4MyI6eyJwb3NlLTE3OTAxMDM4Njg2OTEiOnsicG9zaXRpb24iOlstMS45NSwxLjYsLTldLCJzY2FsZSI6My42Niwicm90YXRpb25ZIjo5MH0sInBvc2UtMTc5MDEwNDgxMjY0MiI6eyJwb3NpdGlvbiI6Wy0xLjcsLTAuOSwwXSwic2NhbGUiOjYuOTEsInJvdGF0aW9uWSI6OTB9fX19</script>
+<script id="embedded-project-b64" type="text/plain"></script>
 
 <textarea id="tpl-source" style="display:none">
 <!DOCTYPE html>
@@ -176,6 +259,11 @@
     line-height: 1.05;
     margin: 0 0 0.75rem 0;
     color: var(--color-text);
+  }
+  .kinetic-word { display: inline-block; }
+  .kinetic-char {
+    display: inline-block;
+    will-change: transform, opacity, filter;
   }
   .scene-text__subtitle {
     font-family: var(--font-body);
@@ -972,7 +1060,7 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
   });
 
   return (
-    <points key={maxParticles} ref={pointsRef} frustumCulled={false}>
+    <points key={maxParticles} ref={pointsRef} frustumCulled={false} userData={{ excludeFromReflection: true }}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
         <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
@@ -1026,11 +1114,22 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
     anchor.getWorldPosition(posRef.current);
     camRef.current.position.copy(posRef.current);
 
-    // Oculta el modelo un instante para que no se refleje a sí mismo.
+    // Oculta el modelo (para que no se refleje a sí mismo) y también todo lo
+    // marcado como "no reflejar" (rayo de luz, estela de chispas) — si no,
+    // esos brillos quedan pegados adentro del reflejo aunque estén apagados
+    // en pantalla, porque el reflejo los captura igual un instante antes.
+    const hidden = [];
+    scene.traverse((obj) => {
+      if (obj.userData && obj.userData.excludeFromReflection && obj.visible) {
+        hidden.push(obj);
+        obj.visible = false;
+      }
+    });
     const wasVisible = anchor.visible;
     anchor.visible = false;
     camRef.current.update(gl, scene);
     anchor.visible = wasVisible;
+    hidden.forEach((obj) => { obj.visible = true; });
 
     const texture = rtRef.current.texture;
     anchor.traverse((child) => {
@@ -1049,6 +1148,86 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
   });
 
   return null;
+}
+
+/* Textura de degradado para el rayo de luz: brillante en el centro,
+   transparente en los bordes y en las puntas (arriba/abajo) — se genera
+   una sola vez con canvas, no hace falta subir ningún asset. */
+let _beamTextureCache = null;
+function getBeamTexture() {
+  if (_beamTextureCache) return _beamTextureCache;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, size, 0);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.5, "rgba(255,255,255,1)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const vgrad = ctx.createLinearGradient(0, 0, 0, size);
+  vgrad.addColorStop(0, "rgba(0,0,0,1)");
+  vgrad.addColorStop(0.12, "rgba(0,0,0,0)");
+  vgrad.addColorStop(0.82, "rgba(0,0,0,0)");
+  vgrad.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = vgrad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  _beamTextureCache = tex;
+  return tex;
+}
+
+/* Rayo de luz volumétrico (fake): 3 planos cruzados con degradado
+   aditivo, apuntando siempre hacia la dirección/color de la luz de la
+   etapa actual (se actualiza solo — nunca hay que tocar un color a
+   mano acá). No es raymarching real, pero con blending aditivo encima
+   de la niebla se lee como un haz de luz que baja, sin pesar nada.
+   Por ahora apunta al origen de la escena (0,0,0) — si tu objeto
+   principal no está ahí, movelo o avisame para agregar un offset. */
+function LightBeam({ enabled, opacity, width, height }) {
+  const groupRef = useRef(null);
+  const matRefs = useRef([]);
+  const texture = useMemo(() => getBeamTexture(), []);
+
+  useFrame(() => {
+    if (!enabled || !groupRef.current) return;
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    const dir = lightDirFromAngles(state.light.azimuth, state.light.elevation, 1);
+    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+    groupRef.current.position.set(dirVec.x * height * 0.5, dirVec.y * height * 0.5, dirVec.z * height * 0.5);
+    groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
+    matRefs.current.forEach((m) => {
+      if (!m) return;
+      m.color.set(state.light.color);
+      m.opacity = opacity;
+    });
+  });
+
+  if (!enabled) return null;
+
+  return (
+    <group ref={groupRef} userData={{ excludeFromReflection: true }}>
+      {[0, 60, 120].map((deg, i) => (
+        <mesh key={deg} rotation={[0, (deg * Math.PI) / 180, 0]}>
+          <planeGeometry args={[width, height]} />
+          <meshBasicMaterial
+            ref={(m) => { matRefs.current[i] = m; }}
+            map={texture}
+            transparent
+            opacity={opacity}
+            color="#ffffff"
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
 }
 /* ============================================================
    three/AnimatedCharacter.jsx
@@ -1102,6 +1281,12 @@ function AnimatedCharacter({ mouse, anchorRef }) {
     restRef.current = rest;
   }, [scene]);
 
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
+  }, [scene]);
+
   useFrame((_, delta) => {
     clockRef.current += delta;
     const t = clockRef.current;
@@ -1114,14 +1299,16 @@ function AnimatedCharacter({ mouse, anchorRef }) {
 
     /*@GEN:MOVEMENT_START*/
     const m = sampleMovement(progress);
-    const idleFloat = Math.sin(t * 0.8) * 0.022;
+    const idleFloat = 0; // desactivado: hacía que CUALQUIER modelo (bowl incluido) flotara solo,
+    // y esto NO pasaba en el editor (ahí no existía este bamboleo) — por eso se veía
+    // distinto entre el editor y el sitio final descargado.
     outer.position.x = damp(outer.position.x, m.pos[0], 3, delta);
     outer.position.y = damp(outer.position.y, m.pos[1] + idleFloat, 5, delta);
     outer.position.z = damp(outer.position.z, m.pos[2], 2.0, delta);
 
     pivot.rotation.y = damp(pivot.rotation.y, (m.yaw * Math.PI) / 180, 4.5, delta);
     pivot.rotation.x = damp(pivot.rotation.x, (m.pitch * Math.PI) / 180, 4.5, delta);
-    pivot.rotation.z = damp(pivot.rotation.z, Math.sin(t * 0.35) * 0.04, 4, delta);
+    
     /*@GEN:MOVEMENT_END*/
 
     const chain = chainRef.current;
@@ -1168,14 +1355,14 @@ function AnimatedCharacter({ mouse, anchorRef }) {
   });
 
   return (
-    <group ref={outerRef} position={[0, -0.95, -1.3]}>
+    <group ref={outerRef} position={[0, 0, 0]}>
       <group ref={pivotRef}>
         <primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} />
       </group>
     </group>
   );
 }
-useGLTF.preload(CHARACTER_MODEL_URL);
+if (CHARACTER_MODEL_URL) useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
    Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
@@ -1350,6 +1537,11 @@ function SceneObjectText({ data }) {
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const groupRef = useObjectTransformRef(data.keyframes, false);
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
+  }, [scene]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
@@ -1455,9 +1647,21 @@ function Lighting() {
 
   return (
     <>
-      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.45} />
-      <ambientLight intensity={0.32} />
-      <directionalLight ref={keyRef} intensity={0.9} />
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
+      <ambientLight intensity={0.28} />
+      <directionalLight
+        ref={keyRef}
+        intensity={0.9}
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0015}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+      />
       <directionalLight position={[-3, 2, -2]} intensity={0.5} />
       <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
     </>
@@ -1501,7 +1705,7 @@ function Experience({ device }) {
         <SceneObjects />
         <ObjectBoundary>
           <Suspense fallback={null}>
-            <AnimatedCharacter mouse={mouse} anchorRef={charAnchorRef} />
+            {CHARACTER_MODEL_URL ? <AnimatedCharacter mouse={mouse} anchorRef={charAnchorRef} /> : null}
           </Suspense>
         </ObjectBoundary>
       </Suspense>
@@ -1521,8 +1725,10 @@ function Experience({ device }) {
         updateEvery={REFLECTION_UPDATE_EVERY}
         intensity={REFLECTION_INTENSITY}
       />
+
+      <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} />
   
-      {device.enablePostProcessing && BLOOM_ENABLED && (
+      {BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
           <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
         </EffectComposer>
@@ -1536,8 +1742,37 @@ function textWeight(kf, progress, window_ = 0.14) {
   return clamp(1 - d / window_);
 }
 
+/* Divide un título en palabras (para que no corten mal el renglón) y cada
+   palabra en caracteres — cada <span> de caracter se anima individualmente
+   para el efecto de tipografía cinética (entra/sale en cascada con el
+   scroll, no como bloque entero). Guarda cada span en charRefsArr. */
+function renderKineticTitle(text, charRefsArr) {
+  charRefsArr.length = 0;
+  const words = String(text || "").split(" ");
+  let globalIndex = 0;
+  return words.map((word, wi) => (
+    <span key={wi} className="kinetic-word">
+      {word.split("").map((ch, ci) => {
+        const idx = globalIndex++;
+        return (
+          <span
+            key={ci}
+            ref={(el) => { charRefsArr[idx] = el; }}
+            className="kinetic-char"
+            style={{ opacity: 0 }}
+          >
+            {ch}
+          </span>
+        );
+      })}
+      {wi < words.length - 1 ? "\u00A0" : ""}
+    </span>
+  ));
+}
+
 function SceneText() {
   const refs = useRef([]);
+  const charRefsByScene = useRef(scenes.map(() => []));
 
   useEffect(() => {
     const update = (progress) => {
@@ -1545,12 +1780,26 @@ function SceneText() {
         const el = refs.current[i];
         if (!el || !kf.text) return;
         const weight = textWeight(kf, progress);
-        el.style.opacity = String(weight);
+        el.style.opacity = String(weight > 0 ? 1 : 0); // el contenedor solo controla visibilidad/posición del bloque
         el.style.transform =
           kf.text.align === "center"
-            ? `translateX(-50%) translateY(${(1 - weight) * 24}px)`
-            : `translateY(${(1 - weight) * 24}px)`;
+            ? `translateX(-50%) translateY(${(1 - weight) * 10}px)`
+            : `translateY(${(1 - weight) * 10}px)`;
         el.style.pointerEvents = weight > 0.5 ? "auto" : "none";
+
+        // Reveal en cascada por caracter (tipografía cinética)
+        const chars = charRefsByScene.current[i];
+        if (chars && chars.length) {
+          const stagger = 0.6; // qué tan "esparcida" queda la cascada entre el primer y el último caracter
+          const n = chars.length;
+          chars.forEach((cel, j) => {
+            if (!cel) return;
+            const localW = clamp(weight * (1 + stagger) - (j / n) * stagger);
+            cel.style.opacity = String(localW);
+            cel.style.transform = `translateY(${(1 - localW) * 14}px)`;
+            cel.style.filter = `blur(${(1 - localW) * 3}px)`;
+          });
+        }
       });
     };
     update(useScrollStore.getState().smoothProgress);
@@ -1569,7 +1818,7 @@ function SceneText() {
             style={{ opacity: 0 }}
           >
             {kf.text.eyebrow && <span className="scene-text__eyebrow">{kf.text.eyebrow}</span>}
-            <h2 className="scene-text__title">{kf.text.title}</h2>
+            <h2 className="scene-text__title">{renderKineticTitle(kf.text.title, charRefsByScene.current[i])}</h2>
             {kf.text.subtitle && <p className="scene-text__subtitle">{kf.text.subtitle}</p>}
           </div>
         ) : null
@@ -1744,6 +1993,7 @@ function App() {
       <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
         <Canvas
           dpr={device.dpr}
+          shadows="soft"
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
         >
@@ -1806,10 +2056,10 @@ import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, OrbitControls, Grid, useTexture, Billboard } from "@react-three/drei";
+import { useGLTF, OrbitControls, Grid, useTexture, Billboard, Html } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
-const DEFAULT_MODEL_URL = "./assets/models/bowl1.glb";
+const DEFAULT_MODEL_URL = "";
 
 const BONE_DEFS = [
   ["spine1", "Spine01"], ["spine2", "Spine02"], ["neck", "NeckTwist01"], ["head", "Head"],
@@ -1853,19 +2103,12 @@ function applyEasing(t, kind) {
    siempre las mismas etapas.
    ============================================================ */
 function makeDefaultStages() {
-  return [
-    { id: "pose-1", label: "Pose 1" },
-    { id: "pose-2", label: "Pose 2" },
-    { id: "pose-3", label: "Pose 3" },
-    { id: "pose-4", label: "Pose 4" },
-    { id: "pose-5", label: "Pose 5" },
-    { id: "pose-6", label: "Pose 6" },
-  ];
+  return [{ id: "pose-1", label: "Pose 1" }];
 }
 /* Duración de cada tramo (en vh de scroll), entre etapa[i] y etapa[i+1].
    Un valor menos que la cantidad de etapas. La suma de estos valores es
    el largo total del scroll. Editable desde la pestaña "Duración". */
-const DEFAULT_DURATIONS_VH = [170, 275, 125, 190, 190];
+const DEFAULT_DURATIONS_VH = [];
 
 function stagesWithProgress(stageList, durationsVh) {
   const total = durationsVh.reduce((a, b) => a + b, 0) || 1;
@@ -2056,6 +2299,12 @@ function Character({ pose, onBonesFound, modelUrl, scale, centerY }) {
     onBonesFound(found);
   }, [scene]);
 
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
+  }, [scene]);
+
   useFrame(() => {
     const bones = bonesRef.current, rest = restRef.current;
     BONE_KEYS.forEach((key) => {
@@ -2069,7 +2318,7 @@ function Character({ pose, onBonesFound, modelUrl, scale, centerY }) {
 
   return <primitive object={scene} position={[0, -centerY, 0]} scale={scale} />;
 }
-useGLTF.preload(DEFAULT_MODEL_URL);
+if (DEFAULT_MODEL_URL) useGLTF.preload(DEFAULT_MODEL_URL);
 
 function SceneCameraDriver({ target, active }) {
   const { camera } = useThree();
@@ -2132,6 +2381,11 @@ class ObjectBoundary extends React.Component {
 
 function ObjectPreviewModel({ obj }) {
   const { scene } = useGLTF(obj.url);
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
+  }, [scene]);
   return (
     <primitive
       object={scene}
@@ -2298,6 +2552,7 @@ function ObjectPreviewImage({ obj }) {
   return isSvgUrl(obj.url) ? <ObjectPreviewImageSvg obj={obj} /> : <ObjectPreviewImageRaster obj={obj} />;
 }
 function ObjectPreview({ obj }) {
+  if (obj.type !== "text" && !(obj.previewUrl || obj.url)) return null;
   if (obj.type === "text") return <ObjectPreviewText obj={obj} />;
   return obj.type === "image" ? <ObjectPreviewImage obj={obj} /> : <ObjectPreviewModel obj={obj} />;
 }
@@ -2305,13 +2560,26 @@ function ObjectPreview({ obj }) {
 /* La estructura de la escena es SIEMPRE la misma (luces, grilla,
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
-function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection }) {
+function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection, markers, selectedObjectId, onSelectObject }) {
   return (
     <>
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
       <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
       <ambientLight intensity={0.28} />
-      <directionalLight color={showFx ? fx.light.color : "#ffffff"} position={showFx ? lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 6) : [3, 4, 5]} intensity={showFx ? fx.light.intensity : 0.9} />
+      <directionalLight
+        color={showFx ? fx.light.color : "#ffffff"}
+        position={showFx ? lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 6) : [3, 4, 5]}
+        intensity={showFx ? fx.light.intensity : 0.9}
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0015}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
+        shadow-camera-near={0.5}
+        shadow-camera-far={40}
+      />
       <directionalLight position={[-3, 2, -2]} intensity={0.4} />
       <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={showFx ? fx.light.rimIntensity : 0} distance={12} />
       {showGrid && (
@@ -2331,16 +2599,16 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       )}
       {showObjects &&
         objects.filter((o) => o.visible).map((o) => (
-          <ObjectBoundary key={o.id}>
+          <ObjectBoundary key={o.id + "|" + o.url + "|" + (o.previewUrl || "")}>
             <Suspense fallback={null}>
               <ObjectPreview obj={o} />
             </Suspense>
           </ObjectBoundary>
         ))}
       <MovedGroup movement={movement} anchorRef={charAnchorRef}>
-        <ObjectBoundary>
+        <ObjectBoundary key={modelUrl}>
           <Suspense fallback={null}>
-            <Character pose={pose} onBonesFound={onBonesFound} modelUrl={modelUrl} scale={charScale} centerY={charCenterY} />
+            {modelUrl ? <Character pose={pose} onBonesFound={onBonesFound} modelUrl={modelUrl} scale={charScale} centerY={charCenterY} /> : null}
           </Suspense>
         </ObjectBoundary>
       </MovedGroup>
@@ -2363,6 +2631,16 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           intensity={reflection.intensity}
         />
       )}
+      {showFx && postFx && postFx.beamEnabled && (
+        <LightBeamEditor
+          enabled={postFx.beamEnabled}
+          opacity={postFx.beamOpacity ?? 0.5}
+          width={postFx.beamWidth ?? 2.5}
+          height={postFx.beamHeight ?? 14}
+          fx={fx}
+        />
+      )}
+      {markers && <ObjectMarkers markers={markers} selectedId={selectedObjectId} onSelect={onSelectObject} />}
       {sceneCameraActive ? (
         <SceneCameraDriver target={cameraTarget} active={true} />
       ) : (
@@ -2501,7 +2779,7 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
   });
 
   return (
-    <points key={maxParticles} ref={pointsRef} frustumCulled={false}>
+    <points key={maxParticles} ref={pointsRef} frustumCulled={false} userData={{ excludeFromReflection: true }}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
         <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
@@ -2555,11 +2833,22 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
     anchor.getWorldPosition(posRef.current);
     camRef.current.position.copy(posRef.current);
 
-    // Oculta el modelo un instante para que no se refleje a sí mismo.
+    // Oculta el modelo (para que no se refleje a sí mismo) y también todo lo
+    // marcado como "no reflejar" (rayo de luz, estela de chispas) — si no,
+    // esos brillos quedan pegados adentro del reflejo aunque estén apagados
+    // en pantalla, porque el reflejo los captura igual un instante antes.
+    const hidden = [];
+    scene.traverse((obj) => {
+      if (obj.userData && obj.userData.excludeFromReflection && obj.visible) {
+        hidden.push(obj);
+        obj.visible = false;
+      }
+    });
     const wasVisible = anchor.visible;
     anchor.visible = false;
     camRef.current.update(gl, scene);
     anchor.visible = wasVisible;
+    hidden.forEach((obj) => { obj.visible = true; });
 
     const texture = rtRef.current.texture;
     anchor.traverse((child) => {
@@ -2578,6 +2867,75 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
   });
 
   return null;
+}
+/* Igual que LightBeam del sitio final, pero para la vista previa del
+   editor: acá no hay scroll ni blendScenes, el color/dirección salen
+   directo de la etapa activa (fx.light). */
+let _beamTextureCacheEditor = null;
+function getBeamTextureEditor() {
+  if (_beamTextureCacheEditor) return _beamTextureCacheEditor;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, size, 0);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.5, "rgba(255,255,255,1)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const vgrad = ctx.createLinearGradient(0, 0, 0, size);
+  vgrad.addColorStop(0, "rgba(0,0,0,1)");
+  vgrad.addColorStop(0.12, "rgba(0,0,0,0)");
+  vgrad.addColorStop(0.82, "rgba(0,0,0,0)");
+  vgrad.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = vgrad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  _beamTextureCacheEditor = tex;
+  return tex;
+}
+function LightBeamEditor({ enabled, opacity, width, height, fx }) {
+  const groupRef = useRef(null);
+  const matRefs = useRef([]);
+  const texture = useMemo(() => getBeamTextureEditor(), []);
+
+  useFrame(() => {
+    if (!enabled || !groupRef.current || !fx) return;
+    const dir = lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 1);
+    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+    groupRef.current.position.set(dirVec.x * height * 0.5, dirVec.y * height * 0.5, dirVec.z * height * 0.5);
+    groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
+    matRefs.current.forEach((m) => {
+      if (!m) return;
+      m.color.set(fx.light.color);
+      m.opacity = opacity;
+    });
+  });
+
+  if (!enabled) return null;
+
+  return (
+    <group ref={groupRef} userData={{ excludeFromReflection: true }}>
+      {[0, 60, 120].map((deg, i) => (
+        <mesh key={deg} rotation={[0, (deg * Math.PI) / 180, 0]}>
+          <planeGeometry args={[width, height]} />
+          <meshBasicMaterial
+            ref={(m) => { matRefs.current[i] = m; }}
+            map={texture}
+            transparent
+            opacity={opacity}
+            color="#ffffff"
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
 }
 /* Contorno de celular: dibuja el rectángulo 9:16 más grande que entra
    en el visor actual (igual que "object-fit: contain"), para ver de
@@ -2683,7 +3041,7 @@ function sampleMovement(progress) {
 }
 
 function generateScrollLengthCode(totalVh) {
-  const n = Math.round(totalVh);
+  const n = Math.max(100, Math.round(totalVh));
   return `const SCROLL_LENGTH_VH = ${n};`;
 }
 
@@ -2706,7 +3064,11 @@ function generatePostFxCode(postFx) {
 const VIGNETTE_DARKNESS = ${postFx.vignetteDarkness};
 const VIGNETTE_OFFSET = ${postFx.vignetteOffset};
 const BLOOM_ENABLED = ${postFx.bloomEnabled ? "true" : "false"};
-const BLOOM_INTENSITY = ${postFx.bloomIntensity};`;
+const BLOOM_INTENSITY = ${postFx.bloomIntensity};
+const BEAM_ENABLED = ${postFx.beamEnabled ? "true" : "false"};
+const BEAM_OPACITY = ${postFx.beamOpacity ?? 0.5};
+const BEAM_WIDTH = ${postFx.beamWidth ?? 2.5};
+const BEAM_HEIGHT = ${postFx.beamHeight ?? 14};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -2729,6 +3091,7 @@ const REFLECTION_INTENSITY = ${reflection.intensity};`;
 }
   
 function generateObjectsCode(objects, transformsByKf, stages, easings) {
+  objects = objects.filter((o) => o.type === "text" || (o.url && o.url.trim()));
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
   const esc = (s) => JSON.stringify(s == null ? "" : s);
@@ -2791,6 +3154,160 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
   return tpl;
 }
 
+/* ---- UI kit del panel ---- */
+const PALETTE = ["#ff5d73", "#ffb454", "#f6e05e", "#7ee787", "#49d3ff", "#7c8cff", "#d68cff", "#ff8cc6"];
+const AXIS_COLORS = ["#ff5d73", "#7ee787", "#49d3ff"];
+const groupOpenState = {};
+const roundTo = (v, d = 3) => { const m = Math.pow(10, d); return Math.round(v * m) / m; };
+
+const ICONS = {
+  cfg: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
+  pose: <><circle cx="12" cy="5" r="2" /><path d="M12 7v6M7 10l5-1 5 1M12 13l-4 7M12 13l4 7" /></>,
+  cam: <><rect x="3" y="7" width="13" height="10" rx="2" /><path d="M16 11l5-3v8l-5-3z" /></>,
+  move: <path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" />,
+  time: <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>,
+  cube: <><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9" /></>,
+  play: <path d="M7 4l13 8-13 8z" />,
+  pause: <path d="M8 5v14M16 5v14" />,
+  file: <><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v5h7V4M8 20v-6h8v6" /></>,
+  open: <path d="M3 7h6l2 2h10v10H3z" />,
+  export: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  trash: <path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13" />,
+  eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
+  eyeoff: <path d="M3 3l18 18M10.6 6.2A9.6 9.6 0 0112 6c6 0 10 6 10 6a17 17 0 01-3.2 3.7M6.5 6.9C3.8 8.6 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1" />,
+  copy: <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" /></>,
+  pin: <path d="M12 17v5M8 3h8l-1 6 3 4H6l3-4z" />,
+  prev: <path d="M15 5l-7 7 7 7" />,
+  next: <path d="M9 5l7 7-7 7" />,
+  image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-8 8" /></>,
+  text: <path d="M5 6V4h14v2M12 4v16M9 20h6" />,
+  capture: <><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>,
+  reset: <path d="M4 12a8 8 0 108-8M4 4v5h5" />,
+};
+function Icon({ name, size = 18 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{ICONS[name]}</svg>;
+}
+
+/* Campo numérico: se escribe, o se arrastra la etiqueta (Shift = fino, Ctrl = rápido). */
+function Num({ value, onChange, step = 0.01, label, color }) {
+  const [draft, setDraft] = useState(null);
+  const drag = useRef(null);
+  const v = Number(value) || 0;
+  const onDown = (e) => { e.preventDefault(); drag.current = { x: e.clientX, v }; e.currentTarget.setPointerCapture(e.pointerId); document.body.classList.add("dragging"); };
+  const onMove = (e) => {
+    if (!drag.current) return;
+    const k = e.shiftKey ? 0.1 : (e.ctrlKey || e.metaKey) ? 10 : 1;
+    onChange(roundTo(drag.current.v + (e.clientX - drag.current.x) * step * k, 4));
+  };
+  const onUp = () => { drag.current = null; document.body.classList.remove("dragging"); };
+  return (
+    <div className="num">
+      {label != null && <span className="num-l" style={color ? { color } : undefined} title="Arrastrar · Shift fino · Ctrl rápido" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>{label}</span>}
+      <input
+        type="text" inputMode="decimal"
+        value={draft !== null ? draft : String(roundTo(v, 4))}
+        onFocus={(e) => { setDraft(String(roundTo(v, 4))); e.target.select(); }}
+        onChange={(e) => { setDraft(e.target.value); const n = parseFloat(e.target.value.replace(",", ".")); if (isFinite(n)) onChange(n); }}
+        onBlur={() => setDraft(null)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.target.blur();
+          if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+            e.preventDefault();
+            const nv = roundTo(v + (e.key === "ArrowUp" ? 1 : -1) * step * (e.shiftKey ? 10 : 1), 4);
+            onChange(nv); setDraft(String(nv));
+          }
+        }}
+      />
+    </div>
+  );
+}
+function Slider({ label, value, onChange, min, max, step = 0.01 }) {
+  const pct = ((clamp(value, min, max) - min) / (max - min)) * 100;
+  return (
+    <div className="row">
+      <span className="lbl">{label}</span>
+      <input type="range" min={min} max={max} step={step} value={clamp(value, min, max)} style={{ "--pct": pct + "%" }} onChange={(e) => onChange(Number(e.target.value))} />
+      <Num value={value} onChange={onChange} step={step} />
+    </div>
+  );
+}
+function Vec3({ label, value, onChange, step = 0.05 }) {
+  return (
+    <div className="row">
+      <span className="lbl">{label}</span>
+      <div className="vec3">
+        {["x", "y", "z"].map((a, i) => <Num key={a} label={a.toUpperCase()} color={AXIS_COLORS[i]} value={value[i]} step={step} onChange={(n) => onChange(a, n)} />)}
+      </div>
+    </div>
+  );
+}
+function ColorRow({ label, value, onChange }) {
+  return <div className="row"><span className="lbl">{label}</span><input type="color" value={value} onChange={(e) => onChange(e.target.value)} /><span className="hex">{value}</span></div>;
+}
+function SelectRow({ label, value, onChange, options }) {
+  return (
+    <div className="row"><span className="lbl">{label}</span>
+      <select style={{ flex: 1 }} value={value} onChange={(e) => onChange(e.target.value)}>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+    </div>
+  );
+}
+function Switch({ checked, onChange, label }) {
+  return <label className="sw"><input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} /><span className="sw-track" />{label && <span className="sw-txt">{label}</span>}</label>;
+}
+function Seg({ value, onChange, options }) {
+  return <div className="seg">{options.map(([v, t]) => <button key={String(v)} className={value === v ? "on" : ""} onClick={() => onChange(v)}>{t}</button>)}</div>;
+}
+function Presets({ items, onPick }) {
+  return <div className="pre">{items.map(([t, v]) => <button key={t} onClick={() => onPick(v)}>{t}</button>)}</div>;
+}
+function Btn({ icon, kind, children, ...rest }) {
+  return <button className={`btn ${kind || ""}`} {...rest}>{icon && <Icon name={icon} size={14} />}{children}</button>;
+}
+function IBtn({ icon, kind, ...rest }) {
+  return <button className={`ibtn ${kind || ""}`} {...rest}><Icon name={icon} size={16} /></button>;
+}
+function Group({ id, title, defaultOpen = true, toggle, children }) {
+  const [open, setOpen] = useState(() => groupOpenState[id] ?? defaultOpen);
+  const set = (v) => { groupOpenState[id] = v; setOpen(v); };
+  const show = open && (!toggle || toggle.checked);
+  return (
+    <section className={`grp ${show ? "open" : ""}`}>
+      <header onClick={() => set(!open)}>
+        <span className="chev">▶</span><span className="grp-t">{title}</span><span className="grow" />
+        {toggle && <span onClick={(e) => e.stopPropagation()}><Switch checked={toggle.checked} onChange={(v) => { toggle.onChange(v); if (v) set(true); }} /></span>}
+      </header>
+      {show && <div className="grp-b">{children}</div>}
+    </section>
+  );
+}
+/* Ruta de archivo: se aplica con Enter o al salir del campo (evita cargas a medias). */
+function PathInput({ value, onCommit, placeholder }) {
+  const [draft, setDraft] = useState(value || "");
+  useEffect(() => setDraft(value || ""), [value]);
+  return (
+    <input type="text" className="path" value={draft} placeholder={placeholder} spellCheck={false}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { if (draft.trim() !== (value || "")) onCommit(draft.trim()); }}
+      onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }} />
+  );
+}
+/* Marcadores de color en el visor: identifican cada objeto (mismo color que en la lista). */
+function ObjectMarkers({ markers, selectedId, onSelect }) {
+  return markers.map((m) => (
+    <group key={m.id} position={m.position}>
+      <mesh renderOrder={999} onClick={(e) => { e.stopPropagation(); onSelect(m.id); }}>
+        <octahedronGeometry args={[m.id === selectedId ? 0.15 : 0.09]} />
+        <meshBasicMaterial color={m.color} depthTest={false} transparent opacity={m.visible ? 0.95 : 0.35} />
+      </mesh>
+      <Html center position={[0, 0.3, 0]} zIndexRange={[10, 0]}>
+        <div className={`mk ${m.id === selectedId ? "sel" : ""}`} style={{ "--oc": m.color, opacity: m.visible ? 1 : 0.4 }}>{m.label}</div>
+      </Html>
+    </group>
+  ));
+}
+
+
 /* ---- App ---- */
 function App() {
   const [section, setSection] = useState("pose"); // pose | camera | movement | timing | objects | preview
@@ -2807,8 +3324,8 @@ function App() {
      calibrados para bowl1.glb (que sin escalar mide ~4.83 de ancho x
      2.44 de alto x 3.95 de profundidad); si cambiás de modelo, tocá
      el slider hasta que se vea bien — no hace falta calcular nada. */
-  const [charScale, setCharScale] = useState(0.4);
-  const [charCenterY, setCharCenterY] = useState(0.05);
+  const [charScale, setCharScale] = useState(1);
+  const [charCenterY, setCharCenterY] = useState(0);
   /* Efectos de post-proceso del sitio exportado (viñeta/brillo). Son
      globales, no por etapa — y el visor de este editor NO los aplica
      (no tiene ese pipeline montado), así que lo que ves acá es sin
@@ -2819,8 +3336,12 @@ function App() {
     vignetteEnabled: false,
     vignetteDarkness: 0.5,
     vignetteOffset: 0.15,
-    bloomEnabled: true,
+    bloomEnabled: false,
     bloomIntensity: 0.5,
+    beamEnabled: false,
+    beamOpacity: 0.5,
+    beamWidth: 2.5,
+    beamHeight: 14,
   });
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
   /* Estela de brillo (sparkle trail) que deja el personaje (bowl1.glb) a
@@ -2830,7 +3351,7 @@ function App() {
      antes de descargar. Color dorado por defecto, a tono con el
      brillo de referencia tipo abeja/polen. */
   const [trail, setTrail] = useState({
-    enabled: true,
+    enabled: false,
     color: "#ffd873",
     size: 0.05,
     life: 0.9,
@@ -2892,7 +3413,7 @@ function App() {
 
   const removeStage = (id) => {
     const idx = stages.findIndex((s) => s.id === id);
-    if (stages.length <= 2 || idx === -1) return;
+    if (stages.length <= 1 || idx === -1) return;
     const remIdx = idx === 0 ? 0 : idx - 1;
     setStages((prev) => prev.filter((s) => s.id !== id));
     setDurationsVh((prev) => { const next = [...prev]; next.splice(remIdx, 1); return next; });
@@ -2958,38 +3479,25 @@ function App() {
   // de cada uno vive POR ETAPA (objectTransformsByKf) — igual que la
   // Cámara o el Movimiento del personaje — así también pueden moverse
   // a lo largo del scroll y no quedan estáticos.
-  const [objects, setObjects] = useState(() => [
-    { id: "obj-universo", label: "Universo (rampa)", type: "model", url: "./assets/models/universo.glb", previewUrl: null, billboard: false, visible: true },
-  ]);
+  const [objects, setObjects] = useState([]);
   const defaultObjectTransform = () => ({ position: [0, 0, 0], scale: 1, rotationY: 0 });
-  const [objectTransformsByKf, setObjectTransformsByKf] = useState(() => {
-    const stageList = makeDefaultStages();
-    return {
-      "obj-universo": Object.fromEntries(stageList.map((s) => [s.id, { position: [0, -0.2, 2.2], scale: 5, rotationY: 0 }])),
-    };
-  });
+  const [objectTransformsByKf, setObjectTransformsByKf] = useState({});
+  const [selectedObj, setSelectedObj] = useState(null);
   const [showObjects, setShowObjects] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [showFx, setShowFx] = useState(true);
   const [showMobileFrame, setShowMobileFrame] = useState(true);
   const viewportRef = useRef(null);
 
-  const addObject = () => {
-    const n = objects.length + 1;
+  const addObject = (type = "model") => {
     const newId = `obj-${Date.now()}`;
-    setObjects((prev) => [...prev, {
-      id: newId,
-      label: `Objeto ${n}`,
-      type: "model",
-      url: `./assets/models/objeto${n}.glb`,
-      previewUrl: null,
-      billboard: false,
-      visible: true,
-    }]);
-    setObjectTransformsByKf((prev) => ({
-      ...prev,
-      [newId]: Object.fromEntries(stagesComputed.map((s) => [s.id, defaultObjectTransform()])),
-    }));
+    const used = objects.map((o, k) => o.color || PALETTE[k % PALETTE.length]);
+    const color = PALETTE.find((c) => !used.includes(c)) || PALETTE[objects.length % PALETTE.length];
+    const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", text: "Texto" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
+    if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000" });
+    setObjects((prev) => [...prev, base]);
+    setObjectTransformsByKf((prev) => ({ ...prev, [newId]: Object.fromEntries(stagesComputed.map((st) => [st.id, defaultObjectTransform()])) }));
+    setSelectedObj(newId);
   };
   const removeObject = (id) => {
     setObjects((prev) => prev.filter((o) => o.id !== id));
@@ -3026,6 +3534,37 @@ function App() {
       const next = { ...prev };
       objects.forEach((o) => {
         next[o.id] = { ...next[o.id], [activeStage]: JSON.parse(JSON.stringify(prev[o.id][prevId])) };
+      });
+      return next;
+    });
+  };
+  /* Fija la posición/escala/rotación ACTUAL de un objeto (la de la etapa
+     que estás viendo ahora) en TODAS las etapas de una — para objetos que
+     no se mueven, evita tener que entrar pose por pose a acomodarlo. */
+  const applyObjectTransformToAllStages = (id) => {
+    const current = objectTransformsByKf[id] && objectTransformsByKf[id][activeStage];
+    if (!current) return;
+    const snapshot = JSON.parse(JSON.stringify(current));
+    setObjectTransformsByKf((prev) => {
+      const forObj = { ...prev[id] };
+      stagesComputed.forEach((kf) => { forObj[kf.id] = JSON.parse(JSON.stringify(snapshot)); });
+      return { ...prev, [id]: forObj };
+    });
+  };
+  /* Igual que arriba pero para TODOS los objetos a la vez — útil recién
+     agregaste varios objetos nuevos y quedaron todos amontonados al
+     centro: los acomodás una vez en la etapa que estés viendo y con este
+     botón quedan fijos así en las 20 (o las que sean) poses de un saque. */
+  const applyAllObjectTransformsToAllStages = () => {
+    setObjectTransformsByKf((prev) => {
+      const next = { ...prev };
+      objects.forEach((o) => {
+        const current = prev[o.id] && prev[o.id][activeStage];
+        if (!current) return;
+        const snapshot = JSON.parse(JSON.stringify(current));
+        const forObj = { ...next[o.id] };
+        stagesComputed.forEach((kf) => { forObj[kf.id] = JSON.parse(JSON.stringify(snapshot)); });
+        next[o.id] = forObj;
       });
       return next;
     });
@@ -3244,8 +3783,8 @@ function App() {
   const restoreProjectState = (p) => {
     if (!p || p.kind !== "weeb-scroll-project") throw new Error("no es un archivo de proyecto de esta herramienta");
     setModelUrl(p.modelUrl || DEFAULT_MODEL_URL);
-    setCharScale(typeof p.charScale === "number" ? p.charScale : 0.4);
-    setCharCenterY(typeof p.charCenterY === "number" ? p.charCenterY : 0.05);
+    setCharScale(typeof p.charScale === "number" ? p.charScale : 1);
+    setCharCenterY(typeof p.charCenterY === "number" ? p.charCenterY : 0);
     if (p.postFx) setPostFx((prev) => ({ ...prev, ...p.postFx }));
     if (p.trail) setTrail((prev) => ({ ...prev, ...p.trail }));
     if (p.reflection) setReflection((prev) => ({ ...prev, ...p.reflection }));
@@ -3260,6 +3799,8 @@ function App() {
     setObjects(p.objects || []);
     setObjectTransformsByKf(p.objectTransformsByKf || {});
     setActiveStage(loadedStages[0].id);
+    setSelectedObj(null);
+    setScrub(0);
   };
 
   /* Al abrir un archivo que "Guardar como editor" generó, este mismo
@@ -3320,18 +3861,12 @@ function App() {
     const project = buildProjectSnapshot();
     const json = JSON.stringify(project);
     const b64 = btoa(unescape(encodeURIComponent(json)));
-    /* No usamos document.documentElement.outerHTML directo: eso serializa
-       el DOM YA RENDERIZADO (con toda la interfaz pintada adentro de
-       #root), lo que infla el archivo y puede dejar tags duplicados.
-       Clonamos el documento y vaciamos el clon de #root antes de
-       serializar, para bajar siempre una copia limpia (equivalente al
-       archivo fuente original) con el proyecto embebido adentro. */
     const docClone = document.documentElement.cloneNode(true);
     const rootClone = docClone.querySelector("#root");
     if (rootClone) rootClone.innerHTML = "";
     let html = "<!DOCTYPE html>\n" + docClone.outerHTML;
     html = html.replace(
-      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/g,
+      /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/,
       `<script id="embedded-project-b64" type="text/plain">${b64}</scri` + `pt>`
     );
     const blob = new Blob([html], { type: "text/html" });
@@ -3364,676 +3899,359 @@ function App() {
     copy(html, "full");
   };
 
-  const showStageTabs = section === "pose" || section === "camera" || section === "movement" || section === "objects";
+  const resetAllBones = () => setPosesByKf((prev) => ({ ...prev, [activeStage]: zeroPose() }));
+  const newProject = () => {
+    if (!window.confirm("¿Vaciar todo y empezar un proyecto nuevo?")) return;
+    const st = makeDefaultStages();
+    setModelUrl(""); setCharScale(1); setCharCenterY(0);
+    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14 });
+    setTrail({ enabled: false, color: "#ffd873", size: 0.05, life: 0.9, rate: 40 });
+    setReflection({ enabled: false, resolution: 256, updateEvery: 2, intensity: 1 });
+    setStages(st); setDurationsVh([]); setEasings([]);
+    setPosesByKf(initialPoses(st)); setCamsByKf(initialCameras(st)); setMovesByKf(initialMovements(st)); setFxByKf(initialFx(st));
+    setObjects([]); setObjectTransformsByKf({}); setSelectedObj(null);
+    setActiveStage(st[0].id); setScrub(0); setIsPlaying(false);
+  };
+  const TABS = [
+    ["cfg", "cfg", "Config"], ["pose", "pose", "Pose"], ["camera", "cam", "Cámara"], ["movement", "move", "Mov."],
+    ["timing", "time", "Tiempo"], ["objects", "cube", "Objetos"], ["preview", "play", "Preview"], ["file", "file", "Archivo"],
+  ];
+  const showStageBar = ["pose", "camera", "movement", "objects"].includes(section);
   const currentStageLabel = stages.find((s) => s.id === activeStage)?.label || "";
-  const bonesChecked = Object.keys(foundMap).length > 0;
-  const noBonesFound = bonesChecked && !Object.values(foundMap).some(Boolean);
-  const currentFx = fxByKf[activeStage];
+  const noBonesFound = Object.keys(foundMap).length > 0 && !Object.values(foundMap).some(Boolean);
+  const cam = camsByKf[activeStage] || defaultCamera();
+  const mv = movesByKf[activeStage] || defaultMovement();
+  const fxs = fxByKf[activeStage] || defaultFx();
+  const nStages = stagesComputed.length;
+  const goStage = (d) => { const t = stagesComputed[clamp(stageIndex + d, 0, nStages - 1, )]; if (t) setActiveStage(t.id); };
+  const colorOf = (o, i) => o.color || PALETTE[i % PALETTE.length];
+  const selObj = objects.find((o) => o.id === selectedObj) || null;
+  const markers = renderObjects.map((o, i) => ({ id: o.id, label: o.label, color: colorOf(o, i), position: o.position, visible: o.visible }));
+  const toast = projectLoaded ? "Proyecto cargado" : downloaded ? "index.html descargado" : copiedWhich ? "Copiado" : null;
+  const fileName = (projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto";
+
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !showStageBar) return;
+      goStage(e.key === "ArrowLeft" ? -1 : 1);
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  });
+  useEffect(() => { const el = document.querySelector(".chip.on"); if (el) el.scrollIntoView({ inline: "nearest", block: "nearest" }); }, [activeStage]);
+  useEffect(() => { setFoundMap({}); }, [modelUrl]);
+
+  const renderObjectEditor = (o, idx) => {
+    const c = colorOf(o, idx);
+    const isImage = o.type === "image", isText = o.type === "text", isModel = !isImage && !isText;
+    const t = (objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage]) || defaultObjectTransform();
+    const mismatch = (isModel && /\.(svg|png|jpe?g|webp)$/i.test(o.url)) || (isImage && /\.glb$/i.test(o.url));
+    return (
+      <div className="oed" style={{ "--oc": c }}>
+        <div className="oed-h">
+          <span className="odot" />
+          <input type="text" className="oname-in" value={o.label} onChange={(e) => updateObject(o.id, { label: e.target.value })} />
+          <select value={c} onChange={(e) => updateObject(o.id, { color: e.target.value })} style={{ width: 34, padding: 2 }} title="Color">
+            {PALETTE.map((p) => <option key={p} value={p} style={{ color: p }}>●</option>)}
+          </select>
+        </div>
+        <Seg value={o.type || "model"} onChange={(v) => setObjectType(o.id, v)} options={[["model", "Modelo"], ["image", "Imagen / SVG"], ["text", "Texto"]]} />
+        {isText ? (
+          <>
+            <textarea rows={3} value={o.text || ""} onChange={(e) => updateObject(o.id, { text: e.target.value })} />
+            <ColorRow label="Color" value={o.textColor || "#ffffff"} onChange={(v) => updateObject(o.id, { textColor: v })} />
+            <SelectRow label="Fuente" value={o.fontFamily || "'Inter', sans-serif"} onChange={(v) => updateObject(o.id, { fontFamily: v })}
+              options={[["'Inter', sans-serif", "Inter"], ["'Space Grotesk', sans-serif", "Space Grotesk"], ["Georgia, 'Times New Roman', serif", "Serif"], ["'Courier New', monospace", "Mono"], ["system-ui, sans-serif", "Sistema"]]} />
+            <SelectRow label="Peso" value={o.fontWeight || 600} onChange={(v) => updateObject(o.id, { fontWeight: Number(v) })}
+              options={[[300, "Liviana 300"], [400, "Normal 400"], [500, "Media 500"], [600, "Semi 600"], [700, "Negrita 700"]]} />
+            <Seg value={o.textAlign || "center"} onChange={(v) => updateObject(o.id, { textAlign: v })} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
+            <div className="row"><Switch checked={!!o.textOutline} onChange={(v) => updateObject(o.id, { textOutline: v })} label="Contorno" />
+              {o.textOutline && <input type="color" value={o.textOutlineColor || "#000000"} onChange={(e) => updateObject(o.id, { textOutlineColor: e.target.value })} />}</div>
+          </>
+        ) : (
+          <div className="row">
+            <span className="lbl">Archivo</span>
+            <PathInput value={o.url} onCommit={(v) => setObjectUrl(o.id, v)} placeholder={isImage ? "./assets/models/imagen.svg" : "./assets/models/objeto.glb"} />
+            {isImage && (
+              <label className="ibtn" title="Subir imagen"><Icon name="open" size={16} />
+                <input type="file" accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp" onChange={(e) => { uploadObjectFile(o.id, e.target.files[0]); e.target.value = ""; }} />
+              </label>
+            )}
+            {isImage && o.previewUrl && <a className="ibtn" href={o.previewUrl} download={o.url.split("/").pop()} title="Descargar archivo subido"><Icon name="export" size={16} /></a>}
+          </div>
+        )}
+        {mismatch && <div className="warn">⚠ La extensión no coincide con el tipo</div>}
+        {!isModel && <Switch checked={!!o.billboard} onChange={(v) => updateObject(o.id, { billboard: v })} label="Billboard (mira a cámara)" />}
+        <div className="grp-t" style={{ marginTop: 4 }}>Transformación · {currentStageLabel}</div>
+        <Slider label="Escala" min={0.05} max={20} step={0.01} value={t.scale} onChange={(v) => setObjectTransform(o.id, "scale", null, v)} />
+        <Vec3 label="Posición" value={t.position} onChange={(a, v) => setObjectTransform(o.id, "position", a, v)} />
+        {!(!isModel && o.billboard) && <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />}
+        <div className="tools">
+          <Btn icon="copy" onClick={() => copyObjectTransformFromPrev(o.id)} disabled={stageIndex <= 0}>Desde anterior</Btn>
+          <Btn icon="pin" kind="acc" onClick={() => applyObjectTransformToAllStages(o.id)}>Fijar en todas</Btn>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
-      <div
-        className="viewport"
-        ref={viewportRef}
-        style={showFx ? { background: `linear-gradient(${renderFx.background.angle}deg, ${renderFx.background.from}, ${renderFx.background.to})` } : undefined}
-      >
-        <div className="top-controls">
-          <span>{!freeOrbit ? "Vista: cámara de la escena (real)" : "Arrastrá para orbitar · Scroll para zoom"}</span>
-          <label className="toggle-row"><input type="checkbox" checked={freeOrbit} onChange={(e) => setFreeOrbit(e.target.checked)} />Cámara libre (inspeccionar)</label>
-          {freeOrbit && (
-            <label className="toggle-row"><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} />Auto-rotar vista</label>
-          )}
-          <label className="toggle-row"><input type="checkbox" checked={showObjects} onChange={(e) => setShowObjects(e.target.checked)} />Mostrar objetos</label>
-          <label className="toggle-row"><input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />Mostrar grilla</label>
-          <label className="toggle-row"><input type="checkbox" checked={showFx} onChange={(e) => setShowFx(e.target.checked)} />Mostrar ambiente (luz/niebla/fondo)</label>
-          <label className="toggle-row"><input type="checkbox" checked={showMobileFrame} onChange={(e) => setShowMobileFrame(e.target.checked)} />Contorno celular (9:16)</label>
+      <div className="viewport" ref={viewportRef}
+        style={showFx ? { background: `linear-gradient(${renderFx.background.angle}deg, ${renderFx.background.from}, ${renderFx.background.to})` } : undefined}>
+        <div className="vp-bar">
+          {[["Libre", freeOrbit, setFreeOrbit], ["Rotar", autoRotate, setAutoRotate, freeOrbit], ["Objetos", showObjects, setShowObjects], ["Grilla", showGrid, setShowGrid], ["Ambiente", showFx, setShowFx], ["9:16", showMobileFrame, setShowMobileFrame]]
+            .filter((c) => c[3] === undefined || c[3])
+            .map(([t, on, set]) => <span key={t} className={`vchip ${on ? "on" : ""}`} onClick={() => set(!on)}>{t}</span>)}
         </div>
-        <Canvas camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
-                    <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection} />
+        <Canvas shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection}
+            markers={section === "objects" && showObjects ? markers : null} selectedObjectId={selectedObj} onSelectObject={setSelectedObj} />
         </Canvas>
         {showFx && postFx.vignetteEnabled && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              zIndex: 3,
-              pointerEvents: "none",
-              background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)`,
-            }}
-          />
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none", background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)` }} />
         )}
         {showMobileFrame && <MobileFrameOverlay containerRef={viewportRef} />}
+        <div className="vp-hud">{isPreview ? `▶ ${scrub.toFixed(3)}` : `${currentStageLabel} · ${stageIndex + 1}/${nStages}`}</div>
       </div>
 
       <div className="panel">
-        <div>
-          <h1>Pose, Cámara, Movimiento &amp; Objetos</h1>
-          <p className="hint">Agregá tantas poses como necesites con "+ Agregar pose" — ya no hay un número fijo de etapas. El visor de la izquierda siempre muestra la etapa que estés editando con su pose + cámara + movimiento + ambiente juntos, con el contorno de celular (9:16) marcando qué se ve realmente en pantalla chica. Cada control tiene ahora un campo numérico al lado del slider para escribir el valor exacto. En "Duración" ajustás cuánto scroll dura cada tramo, y en "Objetos" agregás/ubicás los modelos estáticos del entorno (rampas, props, texto, etc — podés tener varios a la vez). Al final descargás el index.html completo, o lo copiás directo sin bajar el archivo.</p>
-        </div>
-
-        <div className="cam-group">
-          <div className="cam-group-title">Modelo principal</div>
-          <div className="axis-row">
-            <label style={{ width: 46, fontSize: 10.5 }}>Archivo</label>
-            <input type="text" value={modelUrl} onChange={(e) => setModelUrl(e.target.value)} />
-          </div>
-          <div className="axis-row">
-            <label style={{ width: 46, fontSize: 10.5 }}>Escala</label>
-            <input type="range" min={0.01} max={5} step={0.01} value={charScale} onChange={(e) => setCharScale(Number(e.target.value))} />
-            <input type="number" className="axis-num" step={0.01} value={charScale} onChange={(e) => setCharScale(Number(e.target.value))} />
-          </div>
-          <div className="axis-row">
-            <label style={{ width: 46, fontSize: 10.5 }}>Centro Y</label>
-            <input type="range" min={-2} max={2} step={0.01} value={charCenterY} onChange={(e) => setCharCenterY(Number(e.target.value))} />
-            <input type="number" className="axis-num" step={0.01} value={charCenterY} onChange={(e) => setCharCenterY(Number(e.target.value))} />
-          </div>
-                    <label className="toggle-row" style={{ marginTop: 6, marginBottom: 6 }}>
-            <input type="checkbox" checked={reflection.enabled} onChange={(e) => setReflectionField("enabled", e.target.checked)} />
-            Reflejo de ambiente en tiempo real (metal)
-          </label>
-          {reflection.enabled && (
-            <>
-              <div className="axis-row">
-                <label style={{ width: 90, fontSize: 10.5 }}>Resolución</label>
-                <select
-                  value={reflection.resolution}
-                  onChange={(e) => setReflectionField("resolution", Number(e.target.value))}
-                  style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
-                >
-                  <option value={128}>128 (más rápido)</option>
-                  <option value={256}>256</option>
-                  <option value={512}>512 (más nítido)</option>
-                </select>
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 90, fontSize: 10.5 }}>Actualizar cada</label>
-                <input type="range" min={1} max={10} step={1} value={reflection.updateEvery} onChange={(e) => setReflectionField("updateEvery", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={1} value={reflection.updateEvery} onChange={(e) => setReflectionField("updateEvery", Number(e.target.value))} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 90, fontSize: 10.5 }}>Intensidad</label>
-                <input type="range" min={0} max={3} step={0.05} value={reflection.intensity} onChange={(e) => setReflectionField("intensity", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.05} value={reflection.intensity} onChange={(e) => setReflectionField("intensity", Number(e.target.value))} />
-              </div>
-              <p className="hint">Solo tiene efecto visible si el material del modelo tiene Metálico alto y Rugosidad baja. "Actualizar cada" en 3-5 rinde mejor en celular sin perder demasiada calidad.</p>
-            </>
-          )}
-          <p className="hint">Escala y Centro Y ahora se ven EN VIVO en este visor (antes el visor siempre mostraba el modelo a un tamaño fijo sin importar lo que cambiaras en el código) y quedan grabados en el index.html final al descargar. "Centro Y" sube/baja el modelo para alinearlo al piso o a la grilla — probá valores hasta que se vea bien apoyado.</p>
-          <p className="hint">El objeto que animás con Pose/Cámara/Movimiento. Puede ser un personaje con esqueleto (huesos) o un objeto rígido sin huesos — un perfume, un producto, un logo 3D. Si no tiene huesos, la pestaña Pose no hace nada: usá solo Movimiento para hacerlo flotar/girar por etapa.</p>
-        </div>
-
-        <div className="cam-group">
-          <div className="cam-group-title">Estela de brillo (bee)</div>
-          <p className="hint">Rastro de partículas brillantes que el personaje va dejando a su paso y que se desvanece solo, como el brillo de polen detrás de una abeja. Solo emite mientras hay scroll real — se ve en vivo acá en el visor y queda grabado en el index.html final.</p>
-          <label className="toggle-row" style={{ marginBottom: 6 }}>
-            <input type="checkbox" checked={trail.enabled} onChange={(e) => setTrailField("enabled", e.target.checked)} />
-            Activar estela
-          </label>
-          {trail.enabled && (
-            <>
-              <div className="axis-row">
-                <label style={{ width: 70, fontSize: 10.5 }}>Color</label>
-                <input type="color" value={trail.color} onChange={(e) => setTrailField("color", e.target.value)} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 70, fontSize: 10.5 }}>Tamaño</label>
-                <input type="range" min={0.005} max={0.3} step={0.005} value={trail.size} onChange={(e) => setTrailField("size", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.005} value={trail.size} onChange={(e) => setTrailField("size", Number(e.target.value))} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 70, fontSize: 10.5 }}>Duración</label>
-                <input type="range" min={0.1} max={3} step={0.05} value={trail.life} onChange={(e) => setTrailField("life", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.05} value={trail.life} onChange={(e) => setTrailField("life", Number(e.target.value))} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 70, fontSize: 10.5 }}>Densidad</label>
-                <input type="range" min={2} max={120} step={1} value={trail.rate} onChange={(e) => setTrailField("rate", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={1} value={trail.rate} onChange={(e) => setTrailField("rate", Number(e.target.value))} />
-              </div>
-              <p className="hint">Duración = cuánto tarda cada chispa en desvanecerse (en segundos). Densidad = cuántas chispas por segundo deja el personaje al moverse — más densidad, estela más continua; menos, más punteada.</p>
-            </>
-          )}
-        </div>
-
-        <div className="cam-group">
-          <div className="cam-group-title">Efectos</div>
-          <p className="hint">Se aplican en el visor y en el sitio exportado por igual. La viñeta oscurece los bordes de la pantalla en forma ovalada; si tu fondo tiene que fundirse limpio con la página, dejala apagada (viene así por defecto).</p>
-          <label className="toggle-row" style={{ marginBottom: 6 }}>
-            <input type="checkbox" checked={postFx.vignetteEnabled} onChange={(e) => setPostFxField("vignetteEnabled", e.target.checked)} />
-            Viñeta (oscurece bordes)
-          </label>
-          {postFx.vignetteEnabled && (
-            <>
-              <div className="axis-row">
-                <label style={{ width: 70, fontSize: 10.5 }}>Oscuridad</label>
-                <input type="range" min={0} max={1} step={0.01} value={postFx.vignetteDarkness} onChange={(e) => setPostFxField("vignetteDarkness", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.01} value={postFx.vignetteDarkness} onChange={(e) => setPostFxField("vignetteDarkness", Number(e.target.value))} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 70, fontSize: 10.5 }}>Alcance</label>
-                <input type="range" min={0} max={1} step={0.01} value={postFx.vignetteOffset} onChange={(e) => setPostFxField("vignetteOffset", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.01} value={postFx.vignetteOffset} onChange={(e) => setPostFxField("vignetteOffset", Number(e.target.value))} />
-              </div>
-            </>
-          )}
-          <label className="toggle-row" style={{ marginBottom: 6 }}>
-            <input type="checkbox" checked={postFx.bloomEnabled} onChange={(e) => setPostFxField("bloomEnabled", e.target.checked)} />
-            Brillo (bloom, resalta las luces)
-          </label>
-          {postFx.bloomEnabled && (
-            <div className="axis-row">
-              <label style={{ width: 70, fontSize: 10.5 }}>Intensidad</label>
-              <input type="range" min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(e) => setPostFxField("bloomIntensity", Number(e.target.value))} />
-              <input type="number" className="axis-num" step={0.01} value={postFx.bloomIntensity} onChange={(e) => setPostFxField("bloomIntensity", Number(e.target.value))} />
-            </div>
-          )}
-        </div>
-
-        <div className="section-tabs">
-          <div className={`section-tab ${section === "pose" ? "active" : ""}`} onClick={() => setSection("pose")}>Pose</div>
-          <div className={`section-tab ${section === "camera" ? "active" : ""}`} onClick={() => setSection("camera")}>Cámara</div>
-          <div className={`section-tab ${section === "movement" ? "active" : ""}`} onClick={() => setSection("movement")}>Movimiento</div>
-          <div className={`section-tab ${section === "timing" ? "active" : ""}`} onClick={() => setSection("timing")}>Duración</div>
-          <div className={`section-tab ${section === "objects" ? "active" : ""}`} onClick={() => setSection("objects")}>Objetos</div>
-          <div className={`section-tab ${section === "preview" ? "active" : ""}`} onClick={() => setSection("preview")}>Preview</div>
-        </div>
-
-        {showStageTabs && (
-          <>
-            <div className="section-title">Etapa (compartida por Pose / Cámara / Movimiento)</div>
-            <div className="kf-tabs">
-              {stagesComputed.map((kf) => (
-                <div key={kf.id} className={`kf-tab ${activeStage === kf.id ? "active" : ""}`} onClick={() => setActiveStage(kf.id)}>{kf.label}<span className="p">progress {kf.progress.toFixed(2)}</span></div>
-              ))}
-            </div>
-            <div className="btn-row">
-              <button className="btn primary" onClick={addStage}>+ Agregar pose</button>
-              {stages.length > 2 && <button className="btn danger" onClick={() => removeStage(activeStage)}>🗑 Eliminar "{currentStageLabel}"</button>}
-            </div>
-            <div className="axis-row">
-              <label style={{ width: 70, fontSize: 11 }}>Nombre</label>
-              <input type="text" value={currentStageLabel} onChange={(e) => renameStage(activeStage, e.target.value)} />
-            </div>
-          </>
-        )}
-
-        {isPreview && (
-          <div className="scrub-row">
-            <label style={{ fontSize: 11 }}>progress</label>
-            <input type="range" min={0} max={1} step={0.001} value={scrub} onChange={(e) => { setIsPlaying(false); setScrub(Number(e.target.value)); }} />
-            <span className="val">{scrub.toFixed(2)}</span>
-          </div>
-        )}
-        {isPreview && (
-          <div className="btn-row" style={{ alignItems: "center" }}>
-            <button className="btn primary" onClick={() => setIsPlaying((p) => !p)}>{isPlaying ? "⏸ Pausar" : "▶ Reproducir"}</button>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-              Velocidad
-              <input type="range" min={0.1} max={3} step={0.05} value={playSpeed} onChange={(e) => setPlaySpeed(Number(e.target.value))} style={{ width: 90 }} />
-              <span className="val">{playSpeed.toFixed(2)}×</span>
+        <nav className="rail">
+          {TABS.map(([id, icon, label]) => (
+            <button key={id} className={`rail-btn ${section === id ? "on" : ""}`} onClick={() => setSection(id)} title={label}><Icon name={icon} size={20} /><span>{label}</span></button>
+          ))}
+        </nav>
+        <div className="main">
+          <div className="topbar">
+            <span className="brand">WEEB<b>/</b>SCENE</span><span className="grow" />
+            <label className="ibtn" title="Abrir proyecto (.json)"><Icon name="open" size={16} />
+              <input type="file" accept=".json,application/json" onChange={(e) => { loadProject(e.target.files[0]); e.target.value = ""; }} />
             </label>
+            <IBtn icon="file" title="Guardar proyecto (.json)" onClick={saveProject} />
+            <IBtn icon="export" kind="acc" title="Exportar index.html" onClick={downloadFullHtml} />
           </div>
-        )}
 
-        {section === "pose" && (
-          <>
-            {noBonesFound && (
-              <p className="hint" style={{ color: "#c8ff00" }}>Este modelo no tiene huesos detectados (es un objeto rígido, como un producto o logo). Esta pestaña no va a tener efecto — andá a "Movimiento" para hacerlo flotar/girar por etapa.</p>
+          {showStageBar && (
+            <div className="stagebar">
+              <div className="stage-row">
+                <IBtn icon="prev" title="Pose anterior (←)" disabled={stageIndex <= 0} onClick={() => goStage(-1)} />
+                <div className="chips">
+                  {stagesComputed.map((kf, i) => <button key={kf.id} className={`chip ${activeStage === kf.id ? "on" : ""}`} title={`${kf.label} · ${kf.progress.toFixed(3)}`} onClick={() => setActiveStage(kf.id)}>{i + 1}</button>)}
+                </div>
+                <IBtn icon="next" title="Pose siguiente (→)" disabled={stageIndex >= nStages - 1} onClick={() => goStage(1)} />
+                <IBtn icon="plus" kind="acc" title="Agregar pose" onClick={addStage} />
+              </div>
+              <div className="stage-row">
+                <input type="text" className="stage-name" value={currentStageLabel} onChange={(e) => renameStage(activeStage, e.target.value)} />
+                <span className="stage-meta">{stagesComputed[stageIndex] ? stagesComputed[stageIndex].progress.toFixed(2) : "0.00"}</span>
+                <IBtn icon="trash" kind="danger" title="Eliminar pose" disabled={stages.length <= 1} onClick={() => removeStage(activeStage)} />
+              </div>
+            </div>
+          )}
+          {isPreview && (
+            <div className="stagebar">
+              <div className="stage-row">
+                <IBtn icon={isPlaying ? "pause" : "play"} kind="acc" onClick={() => setIsPlaying((p) => !p)} />
+                <input type="range" min={0} max={1} step={0.001} value={scrub} style={{ "--pct": scrub * 100 + "%" }} onChange={(e) => { setIsPlaying(false); setScrub(Number(e.target.value)); }} />
+                <span className="stage-meta">{scrub.toFixed(3)}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="content">
+            {section === "cfg" && (
+              <>
+                <Group id="model" title="Modelo principal">
+                  <div className="row"><span className="lbl">Archivo</span>
+                    <PathInput value={modelUrl} onCommit={setModelUrl} placeholder="./assets/models/modelo.glb" />
+                    {modelUrl && <button className="mini danger" title="Quitar modelo" onClick={() => setModelUrl("")}><Icon name="trash" size={14} /></button>}
+                  </div>
+                  <Slider label="Escala" min={0.01} max={5} step={0.01} value={charScale} onChange={setCharScale} />
+                  <Slider label="Centro Y" min={-2} max={2} step={0.01} value={charCenterY} onChange={setCharCenterY} />
+                </Group>
+                <Group id="refl" title="Reflejo" toggle={{ checked: reflection.enabled, onChange: (v) => setReflectionField("enabled", v) }}>
+                  <SelectRow label="Resol." value={reflection.resolution} onChange={(v) => setReflectionField("resolution", Number(v))} options={[[128, "128"], [256, "256"], [512, "512"]]} />
+                  <Slider label="Cada" min={1} max={10} step={1} value={reflection.updateEvery} onChange={(v) => setReflectionField("updateEvery", v)} />
+                  <Slider label="Intens." min={0} max={3} step={0.05} value={reflection.intensity} onChange={(v) => setReflectionField("intensity", v)} />
+                </Group>
+                <Group id="trail" title="Estela" toggle={{ checked: trail.enabled, onChange: (v) => setTrailField("enabled", v) }}>
+                  <ColorRow label="Color" value={trail.color} onChange={(v) => setTrailField("color", v)} />
+                  <Slider label="Tamaño" min={0.005} max={0.3} step={0.005} value={trail.size} onChange={(v) => setTrailField("size", v)} />
+                  <Slider label="Vida" min={0.1} max={3} step={0.05} value={trail.life} onChange={(v) => setTrailField("life", v)} />
+                  <Slider label="Densidad" min={2} max={120} step={1} value={trail.rate} onChange={(v) => setTrailField("rate", v)} />
+                </Group>
+                <Group id="vig" title="Viñeta" toggle={{ checked: postFx.vignetteEnabled, onChange: (v) => setPostFxField("vignetteEnabled", v) }}>
+                  <Slider label="Oscuridad" min={0} max={1} step={0.01} value={postFx.vignetteDarkness} onChange={(v) => setPostFxField("vignetteDarkness", v)} />
+                  <Slider label="Alcance" min={0} max={1} step={0.01} value={postFx.vignetteOffset} onChange={(v) => setPostFxField("vignetteOffset", v)} />
+                </Group>
+                <Group id="bloom" title="Bloom" toggle={{ checked: postFx.bloomEnabled, onChange: (v) => setPostFxField("bloomEnabled", v) }}>
+                  <Slider label="Intens." min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(v) => setPostFxField("bloomIntensity", v)} />
+                </Group>
+                <Group id="beam" title="Rayo de luz" toggle={{ checked: postFx.beamEnabled, onChange: (v) => setPostFxField("beamEnabled", v) }}>
+                  <Slider label="Opacidad" min={0} max={1} step={0.01} value={postFx.beamOpacity} onChange={(v) => setPostFxField("beamOpacity", v)} />
+                  <Slider label="Ancho" min={0.2} max={10} step={0.1} value={postFx.beamWidth} onChange={(v) => setPostFxField("beamWidth", v)} />
+                  <Slider label="Largo" min={2} max={40} step={0.5} value={postFx.beamHeight} onChange={(v) => setPostFxField("beamHeight", v)} />
+                </Group>
+              </>
             )}
-            <div className="btn-row"><button className="btn" onClick={copyPoseFromPrev}>Copiar etapa anterior</button></div>
-            <div className="section-title">Huesos ({BONE_KEYS.length})</div>
-            {BONE_DEFS.map(([key, boneName]) => {
-              const found = foundMap[key];
-              const v = posesByKf[activeStage][key];
-              return (
-                <div className="bone-block" key={key} style={{ opacity: found === false ? 0.4 : 1 }}>
-                  <div className="bone-name">{boneName} {found === false ? "· FALTA" : ""}</div>
-                  {["x", "y", "z"].map((axis) => (
-                    <div className="axis-row" key={axis}>
-                      <label>{axis.toUpperCase()}</label>
-                      <input type="range" min={-180} max={180} step={0.1} value={v[axis]} onChange={(e) => setBoneAxis(key, axis, Number(e.target.value))} />
-                      <input type="number" className="axis-num" step={0.1} value={Math.round(v[axis] * 100) / 100} onChange={(e) => setBoneAxis(key, axis, Number(e.target.value))} />
-                    </div>
-                  ))}
-                  <button className="btn" style={{ fontSize: 10, padding: "2px 6px" }} onClick={() => resetBone(key)}>reset</button>
-                </div>
-              );
-            })}
-          </>
-        )}
 
-        {section === "camera" && (
-          <>
-            <div className="btn-row"><button className="btn" onClick={copyCamFromPrev}>Copiar etapa anterior</button></div>
-            <div className="cam-group">
-              <div className="cam-group-title">Cámara libre → capturar en esta etapa</div>
-              <p className="hint">Activá "Cámara libre" arriba del visor, orbitá/paneá/zoomeá con el mouse hasta encontrar el ángulo que quieras, y tocá este botón para guardar exactamente esa vista (posición, hacia dónde mira y zoom) en la etapa activa. Es la forma más rápida de tener control total, sin mover sliders a mano.</p>
-              <div className="btn-row">
-                <button className="btn primary" onClick={captureFreeCamera} disabled={!freeOrbit}>📷 Capturar cámara libre en "{currentStageLabel}"</button>
-              </div>
-              {!freeOrbit && <p className="hint">(activá "Cámara libre" arriba del visor para habilitar este botón)</p>}
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Posición (x, y, z)</div>
-              {["x", "y", "z"].map((axis, i) => (
-                <div className="axis-row" key={axis}>
-                  <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-30} max={30} step={0.01} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
-                  <input type="number" className="axis-num" step={0.01} value={camsByKf[activeStage].position[i]} onChange={(e) => setCamField("position", axis, Number(e.target.value))} />
+            {section === "pose" && (
+              <>
+                <div className="tools">
+                  <Btn icon="copy" onClick={copyPoseFromPrev} disabled={stageIndex <= 0}>Desde anterior</Btn>
+                  <Btn icon="reset" onClick={resetAllBones}>Reset pose</Btn>
+                  {noBonesFound && <span className="warn">Modelo sin huesos</span>}
                 </div>
-              ))}
-              <p className="hint">Z más grande = más lejos. Z más chico = más cerca.</p>
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Mira hacia (lookAt x, y, z)</div>
-              {["x", "y", "z"].map((axis, i) => (
-                <div className="axis-row" key={axis}>
-                  <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={-15} max={15} step={0.01} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
-                  <input type="number" className="axis-num" step={0.01} value={camsByKf[activeStage].lookAt[i]} onChange={(e) => setCamField("lookAt", axis, Number(e.target.value))} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {BONE_DEFS.map(([key, name]) => {
+                    const v = (posesByKf[activeStage] && posesByKf[activeStage][key]) || { x: 0, y: 0, z: 0 };
+                    const side = /^l[A-Z]/.test(key) ? "l" : /^r[A-Z]/.test(key) ? "r" : "c";
+                    return (
+                      <div key={key} className={`bone ${side} ${v.x || v.y || v.z ? "dirty" : ""} ${foundMap[key] === false ? "missing" : ""}`}>
+                        <span className="bone-n" title={name}>{name}</span>
+                        {["x", "y", "z"].map((a, i) => <Num key={a} label={a.toUpperCase()} color={AXIS_COLORS[i]} step={0.5} value={v[a]} onChange={(n) => setBoneAxis(key, a, n)} />)}
+                        <button className="mini" title="Reset" onClick={() => resetBone(key)}><Icon name="reset" size={12} /></button>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Zoom (FOV)</div>
-              <div className="axis-row">
-                <label>°</label>
-                <input type="range" min={10} max={90} step={0.1} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.1} value={camsByKf[activeStage].fov} onChange={(e) => setCamField("fov", null, Number(e.target.value))} />
-              </div>
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Inclinación lateral (roll)</div>
-              <div className="axis-row">
-                <label>°</label>
-                <input type="range" min={-180} max={180} step={0.1} value={camsByKf[activeStage].roll || 0} onChange={(e) => setCamField("roll", null, Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.1} value={camsByKf[activeStage].roll || 0} onChange={(e) => setCamField("roll", null, Number(e.target.value))} />
-              </div>
-              <p className="hint">Rota la imagen alrededor del eje de la vista (efecto "cámara ladeada"). 0° = horizonte recto.</p>
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Luz principal</div>
-              <div className="axis-row">
-                <label style={{ width: 60 }}>Color</label>
-                <input type="color" value={currentFx.light.color} onChange={(e) => setFxField("light", "color", e.target.value)} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 60 }}>Intensidad</label>
-                <input type="range" min={0} max={5} step={0.05} value={currentFx.light.intensity} onChange={(e) => setFxField("light", "intensity", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.05} value={currentFx.light.intensity} onChange={(e) => setFxField("light", "intensity", Number(e.target.value))} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 60 }}>Azimut</label>
-                <input type="range" min={0} max={360} step={1} value={currentFx.light.azimuth ?? 45} onChange={(e) => setFxField("light", "azimuth", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={1} value={currentFx.light.azimuth ?? 45} onChange={(e) => setFxField("light", "azimuth", Number(e.target.value))} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 60 }}>Altura</label>
-                <input type="range" min={-90} max={90} step={1} value={currentFx.light.elevation ?? 35} onChange={(e) => setFxField("light", "elevation", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={1} value={currentFx.light.elevation ?? 35} onChange={(e) => setFxField("light", "elevation", Number(e.target.value))} />
-              </div>
-              <p className="hint">Azimut gira la luz alrededor (0° = de frente, 90° = desde la derecha, 180° = contraluz). Altura la sube/baja (0° = a la altura de los ojos, 90° = directo desde arriba).</p>
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Luz de contorno (rim)</div>
-              <div className="axis-row">
-                <label style={{ width: 60 }}>Color</label>
-                <input type="color" value={currentFx.light.rimColor} onChange={(e) => setFxField("light", "rimColor", e.target.value)} />
-              </div>
-              <div className="axis-row">
-                <label style={{ width: 60 }}>Intensidad</label>
-                <input type="range" min={0} max={5} step={0.05} value={currentFx.light.rimIntensity} onChange={(e) => setFxField("light", "rimIntensity", Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.05} value={currentFx.light.rimIntensity} onChange={(e) => setFxField("light", "rimIntensity", Number(e.target.value))} />
-              </div>
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Niebla</div>
-              <label className="toggle-row" style={{ marginBottom: 6 }}>
-                <input type="checkbox" checked={currentFx.fog.enabled !== false} onChange={(e) => setFxField("fog", "enabled", e.target.checked)} />
-                Activar niebla en esta etapa
-              </label>
-              {currentFx.fog.enabled !== false && (
+              </>
+            )}
+
+            {section === "camera" && (
+              <>
+                <div className="tools">
+                  <Btn icon="copy" onClick={copyCamFromPrev} disabled={stageIndex <= 0}>Desde anterior</Btn>
+                  <Btn icon="capture" kind="acc" onClick={captureFreeCamera} disabled={!freeOrbit} title="Activá «Libre» en el visor">Capturar vista</Btn>
+                </div>
+                <Group id="cam" title="Cámara">
+                  <Vec3 label="Posición" value={cam.position} onChange={(a, v) => setCamField("position", a, v)} />
+                  <Vec3 label="Mira a" value={cam.lookAt} onChange={(a, v) => setCamField("lookAt", a, v)} />
+                  <Slider label="FOV" min={10} max={90} step={0.1} value={cam.fov} onChange={(v) => setCamField("fov", null, v)} />
+                  <Slider label="Roll" min={-180} max={180} step={0.1} value={cam.roll || 0} onChange={(v) => setCamField("roll", null, v)} />
+                </Group>
+                <Group id="light" title="Luz principal">
+                  <ColorRow label="Color" value={fxs.light.color} onChange={(v) => setFxField("light", "color", v)} />
+                  <Slider label="Intens." min={0} max={5} step={0.05} value={fxs.light.intensity} onChange={(v) => setFxField("light", "intensity", v)} />
+                  <Slider label="Azimut" min={0} max={360} step={1} value={fxs.light.azimuth ?? 45} onChange={(v) => setFxField("light", "azimuth", v)} />
+                  <Slider label="Altura" min={-90} max={90} step={1} value={fxs.light.elevation ?? 35} onChange={(v) => setFxField("light", "elevation", v)} />
+                </Group>
+                <Group id="rim" title="Luz de contorno">
+                  <ColorRow label="Color" value={fxs.light.rimColor} onChange={(v) => setFxField("light", "rimColor", v)} />
+                  <Slider label="Intens." min={0} max={5} step={0.05} value={fxs.light.rimIntensity} onChange={(v) => setFxField("light", "rimIntensity", v)} />
+                </Group>
+                <Group id="fog" title="Niebla" toggle={{ checked: fxs.fog.enabled !== false, onChange: (v) => setFxField("fog", "enabled", v) }}>
+                  <ColorRow label="Color" value={fxs.fog.color} onChange={(v) => setFxField("fog", "color", v)} />
+                  <Slider label="Alcance" min={0} max={300} step={0.5} value={fxs.fog.far} onChange={(v) => setFxField("fog", "far", v)} />
+                </Group>
+                <Group id="bg" title="Fondo">
+                  <Seg value={fxs.background.mode === "gradient" ? "gradient" : "solid"} onChange={setBackgroundMode} options={[["solid", "Sólido"], ["gradient", "Degradado"]]} />
+                  <ColorRow label={fxs.background.mode === "gradient" ? "Desde" : "Color"} value={fxs.background.from} onChange={(v) => setBackgroundColor("from", v)} />
+                  {fxs.background.mode === "gradient" && (
+                    <>
+                      <ColorRow label="Hasta" value={fxs.background.to} onChange={(v) => setBackgroundColor("to", v)} />
+                      <Slider label="Ángulo" min={0} max={360} step={1} value={fxs.background.angle ?? 180} onChange={(v) => setFxField("background", "angle", v)} />
+                    </>
+                  )}
+                </Group>
+              </>
+            )}
+
+            {section === "movement" && (
+              <>
+                <div className="tools"><Btn icon="copy" onClick={copyMoveFromPrev} disabled={stageIndex <= 0}>Desde anterior</Btn></div>
+                <Group id="mv" title="Transformación">
+                  <Vec3 label="Posición" value={mv.pos} onChange={(a, v) => setMoveField("pos", a, v)} />
+                  <Slider label="Giro (yaw)" min={-180} max={180} step={0.1} value={mv.yaw} onChange={(v) => setMoveField("yaw", null, v)} />
+                  <Presets items={[["Frente", 0], ["Der. 90°", -90], ["Izq. 90°", 90], ["Espalda", 180]]} onPick={applyYawPreset} />
+                  <Slider label="Pitch" min={-90} max={90} step={0.1} value={mv.pitch} onChange={(v) => setMoveField("pitch", null, v)} />
+                  <Presets items={[["Neutro", 0], ["Adelante", 60], ["Atrás", -60]]} onPick={applyPitchPreset} />
+                </Group>
+              </>
+            )}
+
+            {section === "timing" && (
+              nStages < 2 ? <div className="empty">Agregá una 2ª pose</div> : (
                 <>
-                  <div className="axis-row">
-                    <label style={{ width: 60 }}>Color</label>
-                    <input type="color" value={currentFx.fog.color} onChange={(e) => setFxField("fog", "color", e.target.value)} />
-                  </div>
-                  <div className="axis-row">
-                    <label style={{ width: 60 }}>Alcance</label>
-                    <input type="range" min={0} max={300} step={0.5} value={currentFx.fog.far} onChange={(e) => setFxField("fog", "far", Number(e.target.value))} />
-                    <input type="number" className="axis-num" min={0.1} step={0.5} value={currentFx.fog.far} onChange={(e) => setFxField("fog", "far", Number(e.target.value))} />
-                  </div>
-                  <p className="hint">Alcance chico = niebla cerrada, muy cerca. Alcance grande = niebla casi imperceptible. El slider llega a 300, pero el número de al lado no tiene techo — escribí lo que necesites.</p>
-                </>
-              )}
-            </div>
-            <div className="cam-group">
-              <div className="cam-group-title">Fondo</div>
-              <div className="btn-row" style={{ marginBottom: 6 }}>
-                <button className={`btn ${currentFx.background.mode !== "gradient" ? "primary" : ""}`} onClick={() => setBackgroundMode("solid")}>Sólido</button>
-                <button className={`btn ${currentFx.background.mode === "gradient" ? "primary" : ""}`} onClick={() => setBackgroundMode("gradient")}>Degradado</button>
-              </div>
-              {currentFx.background.mode !== "gradient" ? (
-                <div className="axis-row">
-                  <label style={{ width: 60 }}>Color</label>
-                  <input type="color" value={currentFx.background.from} onChange={(e) => setBackgroundColor("from", e.target.value)} />
-                </div>
-              ) : (
-                <>
-                  <div className="axis-row">
-                    <label style={{ width: 60 }}>Desde</label>
-                    <input type="color" value={currentFx.background.from} onChange={(e) => setBackgroundColor("from", e.target.value)} />
-                  </div>
-                  <div className="axis-row">
-                    <label style={{ width: 60 }}>Hasta</label>
-                    <input type="color" value={currentFx.background.to} onChange={(e) => setBackgroundColor("to", e.target.value)} />
-                  </div>
-                  <div className="axis-row">
-                    <label style={{ width: 60 }}>Ángulo</label>
-                    <input type="range" min={0} max={360} step={1} value={currentFx.background.angle ?? 180} onChange={(e) => setFxField("background", "angle", Number(e.target.value))} />
-                    <input type="number" className="axis-num" step={1} value={currentFx.background.angle ?? 180} onChange={(e) => setFxField("background", "angle", Number(e.target.value))} />
-                  </div>
-                  <p className="hint">180° = de arriba hacia abajo, 90° = de izquierda a derecha.</p>
-                </>
-              )}
-            </div>
-          </>
-        )}
-
-        {section === "movement" && (
-          <>
-            <div className="btn-row"><button className="btn" onClick={copyMoveFromPrev}>Copiar etapa anterior</button></div>
-
-            <div className="cam-group">
-              <div className="cam-group-title">Posición (x, y, z)</div>
-              {["x", "y", "z"].map((axis, i) => (
-                <div className="axis-row" key={axis}>
-                  <label>{axis.toUpperCase()}</label>
-                  <input type="range" min={axis === "z" ? -120 : -60} max={axis === "z" ? 40 : 60} step={0.05} value={movesByKf[activeStage].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} />
-                  <input type="number" step={0.05} value={movesByKf[activeStage].pos[i]} onChange={(e) => setMoveField("pos", axis, Number(e.target.value))} style={{ width: 62 }} />
-                </div>
-              ))}
-              <p className="hint">X: izquierda/derecha (diagonal si lo combinás con Z). Y: altura en cuadro. Z: profundidad — más negativo, más al fondo/lejos. Rango ampliado — usá el campo numérico si necesitás más precisión que el slider.</p>
-            </div>
-
-            <div className="cam-group">
-              <div className="cam-group-title">Giro (yaw)</div>
-              <div className="axis-row">
-                <label>°</label>
-                <input type="range" min={-180} max={180} step={0.1} value={movesByKf[activeStage].yaw} onChange={(e) => setMoveField("yaw", null, Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.1} value={movesByKf[activeStage].yaw} onChange={(e) => setMoveField("yaw", null, Number(e.target.value))} />
-              </div>
-              <div className="btn-row">
-                <button className="btn" onClick={() => applyYawPreset(0)}>Frente</button>
-                <button className="btn" onClick={() => applyYawPreset(-90)}>Derecha 90°</button>
-                <button className="btn" onClick={() => applyYawPreset(90)}>Izquierda 90°</button>
-                <button className="btn" onClick={() => applyYawPreset(180)}>Espalda 180°</button>
-              </div>
-            </div>
-
-            <div className="cam-group">
-              <div className="cam-group-title">Inclinación (pitch)</div>
-              <div className="axis-row">
-                <label>°</label>
-                <input type="range" min={-90} max={90} step={0.1} value={movesByKf[activeStage].pitch} onChange={(e) => setMoveField("pitch", null, Number(e.target.value))} />
-                <input type="number" className="axis-num" step={0.1} value={movesByKf[activeStage].pitch} onChange={(e) => setMoveField("pitch", null, Number(e.target.value))} />
-              </div>
-              <div className="btn-row">
-                <button className="btn" onClick={() => applyPitchPreset(0)}>Neutral</button>
-                <button className="btn" onClick={() => applyPitchPreset(60)}>Adelante</button>
-                <button className="btn" onClick={() => applyPitchPreset(-60)}>Atrás</button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {section === "timing" && (
-          <>
-            <p className="hint">Cuánto scroll (en vh) dura cada tramo entre etapas, y con qué curva de velocidad se recorre. Más vh = la transición es más lenta/larga; menos vh = más rápida/corta. La curva controla el "cómo" además del "cuánto": con ella podés hacer que la cámara y el personaje arranquen lento y aceleren, o frenen suave al llegar — así se sienten coordinados en vez de robóticos. La suma de los tramos define el largo total del scroll.</p>
-            <div className="cam-group">
-              {stagesComputed.slice(1).map((kf, i) => {
-                const fromLabel = stages[i].label;
-                return (
-                  <div key={kf.id} style={{ marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="axis-row" style={{ marginBottom: 4 }}>
-                      <label style={{ width: 150, fontSize: 10.5 }}>{fromLabel} → {kf.label}</label>
-                      <input type="range" min={20} max={800} step={5} value={durationsVh[i]} onChange={(e) => setDurationAt(i, Number(e.target.value))} />
-                      <span className="val">{durationsVh[i]}vh</span>
-                    </div>
-                    <div className="axis-row">
-                      <label style={{ width: 150, fontSize: 10.5 }}>Curva de velocidad</label>
-                      <select className="curve-select" value={easings[i] || "smooth"} onChange={(e) => setEasingAt(i, e.target.value)} style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}>
-                        <option value="smooth">Suave (arranca y frena lento)</option>
-                        <option value="linear">Lineal (velocidad constante)</option>
-                        <option value="easeIn">Entrada lenta (arranca despacio, llega rápido)</option>
-                        <option value="easeOut">Salida lenta (arranca rápido, llega despacio)</option>
+                  <div className="tl">{durationsVh.map((d, i) => <div key={i} style={{ flexGrow: d }}>{i + 1}→{i + 2}</div>)}</div>
+                  <div className="stat">Total {Math.round(totalVh)} vh</div>
+                  {durationsVh.map((d, i) => (
+                    <div className="row" key={stagesComputed[i + 1].id}>
+                      <span className="tr-n">{i + 1}→{i + 2}</span>
+                      <input type="range" min={20} max={800} step={5} value={clamp(d, 20, 800)} style={{ "--pct": ((clamp(d, 20, 800) - 20) / 780) * 100 + "%" }} onChange={(e) => setDurationAt(i, Number(e.target.value))} />
+                      <Num value={d} step={5} onChange={(v) => setDurationAt(i, v)} />
+                      <select value={easings[i] || "smooth"} onChange={(e) => setEasingAt(i, e.target.value)} style={{ width: 82 }}>
+                        <option value="smooth">Suave</option><option value="linear">Lineal</option><option value="easeIn">Entrada</option><option value="easeOut">Salida</option>
                       </select>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="hint">Largo total del scroll: <strong>{Math.round(totalVh)}vh</strong>. Probá los cambios en la pestaña Preview con "▶ Reproducir".</p>
-          </>
-        )}
+                  ))}
+                </>
+              )
+            )}
 
-        {section === "objects" && (
-          <>
-            <p className="hint">Agregá los objetos del entorno — pueden ser modelos 3D estáticos (.glb, como rampas o plataformas), imágenes planas (.svg/.png/.jpg, tipo cartel, logo o sprite) o texto (con su propio color y tipografía). Para imágenes/SVG podés subir el archivo directo (el de Corel Draw funciona tal cual) y lo ves de una en el visor. El navegador no puede copiarlo solo a la carpeta del proyecto — para eso usá el botón "Descargar" y guardalo con ese mismo nombre en <code>assets/models/</code> junto al resto de los archivos.</p>
-            <p className="hint">La escala/posición/rotación de cada objeto ahora es <strong>por etapa</strong> (la misma "Etapa" de arriba) — así podés hacer que floten, se acerquen o giren durante el scroll, igual que el personaje. Si no tocás nada en una etapa nueva, el objeto queda quieto donde estaba.</p>
-            <div className="btn-row"><button className="btn" onClick={copyAllObjectTransformsFromPrev}>Copiar posiciones de TODOS desde la etapa anterior</button></div>
-            {objects.map((obj, idx) => {
-              const isImage = obj.type === "image";
-              const isText = obj.type === "text";
-              const isModel = !isImage && !isText;
-              const t = (objectTransformsByKf[obj.id] && objectTransformsByKf[obj.id][activeStage]) || defaultObjectTransform();
-              return (
-                <div className="obj-block" key={obj.id}>
-                  <div className="obj-block-header">
-                    <input type="text" value={obj.label} onChange={(e) => updateObject(obj.id, { label: e.target.value })} />
-                    <label className="toggle-row" style={{ padding: "3px 6px" }}><input type="checkbox" checked={obj.visible} onChange={(e) => updateObject(obj.id, { visible: e.target.checked })} />Visible</label>
-                    <button className="btn danger" style={{ fontSize: 10, padding: "3px 6px" }} onClick={() => removeObject(obj.id)}>🗑</button>
-                  </div>
-                  <div className="btn-row" style={{ marginBottom: 6 }}>
-                    <button className={`btn ${isModel ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "model")}>Modelo (.glb)</button>
-                    <button className={`btn ${isImage ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "image")}>Imagen / SVG</button>
-                    <button className={`btn ${isText ? "primary" : ""}`} onClick={() => setObjectType(obj.id, "text")}>Texto</button>
-                  </div>
-                  {isText && (
-                    <div className="cam-group" style={{ paddingBottom: 8, marginBottom: 8 }}>
-                      <div className="axis-row" style={{ alignItems: "flex-start" }}>
-                        <label style={{ width: 60, fontSize: 10.5, marginTop: 6 }}>Texto</label>
-                        <textarea
-                          value={obj.text || ""}
-                          onChange={(e) => updateObject(obj.id, { text: e.target.value })}
-                          rows={3}
-                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", color: "#f5f6f2", borderRadius: 4, padding: "6px 8px", fontSize: 12, fontFamily: "inherit", resize: "vertical" }}
-                        />
-                      </div>
-                      <p className="hint">Usá Enter para saltos de línea manuales — no hay ajuste automático, así vos controlás dónde corta cada renglón.</p>
-                      <div className="axis-row">
-                        <label style={{ width: 60, fontSize: 10.5 }}>Color</label>
-                        <input type="color" value={obj.textColor || "#ffffff"} onChange={(e) => updateObject(obj.id, { textColor: e.target.value })} />
-                      </div>
-                      <div className="axis-row">
-                        <label style={{ width: 60, fontSize: 10.5 }}>Tipografía</label>
-                        <select
-                          value={obj.fontFamily || "'Inter', sans-serif"}
-                          onChange={(e) => updateObject(obj.id, { fontFamily: e.target.value })}
-                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
-                        >
-                          <option value="'Inter', sans-serif">Inter (sans)</option>
-                          <option value="'Space Grotesk', sans-serif">Space Grotesk (display)</option>
-                          <option value="Georgia, 'Times New Roman', serif">Serif</option>
-                          <option value="'Courier New', monospace">Monoespaciada</option>
-                          <option value="system-ui, sans-serif">Sans genérica del sistema</option>
-                        </select>
-                      </div>
-                      <div className="axis-row">
-                        <label style={{ width: 60, fontSize: 10.5 }}>Peso</label>
-                        <select
-                          value={obj.fontWeight || 600}
-                          onChange={(e) => updateObject(obj.id, { fontWeight: Number(e.target.value) })}
-                          style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "#f5f6f2", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "4px 6px", fontSize: 11.5 }}
-                        >
-                          <option value={300}>Liviana (300)</option>
-                          <option value={400}>Normal (400)</option>
-                          <option value={500}>Media (500)</option>
-                          <option value={600}>Semi-negrita (600)</option>
-                          <option value={700}>Negrita (700)</option>
-                        </select>
-                      </div>
-                      <div className="btn-row" style={{ marginBottom: 6 }}>
-                        <button className={`btn ${(obj.textAlign || "center") === "left" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "left" })}>Izquierda</button>
-                        <button className={`btn ${(obj.textAlign || "center") === "center" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "center" })}>Centro</button>
-                        <button className={`btn ${(obj.textAlign || "center") === "right" ? "primary" : ""}`} onClick={() => updateObject(obj.id, { textAlign: "right" })}>Derecha</button>
-                      </div>
-                      <label className="toggle-row" style={{ marginBottom: 6 }}>
-                        <input type="checkbox" checked={!!obj.textOutline} onChange={(e) => updateObject(obj.id, { textOutline: e.target.checked })} />
-                        Contorno (ayuda a leer sobre fondos claros/oscuros)
-                      </label>
-                      {obj.textOutline && (
-                        <div className="axis-row">
-                          <label style={{ width: 60, fontSize: 10.5 }}>Color contorno</label>
-                          <input type="color" value={obj.textOutlineColor || "#000000"} onChange={(e) => updateObject(obj.id, { textOutlineColor: e.target.value })} />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {isImage && (
-                    <div className="btn-row" style={{ marginBottom: 6 }}>
-                      <label className="btn" style={{ cursor: "pointer" }}>
-                        ⬆ Subir archivo (.svg/.png/.jpg)
-                        <input
-                          type="file"
-                          accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp"
-                          style={{ display: "none" }}
-                          onChange={(e) => { uploadObjectFile(obj.id, e.target.files[0]); e.target.value = ""; }}
-                        />
-                      </label>
-                      {obj.previewUrl && (
-                        <a className="btn" href={obj.previewUrl} download={obj.url.split("/").pop()}>
-                          ⬇ Descargar "{obj.url.split("/").pop()}"
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  {!isText && (
-                    <div className="axis-row">
-                      <label style={{ width: 40, fontSize: 10.5 }}>Archivo</label>
-                      <input type="text" value={obj.url} onChange={(e) => setObjectUrl(obj.id, e.target.value)} />
-                    </div>
-                  )}
-                  {isModel && /\.(svg|png|jpe?g|webp)$/i.test(obj.url) && (
-                    <p className="hint" style={{ color: "#ff9a9a" }}>⚠ Esta ruta termina en imagen/SVG pero el tipo está en "Modelo (.glb)" — así el navegador va a intentar leerla como .glb y va a fallar. Tocá el botón "Imagen / SVG" de arriba.</p>
-                  )}
-                  {isImage && /\.glb$/i.test(obj.url) && (
-                    <p className="hint" style={{ color: "#ff9a9a" }}>⚠ Esta ruta termina en .glb pero el tipo está en "Imagen / SVG" — tocá el botón "Modelo (.glb)" de arriba.</p>
-                  )}
-                  {isImage && obj.previewUrl && (
-                    <p className="hint">Estás viendo el archivo subido en este visor. Cuando descargues el index.html, acordate de guardar "{obj.url.split("/").pop()}" (botón de arriba) en esa misma ruta, o el navegador no lo va a encontrar.</p>
-                  )}
-                  {(isImage || isText) && (
-                    <label className="toggle-row" style={{ marginBottom: 6 }}>
-                      <input type="checkbox" checked={!!obj.billboard} onChange={(e) => updateObject(obj.id, { billboard: e.target.checked })} />
-                      Billboard (siempre mira a cámara)
-                    </label>
-                  )}
-                  <div className="btn-row" style={{ marginBottom: 6 }}>
-                    <button className="btn" onClick={() => copyObjectTransformFromPrev(obj.id)}>Copiar este objeto desde la etapa anterior</button>
-                  </div>
-                  <div className="axis-row">
-                    <label>×</label>
-                    <input type="range" min={0.05} max={20} step={0.01} value={t.scale} onChange={(e) => setObjectTransform(obj.id, "scale", null, Number(e.target.value))} />
-                    <input type="number" className="axis-num" step={0.01} value={t.scale} onChange={(e) => setObjectTransform(obj.id, "scale", null, Number(e.target.value))} />
-                  </div>
-                  {["x", "y", "z"].map((axis, i) => (
-                    <div className="axis-row" key={axis}>
-                      <label>{axis.toUpperCase()}</label>
-                      <input type="range" min={-30} max={30} step={0.05} value={t.position[i]} onChange={(e) => setObjectTransform(obj.id, "position", axis, Number(e.target.value))} />
-                      <input type="number" className="axis-num" step={0.05} value={t.position[i]} onChange={(e) => setObjectTransform(obj.id, "position", axis, Number(e.target.value))} />
+            {section === "objects" && (
+              <>
+                <div className="tools">
+                  <Btn icon="cube" onClick={() => addObject("model")}>Modelo</Btn>
+                  <Btn icon="image" onClick={() => addObject("image")}>Imagen</Btn>
+                  <Btn icon="text" onClick={() => addObject("text")}>Texto</Btn>
+                  <span className="grow" />
+                  <IBtn icon="copy" title="Todos desde la pose anterior" disabled={stageIndex <= 0 || !objects.length} onClick={copyAllObjectTransformsFromPrev} />
+                  <IBtn icon="pin" title="Fijar todos en todas las poses" disabled={!objects.length} onClick={applyAllObjectTransformsToAllStages} />
+                </div>
+                <div className="outliner">
+                  {objects.map((o, i) => (
+                    <div key={o.id} className={`orow ${selObj && selObj.id === o.id ? "sel" : ""} ${o.visible ? "" : "off"}`} style={{ "--oc": colorOf(o, i) }} onClick={() => setSelectedObj(o.id)}>
+                      <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "image" ? "image" : "cube"} size={15} /></span>
+                      <span className="oname">{o.label}</span>
+                      <button className="mini" title="Visible" onClick={(e) => { e.stopPropagation(); updateObject(o.id, { visible: !o.visible }); }}><Icon name={o.visible ? "eye" : "eyeoff"} size={14} /></button>
+                      <button className="mini danger" title="Eliminar" onClick={(e) => { e.stopPropagation(); removeObject(o.id); }}><Icon name="trash" size={14} /></button>
                     </div>
                   ))}
-                  {!((isImage || isText) && obj.billboard) && (
-                    <div className="axis-row">
-                      <label>°</label>
-                      <input type="range" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(e) => setObjectTransform(obj.id, "rotationY", null, Number(e.target.value))} />
-                      <input type="number" className="axis-num" step={0.1} value={t.rotationY} onChange={(e) => setObjectTransform(obj.id, "rotationY", null, Number(e.target.value))} />
-                    </div>
-                  )}
-                  {(isImage || isText) && obj.billboard && <p className="hint">Con billboard activado, la rotación no aplica — {isText ? "el texto" : "la imagen"} siempre gira para mirar a cámara.</p>}
+                  {!objects.length && <div className="empty">Sin objetos</div>}
                 </div>
-              );
-            })}
-            <div className="btn-row">
-              <button className="btn primary" onClick={addObject}>+ Agregar objeto</button>
-            </div>
-          </>
-        )}
+                {selObj && renderObjectEditor(selObj, objects.indexOf(selObj))}
+              </>
+            )}
 
-        <div className="section-title">Proyecto (para seguir editando después)</div>
-        <p className="hint">Esto NO es el sitio final — es para vos, mientras trabajás. "Guardar como editor" te baja una copia de ESTA MISMA herramienta con tu progreso ya adentro: la nombrás como quieras, la subís a GitHub o la guardás donde sea, y el día que la abras arranca justo donde la dejaste. No hace falta cargar nada aparte.</p>
-        <div className="axis-row">
-          <label style={{ width: 90, fontSize: 10.5 }}>Nombre</label>
-          <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="veterinaria" />
-        </div>
-        <div className="btn-row">
-          <button className="btn primary" onClick={saveProjectAsEditor}>💾 Guardar como editor (editor_{(projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto"}.html)</button>
-          {projectLoaded && <span className="copied">¡Proyecto cargado!</span>}
-        </div>
-        <details style={{ marginTop: 4 }}>
-          <summary style={{ cursor: "pointer", fontSize: 11.5, color: "rgba(245,246,242,0.7)" }}>Opción liviana: guardar solo los datos (.json)</summary>
-          <p className="hint" style={{ marginTop: 6 }}>Un archivo bien chico con solo tu progreso (sin el código de la herramienta). Sirve si preferís mandarlo por chat o guardarlo aparte — para seguir editando, abrís esta herramienta de nuevo y lo cargás con el botón de abajo.</p>
-          <div className="btn-row">
-            <button className="btn" onClick={saveProject}>💾 Guardar datos (.json)</button>
-            <label className="btn" style={{ cursor: "pointer" }}>
-              📂 Cargar datos (.json)
-              <input
-                type="file"
-                accept=".json,application/json"
-                style={{ display: "none" }}
-                onChange={(e) => { loadProject(e.target.files[0]); e.target.value = ""; }}
-              />
-            </label>
+            {section === "preview" && (
+              <Slider label="Velocidad" min={0.1} max={3} step={0.05} value={playSpeed} onChange={setPlaySpeed} />
+            )}
+
+            {section === "file" && (
+              <>
+                <Group id="proj" title="Proyecto">
+                  <div className="row"><span className="lbl">Nombre</span><input type="text" style={{ flex: 1 }} value={projectName} onChange={(e) => setProjectName(e.target.value)} /></div>
+                  <div className="tools">
+                    <label className="btn"><Icon name="open" size={14} />Abrir .json
+                      <input type="file" accept=".json,application/json" onChange={(e) => { loadProject(e.target.files[0]); e.target.value = ""; }} />
+                    </label>
+                    <Btn icon="file" onClick={saveProject}>Guardar .json</Btn>
+                    <Btn icon="file" onClick={saveProjectAsEditor}>Editor .html</Btn>
+                  </div>
+                  <div className="tools"><Btn icon="trash" kind="danger" onClick={newProject}>Nuevo proyecto (vaciar)</Btn></div>
+                  {projectLoadError && <div className="err">{projectLoadError}</div>}
+                </Group>
+                <Group id="exp" title="Exportar">
+                  <div className="tools">
+                    <Btn icon="export" kind="acc" onClick={downloadFullHtml}>index.html</Btn>
+                    <Btn icon="copy" onClick={copyFullHtml}>Copiar index.html</Btn>
+                  </div>
+                </Group>
+                <Group id="code" title="Código" defaultOpen={false}>
+                  {[["Huesos", boneCode, "bones"], ["Cámara", scenesCode, "camera"], ["Movimiento", movementCode, "movement"], ["Objetos", objectsCode, "objects"]].map(([t, code, k]) => (
+                    <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div className="tools"><span className="lbl">{t}</span><Btn icon="copy" onClick={() => copy(code, k)}>Copiar</Btn></div>
+                      <textarea className="code" readOnly value={code} onFocus={(e) => e.target.select()} />
+                    </div>
+                  ))}
+                </Group>
+              </>
+            )}
           </div>
-        </details>
-        {projectLoadError && <p className="hint" style={{ color: "#ff9a9a" }}>{projectLoadError}</p>}
-
-        <div className="section-title">Descarga</div>
-        <p className="hint">Genera tu index.html completo con todo lo ajustado en Pose, Cámara, Movimiento, Duración y Objetos — listo para subir a GitHub Pages, o copialo directo sin descargar.</p>
-        <div className="btn-row">
-          <button className="btn primary" onClick={downloadFullHtml}>⬇ Descargar index.html completo</button>
-          {downloaded && <span className="copied">¡Descargado!</span>}
+          {toast && <div className="toast">{toast}</div>}
         </div>
-        <div className="btn-row">
-          <button className="btn" onClick={copyFullHtml}>⧉ Copiar index.html completo</button>
-          {copiedWhich === "full" && <span className="copied">¡Copiado!</span>}
-        </div>
-
-        <div className="section-title">Código individual (opcional)</div>
-        <p className="hint">Por si preferís pegar a mano en tu propio archivo en vez de descargar el completo.</p>
-
-        <details>
-          <summary style={{ cursor: "pointer", fontSize: 11.5, color: "rgba(245,246,242,0.7)" }}>Ver bloques de código</summary>
-          <div style={{ marginTop: 8 }}>
-            <div className="section-title">Huesos</div>
-            <textarea className="code" readOnly value={boneCode} onFocus={(e) => e.target.select()} />
-            <div className="btn-row"><button className="btn" onClick={() => copy(boneCode, "bones")}>Copiar</button>{copiedWhich === "bones" && <span className="copied">¡Copiado!</span>}</div>
-
-            <div className="section-title">Cámara (scenes)</div>
-            <textarea className="code" readOnly value={scenesCode} onFocus={(e) => e.target.select()} />
-            <div className="btn-row"><button className="btn" onClick={() => copy(scenesCode, "camera")}>Copiar</button>{copiedWhich === "camera" && <span className="copied">¡Copiado!</span>}</div>
-
-            <div className="section-title">Movimiento</div>
-            <textarea className="code" readOnly value={movementCode} onFocus={(e) => e.target.select()} />
-            <div className="btn-row"><button className="btn" onClick={() => copy(movementCode, "movement")}>Copiar</button>{copiedWhich === "movement" && <span className="copied">¡Copiado!</span>}</div>
-
-            <div className="section-title">Objetos</div>
-            <textarea className="code" readOnly value={objectsCode} onFocus={(e) => e.target.select()} />
-            <div className="btn-row"><button className="btn" onClick={() => copy(objectsCode, "objects")}>Copiar</button>{copiedWhich === "objects" && <span className="copied">¡Copiado!</span>}</div>
-          </div>
-        </details>
       </div>
     </>
   );
