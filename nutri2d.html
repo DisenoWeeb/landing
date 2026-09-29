@@ -1504,16 +1504,16 @@ function SceneObjectImageSvg({ data }) {
    desactivar en uno puntual con `particles: false` en OBJECTS).
    ============================================================ */
 const PARTICLE_LOGO = {
-  grid: 120,            // resolución del muestreo (px de lado largo). Más = más partículas
-  gridMobile: 170,
-  spread: 0.5,          // cuánto se alejan las partículas (1 = normal, 2 = el doble)
-  maxScatter: 1.0,      // 0..1 — desintegración máxima durante el scroll
-  disperseSpeed: 9,     // qué tan rápido se desintegra al scrollear
+  grid: 60,            // resolución del muestreo (px de lado largo). Más = más partículas
+  gridMobile: 60,
+  spread: 0.3,          // cuánto se alejan las partículas (1 = normal, 2 = el doble)
+  maxScatter: 0.3,      // 0..1 — desintegración máxima durante el scroll
+  disperseSpeed: 6,     // qué tan rápido se desintegra al scrollear
   suspendSeconds: 0.85, // pausa "suspendida" con las partículas flotando antes de rearmarse
-  snapSeconds: 0.6,     // duración del rearmado (chico = más "flum")
-  sizeGrow: 1.4,        // cuánto crecen las partículas al dispersarse (1 = no crecen)
-  brightness: 1.7,      // brillo extra mientras están dispersas (>1 activa el bloom)
-  glowOnSnap: 0.6,      // destello blanco al rearmarse (0 = sin destello)
+  snapSeconds: 0.4,     // duración del rearmado (chico = más "flum")
+  sizeGrow: 1.9,        // cuánto crecen las partículas al dispersarse (1 = no crecen)
+  brightness: 2.7,      // brillo extra mientras están dispersas (>1 activa el bloom)
+  glowOnSnap: 0.0,      // destello blanco al rearmarse (0 = sin destello)
   scrollEps: 0.0002,    // sensibilidad: cuánto debe moverse el progreso para contar como scroll
 };
 
