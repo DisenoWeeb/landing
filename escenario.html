@@ -315,7 +315,7 @@ const clientConfig = {
 };
 
 /*@GEN:MODEL_URL_START*/
-const CHARACTER_MODEL_URL = "./assets/models/pet_bowl.glb";
+const CHARACTER_MODEL_URL = "./assets/models/";
 /*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
@@ -342,8 +342,8 @@ const OBJECTS = [
   },
   {
     type: "model",
-    url: "./assets/models/piso_bordes_abajo.glb",
-    glow: 0,
+    url: "./assets/models/piso_reflejo_magenta.glb",
+    glow: 3,
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.15, rotationY: 0 },
@@ -355,13 +355,13 @@ const OBJECTS = [
   {
     type: "model",
     url: "./assets/models/logobruzera.glb",
-    glow: 0.35,
+    glow: 0.1,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 250 },
-      { progress: 1, easing: "smooth", position: [0, 1.48, 0], scale: 0.94, rotationY: 320 },
+      { progress: 0, easing: "smooth", position: [0, 1.68, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0.333, easing: "smooth", position: [0, 1.68, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0.667, easing: "smooth", position: [0, 1.68, 0], scale: 0.94, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 1.68, 0], scale: 0.94, rotationY: 0 },
     ],
   },
 ];
@@ -406,36 +406,36 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [0, 0.045, 8.379], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 25, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0.4 },
-    fog: { enabled: true, color: "#101138", far: 25.5 },
+    camera: { position: [5.732, 4.328, 4.786], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#d0c8f4", intensity: 2.8, azimuth: 326, elevation: 36, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0.4 },
+    fog: { enabled: true, color: "#101138", far: 14 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
   {
-    id: "pose-1790771648223",
+    id: "pose-1790777162816",
     progress: 0.333,
     easing: "smooth",
-    camera: { position: [8.748, 4.845, 15.253], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 25, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0.4 },
-    fog: { enabled: true, color: "#101138", far: 25.5 },
+    camera: { position: [9.662, 10.358, -8.758], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#d0c8f4", intensity: 2.8, azimuth: 326, elevation: 36, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0.4 },
+    fog: { enabled: true, color: "#101138", far: 14 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
   {
-    id: "pose-1790771673669",
+    id: "pose-1790777194829",
     progress: 0.667,
     easing: "smooth",
-    camera: { position: [-7.685, 2.989, 3.574], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 25, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0.4 },
-    fog: { enabled: true, color: "#101138", far: 25.5 },
+    camera: { position: [-8.996, -2.238, 8.258], lookAt: [0, 1.3, 0], fov: 10, roll: 0 },
+    light: { color: "#d0c8f4", intensity: 3.45, azimuth: 36, elevation: 26, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0 },
+    fog: { enabled: true, color: "#591b5a", far: 300 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
   {
-    id: "pose-1790771772693",
+    id: "pose-1790777385446",
     progress: 1,
     easing: "smooth",
-    camera: { position: [-3.508, 0.088, 0.157], lookAt: [0, 1.26, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 25, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0.4 },
-    fog: { enabled: true, color: "#101138", far: 25.5 },
+    camera: { position: [10.437, -1.564, 7.222], lookAt: [0, 0.86, 0], fov: 19.2, roll: 0 },
+    light: { color: "#d0c8f4", intensity: 3.45, azimuth: 320, elevation: 1, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0 },
+    fog: { enabled: true, color: "#591b5a", far: 300 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
 ];
@@ -448,9 +448,9 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790771648223", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790771673669", progress: 0.667, easing: "smooth", pos: [0, 0, 0], yaw: 63.5, pitch: 0 },
-  { id: "pose-1790771772693", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 63.5, pitch: 0 },
+  { id: "pose-1790777162816", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790777194829", progress: 0.667, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790777385446", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -483,7 +483,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790771648223",
+    id: "pose-1790777162816",
     progress: 0.333,
     easing: "smooth",
     bones: {
@@ -491,7 +491,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790771673669",
+    id: "pose-1790777194829",
     progress: 0.667,
     easing: "smooth",
     bones: {
@@ -499,7 +499,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790771772693",
+    id: "pose-1790777385446",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -532,7 +532,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 2400;
+const SCROLL_LENGTH_VH = 450;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
@@ -1369,136 +1369,6 @@ function applyGlow(scene, glow) {
     });
   });
 }
-
-/* ============================================================
-   PISO MODERNO — reemplaza el material marrón del GLB del piso.
-   El GLB no trae textura ni UVs (solo color de vértice marrón), así
-   que acá se genera: UVs planares + textura procedural (microcemento
-   con juntas de baldosa grande) — sin archivos extra.
-   Para cambiar el look tocá solo FLOOR_PRESET / FLOOR_PRESETS.
-   ============================================================ */
-const FLOOR_MODEL_MATCH = "piso_bordes_abajo";   // se aplica al objeto cuyo url contenga esto
-const FLOOR_PRESET = "concreto";                 // "concreto" | "grafito" | "arena"
-const FLOOR_TILE = 10;        // tamaño de baldosa en unidades locales del GLB (10 = 1 unidad de mundo con scale 0.1)
-const FLOOR_SELF_LIGHT = 0.42;  // color propio del piso (0-1): cuánto se ve SIN depender de la luz. Subilo si se ve oscuro/violeta.
-const FLOOR_BUMP = 0.6;       // relieve de las juntas y el grano
-const FLOOR_PRESETS = {
-  concreto: { base: "#a7a39c", dark: "#7f7b75", grout: "#4d4a47", roughness: 0.42, metalness: 0.0, envIntensity: 0.6 },
-  grafito:  { base: "#5b6068", dark: "#3c4047", grout: "#1d2024", roughness: 0.28, metalness: 0.1, envIntensity: 0.9 },
-  arena:    { base: "#c4b8a6", dark: "#a39681", grout: "#6f6558", roughness: 0.5,  metalness: 0.0, envIntensity: 0.5 },
-};
-
-function _hash2(x, y, s) {
-  let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0;
-  h = (h ^ (h >>> 13)) * 1274126177;
-  h = h ^ (h >>> 16);
-  return ((h >>> 0) % 100000) / 100000;
-}
-// value-noise periódico: repite exacto cada `period` celdas => la textura tilea sin costuras
-function _tileNoise(u, v, period, seed) {
-  const x = u * period, y = v * period;
-  const x0 = Math.floor(x), y0 = Math.floor(y);
-  const fx = x - x0, fy = y - y0;
-  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-  const p = (i, j) => _hash2(((i % period) + period) % period, ((j % period) + period) % period, seed);
-  const a = p(x0, y0), b = p(x0 + 1, y0), c = p(x0, y0 + 1), d = p(x0 + 1, y0 + 1);
-  return lerp(lerp(a, b, sx), lerp(c, d, sx), sy);
-}
-function _fbm(u, v, seed) {
-  return _tileNoise(u, v, 4, seed) * 0.5 + _tileNoise(u, v, 8, seed + 1) * 0.3 + _tileNoise(u, v, 16, seed + 2) * 0.2;
-}
-
-let _floorMapsCache = null;
-function getFloorMaps(size, preset) {
-  if (_floorMapsCache) return _floorMapsCache;
-  const cBase = new THREE.Color(preset.base), cDark = new THREE.Color(preset.dark), cGrout = new THREE.Color(preset.grout);
-  const mk = () => { const c = document.createElement("canvas"); c.width = c.height = size; return c; };
-  const cvC = mk(), cvR = mk(), cvB = mk();
-  const ctxC = cvC.getContext("2d"), ctxR = cvR.getContext("2d"), ctxB = cvB.getContext("2d");
-  const imC = ctxC.createImageData(size, size), imR = ctxR.createImageData(size, size), imB = ctxB.createImageData(size, size);
-  const seam = 0.006;   // ancho de junta (fracción de la baldosa)
-  const tmp = new THREE.Color();
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const u = x / size, v = y / size, i = (y * size + x) * 4;
-      const cloud = _fbm(u, v, 11);                 // manchas grandes del microcemento
-      const grain = _hash2(x, y, 7) - 0.5;          // grano fino
-      // distancia al borde de la baldosa (la textura = 1 baldosa)
-      const e = Math.min(u, 1 - u, v, 1 - v);
-      const groove = 1 - Math.min(1, Math.max(0, (e - seam * 0.3) / seam));   // 1 en la junta, 0 en la baldosa
-      tmp.copy(cDark).lerp(cBase, clamp(0.25 + cloud * 0.9));
-      tmp.lerp(cGrout, groove * 0.85);
-      const g = 1 + grain * 0.05;
-      // colores en sRGB para el canvas
-      const out = tmp.clone().convertLinearToSRGB();
-      imC.data[i] = clamp(out.r * g) * 255; imC.data[i + 1] = clamp(out.g * g) * 255; imC.data[i + 2] = clamp(out.b * g) * 255; imC.data[i + 3] = 255;
-      // rugosidad: juntas más ásperas, centro de baldosa pulido con variación suave
-      const r = clamp(0.25 + cloud * 0.5 + groove * 0.5 + grain * 0.06);
-      imR.data[i] = imR.data[i + 1] = imR.data[i + 2] = r * 255; imR.data[i + 3] = 255;
-      // altura para bump: junta hundida + grano leve
-      const h = clamp(0.75 - groove * 0.55 + cloud * 0.12 + grain * 0.05);
-      imB.data[i] = imB.data[i + 1] = imB.data[i + 2] = h * 255; imB.data[i + 3] = 255;
-    }
-  }
-  ctxC.putImageData(imC, 0, 0); ctxR.putImageData(imR, 0, 0); ctxB.putImageData(imB, 0, 0);
-  const wrap = (t, srgb) => {
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.anisotropy = 8;                               // nítido en ángulos rasantes (la cámara está a ras del piso)
-    t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-    t.needsUpdate = true;
-    return t;
-  };
-  _floorMapsCache = {
-    map: wrap(new THREE.CanvasTexture(cvC), true),
-    rough: wrap(new THREE.CanvasTexture(cvR), false),
-    bump: wrap(new THREE.CanvasTexture(cvB), false),
-  };
-  return _floorMapsCache;
-}
-
-function applyModernFloor(root) {
-  const preset = FLOOR_PRESETS[FLOOR_PRESET] || FLOOR_PRESETS.concreto;
-  const maps = getFloorMaps(window.matchMedia("(max-width: 768px)").matches ? 512 : 1024, preset);
-  root.traverse((child) => {
-    if (!child.isMesh) return;
-    const geo = child.geometry;
-    // UVs planares (el GLB no trae): x/z local dividido por el tamaño de baldosa
-    if (!geo.attributes.uv && geo.attributes.position) {
-      const pos = geo.attributes.position;
-      const uv = new Float32Array(pos.count * 2);
-      for (let k = 0; k < pos.count; k++) { uv[k * 2] = pos.getX(k) / FLOOR_TILE; uv[k * 2 + 1] = pos.getZ(k) / FLOOR_TILE; }
-      geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
-    }
-    // El color de vértice marrón se descarta, pero se conserva su alpha (el fade de los bordes)
-    const col = geo.attributes.color;
-    if (col && !geo.userData._floorColorFixed) {
-      for (let k = 0; k < col.count; k++) { col.setXYZ(k, 1, 1, 1); }
-      col.needsUpdate = true;
-      geo.userData._floorColorFixed = true;
-    }
-    const old = child.material;
-    child.material = new THREE.MeshStandardMaterial({
-      map: maps.map,
-      roughnessMap: maps.rough,
-      roughness: preset.roughness * 2,        // el mapa (0-1) multiplica este valor
-      metalness: preset.metalness,
-      bumpMap: maps.bump,
-      bumpScale: FLOOR_BUMP,
-      envMapIntensity: preset.envIntensity,
-      // color propio: la luz clave es magenta (#c815cb, casi sin verde) y "apaga" los colores del piso;
-      // con esto el piso conserva su tono sin tener que subir la intensidad de la luz
-      emissive: new THREE.Color("#ffffff"),
-      emissiveMap: maps.map,
-      emissiveIntensity: FLOOR_SELF_LIGHT,
-      vertexColors: !!col,
-      transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    if (old && old.dispose) old.dispose();
-  });
-}
-
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const groupRef = useObjectTransformRef(data.keyframes, false);
@@ -1507,10 +1377,7 @@ function SceneObjectModel({ data }) {
       if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
     });
   }, [scene]);
-  useEffect(() => {
-    if (data.url && data.url.includes(FLOOR_MODEL_MATCH)) { applyModernFloor(scene); return; }
-    applyGlow(scene, data.glow || 0);
-  }, [scene, data.glow, data.url]);
+  useEffect(() => { applyGlow(scene, data.glow || 0); }, [scene, data.glow]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
@@ -2004,3 +1871,4 @@ createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
 </html>
+
