@@ -315,7 +315,7 @@ const clientConfig = {
 };
 
 /*@GEN:MODEL_URL_START*/
-const CHARACTER_MODEL_URL = "./assets/models/";
+const CHARACTER_MODEL_URL = "./assets/models/pet_bowl.glb";
 /*@GEN:MODEL_URL_END*/
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
@@ -335,33 +335,42 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0.167, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
       { progress: 0.333, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0.5, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
       { progress: 0.667, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0.833, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
       { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
     ],
   },
   {
     type: "model",
-    url: "./assets/models/piso_reflejo_magenta.glb",
+    url: "./assets/models/piso_reflejo_pastel.glb",
     glow: 3,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.15, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 0, 0], scale: 0.15, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 0, 0], scale: 0.15, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 0.15, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
+      { progress: 0.167, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
+      { progress: 0.333, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
+      { progress: 0.5, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
+      { progress: 0.667, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
+      { progress: 0.833, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
     ],
   },
   {
     type: "model",
     url: "./assets/models/logobruzera.glb",
-    glow: 0.1,
+    glow: 0,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 1.68, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 1.68, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 1.68, 0], scale: 0.94, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 1.68, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0.167, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0.333, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0.5, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0.667, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0.833, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
+      { progress: 1, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
     ],
   },
 ];
@@ -406,36 +415,63 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [5.732, 4.328, 4.786], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#d0c8f4", intensity: 2.8, azimuth: 326, elevation: 36, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0.4 },
-    fog: { enabled: true, color: "#101138", far: 14 },
+    camera: { position: [0, -0.088, 8.435], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    fog: { enabled: true, color: "#101138", far: 25.5 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
   {
-    id: "pose-1790777162816",
+    id: "pose-1790782182040",
+    progress: 0.167,
+    easing: "smooth",
+    camera: { position: [12.928, 5.736, 10.301], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    fog: { enabled: true, color: "#101138", far: 25.5 },
+    background: { from: "#3669b0", to: "#3669b0", angle: 180 },
+  },
+  {
+    id: "pose-1790782230782",
     progress: 0.333,
     easing: "smooth",
-    camera: { position: [9.662, 10.358, -8.758], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#d0c8f4", intensity: 2.8, azimuth: 326, elevation: 36, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0.4 },
-    fog: { enabled: true, color: "#101138", far: 14 },
+    camera: { position: [4.745, 6.8, -15.441], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    fog: { enabled: true, color: "#101138", far: 25.5 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
   {
-    id: "pose-1790777194829",
+    id: "pose-1790782236847",
+    progress: 0.5,
+    easing: "smooth",
+    camera: { position: [-16.862, -1.45, 3.538], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    fog: { enabled: true, color: "#101138", far: 25.5 },
+    background: { from: "#3669b0", to: "#3669b0", angle: 180 },
+  },
+  {
+    id: "pose-1790782243998",
     progress: 0.667,
     easing: "smooth",
-    camera: { position: [-8.996, -2.238, 8.258], lookAt: [0, 1.3, 0], fov: 10, roll: 0 },
-    light: { color: "#d0c8f4", intensity: 3.45, azimuth: 36, elevation: 26, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0 },
-    fog: { enabled: true, color: "#591b5a", far: 300 },
+    camera: { position: [-3.559, 0.236, 5.484], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    fog: { enabled: true, color: "#101138", far: 25.5 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
   {
-    id: "pose-1790777385446",
+    id: "pose-1790782257056",
+    progress: 0.833,
+    easing: "smooth",
+    camera: { position: [0.115, -2.267, 11.165], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    fog: { enabled: true, color: "#101138", far: 25.5 },
+    background: { from: "#3669b0", to: "#3669b0", angle: 180 },
+  },
+  {
+    id: "pose-1790782265378",
     progress: 1,
     easing: "smooth",
-    camera: { position: [10.437, -1.564, 7.222], lookAt: [0, 0.86, 0], fov: 19.2, roll: 0 },
-    light: { color: "#d0c8f4", intensity: 3.45, azimuth: 320, elevation: 1, rimColor: "#49d3ff", rimIntensity: 0.4, ambient: 0 },
-    fog: { enabled: true, color: "#591b5a", far: 300 },
+    camera: { position: [-0.129, 0.271, 6.882], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    fog: { enabled: true, color: "#101138", far: 25.5 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
 ];
@@ -448,9 +484,12 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790777162816", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790777194829", progress: 0.667, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790777385446", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790782182040", progress: 0.167, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790782230782", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790782236847", progress: 0.5, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790782243998", progress: 0.667, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790782257056", progress: 0.833, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790782265378", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -483,7 +522,15 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790777162816",
+    id: "pose-1790782182040",
+    progress: 0.167,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790782230782",
     progress: 0.333,
     easing: "smooth",
     bones: {
@@ -491,7 +538,15 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790777194829",
+    id: "pose-1790782236847",
+    progress: 0.5,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790782243998",
     progress: 0.667,
     easing: "smooth",
     bones: {
@@ -499,7 +554,15 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790777385446",
+    id: "pose-1790782257056",
+    progress: 0.833,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790782265378",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -532,16 +595,16 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 450;
+const SCROLL_LENGTH_VH = 900;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.2;
-const VIGNETTE_OFFSET = 0.15;
+const VIGNETTE_DARKNESS = 0.51;
+const VIGNETTE_OFFSET = 0.2;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.28;
-const BEAM_ENABLED = false;
+const BEAM_ENABLED = true;
 const BEAM_OPACITY = 0.13;
 const BEAM_WIDTH = 1.6;
 const BEAM_HEIGHT = 100;
@@ -551,11 +614,11 @@ const BEAM_HEIGHT = 100;
 const REFLECTION_ENABLED = true;
 const REFLECTION_RESOLUTION = 128;
 const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 1.5;
+const REFLECTION_INTENSITY = 1.65;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
-const TRAIL_ENABLED = false;
+const TRAIL_ENABLED = true;
 const TRAIL_COLOR = "#f2f4cd";
 const TRAIL_SIZE = 0.27;
 const TRAIL_LIFE = 10;
