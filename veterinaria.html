@@ -1540,9 +1540,12 @@ function applyGlow(scene, glow) {
     if (!child.isMesh) return;
     (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
       if (!m || !("emissive" in m)) return;
-      m.emissive.copy(m.color);
-      m.emissiveMap = m.map || null;
-      m.emissiveIntensity = glow;
+      if (!m.userData._glow0) m.userData._glow0 = { e: m.emissive.clone(), map: m.emissiveMap, i: m.emissiveIntensity };
+      const g = m.userData._glow0;
+      const hasOwn = !!g.map || g.e.r + g.e.g + g.e.b > 0;
+      if (glow <= 0) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i; }
+      else if (hasOwn) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i * (1 + glow); }
+      else { m.emissive.copy(m.color); m.emissiveMap = m.map || null; m.emissiveIntensity = glow; }
       m.needsUpdate = true;
     });
   });
@@ -2404,9 +2407,12 @@ function applyGlow(scene, glow) {
     if (!child.isMesh) return;
     (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
       if (!m || !("emissive" in m)) return;
-      m.emissive.copy(m.color);
-      m.emissiveMap = m.map || null;
-      m.emissiveIntensity = glow;
+      if (!m.userData._glow0) m.userData._glow0 = { e: m.emissive.clone(), map: m.emissiveMap, i: m.emissiveIntensity };
+      const g = m.userData._glow0;
+      const hasOwn = !!g.map || g.e.r + g.e.g + g.e.b > 0;
+      if (glow <= 0) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i; }
+      else if (hasOwn) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i * (1 + glow); }
+      else { m.emissive.copy(m.color); m.emissiveMap = m.map || null; m.emissiveIntensity = glow; }
       m.needsUpdate = true;
     });
   });
