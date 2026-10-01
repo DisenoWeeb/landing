@@ -331,46 +331,47 @@ const OBJECTS = [
   {
     type: "model",
     url: "./assets/models/esferanube.glb",
-    glow: 0,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.167, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.5, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 0.833, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
     type: "model",
-    url: "./assets/models/piso_reflejo_pastel.glb",
-    glow: 3,
+    url: "./assets/models/piso_bordes_abajo.glb",
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
-      { progress: 0.167, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
-      { progress: 0.5, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
-      { progress: 0.833, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 0.21, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 0.15, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "smooth", position: [0, 0, 0], scale: 0.15, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 0.15, rotationY: 0, hidden: false, fadeDir: "ltr" },
+    ],
+  },
+  {
+    type: "text",
+    text: "Texto",
+    textColor: "#ffffff",
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 600,
+    textAlign: "center",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [1.8, 1.04, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.5, easing: "smooth", position: [1.8, 1.04, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [1.8, 1.04, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "rtl" },
     ],
   },
   {
     type: "model",
     url: "./assets/models/logobruzera.glb",
-    glow: 0,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.167, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.333, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.5, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.667, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
-      { progress: 0.833, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
-      { progress: 1, easing: "smooth", position: [0, 1.4, 0], scale: 0.94, rotationY: 0 },
+      { progress: 0, easing: "smooth", position: [0, 1.44, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "smooth", position: [0, 1.44, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 1.44, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "rtl" },
     ],
   },
 ];
@@ -416,61 +417,25 @@ const scenes = [
     progress: 0,
     easing: "smooth",
     camera: { position: [0, -0.088, 8.435], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8 },
     fog: { enabled: true, color: "#101138", far: 25.5 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
   {
-    id: "pose-1790782182040",
-    progress: 0.167,
-    easing: "smooth",
-    camera: { position: [12.928, 5.736, 10.301], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
-    fog: { enabled: true, color: "#101138", far: 25.5 },
-    background: { from: "#3669b0", to: "#3669b0", angle: 180 },
-  },
-  {
-    id: "pose-1790782230782",
-    progress: 0.333,
-    easing: "smooth",
-    camera: { position: [4.745, 6.8, -15.441], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
-    fog: { enabled: true, color: "#101138", far: 25.5 },
-    background: { from: "#3669b0", to: "#3669b0", angle: 180 },
-  },
-  {
-    id: "pose-1790782236847",
+    id: "pose-1790729422385",
     progress: 0.5,
     easing: "smooth",
-    camera: { position: [-16.862, -1.45, 3.538], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    camera: { position: [1.495, 1.506, 3.785], lookAt: [0, 1.1, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8 },
     fog: { enabled: true, color: "#101138", far: 25.5 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
   {
-    id: "pose-1790782243998",
-    progress: 0.667,
-    easing: "smooth",
-    camera: { position: [-3.559, 0.236, 5.484], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
-    fog: { enabled: true, color: "#101138", far: 25.5 },
-    background: { from: "#3669b0", to: "#3669b0", angle: 180 },
-  },
-  {
-    id: "pose-1790782257056",
-    progress: 0.833,
-    easing: "smooth",
-    camera: { position: [0.115, -2.267, 11.165], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
-    fog: { enabled: true, color: "#101138", far: 25.5 },
-    background: { from: "#3669b0", to: "#3669b0", angle: 180 },
-  },
-  {
-    id: "pose-1790782265378",
+    id: "pose-1790729582534",
     progress: 1,
     easing: "smooth",
-    camera: { position: [-0.129, 0.271, 6.882], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8, ambient: 0.28 },
+    camera: { position: [1.755, 0.045, 3.787], lookAt: [0, 1.1, 0], fov: 30, roll: 0 },
+    light: { color: "#e0ddee", intensity: 1.8, azimuth: 360, elevation: 16, rimColor: "#49d3ff", rimIntensity: 0.8 },
     fog: { enabled: true, color: "#101138", far: 25.5 },
     background: { from: "#3669b0", to: "#3669b0", angle: 180 },
   },
@@ -484,12 +449,8 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790782182040", progress: 0.167, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790782230782", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790782236847", progress: 0.5, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790782243998", progress: 0.667, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790782257056", progress: 0.833, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790782265378", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790729422385", progress: 0.5, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790729582534", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -522,23 +483,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790782182040",
-    progress: 0.167,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790782230782",
-    progress: 0.333,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790782236847",
+    id: "pose-1790729422385",
     progress: 0.5,
     easing: "smooth",
     bones: {
@@ -546,23 +491,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790782243998",
-    progress: 0.667,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790782257056",
-    progress: 0.833,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790782265378",
+    id: "pose-1790729582534",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -595,7 +524,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 900;
+const SCROLL_LENGTH_VH = 300;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
@@ -603,7 +532,7 @@ const VIGNETTE_ENABLED = true;
 const VIGNETTE_DARKNESS = 0.51;
 const VIGNETTE_OFFSET = 0.2;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0;
+const BLOOM_INTENSITY = 0.28;
 const BEAM_ENABLED = true;
 const BEAM_OPACITY = 0.13;
 const BEAM_WIDTH = 1.6;
@@ -703,7 +632,6 @@ function blendScenes(list, rawProgress) {
       elevation: lerp(a.light.elevation ?? 35, b.light.elevation ?? 35, t),
       rimColor: lerpColor(a.light.rimColor, b.light.rimColor, t),
       rimIntensity: lerp(a.light.rimIntensity, b.light.rimIntensity, t),
-      ambient: lerp(a.light.ambient ?? 0.28, b.light.ambient ?? 0.28, t),
     },
     fog: {
       enabled: t < 0.5 ? (a.fog.enabled ?? true) : (b.fog.enabled ?? true),
@@ -1257,12 +1185,119 @@ if (CHARACTER_MODEL_URL) useGLTF.preload(CHARACTER_MODEL_URL);
    como props de React, igual que AnimatedCharacter, para no forzar un
    re-render en cada frame de scroll.
    ============================================================ */
+/* ============================================================
+   FADE POR TRANSPARENCIA CON BARRIDO (izq→der / der→izq).
+   Cada pose de un objeto puede estar "invisible". Al pasar de una
+   pose visible a una invisible (o al revés) el objeto se desvanece /
+   aparece con un barrido de transparencia sobre la pantalla, en la
+   dirección elegida en la pose de destino. Funciona sobre cualquier
+   material (modelos .glb, imágenes, SVG y texto) parchando el shader.
+   ============================================================ */
+function makeFadeUniforms() {
+  return {
+    uFadeAmt: { value: 1 },
+    uFadeMode: { value: 0 },
+    uFadeOut: { value: 0 },
+    uFadeDir: { value: 1 },
+    uFadeMin: { value: -1 },
+    uFadeMax: { value: 1 },
+  };
+}
+const FADE_FRAG_DECL = `
+varying float vFadeX;
+uniform float uFadeAmt;
+uniform float uFadeMode;
+uniform float uFadeOut;
+uniform float uFadeDir;
+uniform float uFadeMin;
+uniform float uFadeMax;
+`;
+const FADE_FRAG_BODY = `
+{
+  float fa = uFadeAmt;
+  if (uFadeMode > 0.5) {
+    float u = (vFadeX - uFadeMin) / max(uFadeMax - uFadeMin, 0.0001);
+    if (uFadeDir < 0.0) u = 1.0 - u;
+    float soft = 0.4;
+    if (uFadeOut > 0.5) fa = clamp((u - (1.0 - uFadeAmt) * (1.0 + soft) + soft) / soft, 0.0, 1.0);
+    else fa = clamp((uFadeAmt * (1.0 + soft) - u) / soft, 0.0, 1.0);
+  }
+  gl_FragColor.a *= fa;
+}
+`;
+function patchFadeMaterial(mat, uniforms) {
+  if (!mat || !uniforms) return;
+  if (Array.isArray(mat)) { mat.forEach((m) => patchFadeMaterial(m, uniforms)); return; }
+  mat.userData = mat.userData || {};
+  if (mat.userData.__fadePatched) {
+    mat.userData.__fadeU = uniforms;
+    if (mat.userData.__fadeShader) Object.assign(mat.userData.__fadeShader.uniforms, uniforms);
+    return;
+  }
+  mat.userData.__fadePatched = true;
+  mat.userData.__fadeU = uniforms;
+  mat.transparent = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev.call(mat, shader, renderer);
+    Object.assign(shader.uniforms, mat.userData.__fadeU);
+    mat.userData.__fadeShader = shader;
+    shader.vertexShader = "varying float vFadeX;\n" + shader.vertexShader.replace(
+      "#include <project_vertex>",
+      "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;"
+    );
+    shader.fragmentShader = FADE_FRAG_DECL + shader.fragmentShader.replace(
+      "#include <dithering_fragment>",
+      "#include <dithering_fragment>\n" + FADE_FRAG_BODY
+    );
+  };
+  mat.customProgramCacheKey = () => "weeb-fade-1";
+  mat.needsUpdate = true;
+}
+/* Estado de fade entre dos poses (a → b), con t ya pasado por el easing.
+   amt = cuánto se ve (0 = invisible, 1 = visible). dir = dirección del
+   barrido, la define la pose de DESTINO. out = true si está desapareciendo. */
+function fadeStateFor(a, b, t) {
+  const ha = !!(a && a.hidden), hb = !!(b && b.hidden);
+  const dir = (b && b.fadeDir) || "ltr";
+  if (ha === hb) return { amt: ha ? 0 : 1, dir, out: false };
+  return hb ? { amt: 1 - t, dir, out: true } : { amt: t, dir, out: false };
+}
+const _fadeBox = new THREE.Box3();
+const _fadeVec = new THREE.Vector3();
+function driveFade(group, camera, uniforms, st) {
+  const amt = st.amt;
+  group.visible = amt > 0.001;
+  uniforms.uFadeAmt.value = amt;
+  const wipe = st.dir !== "fade" && amt > 0.001 && amt < 0.999;
+  uniforms.uFadeMode.value = wipe ? 1 : 0;
+  uniforms.uFadeOut.value = st.out ? 1 : 0;
+  uniforms.uFadeDir.value = st.dir === "rtl" ? -1 : 1;
+  if (!wipe) return;
+  group.updateWorldMatrix(true, true);
+  _fadeBox.setFromObject(group);
+  if (_fadeBox.isEmpty()) return;
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < 8; i++) {
+    _fadeVec.set(
+      i & 1 ? _fadeBox.max.x : _fadeBox.min.x,
+      i & 2 ? _fadeBox.max.y : _fadeBox.min.y,
+      i & 4 ? _fadeBox.max.z : _fadeBox.min.z
+    ).project(camera);
+    mn = Math.min(mn, _fadeVec.x);
+    mx = Math.max(mx, _fadeVec.x);
+  }
+  const pad = (mx - mn) * 0.02;
+  uniforms.uFadeMin.value = mn - pad;
+  uniforms.uFadeMax.value = mx + pad;
+}
+
 function sampleObjectKeyframes(keyframes, progress) {
   const list = keyframes;
   const p = clamp(progress, 0, 1);
-  if (p <= list[0].progress) return list[0];
+  if (p <= list[0].progress) return { ...list[0], fade: fadeStateFor(list[0], list[0], 0) };
   const last = list[list.length - 1];
-  if (p >= last.progress) return last;
+  if (p >= last.progress) return { ...last, fade: fadeStateFor(last, last, 1) };
   let i = 0;
   while (i < list.length - 1 && list[i + 1].progress < p) i++;
   const a = list[i], b = list[i + 1];
@@ -1272,12 +1307,15 @@ function sampleObjectKeyframes(keyframes, progress) {
     position: lerpVec3(a.position, b.position, t),
     scale: lerp(a.scale, b.scale, t),
     rotationY: lerpAngle(a.rotationY, b.rotationY, t),
+    fade: fadeStateFor(a, b, t),
   };
 }
 
 function useObjectTransformRef(keyframes, billboard) {
   const groupRef = useRef(null);
-  useFrame((_, delta) => {
+  const fade = useMemo(() => makeFadeUniforms(), []);
+  const hasFade = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
+  useFrame((state, delta) => {
     const g = groupRef.current;
     if (!g) return;
     const progress = useScrollStore.getState().smoothProgress;
@@ -1290,8 +1328,9 @@ function useObjectTransformRef(keyframes, billboard) {
     if (!billboard) {
       g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
     }
+    if (hasFade) driveFade(g, state.camera, fade, kf.fade);
   });
-  return groupRef;
+  return { groupRef, fade, hasFade };
 }
 
 /* Los navegadores rasterizan un SVG a un tamaño chico por defecto
@@ -1401,13 +1440,13 @@ function SceneObjectText({ data }) {
     outline: data.textOutline,
     outlineColor: data.textOutlineColor,
   });
-  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -1417,30 +1456,17 @@ function SceneObjectText({ data }) {
   );
 }
 
-function applyGlow(scene, glow) {
-  scene.traverse((child) => {
-    if (!child.isMesh) return;
-    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
-      if (!m || !("emissive" in m)) return;
-      if (!m.userData._glow0) m.userData._glow0 = { e: m.emissive.clone(), map: m.emissiveMap, i: m.emissiveIntensity };
-      const g = m.userData._glow0;
-      const hasOwn = !!g.map || g.e.r + g.e.g + g.e.b > 0;
-      if (glow <= 0) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i; }
-      else if (hasOwn) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i * (1 + glow); }
-      else { m.emissive.copy(m.color); m.emissiveMap = m.map || null; m.emissiveIntensity = glow; }
-      m.needsUpdate = true;
-    });
-  });
-}
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
-  const groupRef = useObjectTransformRef(data.keyframes, false);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false);
   useEffect(() => {
     scene.traverse((child) => {
-      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+      if (child.isMesh) {
+        child.castShadow = true; child.receiveShadow = true;
+        if (hasFade) patchFadeMaterial(child.material, fade);
+      }
     });
-  }, [scene]);
-  useEffect(() => { applyGlow(scene, data.glow || 0); }, [scene, data.glow]);
+  }, [scene, hasFade, fade]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
@@ -1450,11 +1476,11 @@ function SceneObjectModel({ data }) {
 function SceneObjectImageRaster({ data }) {
   const texture = useTexture(data.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
-  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -1465,13 +1491,13 @@ function SceneObjectImageRaster({ data }) {
 }
 function SceneObjectImageSvg({ data }) {
   const texture = useHiResSvgTexture(data.url, 3072);
-  const groupRef = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -1525,8 +1551,6 @@ function Lighting() {
   const keyRef = useRef(null);
   const rimRef = useRef(null);
   const dampedPos = useRef(new THREE.Vector3(...lightDirFromAngles(45, 35, 6)));
-  const ambRef = useRef();
-  const hemiRef = useRef();
 
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
@@ -1544,15 +1568,12 @@ function Lighting() {
       rimRef.current.color.set(state.light.rimColor);
       rimRef.current.intensity = damp(rimRef.current.intensity, state.light.rimIntensity, 4, delta);
     }
-    const amb = state.light.ambient ?? 0.28;
-    if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, amb, 4, delta);
-    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, amb * 1.25, 4, delta);
   });
 
   return (
     <>
-      <hemisphereLight ref={hemiRef} color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
-      <ambientLight ref={ambRef} intensity={0.28} />
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
+      <ambientLight intensity={0.28} />
       <directionalLight
         ref={keyRef}
         intensity={0.9}
