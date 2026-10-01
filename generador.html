@@ -1392,6 +1392,9 @@ function makeFadeUniforms() {
     uFadeMax: { value: 1 },
   };
 }
+/* Suavidad del barrido: 0.4 = borde marcado, 1.0 = el degradé ocupa todo
+   el ancho del objeto, más alto = todavía más largo/delicado. */
+const FADE_SOFT = 1.0;
 const FADE_FRAG_DECL = `
 varying float vFadeX;
 uniform float uFadeAmt;
@@ -1407,9 +1410,10 @@ const FADE_FRAG_BODY = `
   if (uFadeMode > 0.5) {
     float u = (vFadeX - uFadeMin) / max(uFadeMax - uFadeMin, 0.0001);
     if (uFadeDir < 0.0) u = 1.0 - u;
-    float soft = 0.4;
+    float soft = ${FADE_SOFT.toFixed(2)};
     if (uFadeOut > 0.5) fa = clamp((u - (1.0 - uFadeAmt) * (1.0 + soft) + soft) / soft, 0.0, 1.0);
     else fa = clamp((uFadeAmt * (1.0 + soft) - u) / soft, 0.0, 1.0);
+    fa = fa * fa * (3.0 - 2.0 * fa);
   }
   gl_FragColor.a *= fa;
 }
@@ -2512,6 +2516,9 @@ function makeFadeUniforms() {
     uFadeMax: { value: 1 },
   };
 }
+/* Suavidad del barrido: 0.4 = borde marcado, 1.0 = el degradé ocupa todo
+   el ancho del objeto, más alto = todavía más largo/delicado. */
+const FADE_SOFT = 1.0;
 const FADE_FRAG_DECL = `
 varying float vFadeX;
 uniform float uFadeAmt;
@@ -2527,9 +2534,10 @@ const FADE_FRAG_BODY = `
   if (uFadeMode > 0.5) {
     float u = (vFadeX - uFadeMin) / max(uFadeMax - uFadeMin, 0.0001);
     if (uFadeDir < 0.0) u = 1.0 - u;
-    float soft = 0.4;
+    float soft = ${FADE_SOFT.toFixed(2)};
     if (uFadeOut > 0.5) fa = clamp((u - (1.0 - uFadeAmt) * (1.0 + soft) + soft) / soft, 0.0, 1.0);
     else fa = clamp((uFadeAmt * (1.0 + soft) - u) / soft, 0.0, 1.0);
+    fa = fa * fa * (3.0 - 2.0 * fa);
   }
   gl_FragColor.a *= fa;
 }
@@ -2601,9 +2609,9 @@ function driveFade(group, camera, uniforms, st) {
   uniforms.uFadeMax.value = mx + pad;
 }
 
-/* En edición, una pose marcada "invisible" se ve fantasma (18%) para
+/* En edición, una pose marcada "invisible" se ve fantasma (10%) para
    poder seguir ubicándola; en Preview se ve el fade real. */
-function editFade(t) { return { ...t, fadeAmt: t.hidden ? 0.18 : 1, fadeMode: "fade", fadeOut: false }; }
+function editFade(t) { return { ...t, fadeAmt: t.hidden ? 0.1 : 1, fadeMode: "fade", fadeOut: false }; }
 function FadeGroup({ obj, fade, children }) {
   const ref = useRef(null);
   useFrame((state) => {
@@ -3581,10 +3589,10 @@ function ObjectMarkers({ markers, selectedId, onSelect }) {
     <group key={m.id} position={m.position}>
       <mesh renderOrder={999} onClick={(e) => { e.stopPropagation(); onSelect(m.id); }}>
         <octahedronGeometry args={[m.id === selectedId ? 0.15 : 0.09]} />
-        <meshBasicMaterial color={m.color} depthTest={false} transparent opacity={m.visible ? 0.95 : 0.35} />
+        <meshBasicMaterial color={m.color} depthTest={false} transparent opacity={m.hidden ? 0.1 : (m.visible ? 0.95 : 0.35)} />
       </mesh>
       <Html center position={[0, 0.3, 0]} zIndexRange={[10, 0]}>
-        <div className={`mk ${m.id === selectedId ? "sel" : ""}`} style={{ "--oc": m.color, opacity: m.visible ? 1 : 0.4 }}>{m.label}</div>
+        <div className={`mk ${m.id === selectedId ? "sel" : ""}`} style={{ "--oc": m.color, opacity: m.hidden ? 0.1 : (m.visible ? 1 : 0.4), boxShadow: m.hidden ? "none" : undefined }}>{m.label}</div>
       </Html>
     </group>
   ));
@@ -4212,7 +4220,7 @@ function App() {
   const goStage = (d) => { const t = stagesComputed[clamp(stageIndex + d, 0, nStages - 1, )]; if (t) setActiveStage(t.id); };
   const colorOf = (o, i) => o.color || PALETTE[i % PALETTE.length];
   const selObj = objects.find((o) => o.id === selectedObj) || null;
-  const markers = renderObjects.map((o, i) => ({ id: o.id, label: o.label, color: colorOf(o, i), position: o.position, visible: o.visible }));
+  const markers = renderObjects.map((o, i) => ({ id: o.id, label: o.label, color: colorOf(o, i), position: o.position, visible: o.visible, hidden: !!o.hidden }));
   const toast = projectLoaded ? "Proyecto cargado" : downloaded ? "index.html descargado" : copiedWhich ? "Copiado" : null;
   const fileName = (projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto";
 
