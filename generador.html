@@ -821,6 +821,7 @@ function blendScenes(list, rawProgress) {
       elevation: lerp(a.light.elevation ?? 35, b.light.elevation ?? 35, t),
       rimColor: lerpColor(a.light.rimColor, b.light.rimColor, t),
       rimIntensity: lerp(a.light.rimIntensity, b.light.rimIntensity, t),
+      ambient: lerp(a.light.ambient ?? 0.28, b.light.ambient ?? 0.28, t),
     },
     fog: {
       enabled: t < 0.5 ? (a.fog.enabled ?? true) : (b.fog.enabled ?? true),
@@ -1649,6 +1650,21 @@ function SceneObjectText({ data }) {
   );
 }
 
+function applyGlow(scene, glow) {
+  scene.traverse((child) => {
+    if (!child.isMesh) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !("emissive" in m)) return;
+      if (!m.userData._glow0) m.userData._glow0 = { e: m.emissive.clone(), map: m.emissiveMap, i: m.emissiveIntensity };
+      const g = m.userData._glow0;
+      const hasOwn = !!g.map || g.e.r + g.e.g + g.e.b > 0;
+      if (glow <= 0) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i; }
+      else if (hasOwn) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i * (1 + glow); }
+      else { m.emissive.copy(m.color); m.emissiveMap = m.map || null; m.emissiveIntensity = glow; }
+      m.needsUpdate = true;
+    });
+  });
+}
 function SceneObjectModel({ data }) {
   const { scene } = useGLTF(data.url);
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false);
@@ -1660,6 +1676,7 @@ function SceneObjectModel({ data }) {
       }
     });
   }, [scene, hasFade, fade]);
+  useEffect(() => { applyGlow(scene, data.glow || 0); }, [scene, data.glow]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
@@ -1744,6 +1761,8 @@ function Lighting() {
   const keyRef = useRef(null);
   const rimRef = useRef(null);
   const dampedPos = useRef(new THREE.Vector3(...lightDirFromAngles(45, 35, 6)));
+  const ambRef = useRef();
+  const hemiRef = useRef();
 
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
@@ -1761,12 +1780,15 @@ function Lighting() {
       rimRef.current.color.set(state.light.rimColor);
       rimRef.current.intensity = damp(rimRef.current.intensity, state.light.rimIntensity, 4, delta);
     }
+    const amb = state.light.ambient ?? 0.28;
+    if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, amb, 4, delta);
+    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, amb * 1.25, 4, delta);
   });
 
   return (
     <>
-      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
-      <ambientLight intensity={0.28} />
+      <hemisphereLight ref={hemiRef} color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
+      <ambientLight ref={ambRef} intensity={0.28} />
       <directionalLight
         ref={keyRef}
         intensity={0.9}
@@ -2244,7 +2266,7 @@ const zeroPose = () => Object.fromEntries(BONE_KEYS.map((k) => [k, { x: 0, y: 0,
 const defaultCamera = () => ({ position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 });
 const defaultMovement = () => ({ pos: [0, 0, 0], yaw: 0, pitch: 0 });
 const defaultFx = () => ({
-  light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4 },
+  light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4, ambient: 0.28 },
   fog: { enabled: true, color: "#05070a", far: 20 },
   background: { mode: "solid", from: "#05070a", to: "#05070a", angle: 180 },
 });
@@ -2376,6 +2398,7 @@ function sampleFx(fxByKf, progress, stages, easings) {
       elevation: lerp(fa.light.elevation ?? 35, fb.light.elevation ?? 35, t),
       rimColor: lerpColorHex(fa.light.rimColor, fb.light.rimColor, t),
       rimIntensity: lerp(fa.light.rimIntensity, fb.light.rimIntensity, t),
+      ambient: lerp(fa.light.ambient ?? 0.28, fb.light.ambient ?? 0.28, t),
     },
     fog: {
       enabled: t < 0.5 ? (fa.fog.enabled ?? true) : (fb.fog.enabled ?? true),
@@ -2621,6 +2644,21 @@ function FadeGroup({ obj, fade, children }) {
   return <group ref={ref}>{children}</group>;
 }
 
+function applyGlow(scene, glow) {
+  scene.traverse((child) => {
+    if (!child.isMesh) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !("emissive" in m)) return;
+      if (!m.userData._glow0) m.userData._glow0 = { e: m.emissive.clone(), map: m.emissiveMap, i: m.emissiveIntensity };
+      const g = m.userData._glow0;
+      const hasOwn = !!g.map || g.e.r + g.e.g + g.e.b > 0;
+      if (glow <= 0) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i; }
+      else if (hasOwn) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i * (1 + glow); }
+      else { m.emissive.copy(m.color); m.emissiveMap = m.map || null; m.emissiveIntensity = glow; }
+      m.needsUpdate = true;
+    });
+  });
+}
 function ObjectPreviewModel({ obj, fade }) {
   const { scene } = useGLTF(obj.url);
   useEffect(() => {
@@ -2631,6 +2669,7 @@ function ObjectPreviewModel({ obj, fade }) {
       }
     });
   }, [scene, fade]);
+  useEffect(() => { applyGlow(scene, obj.glow || 0); }, [scene, obj.glow]);
   return (
     <primitive
       object={scene}
@@ -2869,8 +2908,8 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
   return (
     <>
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
-      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
-      <ambientLight intensity={0.28} />
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={showFx ? (fx.light.ambient ?? 0.28) * 1.25 : 0.35} />
+      <ambientLight intensity={showFx ? (fx.light.ambient ?? 0.28) : 0.28} />
       <directionalLight
         color={showFx ? fx.light.color : "#ffffff"}
         position={showFx ? lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 6) : [3, 4, 5]}
@@ -3293,7 +3332,7 @@ function generateScenesArrayCode(camsByKf, fxByKf, stages, easings) {
     progress: ${roundProgress(kf.progress)},
     easing: "${easing}",
     camera: { position: ${fmtVec(cam.position)}, lookAt: ${fmtVec(cam.lookAt)}, fov: ${fmtNum(cam.fov)}, roll: ${fmtNum(cam.roll || 0)} },
-    light: { color: "${f.light.color}", intensity: ${f.light.intensity}, azimuth: ${fmtNum(f.light.azimuth)}, elevation: ${fmtNum(f.light.elevation)}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity} },
+    light: { color: "${f.light.color}", intensity: ${f.light.intensity}, azimuth: ${fmtNum(f.light.azimuth)}, elevation: ${fmtNum(f.light.elevation)}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity}, ambient: ${fmtNum(f.light.ambient ?? 0.28)} },
     fog: { enabled: ${f.fog.enabled === false ? "false" : "true"}, color: "${f.fog.color}", far: ${f.fog.far} },
     background: { from: "${f.background.from}", to: "${f.background.to}", angle: ${fmtNum(f.background.angle)} },
   },`;
@@ -3412,6 +3451,7 @@ ${kfLines}
     return `  {
     type: "${o.type === "image" ? "image" : "model"}",
     url: "${o.url}",
+    glow: ${fmtNum(o.glow || 0)},
     billboard: ${o.billboard ? "true" : "false"},
     keyframes: [
 ${kfLines}
@@ -4277,6 +4317,7 @@ function App() {
           </div>
         )}
         {mismatch && <div className="warn">⚠ La extensión no coincide con el tipo</div>}
+        {isModel && <Slider label="Brillo" min={0} max={3} step={0.05} value={o.glow || 0} onChange={(v) => updateObject(o.id, { glow: v })} />}
         {!isModel && <Switch checked={!!o.billboard} onChange={(v) => updateObject(o.id, { billboard: v })} label="Billboard (mira a cámara)" />}
         <div className="grp-t" style={{ marginTop: 4 }}>Transformación · {currentStageLabel}</div>
         <Slider label="Escala" min={0.05} max={20} step={0.01} value={t.scale} onChange={(v) => setObjectTransform(o.id, "scale", null, v)} />
@@ -4432,6 +4473,7 @@ function App() {
                 <Group id="light" title="Luz principal">
                   <ColorRow label="Color" value={fxs.light.color} onChange={(v) => setFxField("light", "color", v)} />
                   <Slider label="Intens." min={0} max={5} step={0.05} value={fxs.light.intensity} onChange={(v) => setFxField("light", "intensity", v)} />
+                  <Slider label="Ambiente" min={0} max={3} step={0.01} value={fxs.light.ambient ?? 0.28} onChange={(v) => setFxField("light", "ambient", v)} />
                   <Slider label="Azimut" min={0} max={360} step={1} value={fxs.light.azimuth ?? 45} onChange={(v) => setFxField("light", "azimuth", v)} />
                   <Slider label="Altura" min={-90} max={90} step={1} value={fxs.light.elevation ?? 35} onChange={(v) => setFxField("light", "elevation", v)} />
                 </Group>
