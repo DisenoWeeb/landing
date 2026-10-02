@@ -320,7 +320,7 @@ const CHARACTER_MODEL_URL = "";
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
 // personaje. Podés tener uno o varios, cada uno con su propio archivo
-// (modelo .glb o imagen/SVG) y su propia animación de posición/escala/
+// (modelo .glb, imagen/SVG o video .mp4) y su propia animación de posición/escala/
 // rotación por etapa (igual que el personaje) — así también se pueden
 // mover durante el scroll y no quedan estáticos. Se generan desde la
 // pestaña "Objetos" de la herramienta — si algo queda muy grande/chico
@@ -331,25 +331,35 @@ const OBJECTS = [
   {
     type: "model",
     url: "./assets/models/logobruzera2.glb",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
     glow: 0.2,
     shadows: true,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0.16, -0.82, 0.08], scale: 0.44, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
-      { progress: 0.5, easing: "smooth", position: [0.16, -0.82, 0.08], scale: 0.44, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 0.66, 1], scale: 0.9, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0, easing: "smooth", position: [0.16, -0.62, 0.08], scale: 0.6, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0.16, -0.62, 0.08], scale: 0.6, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
+      { progress: 0.667, easing: "smooth", position: [0.08, -0.62, 0.08], scale: 0.6, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0.08, -0.62, 0.08], scale: 0.6, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
-    type: "image",
-    url: "./assets/models/perro.jpg",
+    type: "video",
+    url: "./assets/models/perro2.mp4",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
     glow: 0,
     shadows: true,
     billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 3.74, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.5, easing: "smooth", position: [0, 0, 0], scale: 3.74, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 1, easing: "smooth", position: [0, 4.8, 0], scale: 3.74, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.667, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
 ];
@@ -394,28 +404,37 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [-0.833, -5.567, 19.192], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 3.05, azimuth: 159, elevation: -6, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.31 },
+    camera: { position: [3.08, -10.324, 16.85], lookAt: [0, 0, 0], fov: 10, roll: 0 },
+    light: { color: "#e0ddee", intensity: 3.4, azimuth: 360, elevation: 77, rimColor: "#2148e4", rimIntensity: 1, ambient: 0 },
     fog: { enabled: true, color: "#000000", far: 300 },
     background: { from: "#b60ca8", to: "#050d48", angle: 180 },
   },
   {
-    id: "pose-1790919309802",
-    progress: 0.5,
+    id: "pose-1790944772573",
+    progress: 0.333,
     easing: "smooth",
-    camera: { position: [-0.833, -5.567, 19.192], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 3.05, azimuth: 159, elevation: -6, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.31 },
+    camera: { position: [4.404, -12.233, 15.197], lookAt: [0, 0, 0], fov: 10, roll: 0 },
+    light: { color: "#e0ddee", intensity: 2.75, azimuth: 274, elevation: 72, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.17 },
     fog: { enabled: true, color: "#000000", far: 300 },
     background: { from: "#b60ca8", to: "#050d48", angle: 180 },
   },
   {
-    id: "pose-1790919446906",
+    id: "pose-1790944901354",
+    progress: 0.667,
+    easing: "smooth",
+    camera: { position: [-6.245, -13.874, 12.981], lookAt: [0, 0, 0], fov: 10, roll: 0 },
+    light: { color: "#e0ddee", intensity: 2.1, azimuth: 282, elevation: 72, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.07 },
+    fog: { enabled: true, color: "#000000", far: 300 },
+    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+  },
+  {
+    id: "pose-1790944952633",
     progress: 1,
     easing: "smooth",
-    camera: { position: [0, 0, 20], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 3.05, azimuth: 301, elevation: 79, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.31 },
+    camera: { position: [-4.233, -10.694, 16.362], lookAt: [0, 0, 0], fov: 10, roll: 0 },
+    light: { color: "#e0ddee", intensity: 2.6, azimuth: 278, elevation: 74, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.02 },
     fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#56014f", to: "#050d48", angle: 35 },
+    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -427,8 +446,9 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790919309802", progress: 0.5, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790919446906", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790944772573", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790944901354", progress: 0.667, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790944952633", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -461,15 +481,23 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790919309802",
-    progress: 0.5,
+    id: "pose-1790944772573",
+    progress: 0.333,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1790919446906",
+    id: "pose-1790944901354",
+    progress: 0.667,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1790944952633",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -502,7 +530,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 300;
+const SCROLL_LENGTH_VH = 450;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
@@ -1156,7 +1184,7 @@ if (CHARACTER_MODEL_URL) useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
    Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
-   sin huesos ni animación propia) o una imagen/SVG plana (con opción
+   sin huesos ni animación propia), una imagen/SVG plana o un video .mp4 (con opción
    de "billboard" para que siempre mire a cámara). Cada objeto anima
    su propia posición/escala/rotación por etapa (keyframes), leídas
    del mismo "progress" de scroll que usa el personaje — por eso el
@@ -1354,6 +1382,83 @@ function useHiResSvgTexture(url, targetLong) {
 function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
 }
+function isVideoUrl(url) {
+  return /\.(mp4|webm)($|\?)/i.test(url || "");
+}
+/* Video (.mp4 / .webm) como textura. Se crea un <video> en memoria,
+   siempre MUDO + playsInline.
+   - Modo "scroll" (scrub): el video queda en pausa y su tiempo
+     (currentTime) lo manda el scroll — ver seekVideoToProgress().
+   - Modo "play": se reproduce solo (autoplay mudo); si el navegador lo
+     frena, se reintenta con el primer toque/click.
+   Devuelve { texture, aspect, video } cuando ya hay primer frame. */
+function useVideoTexture(url, loop, scrub) {
+  const [state, setState] = useState({ texture: null, aspect: 16 / 9, video: null });
+  useEffect(() => {
+    if (!url) return undefined;
+    let cancelled = false;
+    let tex = null;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.loop = !scrub && loop !== false;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.preload = "auto";
+    const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
+    // Safari/iOS no decodifican frames de un video que nunca se reprodujo:
+    // se lo "despierta" con un play() + pause() inmediato.
+    const wake = () => {
+      const pr = video.play();
+      if (pr && pr.then) pr.then(() => video.pause()).catch(() => {});
+      else video.pause();
+    };
+    const kick = scrub ? wake : tryPlay;
+    const onReady = () => {
+      if (cancelled || tex) return;
+      tex = new THREE.VideoTexture(video);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      const w = video.videoWidth || 16, h = video.videoHeight || 9;
+      setState({ texture: tex, aspect: w / h, video });
+      kick();
+    };
+    const onSeeked = () => { if (tex) tex.needsUpdate = true; };
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("seeked", onSeeked);
+    if (!scrub) video.addEventListener("canplay", tryPlay);
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("touchstart", kick, { once: true, passive: true });
+    video.src = url;
+    video.load();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("touchstart", kick);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      if (tex) tex.dispose();
+      setState({ texture: null, aspect: 16 / 9, video: null });
+    };
+  }, [url, loop, scrub]);
+  return state;
+}
+/* Lleva el video al instante que le corresponde al progreso de scroll
+   "p" (0..1), dentro del tramo [from, to] del scroll. Antes de "from"
+   queda en el primer frame; después de "to", en el último. No encola
+   saltos: si todavía está buscando un frame, espera al siguiente tick. */
+function seekVideoToProgress(video, p, from, to) {
+  if (!video || !isFinite(video.duration) || video.duration <= 0) return;
+  const span = Math.max(0.0001, to - from);
+  const k = Math.min(1, Math.max(0, (p - from) / span));
+  const target = k * Math.max(0, video.duration - 0.05);
+  if (!video.seeking && Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
+}
 
 /* Genera una textura a partir de texto (color + tipografía elegidos),
    dibujándolo en un canvas — mismo enfoque que useHiResSvgTexture,
@@ -1515,11 +1620,33 @@ function SceneObjectImageSvg({ data }) {
     </group>
   );
 }
+function SceneObjectVideo({ data }) {
+  const scrub = data.videoMode !== "play";
+  const { texture, aspect, video } = useVideoTexture(data.url, data.loop, scrub);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  useFrame(() => {
+    if (!scrub || !video) return;
+    seekVideoToProgress(video, useScrollStore.getState().smoothProgress, data.scrollFrom ?? 0, data.scrollTo ?? 1);
+  });
+  if (!texture) return <group ref={groupRef} />;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
 function SceneObjectImage({ data }) {
   return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
 function SceneObject({ data }) {
   if (data.type === "text") return <SceneObjectText data={data} />;
+  if (data.type === "video") return <SceneObjectVideo data={data} />;
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
 }
 /* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
@@ -1551,7 +1678,7 @@ function SceneObjects() {
   );
 }
 OBJECTS.forEach((obj) => {
-  if (obj.type === "text") return; // el texto no tiene archivo que precargar
+  if (obj.type === "text" || obj.type === "video") return; // texto y video no se precargan (el video se baja solo al montarse)
   if (obj.type === "image") useTexture.preload(obj.url);
   else useGLTF.preload(obj.url);
 });
