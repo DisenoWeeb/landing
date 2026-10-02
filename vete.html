@@ -331,29 +331,25 @@ const OBJECTS = [
   {
     type: "model",
     url: "./assets/models/logobruzera2.glb",
-    glow: 0.15,
+    glow: 0.2,
     shadows: true,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0.24, -0.93, 0], scale: 0.45, rotationY: 17.6, hidden: false, fadeDir: "ltr" },
-      { progress: 0.25, easing: "smooth", position: [0.24, -0.93, 0], scale: 0.45, rotationY: 17.6, hidden: false, fadeDir: "ltr" },
-      { progress: 0.5, easing: "smooth", position: [0, 0.8, 0], scale: 1, rotationY: -19.7, hidden: false, fadeDir: "ltr" },
-      { progress: 0.75, easing: "smooth", position: [0, 0.8, 0], scale: 1, rotationY: 180, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 0.8, 0], scale: 1, rotationY: 360, hidden: false, fadeDir: "ltr" },
+      { progress: 0, easing: "smooth", position: [0.16, -0.82, 0.08], scale: 0.44, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "smooth", position: [0.16, -0.82, 0.08], scale: 0.44, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 0.66, 1], scale: 0.9, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
     type: "image",
-    url: "./assets/models/Sin_t_tulo-2.jpg",
+    url: "./assets/models/perro.jpg",
     glow: 0,
     shadows: true,
     billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0.08, -0.24], scale: 3.82, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.25, easing: "smooth", position: [0, 0.08, -0.24], scale: 3.82, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.5, easing: "smooth", position: [0, 5.4, -0.24], scale: 3.82, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.75, easing: "smooth", position: [0, 5.4, -0.24], scale: 3.82, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 1, easing: "smooth", position: [0, 5.4, -0.24], scale: 3.82, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 3.74, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "smooth", position: [0, 0, 0], scale: 3.74, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 4.8, 0], scale: 3.74, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
 ];
@@ -398,46 +394,28 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [4.189, -8.647, 15.28], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#ededed", intensity: 1.15, azimuth: 214, elevation: -8, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
-    fog: { enabled: true, color: "#000000", far: 21 },
-    background: { from: "#f0eac7", to: "#030303", angle: 180 },
+    camera: { position: [-0.833, -5.567, 19.192], lookAt: [0, 0, 0], fov: 10, roll: 0 },
+    light: { color: "#e0ddee", intensity: 3.05, azimuth: 159, elevation: -6, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.31 },
+    fog: { enabled: true, color: "#000000", far: 300 },
+    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
   },
   {
-    id: "pose-1790917193108",
-    progress: 0.25,
-    easing: "smooth",
-    camera: { position: [6.15, -8.887, 16.04], lookAt: [0, -1.24, 0], fov: 5, roll: 0 },
-    light: { color: "#ededed", intensity: 1.15, azimuth: 214, elevation: -8, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
-    fog: { enabled: true, color: "#000000", far: 21 },
-    background: { from: "#060b51", to: "#69125d", angle: 180 },
-  },
-  {
-    id: "pose-1790917369835",
+    id: "pose-1790919309802",
     progress: 0.5,
     easing: "smooth",
-    camera: { position: [0, 0, 20], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#ededed", intensity: 3.8, azimuth: 360, elevation: 71, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
-    fog: { enabled: true, color: "#000000", far: 21 },
-    background: { from: "#060b51", to: "#69125d", angle: 191 },
+    camera: { position: [-0.833, -5.567, 19.192], lookAt: [0, 0, 0], fov: 10, roll: 0 },
+    light: { color: "#e0ddee", intensity: 3.05, azimuth: 159, elevation: -6, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.31 },
+    fog: { enabled: true, color: "#000000", far: 300 },
+    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
   },
   {
-    id: "pose-1790917845017",
-    progress: 0.75,
-    easing: "smooth",
-    camera: { position: [-19.699, -1.734, -2.988], lookAt: [0, 0, 0], fov: 8, roll: 0 },
-    light: { color: "#ededed", intensity: 3.8, azimuth: 360, elevation: 71, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
-    fog: { enabled: true, color: "#000000", far: 21 },
-    background: { from: "#060b51", to: "#69125d", angle: 191 },
-  },
-  {
-    id: "pose-1790917851182",
+    id: "pose-1790919446906",
     progress: 1,
     easing: "smooth",
-    camera: { position: [15.53, -0.018, 12.589], lookAt: [0, 0.36, 0], fov: 8, roll: 0 },
-    light: { color: "#ededed", intensity: 3.8, azimuth: 360, elevation: 81, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
-    fog: { enabled: true, color: "#000000", far: 21 },
-    background: { from: "#060b51", to: "#69125d", angle: 191 },
+    camera: { position: [0, 0, 20], lookAt: [0, 0, 0], fov: 10, roll: 0 },
+    light: { color: "#e0ddee", intensity: 3.05, azimuth: 301, elevation: 79, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.31 },
+    fog: { enabled: true, color: "#000000", far: 300 },
+    background: { from: "#56014f", to: "#050d48", angle: 35 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -449,10 +427,8 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790917193108", progress: 0.25, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790917369835", progress: 0.5, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790917845017", progress: 0.75, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790917851182", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790919309802", progress: 0.5, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790919446906", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -485,15 +461,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790917193108",
-    progress: 0.25,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790917369835",
+    id: "pose-1790919309802",
     progress: 0.5,
     easing: "smooth",
     bones: {
@@ -501,15 +469,7 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790917845017",
-    progress: 0.75,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1790917851182",
+    id: "pose-1790919446906",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -542,7 +502,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 600;
+const SCROLL_LENGTH_VH = 300;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
@@ -550,10 +510,10 @@ const VIGNETTE_ENABLED = true;
 const VIGNETTE_DARKNESS = 0.31;
 const VIGNETTE_OFFSET = 0.18;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.1;
+const BLOOM_INTENSITY = 0;
 const BEAM_ENABLED = false;
-const BEAM_OPACITY = 0.35;
-const BEAM_WIDTH = 4.6;
+const BEAM_OPACITY = 0.13;
+const BEAM_WIDTH = 1.6;
 const BEAM_HEIGHT = 100;
 /*@GEN:POSTFX_END*/
 
