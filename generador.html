@@ -1569,19 +1569,21 @@ function isVideoUrl(url) {
   return /\.(mp4|webm)($|\?)/i.test(url || "");
 }
 /* Video (.mp4 / .webm) como textura. Se crea un <video> en memoria,
-   siempre MUDO + playsInline: es lo único que los navegadores dejan
-   reproducir solo (autoplay) sin que la persona toque la pantalla. Si
-   aun así el navegador lo frena, se reintenta con el primer toque/click.
-   Devuelve { texture, aspect } cuando ya hay primer frame. */
-function useVideoTexture(url, loop) {
-  const [state, setState] = useState({ texture: null, aspect: 16 / 9 });
+   siempre MUDO + playsInline.
+   - Modo "scroll" (scrub): el video queda en pausa y su tiempo
+     (currentTime) lo manda el scroll — ver seekVideoToProgress().
+   - Modo "play": se reproduce solo (autoplay mudo); si el navegador lo
+     frena, se reintenta con el primer toque/click.
+   Devuelve { texture, aspect, video } cuando ya hay primer frame. */
+function useVideoTexture(url, loop, scrub) {
+  const [state, setState] = useState({ texture: null, aspect: 16 / 9, video: null });
   useEffect(() => {
     if (!url) return undefined;
     let cancelled = false;
     let tex = null;
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
-    video.loop = loop !== false;
+    video.loop = !scrub && loop !== false;
     video.muted = true;
     video.defaultMuted = true;
     video.playsInline = true;
@@ -1589,6 +1591,14 @@ function useVideoTexture(url, loop) {
     video.setAttribute("webkit-playsinline", "");
     video.preload = "auto";
     const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
+    // Safari/iOS no decodifican frames de un video que nunca se reprodujo:
+    // se lo "despierta" con un play() + pause() inmediato.
+    const wake = () => {
+      const pr = video.play();
+      if (pr && pr.then) pr.then(() => video.pause()).catch(() => {});
+      else video.pause();
+    };
+    const kick = scrub ? wake : tryPlay;
     const onReady = () => {
       if (cancelled || tex) return;
       tex = new THREE.VideoTexture(video);
@@ -1597,28 +1607,40 @@ function useVideoTexture(url, loop) {
       tex.magFilter = THREE.LinearFilter;
       tex.generateMipmaps = false;
       const w = video.videoWidth || 16, h = video.videoHeight || 9;
-      setState({ texture: tex, aspect: w / h });
-      tryPlay();
+      setState({ texture: tex, aspect: w / h, video });
+      kick();
     };
+    const onSeeked = () => { if (tex) tex.needsUpdate = true; };
     video.addEventListener("loadeddata", onReady);
-    video.addEventListener("canplay", tryPlay);
-    window.addEventListener("pointerdown", tryPlay, { once: true });
-    window.addEventListener("touchstart", tryPlay, { once: true, passive: true });
+    video.addEventListener("seeked", onSeeked);
+    if (!scrub) video.addEventListener("canplay", tryPlay);
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("touchstart", kick, { once: true, passive: true });
     video.src = url;
     video.load();
-    tryPlay();
     return () => {
       cancelled = true;
-      window.removeEventListener("pointerdown", tryPlay);
-      window.removeEventListener("touchstart", tryPlay);
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("touchstart", kick);
       video.pause();
       video.removeAttribute("src");
       video.load();
       if (tex) tex.dispose();
-      setState({ texture: null, aspect: 16 / 9 });
+      setState({ texture: null, aspect: 16 / 9, video: null });
     };
-  }, [url, loop]);
+  }, [url, loop, scrub]);
   return state;
+}
+/* Lleva el video al instante que le corresponde al progreso de scroll
+   "p" (0..1), dentro del tramo [from, to] del scroll. Antes de "from"
+   queda en el primer frame; después de "to", en el último. No encola
+   saltos: si todavía está buscando un frame, espera al siguiente tick. */
+function seekVideoToProgress(video, p, from, to) {
+  if (!video || !isFinite(video.duration) || video.duration <= 0) return;
+  const span = Math.max(0.0001, to - from);
+  const k = Math.min(1, Math.max(0, (p - from) / span));
+  const target = k * Math.max(0, video.duration - 0.05);
+  if (!video.seeking && Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
 }
 
 /* Genera una textura a partir de texto (color + tipografía elegidos),
@@ -1782,8 +1804,13 @@ function SceneObjectImageSvg({ data }) {
   );
 }
 function SceneObjectVideo({ data }) {
-  const { texture, aspect } = useVideoTexture(data.url, data.loop);
+  const scrub = data.videoMode !== "play";
+  const { texture, aspect, video } = useVideoTexture(data.url, data.loop, scrub);
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  useFrame(() => {
+    if (!scrub || !video) return;
+    seekVideoToProgress(video, useScrollStore.getState().smoothProgress, data.scrollFrom ?? 0, data.scrollTo ?? 1);
+  });
   if (!texture) return <group ref={groupRef} />;
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
@@ -2812,19 +2839,21 @@ function isVideoUrl(url) {
   return /\.(mp4|webm)($|\?)/i.test(url || "");
 }
 /* Video (.mp4 / .webm) como textura. Se crea un <video> en memoria,
-   siempre MUDO + playsInline: es lo único que los navegadores dejan
-   reproducir solo (autoplay) sin que la persona toque la pantalla. Si
-   aun así el navegador lo frena, se reintenta con el primer toque/click.
-   Devuelve { texture, aspect } cuando ya hay primer frame. */
-function useVideoTexture(url, loop) {
-  const [state, setState] = useState({ texture: null, aspect: 16 / 9 });
+   siempre MUDO + playsInline.
+   - Modo "scroll" (scrub): el video queda en pausa y su tiempo
+     (currentTime) lo manda el scroll — ver seekVideoToProgress().
+   - Modo "play": se reproduce solo (autoplay mudo); si el navegador lo
+     frena, se reintenta con el primer toque/click.
+   Devuelve { texture, aspect, video } cuando ya hay primer frame. */
+function useVideoTexture(url, loop, scrub) {
+  const [state, setState] = useState({ texture: null, aspect: 16 / 9, video: null });
   useEffect(() => {
     if (!url) return undefined;
     let cancelled = false;
     let tex = null;
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
-    video.loop = loop !== false;
+    video.loop = !scrub && loop !== false;
     video.muted = true;
     video.defaultMuted = true;
     video.playsInline = true;
@@ -2832,6 +2861,14 @@ function useVideoTexture(url, loop) {
     video.setAttribute("webkit-playsinline", "");
     video.preload = "auto";
     const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
+    // Safari/iOS no decodifican frames de un video que nunca se reprodujo:
+    // se lo "despierta" con un play() + pause() inmediato.
+    const wake = () => {
+      const pr = video.play();
+      if (pr && pr.then) pr.then(() => video.pause()).catch(() => {});
+      else video.pause();
+    };
+    const kick = scrub ? wake : tryPlay;
     const onReady = () => {
       if (cancelled || tex) return;
       tex = new THREE.VideoTexture(video);
@@ -2840,28 +2877,40 @@ function useVideoTexture(url, loop) {
       tex.magFilter = THREE.LinearFilter;
       tex.generateMipmaps = false;
       const w = video.videoWidth || 16, h = video.videoHeight || 9;
-      setState({ texture: tex, aspect: w / h });
-      tryPlay();
+      setState({ texture: tex, aspect: w / h, video });
+      kick();
     };
+    const onSeeked = () => { if (tex) tex.needsUpdate = true; };
     video.addEventListener("loadeddata", onReady);
-    video.addEventListener("canplay", tryPlay);
-    window.addEventListener("pointerdown", tryPlay, { once: true });
-    window.addEventListener("touchstart", tryPlay, { once: true, passive: true });
+    video.addEventListener("seeked", onSeeked);
+    if (!scrub) video.addEventListener("canplay", tryPlay);
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("touchstart", kick, { once: true, passive: true });
     video.src = url;
     video.load();
-    tryPlay();
     return () => {
       cancelled = true;
-      window.removeEventListener("pointerdown", tryPlay);
-      window.removeEventListener("touchstart", tryPlay);
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("touchstart", kick);
       video.pause();
       video.removeAttribute("src");
       video.load();
       if (tex) tex.dispose();
-      setState({ texture: null, aspect: 16 / 9 });
+      setState({ texture: null, aspect: 16 / 9, video: null });
     };
-  }, [url, loop]);
+  }, [url, loop, scrub]);
   return state;
+}
+/* Lleva el video al instante que le corresponde al progreso de scroll
+   "p" (0..1), dentro del tramo [from, to] del scroll. Antes de "from"
+   queda en el primer frame; después de "to", en el último. No encola
+   saltos: si todavía está buscando un frame, espera al siguiente tick. */
+function seekVideoToProgress(video, p, from, to) {
+  if (!video || !isFinite(video.duration) || video.duration <= 0) return;
+  const span = Math.max(0.0001, to - from);
+  const k = Math.min(1, Math.max(0, (p - from) / span));
+  const target = k * Math.max(0, video.duration - 0.05);
+  if (!video.seeking && Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
 }
 
 /* Misma implementación que en la plantilla final (ver tpl-source),
@@ -2980,7 +3029,12 @@ function ObjectPreviewImageSvg({ obj, fade }) {
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
 }
 function ObjectPreviewVideo({ obj, fade }) {
-  const { texture, aspect } = useVideoTexture(obj.previewUrl || obj.url, obj.loop);
+  const scrub = obj.videoMode !== "play";
+  const { texture, aspect, video } = useVideoTexture(obj.previewUrl || obj.url, obj.loop, scrub);
+  useFrame(() => {
+    if (!scrub || !video) return;
+    seekVideoToProgress(video, obj.scrollProgress || 0, (obj.scrubFrom ?? 0) / 100, (obj.scrubTo ?? 100) / 100);
+  });
   if (!texture) return null;
   const mesh = (
     <mesh
@@ -3615,6 +3669,9 @@ ${kfLines}
     return `  {
     type: "${o.type === "image" || o.type === "video" ? o.type : "model"}",
     url: "${o.url}",
+    videoMode: "${o.type === "video" && o.videoMode === "play" ? "play" : "scroll"}",
+    scrollFrom: ${fmtNum((o.scrubFrom ?? 0) / 100)},
+    scrollTo: ${fmtNum((o.scrubTo ?? 100) / 100)},
     loop: ${o.loop === false ? "false" : "true"},
     glow: ${fmtNum(o.glow || 0)},
     shadows: ${o.shadows === false ? "false" : "true"},
@@ -3996,7 +4053,7 @@ function App() {
     const used = objects.map((o, k) => o.color || PALETTE[k % PALETTE.length]);
     const color = PALETTE.find((c) => !used.includes(c)) || PALETTE[objects.length % PALETTE.length];
     const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", video: "Video", text: "Texto" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
-    if (type === "video") base.loop = true;
+    if (type === "video") Object.assign(base, { loop: true, videoMode: "scroll", scrubFrom: 0, scrubTo: 100 });
     if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000" });
     setObjects((prev) => [...prev, base]);
     setObjectTransformsByKf((prev) => ({ ...prev, [newId]: Object.fromEntries(stagesComputed.map((st) => [st.id, defaultObjectTransform()])) }));
@@ -4245,12 +4302,14 @@ function App() {
   const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stagesComputed, easings) : camsByKf[activeStage];
   const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stagesComputed, easings) : movesByKf[activeStage];
   const renderFx = isPreview ? sampleFx(fxByKf, scrub, stagesComputed, easings) : fxByKf[activeStage];
+  // Progreso de scroll que ve el video en el visor: en Preview es el del slider; en edición, el de la pose activa.
+  const scrollProgressNow = isPreview ? scrub : ((stagesComputed.find((st) => st.id === activeStage) || {}).progress || 0);
   const renderObjects = useMemo(() => objects.map((o) => {
     const transforms = objectTransformsByKf[o.id];
-    if (!transforms) return { ...o, ...editFade(defaultObjectTransform()) };
+    if (!transforms) return { ...o, ...editFade(defaultObjectTransform()), scrollProgress: scrollProgressNow };
     const t = isPreview ? sampleObjectTransform(transforms, scrub, stagesComputed, easings) : editFade(transforms[activeStage] || defaultObjectTransform());
-    return { ...o, ...t };
-  }), [objects, objectTransformsByKf, isPreview, scrub, stagesComputed, easings, activeStage]);
+    return { ...o, ...t, scrollProgress: scrollProgressNow };
+  }), [objects, objectTransformsByKf, isPreview, scrub, stagesComputed, easings, activeStage, scrollProgressNow]);
   const sceneCameraActive = !freeOrbit;
 
   const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed, easings), [posesByKf, stagesComputed, easings]);
@@ -4502,8 +4561,16 @@ function App() {
           </div>
         )}
         {mismatch && <div className="warn">⚠ La extensión no coincide con el tipo</div>}
-        {isVideo && <Switch checked={o.loop !== false} onChange={(v) => updateObject(o.id, { loop: v })} label="Repetir en loop" />}
-        {isVideo && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>El video se reproduce solo y sin sonido (los navegadores solo permiten autoplay en mudo). Recordá copiar el archivo a la carpeta assets/models/ junto al index.html.</div>}
+        {isVideo && <Seg value={o.videoMode === "play" ? "play" : "scroll"} onChange={(v) => updateObject(o.id, { videoMode: v })} options={[["scroll", "Avanza con el scroll"], ["play", "Reproducción automática"]]} />}
+        {isVideo && o.videoMode !== "play" && (
+          <>
+            <Slider label="Desde %" min={0} max={100} step={1} value={o.scrubFrom ?? 0} onChange={(v) => updateObject(o.id, { scrubFrom: Math.min(v, (o.scrubTo ?? 100) - 1) })} />
+            <Slider label="Hasta %" min={0} max={100} step={1} value={o.scrubTo ?? 100} onChange={(v) => updateObject(o.id, { scrubTo: Math.max(v, (o.scrubFrom ?? 0) + 1) })} />
+            <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>El video avanza y retrocede con el scroll: arranca en "Desde" y termina en "Hasta" (% del scroll total de la página). En Preview o cambiando de pose lo ves moverse.</div>
+          </>
+        )}
+        {isVideo && o.videoMode === "play" && <Switch checked={o.loop !== false} onChange={(v) => updateObject(o.id, { loop: v })} label="Repetir en loop" />}
+        {isVideo && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Va siempre sin sonido. Copiá el archivo a assets/models/ junto al index.html. Para que avance fluido, exportalo con un keyframe cada 2 cuadros (ffmpeg -g 2).</div>}
         {isModel && <Slider label="Brillo" min={0} max={3} step={0.05} value={o.glow || 0} onChange={(v) => updateObject(o.id, { glow: v })} />}
         {isModel && <Switch checked={o.shadows !== false} onChange={(v) => updateObject(o.id, { shadows: v })} label="Sombras (proyecta / recibe)" />}
         {!isModel && <Switch checked={!!o.billboard} onChange={(v) => updateObject(o.id, { billboard: v })} label="Billboard (mira a cámara)" />}
