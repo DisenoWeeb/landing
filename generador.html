@@ -463,7 +463,7 @@ const CHARACTER_MODEL_URL = "./assets/models/bowl1.glb";
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
 // personaje. Podés tener uno o varios, cada uno con su propio archivo
-// (modelo .glb o imagen/SVG) y su propia animación de posición/escala/
+// (modelo .glb, imagen/SVG o video .mp4) y su propia animación de posición/escala/
 // rotación por etapa (igual que el personaje) — así también se pueden
 // mover durante el scroll y no quedan estáticos. Se generan desde la
 // pestaña "Objetos" de la herramienta — si algo queda muy grande/chico
@@ -1367,7 +1367,7 @@ if (CHARACTER_MODEL_URL) useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
    Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
-   sin huesos ni animación propia) o una imagen/SVG plana (con opción
+   sin huesos ni animación propia), una imagen/SVG plana o un video .mp4 (con opción
    de "billboard" para que siempre mire a cámara). Cada objeto anima
    su propia posición/escala/rotación por etapa (keyframes), leídas
    del mismo "progress" de scroll que usa el personaje — por eso el
@@ -1416,6 +1416,9 @@ const FADE_FRAG_BODY = `
     else fa = clamp((uFadeAmt * (1.0 + soft) - u) / soft, 0.0, 1.0);
     fa = fa * fa * (3.0 - 2.0 * fa);
   }
+#if defined(USE_ALPHATEST) && !defined(ALPHA_TO_COVERAGE)
+  gl_FragColor.a = 1.0;
+#endif
   gl_FragColor.a *= fa;
 }
 `;
@@ -1562,6 +1565,61 @@ function useHiResSvgTexture(url, targetLong) {
 function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
 }
+function isVideoUrl(url) {
+  return /\.(mp4|webm)($|\?)/i.test(url || "");
+}
+/* Video (.mp4 / .webm) como textura. Se crea un <video> en memoria,
+   siempre MUDO + playsInline: es lo único que los navegadores dejan
+   reproducir solo (autoplay) sin que la persona toque la pantalla. Si
+   aun así el navegador lo frena, se reintenta con el primer toque/click.
+   Devuelve { texture, aspect } cuando ya hay primer frame. */
+function useVideoTexture(url, loop) {
+  const [state, setState] = useState({ texture: null, aspect: 16 / 9 });
+  useEffect(() => {
+    if (!url) return undefined;
+    let cancelled = false;
+    let tex = null;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.loop = loop !== false;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.preload = "auto";
+    const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
+    const onReady = () => {
+      if (cancelled || tex) return;
+      tex = new THREE.VideoTexture(video);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      const w = video.videoWidth || 16, h = video.videoHeight || 9;
+      setState({ texture: tex, aspect: w / h });
+      tryPlay();
+    };
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("canplay", tryPlay);
+    window.addEventListener("pointerdown", tryPlay, { once: true });
+    window.addEventListener("touchstart", tryPlay, { once: true, passive: true });
+    video.src = url;
+    video.load();
+    tryPlay();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("touchstart", tryPlay);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      if (tex) tex.dispose();
+      setState({ texture: null, aspect: 16 / 9 });
+    };
+  }, [url, loop]);
+  return state;
+}
 
 /* Genera una textura a partir de texto (color + tipografía elegidos),
    dibujándolo en un canvas — mismo enfoque que useHiResSvgTexture,
@@ -1671,11 +1729,18 @@ function SceneObjectModel({ data }) {
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
-        child.castShadow = true; child.receiveShadow = true;
+        const mats0 = Array.isArray(child.material) ? child.material : [child.material];
+        mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
+        // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
+        child.castShadow = data.shadows !== false && !mats0.some((m) => m && m.userData.__wasBlend);
+        child.receiveShadow = data.shadows !== false;
+        (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+          if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
+        });
         if (hasFade) patchFadeMaterial(child.material, fade);
       }
     });
-  }, [scene, hasFade, fade]);
+  }, [scene, hasFade, fade, data.shadows]);
   useEffect(() => { applyGlow(scene, data.glow || 0); }, [scene, data.glow]);
   return (
     <group ref={groupRef}>
@@ -1716,11 +1781,28 @@ function SceneObjectImageSvg({ data }) {
     </group>
   );
 }
+function SceneObjectVideo({ data }) {
+  const { texture, aspect } = useVideoTexture(data.url, data.loop);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  if (!texture) return <group ref={groupRef} />;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
 function SceneObjectImage({ data }) {
   return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
 function SceneObject({ data }) {
   if (data.type === "text") return <SceneObjectText data={data} />;
+  if (data.type === "video") return <SceneObjectVideo data={data} />;
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
 }
 /* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
@@ -1752,7 +1834,7 @@ function SceneObjects() {
   );
 }
 OBJECTS.forEach((obj) => {
-  if (obj.type === "text") return; // el texto no tiene archivo que precargar
+  if (obj.type === "text" || obj.type === "video") return; // texto y video no se precargan (el video se baja solo al montarse)
   if (obj.type === "image") useTexture.preload(obj.url);
   else useGLTF.preload(obj.url);
 });
@@ -2563,6 +2645,9 @@ const FADE_FRAG_BODY = `
     else fa = clamp((uFadeAmt * (1.0 + soft) - u) / soft, 0.0, 1.0);
     fa = fa * fa * (3.0 - 2.0 * fa);
   }
+#if defined(USE_ALPHATEST) && !defined(ALPHA_TO_COVERAGE)
+  gl_FragColor.a = 1.0;
+#endif
   gl_FragColor.a *= fa;
 }
 `;
@@ -2661,15 +2746,21 @@ function applyGlow(scene, glow) {
   });
 }
 function ObjectPreviewModel({ obj, fade }) {
-  const { scene } = useGLTF(obj.url);
+  const { scene } = useGLTF(obj.previewUrl || obj.url);
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
-        child.castShadow = true; child.receiveShadow = true;
+        const mats0 = Array.isArray(child.material) ? child.material : [child.material];
+        mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
+        child.castShadow = obj.shadows !== false && !mats0.some((m) => m && m.userData.__wasBlend);
+        child.receiveShadow = obj.shadows !== false;
+        (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+          if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
+        });
         patchFadeMaterial(child.material, fade);
       }
     });
-  }, [scene, fade]);
+  }, [scene, fade, obj.shadows]);
   useEffect(() => { applyGlow(scene, obj.glow || 0); }, [scene, obj.glow]);
   return (
     <primitive
@@ -2716,6 +2807,61 @@ function useHiResSvgTexture(url, targetLong = 3072) {
 
 function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
+}
+function isVideoUrl(url) {
+  return /\.(mp4|webm)($|\?)/i.test(url || "");
+}
+/* Video (.mp4 / .webm) como textura. Se crea un <video> en memoria,
+   siempre MUDO + playsInline: es lo único que los navegadores dejan
+   reproducir solo (autoplay) sin que la persona toque la pantalla. Si
+   aun así el navegador lo frena, se reintenta con el primer toque/click.
+   Devuelve { texture, aspect } cuando ya hay primer frame. */
+function useVideoTexture(url, loop) {
+  const [state, setState] = useState({ texture: null, aspect: 16 / 9 });
+  useEffect(() => {
+    if (!url) return undefined;
+    let cancelled = false;
+    let tex = null;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.loop = loop !== false;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.preload = "auto";
+    const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
+    const onReady = () => {
+      if (cancelled || tex) return;
+      tex = new THREE.VideoTexture(video);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      const w = video.videoWidth || 16, h = video.videoHeight || 9;
+      setState({ texture: tex, aspect: w / h });
+      tryPlay();
+    };
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("canplay", tryPlay);
+    window.addEventListener("pointerdown", tryPlay, { once: true });
+    window.addEventListener("touchstart", tryPlay, { once: true, passive: true });
+    video.src = url;
+    video.load();
+    tryPlay();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("touchstart", tryPlay);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      if (tex) tex.dispose();
+      setState({ texture: null, aspect: 16 / 9 });
+    };
+  }, [url, loop]);
+  return state;
 }
 
 /* Misma implementación que en la plantilla final (ver tpl-source),
@@ -2833,6 +2979,21 @@ function ObjectPreviewImageSvg({ obj, fade }) {
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
 }
+function ObjectPreviewVideo({ obj, fade }) {
+  const { texture, aspect } = useVideoTexture(obj.previewUrl || obj.url, obj.loop);
+  if (!texture) return null;
+  const mesh = (
+    <mesh
+      scale={[obj.scale * aspect, obj.scale, 1]}
+      position={obj.billboard ? [0, 0, 0] : obj.position}
+      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+    </mesh>
+  );
+  return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
+}
 function ObjectPreviewImage({ obj, fade }) {
   return isSvgUrl(obj.url) ? <ObjectPreviewImageSvg obj={obj} fade={fade} /> : <ObjectPreviewImageRaster obj={obj} fade={fade} />;
 }
@@ -2841,6 +3002,7 @@ function ObjectPreview({ obj }) {
   if (obj.type !== "text" && !(obj.previewUrl || obj.url)) return null;
   let inner;
   if (obj.type === "text") inner = <ObjectPreviewText obj={obj} fade={fade} />;
+  else if (obj.type === "video") inner = <ObjectPreviewVideo obj={obj} fade={fade} />;
   else inner = obj.type === "image" ? <ObjectPreviewImage obj={obj} fade={fade} /> : <ObjectPreviewModel obj={obj} fade={fade} />;
   return <FadeGroup obj={obj} fade={fade}>{inner}</FadeGroup>;
 }
@@ -3451,9 +3613,11 @@ ${kfLines}
   },`;
     }
     return `  {
-    type: "${o.type === "image" ? "image" : "model"}",
+    type: "${o.type === "image" || o.type === "video" ? o.type : "model"}",
     url: "${o.url}",
+    loop: ${o.loop === false ? "false" : "true"},
     glow: ${fmtNum(o.glow || 0)},
+    shadows: ${o.shadows === false ? "false" : "true"},
     billboard: ${o.billboard ? "true" : "false"},
     keyframes: [
 ${kfLines}
@@ -3488,6 +3652,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
 }
 
 /* ---- UI kit del panel ---- */
+const ANY_OBJ_EXT_RE = /\.(glb|svg|png|jpe?g|webp|mp4|webm)$/i;
 const PALETTE = ["#ff5d73", "#ffb454", "#f6e05e", "#7ee787", "#49d3ff", "#7c8cff", "#d68cff", "#ff8cc6"];
 const AXIS_COLORS = ["#ff5d73", "#7ee787", "#49d3ff"];
 const groupOpenState = {};
@@ -3515,6 +3680,7 @@ const ICONS = {
   next: <path d="M9 5l7 7-7 7" />,
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-8 8" /></>,
   text: <path d="M5 6V4h14v2M12 4v16M9 20h6" />,
+  video: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M10 9.5v5l4.5-2.5z" /></>,
   capture: <><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>,
   reset: <path d="M4 12a8 8 0 108-8M4 4v5h5" />,
 };
@@ -3829,7 +3995,8 @@ function App() {
     const newId = `obj-${Date.now()}`;
     const used = objects.map((o, k) => o.color || PALETTE[k % PALETTE.length]);
     const color = PALETTE.find((c) => !used.includes(c)) || PALETTE[objects.length % PALETTE.length];
-    const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", text: "Texto" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
+    const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", video: "Video", text: "Texto" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
+    if (type === "video") base.loop = true;
     if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000" });
     setObjects((prev) => [...prev, base]);
     setObjectTransformsByKf((prev) => ({ ...prev, [newId]: Object.fromEntries(stagesComputed.map((st) => [st.id, defaultObjectTransform()])) }));
@@ -3923,9 +4090,17 @@ function App() {
         };
       }
       let url = o.url;
-      if (type === "image" && /\.glb$/i.test(url)) url = url.replace(/\.glb$/i, ".png");
-      if (type === "model" && /\.(svg|png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(svg|png|jpe?g|webp)$/i, ".glb");
-      return { ...o, type, url, previewUrl: type === "model" ? null : o.previewUrl, billboard: type === "image" ? (o.billboard ?? true) : false };
+      const wantExt = { model: ".glb", image: ".png", video: ".mp4" }[type];
+      const ownRe = { model: /\.glb$/i, image: /\.(svg|png|jpe?g|webp)$/i, video: /\.(mp4|webm)$/i }[type];
+      if (url && !ownRe.test(url) && ANY_OBJ_EXT_RE.test(url)) url = url.replace(ANY_OBJ_EXT_RE, wantExt);
+      return {
+        ...o,
+        type,
+        url,
+        previewUrl: o.type === type ? o.previewUrl : null,
+        billboard: type === "model" ? false : (o.billboard ?? true),
+        ...(type === "video" ? { loop: o.loop ?? true } : {}),
+      };
     }));
   };
   /* Subida real de archivo (SVG exportado de Corel Draw, PNG, JPG). El
@@ -3936,13 +4111,21 @@ function App() {
      esperar a que lo copies a mano. */
   const uploadObjectFile = (id, file) => {
     if (!file) return;
+    // El tipo se deduce del archivo: .glb → modelo, .mp4/.webm → video, resto → imagen.
+    let kind = null;
+    if (/\.glb$/i.test(file.name)) kind = "model";
+    else if (/\.(mp4|webm)$/i.test(file.name) || /^video\//.test(file.type)) kind = "video";
+    else if (/\.(svg|png|jpe?g|webp)$/i.test(file.name) || /^image\//.test(file.type)) kind = "image";
+    if (!kind) { window.alert("Formato no soportado. Usá .glb, .mp4, .webm, .png, .jpg, .svg o .webp"); return; }
     const blobUrl = URL.createObjectURL(file);
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const cur = objects.find((o) => o.id === id);
     updateObject(id, {
-      type: "image",
+      type: kind,
       previewUrl: blobUrl,
       url: `./assets/models/${safeName}`,
-      billboard: true,
+      billboard: kind === "model" ? false : (cur && cur.type === kind ? (cur.billboard ?? true) : true),
+      ...(kind === "video" ? { loop: cur && cur.loop !== undefined ? cur.loop : true } : {}),
     });
   };
   /* Si editás el campo "Archivo" a mano (en vez de usar "Subir
@@ -3954,7 +4137,9 @@ function App() {
       if (o.id !== id) return o;
       const isImgExt = /\.(svg|png|jpe?g|webp)$/i.test(newUrl);
       const isGlbExt = /\.glb$/i.test(newUrl);
+      const isVidExt = /\.(mp4|webm)$/i.test(newUrl);
       let patch = { url: newUrl };
+      if (isVidExt && o.type !== "video") patch = { ...patch, type: "video", billboard: o.billboard ?? true, previewUrl: null, loop: o.loop ?? true };
       if (isImgExt && o.type !== "image") patch = { ...patch, type: "image", billboard: o.billboard ?? true, previewUrl: null };
       if (isGlbExt && o.type !== "model") patch = { ...patch, type: "model", billboard: false, previewUrl: null };
       return { ...o, ...patch };
@@ -4281,9 +4466,9 @@ function App() {
 
   const renderObjectEditor = (o, idx) => {
     const c = colorOf(o, idx);
-    const isImage = o.type === "image", isText = o.type === "text", isModel = !isImage && !isText;
+    const isImage = o.type === "image", isVideo = o.type === "video", isText = o.type === "text", isModel = !isImage && !isVideo && !isText;
     const t = (objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage]) || defaultObjectTransform();
-    const mismatch = (isModel && /\.(svg|png|jpe?g|webp)$/i.test(o.url)) || (isImage && /\.glb$/i.test(o.url));
+    const mismatch = (isModel && /\.(svg|png|jpe?g|webp|mp4|webm)$/i.test(o.url)) || (isImage && /\.(glb|mp4|webm)$/i.test(o.url)) || (isVideo && /\.(glb|svg|png|jpe?g|webp)$/i.test(o.url));
     return (
       <div className="oed" style={{ "--oc": c }}>
         <div className="oed-h">
@@ -4293,7 +4478,7 @@ function App() {
             {PALETTE.map((p) => <option key={p} value={p} style={{ color: p }}>●</option>)}
           </select>
         </div>
-        <Seg value={o.type || "model"} onChange={(v) => setObjectType(o.id, v)} options={[["model", "Modelo"], ["image", "Imagen / SVG"], ["text", "Texto"]]} />
+        <Seg value={o.type || "model"} onChange={(v) => setObjectType(o.id, v)} options={[["model", "Modelo"], ["image", "Imagen / SVG"], ["video", "Video"], ["text", "Texto"]]} />
         {isText ? (
           <>
             <textarea rows={3} value={o.text || ""} onChange={(e) => updateObject(o.id, { text: e.target.value })} />
@@ -4309,17 +4494,18 @@ function App() {
         ) : (
           <div className="row">
             <span className="lbl">Archivo</span>
-            <PathInput value={o.url} onCommit={(v) => setObjectUrl(o.id, v)} placeholder={isImage ? "./assets/models/imagen.svg" : "./assets/models/objeto.glb"} />
-            {isImage && (
-              <label className="ibtn" title="Subir imagen"><Icon name="open" size={16} />
-                <input type="file" accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp" onChange={(e) => { uploadObjectFile(o.id, e.target.files[0]); e.target.value = ""; }} />
-              </label>
-            )}
-            {isImage && o.previewUrl && <a className="ibtn" href={o.previewUrl} download={o.url.split("/").pop()} title="Descargar archivo subido"><Icon name="export" size={16} /></a>}
+            <PathInput value={o.url} onCommit={(v) => setObjectUrl(o.id, v)} placeholder={isImage ? "./assets/models/imagen.svg" : isVideo ? "./assets/models/video.mp4" : "./assets/models/objeto.glb"} />
+            <label className="ibtn" title="Subir archivo (.glb, .mp4, .png, .jpg, .svg)"><Icon name="open" size={16} />
+              <input type="file" accept=".glb,.mp4,.webm,video/mp4,video/webm,.svg,image/svg+xml,.png,.jpg,.jpeg,.webp" onChange={(e) => { uploadObjectFile(o.id, e.target.files[0]); e.target.value = ""; }} />
+            </label>
+            {o.previewUrl && <a className="ibtn" href={o.previewUrl} download={o.url.split("/").pop()} title="Descargar archivo subido"><Icon name="export" size={16} /></a>}
           </div>
         )}
         {mismatch && <div className="warn">⚠ La extensión no coincide con el tipo</div>}
+        {isVideo && <Switch checked={o.loop !== false} onChange={(v) => updateObject(o.id, { loop: v })} label="Repetir en loop" />}
+        {isVideo && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>El video se reproduce solo y sin sonido (los navegadores solo permiten autoplay en mudo). Recordá copiar el archivo a la carpeta assets/models/ junto al index.html.</div>}
         {isModel && <Slider label="Brillo" min={0} max={3} step={0.05} value={o.glow || 0} onChange={(v) => updateObject(o.id, { glow: v })} />}
+        {isModel && <Switch checked={o.shadows !== false} onChange={(v) => updateObject(o.id, { shadows: v })} label="Sombras (proyecta / recibe)" />}
         {!isModel && <Switch checked={!!o.billboard} onChange={(v) => updateObject(o.id, { billboard: v })} label="Billboard (mira a cámara)" />}
         <div className="grp-t" style={{ marginTop: 4 }}>Transformación · {currentStageLabel}</div>
         <Slider label="Escala" min={0.05} max={20} step={0.01} value={t.scale} onChange={(v) => setObjectTransform(o.id, "scale", null, v)} />
@@ -4537,6 +4723,7 @@ function App() {
                 <div className="tools">
                   <Btn icon="cube" onClick={() => addObject("model")}>Modelo</Btn>
                   <Btn icon="image" onClick={() => addObject("image")}>Imagen</Btn>
+                  <Btn icon="video" onClick={() => addObject("video")}>Video</Btn>
                   <Btn icon="text" onClick={() => addObject("text")}>Texto</Btn>
                   <span className="grow" />
                   <IBtn icon="copy" title="Todos desde la pose anterior" disabled={stageIndex <= 0 || !objects.length} onClick={copyAllObjectTransformsFromPrev} />
@@ -4545,7 +4732,7 @@ function App() {
                 <div className="outliner">
                   {objects.map((o, i) => (
                     <div key={o.id} className={`orow ${selObj && selObj.id === o.id ? "sel" : ""} ${o.visible && !(objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage] && objectTransformsByKf[o.id][activeStage].hidden) ? "" : "off"}`} style={{ "--oc": colorOf(o, i) }} onClick={() => setSelectedObj(o.id)}>
-                      <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "image" ? "image" : "cube"} size={15} /></span>
+                      <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
                       <span className="oname">{o.label}</span>
                       <button className="mini" title="Visible" onClick={(e) => { e.stopPropagation(); updateObject(o.id, { visible: !o.visible }); }}><Icon name={o.visible ? "eye" : "eyeoff"} size={14} /></button>
                       <button className="mini danger" title="Eliminar" onClick={(e) => { e.stopPropagation(); removeObject(o.id); }}><Icon name="trash" size={14} /></button>
