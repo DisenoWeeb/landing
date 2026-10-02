@@ -331,14 +331,29 @@ const OBJECTS = [
   {
     type: "model",
     url: "./assets/models/logobruzera2.glb",
-    glow: 0.1,
+    glow: 0.15,
+    shadows: true,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0.86, -10], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.204, easing: "smooth", position: [0, 0.86, 0], scale: 1, rotationY: -18.9, hidden: false, fadeDir: "ltr" },
-      { progress: 0.447, easing: "smooth", position: [0, 0.86, 0], scale: 1, rotationY: 48.9, hidden: false, fadeDir: "ltr" },
-      { progress: 0.754, easing: "smooth", position: [0, 0.3, 0], scale: 1, rotationY: 230, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 0.82, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0, easing: "smooth", position: [0.24, -0.93, 0], scale: 0.45, rotationY: 17.6, hidden: false, fadeDir: "ltr" },
+      { progress: 0.25, easing: "smooth", position: [0.24, -0.93, 0], scale: 0.45, rotationY: 17.6, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "smooth", position: [0, 0.8, 0], scale: 1, rotationY: -19.7, hidden: false, fadeDir: "ltr" },
+      { progress: 0.75, easing: "smooth", position: [0, 0.8, 0], scale: 1, rotationY: 180, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 0.8, 0], scale: 1, rotationY: 360, hidden: false, fadeDir: "ltr" },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/Sin_t_tulo-2.jpg",
+    glow: 0,
+    shadows: true,
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.08, -0.24], scale: 3.82, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.25, easing: "smooth", position: [0, 0.08, -0.24], scale: 3.82, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.5, easing: "smooth", position: [0, 5.4, -0.24], scale: 3.82, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.75, easing: "smooth", position: [0, 5.4, -0.24], scale: 3.82, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 5.4, -0.24], scale: 3.82, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
 ];
@@ -383,46 +398,46 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [0, 0, 20], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 5, azimuth: 360, elevation: 62, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.38 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+    camera: { position: [4.189, -8.647, 15.28], lookAt: [0, 0, 0], fov: 10, roll: 0 },
+    light: { color: "#ededed", intensity: 1.15, azimuth: 214, elevation: -8, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
+    fog: { enabled: true, color: "#000000", far: 21 },
+    background: { from: "#f0eac7", to: "#030303", angle: 180 },
   },
   {
-    id: "pose-1790885125032",
-    progress: 0.204,
+    id: "pose-1790917193108",
+    progress: 0.25,
+    easing: "smooth",
+    camera: { position: [6.15, -8.887, 16.04], lookAt: [0, -1.24, 0], fov: 5, roll: 0 },
+    light: { color: "#ededed", intensity: 1.15, azimuth: 214, elevation: -8, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
+    fog: { enabled: true, color: "#000000", far: 21 },
+    background: { from: "#060b51", to: "#69125d", angle: 180 },
+  },
+  {
+    id: "pose-1790917369835",
+    progress: 0.5,
     easing: "smooth",
     camera: { position: [0, 0, 20], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 5, azimuth: 360, elevation: 62, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.38 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+    light: { color: "#ededed", intensity: 3.8, azimuth: 360, elevation: 71, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
+    fog: { enabled: true, color: "#000000", far: 21 },
+    background: { from: "#060b51", to: "#69125d", angle: 191 },
   },
   {
-    id: "pose-1790885139939",
-    progress: 0.447,
+    id: "pose-1790917845017",
+    progress: 0.75,
     easing: "smooth",
-    camera: { position: [-8.935, -17.883, 0.595], lookAt: [0, 0, 0], fov: 8, roll: 0 },
-    light: { color: "#e0ddee", intensity: 5, azimuth: 360, elevation: 62, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.38 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+    camera: { position: [-19.699, -1.734, -2.988], lookAt: [0, 0, 0], fov: 8, roll: 0 },
+    light: { color: "#ededed", intensity: 3.8, azimuth: 360, elevation: 71, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
+    fog: { enabled: true, color: "#000000", far: 21 },
+    background: { from: "#060b51", to: "#69125d", angle: 191 },
   },
   {
-    id: "pose-1790885340772",
-    progress: 0.754,
-    easing: "smooth",
-    camera: { position: [-3.084, -10.694, -16.617], lookAt: [0, 0, 0], fov: 5, roll: 0 },
-    light: { color: "#e0ddee", intensity: 5, azimuth: 360, elevation: 62, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.38 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
-  },
-  {
-    id: "pose-1790885439405",
+    id: "pose-1790917851182",
     progress: 1,
     easing: "smooth",
-    camera: { position: [0, 0, 20], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 5, azimuth: 360, elevation: 62, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.38 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+    camera: { position: [15.53, -0.018, 12.589], lookAt: [0, 0.36, 0], fov: 8, roll: 0 },
+    light: { color: "#ededed", intensity: 3.8, azimuth: 360, elevation: 81, rimColor: "#f3f4b8", rimIntensity: 1, ambient: 0.29 },
+    fog: { enabled: true, color: "#000000", far: 21 },
+    background: { from: "#060b51", to: "#69125d", angle: 191 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -434,10 +449,10 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790885125032", progress: 0.204, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790885139939", progress: 0.447, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790885340772", progress: 0.754, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790885439405", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790917193108", progress: 0.25, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790917369835", progress: 0.5, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790917845017", progress: 0.75, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1790917851182", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -470,31 +485,31 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790885125032",
-    progress: 0.204,
+    id: "pose-1790917193108",
+    progress: 0.25,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1790885139939",
-    progress: 0.447,
+    id: "pose-1790917369835",
+    progress: 0.5,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1790885340772",
-    progress: 0.754,
+    id: "pose-1790917845017",
+    progress: 0.75,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1790885439405",
+    id: "pose-1790917851182",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -527,7 +542,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 1665;
+const SCROLL_LENGTH_VH = 600;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
@@ -537,8 +552,8 @@ const VIGNETTE_OFFSET = 0.18;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.1;
 const BEAM_ENABLED = false;
-const BEAM_OPACITY = 0.13;
-const BEAM_WIDTH = 1.6;
+const BEAM_OPACITY = 0.35;
+const BEAM_WIDTH = 4.6;
 const BEAM_HEIGHT = 100;
 /*@GEN:POSTFX_END*/
 
@@ -1230,6 +1245,9 @@ const FADE_FRAG_BODY = `
     else fa = clamp((uFadeAmt * (1.0 + soft) - u) / soft, 0.0, 1.0);
     fa = fa * fa * (3.0 - 2.0 * fa);
   }
+#if defined(USE_ALPHATEST) && !defined(ALPHA_TO_COVERAGE)
+  gl_FragColor.a = 1.0;
+#endif
   gl_FragColor.a *= fa;
 }
 `;
@@ -1485,11 +1503,18 @@ function SceneObjectModel({ data }) {
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
-        child.castShadow = true; child.receiveShadow = true;
+        const mats0 = Array.isArray(child.material) ? child.material : [child.material];
+        mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
+        // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
+        child.castShadow = data.shadows !== false && !mats0.some((m) => m && m.userData.__wasBlend);
+        child.receiveShadow = data.shadows !== false;
+        (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+          if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
+        });
         if (hasFade) patchFadeMaterial(child.material, fade);
       }
     });
-  }, [scene, hasFade, fade]);
+  }, [scene, hasFade, fade, data.shadows]);
   useEffect(() => { applyGlow(scene, data.glow || 0); }, [scene, data.glow]);
   return (
     <group ref={groupRef}>
