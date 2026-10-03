@@ -329,25 +329,8 @@ const CHARACTER_MODEL_URL = "";
 /*@GEN:OBJECTS_START*/
 const OBJECTS = [
   {
-    type: "model",
-    url: "./assets/models/logobruzera2.glb",
-    videoMode: "scroll",
-    scrollFrom: 0,
-    scrollTo: 1,
-    loop: true,
-    glow: 0.2,
-    shadows: true,
-    billboard: false,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [0.16, -0.62, 0.08], scale: 0.6, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
-      { progress: 0.33, easing: "linear", position: [0.16, -0.62, 0.08], scale: 0.6, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
-      { progress: 0.67, easing: "linear", position: [0.08, -0.62, 0.08], scale: 0.6, rotationY: -16.9, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "linear", position: [0.08, -0.62, 0.08], scale: 0.6, rotationY: -16.9, hidden: false, fadeDir: "fade" },
-    ],
-  },
-  {
-    type: "video",
-    url: "./assets/models/perro2.mp4",
+    type: "image",
+    url: "./assets/models/pelo.png",
     videoMode: "scroll",
     scrollFrom: 0,
     scrollTo: 1,
@@ -356,10 +339,53 @@ const OBJECTS = [
     shadows: true,
     billboard: true,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 4.65, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.33, easing: "linear", position: [0, 0, 0], scale: 4.65, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.67, easing: "linear", position: [0, 0, 0], scale: 4.65, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 4.65, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.167, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.5, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.667, easing: "linear", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.833, easing: "linear", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "linear", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "model",
+    url: "./assets/models/logobruzera_fix.glb",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
+    glow: 0,
+    shadows: true,
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.84, 0], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.167, easing: "smooth", position: [0, 0.76, 0.56], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0, 0.76, 0.56], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.5, easing: "smooth", position: [0, 0.72, 0.56], scale: 0.6, rotationY: -19.7, hidden: false, fadeDir: "fade" },
+      { progress: 0.667, easing: "linear", position: [0, 0.72, 0.56], scale: 0.9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
+      { progress: 0.833, easing: "linear", position: [0, 0.72, 0.56], scale: 0.9, rotationY: -177.1, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "linear", position: [0, 0.72, 0.56], scale: 0.4, rotationY: -360, hidden: false, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/sombramedalla.png",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
+    glow: 0,
+    shadows: true,
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.84, -0.09], scale: 0.63, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.167, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.5, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.667, easing: "linear", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.833, easing: "linear", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "linear", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
 ];
@@ -404,37 +430,64 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [3.08, -10.324, 16.85], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 3.4, azimuth: 360, elevation: 77, rimColor: "#2148e4", rimIntensity: 1, ambient: 0 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.2, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
   },
   {
-    id: "pose-1790944772573",
-    progress: 0.33,
+    id: "pose-1791039048503",
+    progress: 0.167,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.9, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+  },
+  {
+    id: "pose-1791039166751",
+    progress: 0.333,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.9, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+  },
+  {
+    id: "pose-1791039574302",
+    progress: 0.5,
+    easing: "smooth",
+    camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+  },
+  {
+    id: "pose-1791039970322",
+    progress: 0.667,
     easing: "linear",
-    camera: { position: [4.404, -12.233, 15.197], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 2.75, azimuth: 274, elevation: 72, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.17 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+    camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
   },
   {
-    id: "pose-1790944901354",
-    progress: 0.67,
+    id: "pose-1791040034357",
+    progress: 0.833,
     easing: "linear",
-    camera: { position: [-6.245, -13.874, 12.981], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 2.1, azimuth: 282, elevation: 72, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.07 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+    camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
   },
   {
-    id: "pose-1790944952633",
+    id: "pose-1791040047941",
     progress: 1,
     easing: "linear",
-    camera: { position: [-4.233, -10.694, 16.362], lookAt: [0, 0, 0], fov: 10, roll: 0 },
-    light: { color: "#e0ddee", intensity: 2.6, azimuth: 278, elevation: 74, rimColor: "#2148e4", rimIntensity: 1, ambient: 0.02 },
-    fog: { enabled: true, color: "#000000", far: 300 },
-    background: { from: "#b60ca8", to: "#050d48", angle: 180 },
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -445,10 +498,13 @@ const scenes = [
    ============================================================ */
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
-  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790944772573", progress: 0.33, easing: "linear", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790944901354", progress: 0.67, easing: "linear", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
-  { id: "pose-1790944952633", progress: 1, easing: "linear", pos: [0, 0, 0], yaw: 79.4, pitch: 0 },
+  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039048503", progress: 0.167, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039166751", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039574302", progress: 0.5, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039970322", progress: 0.667, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791040034357", progress: 0.833, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791040047941", progress: 1, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -481,23 +537,47 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1790944772573",
-    progress: 0.33,
+    id: "pose-1791039048503",
+    progress: 0.167,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791039166751",
+    progress: 0.333,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791039574302",
+    progress: 0.5,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791039970322",
+    progress: 0.667,
     easing: "linear",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1790944901354",
-    progress: 0.67,
+    id: "pose-1791040034357",
+    progress: 0.833,
     easing: "linear",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1790944952633",
+    id: "pose-1791040047941",
     progress: 1,
     easing: "linear",
     bones: {
@@ -530,34 +610,34 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 985;
+const SCROLL_LENGTH_VH = 900;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
-const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.31;
-const VIGNETTE_OFFSET = 0.18;
-const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0;
+const VIGNETTE_ENABLED = false;
+const VIGNETTE_DARKNESS = 0.5;
+const VIGNETTE_OFFSET = 0.15;
+const BLOOM_ENABLED = false;
+const BLOOM_INTENSITY = 0.5;
 const BEAM_ENABLED = false;
-const BEAM_OPACITY = 0.13;
-const BEAM_WIDTH = 1.6;
-const BEAM_HEIGHT = 100;
+const BEAM_OPACITY = 1;
+const BEAM_WIDTH = 0.2;
+const BEAM_HEIGHT = 12.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = false;
-const REFLECTION_RESOLUTION = 128;
-const REFLECTION_UPDATE_EVERY = 1;
-const REFLECTION_INTENSITY = 1.65;
+const REFLECTION_RESOLUTION = 256;
+const REFLECTION_UPDATE_EVERY = 2;
+const REFLECTION_INTENSITY = 1;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
 const TRAIL_ENABLED = false;
-const TRAIL_COLOR = "#f2f4cd";
-const TRAIL_SIZE = 0.27;
-const TRAIL_LIFE = 10;
-const TRAIL_RATE = 90;
+const TRAIL_COLOR = "#ffd873";
+const TRAIL_SIZE = 0.05;
+const TRAIL_LIFE = 0.9;
+const TRAIL_RATE = 40;
 /*@GEN:TRAIL_END*/
 
 function damp(current, target, lambda, dt) {
@@ -1052,7 +1132,7 @@ function LightBeam({ enabled, opacity, width, height }) {
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
 const CHAR_CENTER_Y = 0;
-const CHAR_SCALE = 3;
+const CHAR_SCALE = 1;
 /*@GEN:CHAR_TRANSFORM_END*/
 
 const _deltaEuler = new THREE.Euler();
