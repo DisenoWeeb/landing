@@ -24,12 +24,34 @@
   .mobile-frame { position:absolute; top:0; left:0; pointer-events:none; z-index:4; border:1.5px solid var(--acc); box-shadow:0 0 0 2000px rgba(0,0,0,.45); border-radius:14px; }
   .scene-box { position:absolute; inset:0; }
   .phone-split { position:absolute; left:0; right:0; border-top:1.5px dashed var(--acc); opacity:.8; }
-  .phone-dock { position:absolute; left:0; right:0; bottom:0; display:flex; flex-direction:column; justify-content:space-evenly; gap:4px; padding:4px 8px; box-sizing:border-box; pointer-events:none; }
-  .phone-dock .pd-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .phone-dock .pd-btn, .phone-dock .pd-day { background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3); border-radius:9px; color:#fff; font:600 8px ui-monospace, Menlo, monospace; letter-spacing:.12em; display:flex; align-items:center; justify-content:center; min-height:20px; }
-  .phone-dock .pd-days { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
-  .phone-dock .pd-day { min-height:24px; }
-  .phone-dock .pd-t { color:#fff; font:600 8px ui-monospace, Menlo, monospace; letter-spacing:.2em; opacity:.9; }
+  .phone-dock-real { position:absolute; left:0; bottom:0; width:390px; transform-origin:bottom left; pointer-events:none; display:flex; flex-direction:column; gap:10px; box-sizing:border-box; padding:8px 14px 12px; color:#fff; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .phone-dock-real .dock__btn, .dock__day, .dock__arrow { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); color: inherit;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-family: inherit; }
+  .dock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dock__btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 16px; text-decoration: none; min-width: 0; height: 50px; box-sizing: border-box; }
+  .dock__ico { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); display: grid; place-items: center; }
+  .dock__ico svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 1.05; stroke-linecap: round; stroke-linejoin: round; }
+  .dock__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .dock__txt b { font-weight: 500; font-size: 11px; line-height: 1; letter-spacing: .18em; }
+  .dock__txt small { font-weight: 400; font-size: 8.5px; line-height: 1; letter-spacing: .14em; opacity: .85; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .dock__txt small i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); flex: none; }
+  .dock__txt small.is-open i { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+  .dock__turn-head { display: flex; align-items: center; gap: 10px; height: 26px; }
+  .dock__turn-head svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 1.05; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .dock__turn-head b { font-weight: 500; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; }
+  .dock__confirm { margin-left: auto; padding: 8px 12px; border-radius: 999px; background: var(--dock-accent); color: #0a0a0a; font-weight: 600; font-size: 10px; line-height: 1; letter-spacing: .06em; text-decoration: none; white-space: nowrap; }
+  .dock__days-wrap { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .dock__days { flex: 1; min-width: 0; display: flex; gap: 5px; overflow-x: auto; padding: 0 20px; scroll-padding: 0 20px; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); }
+  .dock__days::-webkit-scrollbar { display: none; }
+  .dock__day { flex: 0 0 42px; height: 50px; box-sizing: border-box; scroll-snap-align: start; border-radius: 12px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; }
+  .dock__day span { font-size: 8.5px; letter-spacing: .12em; opacity: .8; }
+  .dock__day b { font-size: 17px; font-weight: 500; line-height: 1; }
+  .dock__day em { font-size: 7.5px; opacity: .8; font-style: normal; line-height: 1; }
+  .dock__day.is-sel { background: var(--dock-accent); color: #0a0a0a; border-color: transparent; }
+  .dock__day.is-closed { opacity: .4; cursor: default; }
+  .dock__arrow { flex: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 15px; font-weight: 300; line-height: 1; padding: 0; }
   .mobile-frame__label { position:absolute; top:-22px; left:0; font-size:10.5px; color:var(--acc); background:rgba(10,12,17,.75); padding:2px 6px; border-radius:4px; white-space:nowrap; }
 
   /* panel */
@@ -394,7 +416,7 @@
   .app-root--phone .cta-layer { display: none; }
   .dock-shade { position: fixed; z-index: 7; left: 0; right: 0; bottom: 0; pointer-events: none;
     height: calc(var(--shade-pct) * 1vh); height: calc(var(--shade-pct) * 1lvh); opacity: var(--shade-opacity);
-    background: linear-gradient(to top, #000 0%, rgba(0,0,0,.78) 38%, rgba(0,0,0,.34) 72%, rgba(0,0,0,0) 100%); }
+    background: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,.81) 10%, rgba(0,0,0,.64) 20%, rgba(0,0,0,.49) 30%, rgba(0,0,0,.36) 40%, rgba(0,0,0,.25) 50%, rgba(0,0,0,.16) 60%, rgba(0,0,0,.09) 70%, rgba(0,0,0,.04) 80%, rgba(0,0,0,.01) 90%, rgba(0,0,0,0) 100%); }
   .dock { position: fixed; z-index: 8; left: 50%; bottom: 0; transform: translateX(-50%); width: 440px; max-width: 100%; box-sizing: border-box;
     padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px;
     font-family: var(--font-body); color: #fff; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; --dock-accent: var(--brand-accent); }
@@ -795,7 +817,7 @@ const TRAIL_RATE = 40;
 const DOCK = {
   "enabled": true,
   "splitPct": 67,
-  "shadeStrength": 0.85,
+  "shadeStrength": 0.7,
   "whatsappPhone": "",
   "whatsappMessage": "Hola! Quisiera hacer una consulta.",
   "address": "",
@@ -2521,7 +2543,7 @@ function App() {
       className={"app-root" + (DOCK.enabled ? " app-root--phone" : "")}
       style={{
         "--shade-pct": 100 - (DOCK.splitPct || 67),
-        "--shade-opacity": DOCK.shadeStrength ?? 0.85,
+        "--shade-opacity": DOCK.shadeStrength ?? 0.7,
         "--brand-accent": clientConfig.colors.accent,
         "--brand-accent-2": clientConfig.colors.accentSecondary,
         "--color-bg": clientConfig.colors.background,
@@ -3936,22 +3958,78 @@ function usePhoneBox(containerRef, enabled, ratio = 9 / 16) {
   return box;
 }
 /* Marco del celular: raya punteada en el corte (arriba = animación, abajo = zona fija) y maqueta de la zona fija. */
-function MobileFrameOverlay({ box, split, dockOn, shade }) {
+const DOCK_DOW_SHORT = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+/* Mismos cálculos que la zona fija del sitio (días del turnero y "abierto ahora"), para que la maqueta sea idéntica. */
+function dockPreview(dock) {
+  const opts = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false };
+  let parts;
+  try { parts = new Intl.DateTimeFormat("en-CA", { ...opts, timeZone: dock.timezone }).formatToParts(new Date()); }
+  catch (e) { parts = new Intl.DateTimeFormat("en-CA", opts).formatToParts(new Date()); }
+  const g = (t) => Number(parts.find((p) => p.type === t).value);
+  const now = { y: g("year"), m: g("month"), d: g("day"), minutes: (g("hour") % 24) * 60 + g("minute") };
+  const mins = (hhmm) => { const p = String(hhmm).split(":").map(Number); return p[0] * 60 + (p[1] || 0); };
+  const sched = dock.schedule || [];
+  const days = [];
+  for (let i = 0; i < (dock.turneroDays || 14); i++) {
+    const dt = new Date(Date.UTC(now.y, now.m - 1, now.d + i, 12));
+    const slot = sched[dt.getUTCDay()];
+    let open = !!slot;
+    if (open && i === 0 && now.minutes >= mins(slot[1])) open = false;
+    days.push({ open, label: DOCK_DOW_SHORT[dt.getUTCDay()], day: dt.getUTCDate() });
+  }
+  const dow = new Date(Date.UTC(now.y, now.m - 1, now.d, 12)).getUTCDay();
+  const slot = sched[dow];
+  let status = { open: false, text: "CERRADO" };
+  if (slot && now.minutes >= mins(slot[0]) && now.minutes < mins(slot[1])) status = { open: true, text: "ABIERTO AHORA" };
+  else if (slot && now.minutes < mins(slot[0])) status = { open: false, text: "ABRE HOY " + slot[0] };
+  else for (let k = 1; k <= 7; k++) { const d = (dow + k) % 7; if (sched[d]) { status = { open: false, text: "ABRE " + (k === 1 ? "MAÑANA" : DOCK_DOW_SHORT[d]) + " " + sched[d][0] }; break; } }
+  return { days, status };
+}
+function PhoneDockMock({ dock, k }) {
+  const { days, status } = dockPreview(dock);
+  return (
+    <div className="phone-dock-real dock" style={{ transform: `scale(${k})`, left: 0, bottom: 0 }}>
+      <div className="dock__row">
+        <div className="dock__btn">
+          <span className="dock__ico"><svg viewBox="0 0 24 24"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 8 19.6z" /><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.5-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z" /></svg></span>
+          <span className="dock__txt"><b>WHATSAPP</b><small className={status.open ? "is-open" : ""}><i />{status.text}</small></span>
+        </div>
+        <div className="dock__btn">
+          <span className="dock__ico"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.800 12 21 12 21z" /><circle cx="12" cy="9.500" r="2.500" /></svg></span>
+          <span className="dock__txt"><b>CÓMO LLEGAR</b><small>VER EN EL MAPA</small></span>
+        </div>
+      </div>
+      <div>
+        <div className="dock__turn-head">
+          <svg viewBox="0 0 24 24"><rect x="3.500" y="5" width="17" height="15.500" rx="2.500" /><path d="M3.500 10h17M8 3v4M16 3v4" /></svg>
+          <b>{dock.turneroTitle}</b>
+        </div>
+        <div className="dock__days-wrap">
+          <div className="dock__arrow">‹</div>
+          <div className="dock__days" style={{ overflow: "hidden" }}>
+            {days.map((d, i) => (
+              <div key={i} className={"dock__day" + (!d.open ? " is-closed" : "")}><span>{d.label}</span><b>{d.day}</b>{!d.open && <em>cerrado</em>}</div>
+            ))}
+          </div>
+          <div className="dock__arrow">›</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+const SHADE_GRADIENT = "linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,.81) 10%, rgba(0,0,0,.64) 20%, rgba(0,0,0,.49) 30%, rgba(0,0,0,.36) 40%, rgba(0,0,0,.25) 50%, rgba(0,0,0,.16) 60%, rgba(0,0,0,.09) 70%, rgba(0,0,0,.04) 80%, rgba(0,0,0,.01) 90%, rgba(0,0,0,0) 100%)";
+function MobileFrameOverlay({ box, split, dockOn, shade, dock }) {
   if (!box) return null;
   const splitPx = box.h * (split / 100);
-  const k = box.h / 844; // el dock real mide ~165 px en un celular de 844 px de alto
+  const k = box.w / 390; // la zona fija real mide lo mismo en cualquier pantalla (px); acá se escala al marco
   return (
     <div className="mobile-frame" style={{ width: box.w, height: box.h, left: box.left, top: box.top }}>
       <span className="mobile-frame__label">Celular · 9:16{dockOn ? ` · libre ${split}% / sombra y zona fija ${100 - split}%` : ""}</span>
       {dockOn && (
         <>
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: box.h - splitPx, pointerEvents: "none", opacity: shade, background: SHADE_GRADIENT }} />
           <div className="phone-split" style={{ top: splitPx }} />
-          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: box.h - splitPx, pointerEvents: "none", opacity: shade, background: "linear-gradient(to top, #000 0%, rgba(0,0,0,.78) 38%, rgba(0,0,0,.34) 72%, rgba(0,0,0,0) 100%)" }} />
-          <div className="phone-dock" style={{ top: "auto", height: 165 * k }}>
-            <div className="pd-row"><div className="pd-btn">WHATSAPP</div><div className="pd-btn">CÓMO LLEGAR</div></div>
-            <div className="pd-t">SACÁ TU TURNO</div>
-            <div className="pd-days">{["L", "M", "M", "J", "V", "S", "D"].map((d, i) => <div key={i} className="pd-day">{d}</div>)}</div>
-          </div>
+          <PhoneDockMock dock={dock} k={k} />
         </>
       )}
     </div>
@@ -4077,7 +4155,7 @@ const REFLECTION_INTENSITY = ${reflection.intensity};`;
 const DEFAULT_DOCK = {
   enabled: true,
   splitPct: 67,
-  shadeStrength: 0.85,
+  shadeStrength: 0.7,
   whatsappPhone: "",
   whatsappMessage: "Hola! Quisiera hacer una consulta.",
   address: "",
@@ -4365,7 +4443,7 @@ function DockFields({ dock, setDockField }) {
   return (
     <>
       <Slider label="Zona libre %" min={50} max={85} step={1} value={dock.splitPct} onChange={(v) => setDockField("splitPct", v)} />
-      <Slider label="Sombra abajo" min={0} max={1} step={0.05} value={dock.shadeStrength ?? 0.85} onChange={(v) => setDockField("shadeStrength", v)} />
+      <Slider label="Sombra abajo" min={0} max={1} step={0.05} value={dock.shadeStrength ?? 0.7} onChange={(v) => setDockField("shadeStrength", v)} />
       <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>La escena ocupa toda la pantalla. La raya punteada del visor (9:16) marca hasta dónde conviene acomodar la animación; desde ahí hacia abajo hay una sombra negra que se funde con el 3D y, encima, la zona fija.</div>
       {txt("WhatsApp", "whatsappPhone", "5491122334455 (con código de país)")}
       {txt("Mensaje", "whatsappMessage", "Hola! Quisiera hacer una consulta.")}
@@ -5232,7 +5310,7 @@ function App() {
         {showFx && postFx.vignetteEnabled && (
           <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none", background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)` }} />
         )}
-        {showMobileFrame && <MobileFrameOverlay box={phoneBox} split={dock.splitPct || 67} dockOn={dock.enabled} shade={dock.shadeStrength ?? 0.85} />}
+        {showMobileFrame && <MobileFrameOverlay box={phoneBox} split={dock.splitPct || 67} dockOn={dock.enabled} shade={dock.shadeStrength ?? 0.7} dock={dock} />}
         <div className="vp-hud">{isPreview ? `▶ ${scrub.toFixed(3)}` : `${currentStageLabel} · ${stageIndex + 1}/${nStages}`}</div>
       </div>
 
