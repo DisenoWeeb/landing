@@ -56,6 +56,7 @@
     inset: 0;
     width: 100vw;
     height: 100vh;
+    height: 100lvh;
     background: #05070a;
     opacity: 0;
     transition: opacity 0.8s ease;
@@ -235,44 +236,44 @@
 
   .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
 
-  /* ---- Modo celular: 66% animación + zona fija abajo ---- */
+  /* ---- Zona fija de abajo (WhatsApp · Cómo llegar · Turnero) ----
+     Todo en px: el tamaño es el mismo en PC y en celulares. La escena sigue a pantalla completa. */
   .scene-canvas { position: absolute; inset: 0; }
-  .app-root--phone { --phone-w: min(100vw, calc(100vh * 9 / 16)); --phone-w: min(100vw, calc(100dvh * 9 / 16)); }
-  .app-root--phone .canvas-stage { inset: 0 0 auto 0; margin: 0 auto; width: var(--phone-w); height: 100vh; height: 100dvh; }
-  .app-root--phone .scene-canvas { inset: 0 0 auto 0; height: calc(var(--split) * 1%); }
-  .app-root--phone .scene-text-layer { bottom: calc((100 - var(--split)) * 1%); }
-  .app-root--phone .progress-rail { position: absolute; right: 10px; top: calc(var(--split) * 0.5%); height: 22%; }
-  .app-root--phone .scroll-hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc((100 - var(--split)) * 1% + 10px); }
+  .app-root--phone .scroll-hint { bottom: calc(190px + env(safe-area-inset-bottom)); }
   .app-root--phone .cta-layer { display: none; }
-  .dock { position: fixed; z-index: 8; left: 0; right: 0; bottom: 0; margin: 0 auto; width: var(--phone-w);
-    height: calc((100 - var(--split)) * 1vh); height: calc((100 - var(--split)) * 1dvh);
-    padding: 8px 14px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px;
-    font-family: var(--font-body); color: #fff; --dock-accent: var(--brand-accent); }
-  .dock__btn, .dock__day, .dock__arrow { background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.28); color: inherit;
+  .dock-shade { position: fixed; z-index: 7; left: 0; right: 0; bottom: 0; pointer-events: none;
+    height: calc(var(--shade-pct) * 1vh); height: calc(var(--shade-pct) * 1lvh); opacity: var(--shade-opacity);
+    background: linear-gradient(to top, #000 0%, rgba(0,0,0,.78) 38%, rgba(0,0,0,.34) 72%, rgba(0,0,0,0) 100%); }
+  .dock { position: fixed; z-index: 8; left: 50%; bottom: 0; transform: translateX(-50%); width: 440px; max-width: 100%; box-sizing: border-box;
+    padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px;
+    font-family: var(--font-body); color: #fff; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; --dock-accent: var(--brand-accent); }
+  .dock__btn, .dock__day, .dock__arrow { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); color: inherit;
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-family: inherit; }
   .dock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .dock__btn { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 16px; text-decoration: none; min-width: 0; }
-  .dock__ico { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.55); display: grid; place-items: center; }
-  .dock__ico svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .dock__btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 16px; text-decoration: none; min-width: 0; height: 50px; box-sizing: border-box; }
+  .dock__ico { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); display: grid; place-items: center; }
+  .dock__ico svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 1.05; stroke-linecap: round; stroke-linejoin: round; }
   .dock__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .dock__txt b { font-weight: 600; font-size: 11px; line-height: 1; letter-spacing: .18em; }
-  .dock__txt small { font-weight: 500; font-size: 8.5px; line-height: 1; letter-spacing: .14em; opacity: .85; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .dock__txt b { font-weight: 500; font-size: 11px; line-height: 1; letter-spacing: .18em; }
+  .dock__txt small { font-weight: 400; font-size: 8.5px; line-height: 1; letter-spacing: .14em; opacity: .85; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
   .dock__txt small i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); flex: none; }
   .dock__txt small.is-open i { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
-  .dock__turn-head { display: flex; align-items: center; gap: 10px; min-height: 28px; }
-  .dock__turn-head svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 1.5; flex: none; }
-  .dock__turn-head b { font-weight: 600; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; }
+  .dock__turn-head { display: flex; align-items: center; gap: 10px; height: 26px; }
+  .dock__turn-head svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 1.05; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .dock__turn-head b { font-weight: 500; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; }
   .dock__confirm { margin-left: auto; padding: 8px 12px; border-radius: 999px; background: var(--dock-accent); color: #0a0a0a; font-weight: 600; font-size: 10px; line-height: 1; letter-spacing: .06em; text-decoration: none; white-space: nowrap; }
-  .dock__days-wrap { display: flex; align-items: center; gap: 6px; }
-  .dock__days { flex: 1; display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .dock__days-wrap { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+  .dock__days { flex: 1; min-width: 0; display: flex; gap: 5px; overflow-x: auto; padding: 0 20px; scroll-padding: 0 20px; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); }
   .dock__days::-webkit-scrollbar { display: none; }
-  .dock__day { flex: 0 0 calc((100% - 36px) / 7); scroll-snap-align: start; border-radius: 12px; padding: 7px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+  .dock__day { flex: 0 0 42px; height: 50px; box-sizing: border-box; scroll-snap-align: start; border-radius: 12px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; }
   .dock__day span { font-size: 8.5px; letter-spacing: .12em; opacity: .8; }
-  .dock__day b { font-size: 17px; font-weight: 600; line-height: 1; }
+  .dock__day b { font-size: 17px; font-weight: 500; line-height: 1; }
   .dock__day em { font-size: 7.5px; opacity: .8; font-style: normal; line-height: 1; }
   .dock__day.is-sel { background: var(--dock-accent); color: #0a0a0a; border-color: transparent; }
   .dock__day.is-closed { opacity: .4; cursor: default; }
-  .dock__arrow { flex: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 16px; line-height: 1; padding: 0; }
+  .dock__arrow { flex: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 15px; font-weight: 300; line-height: 1; padding: 0; }
 </style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
@@ -639,7 +640,7 @@ const scenes = [
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 1.2, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180, alpha: 1 },
   },
   {
     id: "pose-1791039048503",
@@ -648,7 +649,7 @@ const scenes = [
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 1.9, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180, alpha: 1 },
   },
   {
     id: "pose-1791039166751",
@@ -657,7 +658,7 @@ const scenes = [
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 1.9, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180, alpha: 1 },
   },
   {
     id: "pose-1791039574302",
@@ -666,7 +667,7 @@ const scenes = [
     camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180, alpha: 1 },
   },
   {
     id: "pose-1791039970322",
@@ -675,7 +676,7 @@ const scenes = [
     camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#6b0d78", angle: 0 },
+    background: { from: "#031735", to: "#6b0d78", angle: 0, alpha: 1 },
   },
   {
     id: "pose-1791040034357",
@@ -684,7 +685,7 @@ const scenes = [
     camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#6b0d78", angle: 360 },
+    background: { from: "#031735", to: "#6b0d78", angle: 360, alpha: 1 },
   },
   {
     id: "pose-1791040047941",
@@ -693,7 +694,7 @@ const scenes = [
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#031735", angle: 180 },
+    background: { from: "#031735", to: "#031735", angle: 180, alpha: 1 },
   },
   {
     id: "pose-1791054912235",
@@ -702,7 +703,7 @@ const scenes = [
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#031735", angle: 180 },
+    background: { from: "#031735", to: "#031735", angle: 180, alpha: 1 },
   },
   {
     id: "pose-1791056513072",
@@ -711,7 +712,7 @@ const scenes = [
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#031735", angle: 180 },
+    background: { from: "#031735", to: "#031735", angle: 180, alpha: 1 },
   },
   {
     id: "pose-1791062685104",
@@ -720,7 +721,7 @@ const scenes = [
     camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
     fog: { enabled: false, color: "#05070a", far: 11.5 },
-    background: { from: "#031735", to: "#031735", angle: 180 },
+    background: { from: "#031735", to: "#031735", angle: 180, alpha: 1 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -903,10 +904,11 @@ const TRAIL_RATE = 40;
 /*@GEN:DOCK_START*/
 const DOCK = {
   "enabled": true,
-  "splitPct": 66,
-  "whatsappPhone": "3435303848",
+  "splitPct": 67,
+  "shadeStrength": 0.85,
+  "whatsappPhone": "",
   "whatsappMessage": "Hola! Quisiera hacer una consulta.",
-  "address": "José Venturino 1239 Paraná Entre Ríos",
+  "address": "",
   "mapUrl": "",
   "timezone": "America/Argentina/Buenos_Aires",
   "schedule": [
@@ -939,7 +941,7 @@ const DOCK = {
   "turneroTitle": "Sacá tu turno",
   "turneroDays": 14,
   "turneroMessage": "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
-  "accent": "#ee5da3"
+  "accent": ""
 };
 /*@GEN:DOCK_END*/
 
@@ -1032,6 +1034,7 @@ function blendScenes(list, rawProgress) {
       from: lerpColor(a.background.from, b.background.from, t),
       to: lerpColor(a.background.to, b.background.to, t),
       angle: lerp(a.background.angle ?? 180, b.background.angle ?? 180, t),
+      alpha: lerp(a.background.alpha ?? 1, b.background.alpha ?? 1, t),
     },
   };
 }
@@ -1045,10 +1048,15 @@ const useScrollStore = create((set) => ({
 
 function useScrollProgress(spacerRef) {
   useEffect(() => {
+    // Alto "grande" del viewport (100lvh): no cambia cuando el navegador del celular esconde su barra al primer scroll.
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;left:0;top:0;width:0;height:100vh;height:100lvh;visibility:hidden;pointer-events:none";
+    document.body.appendChild(probe);
+    const stableVh = () => probe.offsetHeight || window.innerHeight;
     const compute = () => {
       const el = spacerRef.current;
       if (!el) return;
-      const total = el.offsetHeight - window.innerHeight;
+      const total = el.offsetHeight - stableVh();
       const raw = total > 0 ? window.scrollY / total : 0;
       const p = clamp(raw, 0, 1);
       useScrollStore.getState().setProgress(p);
@@ -1060,6 +1068,7 @@ function useScrollProgress(spacerRef) {
     return () => {
       window.removeEventListener("scroll", compute);
       window.removeEventListener("resize", compute);
+      probe.remove();
     };
   }, [spacerRef]);
 }
@@ -2421,13 +2430,26 @@ function CTAButton() {
   );
 }
 
+function hexToRgba(hex, a) {
+  const h = String(hex).replace("#", "");
+  const f = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(f, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+/* Fondo de una pose: degradé/sólido con opacidad (alpha 0 = transparente). */
+function backgroundCss(bg) {
+  const a = bg.alpha == null ? 1 : bg.alpha;
+  if (a <= 0.004) return "transparent";
+  if (a >= 0.996) return `linear-gradient(${bg.angle}deg, ${bg.from}, ${bg.to})`;
+  return `linear-gradient(${bg.angle}deg, ${hexToRgba(bg.from, a)}, ${hexToRgba(bg.to, a)})`;
+}
 function BackgroundGradient({ stageRef }) {
   useEffect(() => {
     const update = (progress) => {
       const el = stageRef.current;
       if (!el) return;
       const state = blendScenes(scenes, progress);
-      el.style.background = `linear-gradient(${state.background.angle}deg, ${state.background.from}, ${state.background.to})`;
+      el.style.background = backgroundCss(state.background);
     };
     update(useScrollStore.getState().smoothProgress);
     return useScrollStore.subscribe((s) => update(s.smoothProgress));
@@ -2634,7 +2656,8 @@ function App() {
     <div
       className={"app-root" + (DOCK.enabled ? " app-root--phone" : "")}
       style={{
-        "--split": DOCK.splitPct || 66,
+        "--shade-pct": 100 - (DOCK.splitPct || 67),
+        "--shade-opacity": DOCK.shadeStrength ?? 0.85,
         "--brand-accent": clientConfig.colors.accent,
         "--brand-accent-2": clientConfig.colors.accentSecondary,
         "--color-bg": clientConfig.colors.background,
@@ -2677,7 +2700,7 @@ function App() {
         </div>
       </div>
       <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
-      {DOCK.enabled && <Dock />}
+      {DOCK.enabled && <><div className="dock-shade" aria-hidden="true" /><Dock /></>}
     </div>
   );
 }
