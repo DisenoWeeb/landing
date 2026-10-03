@@ -1,0 +1,2690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scroll Experience</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+  :root {
+    --brand-accent: #49d3ff;
+    --brand-accent-2: #6ee7c9;
+    --color-bg: #05070a;
+    --color-text: #ffffff8a;
+    --color-text-muted: rgba(244, 241, 234, 0.6);
+    --font-display: "Space Grotesk", sans-serif;
+    --font-body: "Inter", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    overflow-x: hidden;
+  }
+
+  @media (min-width: 769px) and (pointer: fine) {
+    html {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    html::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  #root { width: 100%; }
+
+  .app-root {
+    position: relative;
+    width: 100%;
+  }
+
+  .canvas-stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #05070a;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  .canvas-stage--ready { opacity: 1; }
+  .canvas-stage canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  .hero-text {
+    position: absolute;
+    top: 25%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transform-origin: center center;
+    z-index: 5;
+    pointer-events: none;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2.1rem, 4.5vw, 3.2rem);
+    letter-spacing: 0.07em;
+    color: var(--color-text);
+    white-space: nowrap;
+    will-change: opacity, transform;
+  }
+
+  .scene-text-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .scene-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8vw;
+    max-width: 720px;
+    will-change: opacity, transform;
+  }
+  .scene-text--left    { align-items: flex-start; text-align: left; }
+  .scene-text--center  { align-items: center; text-align: center; left: 50%; transform: translateX(-50%); max-width: 640px; }
+  .scene-text--right   { align-items: flex-end; text-align: right; margin-left: auto; }
+
+  .scene-text__eyebrow {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--brand-accent);
+    margin-bottom: 0.75rem;
+    display: inline-block;
+  }
+  .scene-text__title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 4rem);
+    line-height: 1.05;
+    margin: 0 0 0.75rem 0;
+    color: var(--color-text);
+  }
+  .kinetic-word { display: inline-block; }
+  .kinetic-char {
+    display: inline-block;
+    will-change: transform, opacity, filter;
+  }
+  .scene-text__subtitle {
+    font-family: var(--font-body);
+    font-weight: 300;
+    font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    margin: 0;
+    max-width: 46ch;
+  }
+
+  .cta-layer {
+    position: absolute;
+    bottom: 8vh;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    will-change: opacity, transform;
+  }
+  .cta-button {
+    display: inline-block;
+    padding: 0.9rem 2.2rem;
+    border-radius: 999px;
+    background: var(--brand-accent);
+    color: #0a0a0a;
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    box-shadow: 0 8px 30px rgba(200, 255, 0, 0.35);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 36px rgba(200, 255, 0, 0.5);
+  }
+
+  .progress-rail {
+    position: fixed;
+    top: 50%;
+    right: 3vw;
+    transform: translateY(-50%);
+    height: 28vh;
+    z-index: 6;
+  }
+  .progress-rail__track {
+    position: relative;
+    width: 2px;
+    height: 100%;
+    background: rgba(244, 241, 234, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-rail__fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%;
+    background: var(--brand-accent);
+    border-radius: 2px;
+    transition: height 0.05s linear;
+  }
+
+  .brand-mark {
+    position: fixed;
+    top: 3vh;
+    left: 3vw;
+    z-index: 6;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    color: var(--color-text);
+  }
+
+  .scroll-hint {
+    position: fixed;
+    bottom: 4vh;
+    left: 3vw;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    opacity: 0.7;
+  }
+  .scroll-hint__line {
+    width: 1px;
+    height: 32px;
+    background: linear-gradient(to bottom, var(--color-text-muted), transparent);
+    animation: scrollHintPulse 2s ease-in-out infinite;
+  }
+  @keyframes scrollHintPulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 1; }
+  }
+
+  .cursor-trail-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  .scroll-spacer { width: 100%; }
+
+  .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
+
+  /* ---- Modo celular: 66% animación + zona fija abajo ---- */
+  .scene-canvas { position: absolute; inset: 0; }
+  .app-root--phone { --phone-w: min(100vw, calc(100vh * 9 / 16)); --phone-w: min(100vw, calc(100dvh * 9 / 16)); }
+  .app-root--phone .canvas-stage { inset: 0 0 auto 0; margin: 0 auto; width: var(--phone-w); height: 100vh; height: 100dvh; }
+  .app-root--phone .scene-canvas { inset: 0 0 auto 0; height: calc(var(--split) * 1%); }
+  .app-root--phone .scene-text-layer { bottom: calc((100 - var(--split)) * 1%); }
+  .app-root--phone .progress-rail { position: absolute; right: 10px; top: calc(var(--split) * 0.5%); height: 22%; }
+  .app-root--phone .scroll-hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc((100 - var(--split)) * 1% + 10px); }
+  .app-root--phone .cta-layer { display: none; }
+  .dock { position: fixed; z-index: 8; left: 0; right: 0; bottom: 0; margin: 0 auto; width: var(--phone-w);
+    height: calc((100 - var(--split)) * 1vh); height: calc((100 - var(--split)) * 1dvh);
+    padding: 8px 14px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px;
+    font-family: var(--font-body); color: #fff; --dock-accent: var(--brand-accent); }
+  .dock__btn, .dock__day, .dock__arrow { background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.28); color: inherit;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-family: inherit; }
+  .dock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dock__btn { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 16px; text-decoration: none; min-width: 0; }
+  .dock__ico { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.55); display: grid; place-items: center; }
+  .dock__ico svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .dock__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .dock__txt b { font-weight: 600; font-size: 11px; line-height: 1; letter-spacing: .18em; }
+  .dock__txt small { font-weight: 500; font-size: 8.5px; line-height: 1; letter-spacing: .14em; opacity: .85; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .dock__txt small i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); flex: none; }
+  .dock__txt small.is-open i { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+  .dock__turn-head { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+  .dock__turn-head svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 1.5; flex: none; }
+  .dock__turn-head b { font-weight: 600; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; }
+  .dock__confirm { margin-left: auto; padding: 8px 12px; border-radius: 999px; background: var(--dock-accent); color: #0a0a0a; font-weight: 600; font-size: 10px; line-height: 1; letter-spacing: .06em; text-decoration: none; white-space: nowrap; }
+  .dock__days-wrap { display: flex; align-items: center; gap: 6px; }
+  .dock__days { flex: 1; display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .dock__days::-webkit-scrollbar { display: none; }
+  .dock__day { flex: 0 0 calc((100% - 36px) / 7); scroll-snap-align: start; border-radius: 12px; padding: 7px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+  .dock__day span { font-size: 8.5px; letter-spacing: .12em; opacity: .8; }
+  .dock__day b { font-size: 17px; font-weight: 600; line-height: 1; }
+  .dock__day em { font-size: 7.5px; opacity: .8; font-style: normal; line-height: 1; }
+  .dock__day.is-sel { background: var(--dock-accent); color: #0a0a0a; border-color: transparent; }
+  .dock__day.is-closed { opacity: .4; cursor: default; }
+  .dock__arrow { flex: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 16px; line-height: 1; padding: 0; }
+</style>
+<script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+  /* Scroll con inercia (Lenis). No requiere tocar el resto del código:
+     Lenis intercepta la rueda/touch y anima window.scrollTo() de forma
+     suave, disparando eventos "scroll" nativos igual que siempre — así
+     que useScrollProgress() sigue funcionando sin cambios, solo que
+     ahora el movimiento llega amortiguado en vez de "a saltos". */
+  (function () {
+    if (typeof Lenis === "undefined") return;
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      smoothTouch: false, // en mobile el scroll táctil nativo se siente mejor
+    });
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+    window.__lenis = lenis; // por si algún otro script necesita pausarlo/reanudarlo
+  })();
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react/jsx-dev-runtime": "https://esm.sh/react@18.3.1/jsx-dev-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "three": "https://esm.sh/three@0.160.0",
+    "zustand": "https://esm.sh/zustand@4.5.5?external=react",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber"
+  }
+}
+</script>
+
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<script type="text/babel" data-type="module" data-presets="react">
+
+import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { createRoot } from "react-dom/client";
+import { create } from "zustand";
+import * as THREE from "three";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, Stars, useTexture, Billboard } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
+
+/* ============================================================
+   CONFIG: client.config
+   ============================================================ */
+const clientConfig = {
+  brand: { name: "weeb studio" },
+  colors: {
+    accent: "#49d3ff",
+    accentSecondary: "#7dfff0",
+    background: "#05070f",
+    textPrimary: "#f5f6f2",
+    textMuted: "rgba(245, 246, 242, 0.6)",
+  },
+  fonts: {
+    display: "'Space Grotesk', sans-serif",
+    body: "'Inter', sans-serif",
+  },
+  cta: {
+    href: "https://wa.me/5493435020970?text=Hola%20weebStudio,%20quiero%20una%20Scroll%20Experience",
+    label: "Hablar por WhatsApp",
+  },
+};
+
+/*@GEN:MODEL_URL_START*/
+const CHARACTER_MODEL_URL = "";
+/*@GEN:MODEL_URL_END*/
+
+// Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
+// personaje. Podés tener uno o varios, cada uno con su propio archivo
+// (modelo .glb, imagen/SVG o video .mp4) y su propia animación de posición/escala/
+// rotación por etapa (igual que el personaje) — así también se pueden
+// mover durante el scroll y no quedan estáticos. Se generan desde la
+// pestaña "Objetos" de la herramienta — si algo queda muy grande/chico
+// o mal ubicado, es más fácil ajustarlo ahí (con preview en vivo) que
+// a mano. Colocá cada archivo en assets/models/ junto al del personaje.
+/*@GEN:OBJECTS_START*/
+const OBJECTS = [
+  {
+    type: "image",
+    url: "./assets/models/pelo.png",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
+    glow: 0,
+    shadows: true,
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.111, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.222, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.333, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.444, easing: "linear", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.556, easing: "linear", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.667, easing: "linear", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.778, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.889, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 0.44, -0.26], scale: 2.86, rotationY: 0, hidden: true, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "model",
+    url: "./assets/models/logobruzera_fix.glb",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
+    glow: 0,
+    shadows: true,
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.84, 0], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.111, easing: "smooth", position: [0, 0.76, 0.56], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.222, easing: "smooth", position: [0, 0.76, 0.56], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.333, easing: "smooth", position: [0, 0.72, 0.56], scale: 0.6, rotationY: -19.7, hidden: false, fadeDir: "fade" },
+      { progress: 0.444, easing: "linear", position: [0, 0.72, 0.56], scale: 0.9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
+      { progress: 0.556, easing: "linear", position: [0, 0.72, 0.56], scale: 0.9, rotationY: -180, hidden: false, fadeDir: "fade" },
+      { progress: 0.667, easing: "linear", position: [0, 0.72, 0.56], scale: 0.4, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.778, easing: "smooth", position: [0, 0.72, 0.56], scale: 0.4, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.889, easing: "smooth", position: [-0.24, 0.72, 0], scale: 0.1, rotationY: -90.1, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [-0.32, 1.3, 0], scale: 0.1, rotationY: -90.1, hidden: false, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "image",
+    url: "./assets/models/sombramedalla.png",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
+    glow: 0,
+    shadows: true,
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.84, -0.09], scale: 0.63, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.111, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.222, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.333, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.444, easing: "linear", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.556, easing: "linear", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.667, easing: "linear", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.778, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.889, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "text",
+    text: "El cuidado que \ntu mascota merece.",
+    textColor: "#ffffff",
+    textGradient: null,
+    fontFamily: "'Fredoka', sans-serif",
+    letterSpacing: 0.02,
+    lineHeight: 0.8,
+    wordStyles: {"4":{"mode":"solid","color":"#ff85fb"}},
+    fontWeight: 400,
+    textAlign: "center",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.111, easing: "smooth", position: [0, 1.37, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "rtl" },
+      { progress: 0.222, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.444, easing: "linear", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.556, easing: "linear", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.667, easing: "linear", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.778, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.889, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+    ],
+  },
+  {
+    type: "text",
+    text: "Atención veterinaria con amor,\nexperiencia y dedicación. \nPorque cada mascota es única\n y merece lo mejor.",
+    textColor: "#ffb3f1",
+    textGradient: null,
+    fontFamily: "'Fredoka', sans-serif",
+    letterSpacing: -0.01,
+    lineHeight: 0.85,
+    wordStyles: {},
+    fontWeight: 400,
+    textAlign: "center",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: false, fadeDir: "rtl" },
+      { progress: 0.111, easing: "smooth", position: [0, 0.22, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.222, easing: "smooth", position: [0.08, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0.08, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.444, easing: "linear", position: [0.08, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.556, easing: "linear", position: [0.08, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.667, easing: "linear", position: [0.08, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.778, easing: "smooth", position: [0.08, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.889, easing: "smooth", position: [0.08, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0.08, 0.34, 0.76], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "ltr" },
+    ],
+  },
+  {
+    type: "text",
+    text: "Una veterinaria\nde confianza.",
+    textColor: "#ffffff",
+    textGradient: null,
+    fontFamily: "'Fredoka', sans-serif",
+    letterSpacing: 0,
+    lineHeight: 0.85,
+    wordStyles: {"3":{"mode":"solid","color":"#f297de"}},
+    fontWeight: 400,
+    textAlign: "right",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0.08, 0.52, 1.4], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.111, easing: "smooth", position: [0.08, 0.52, 1.4], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.222, easing: "smooth", position: [0.08, 0.52, 1.4], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0.08, 0.52, 1.4], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.444, easing: "linear", position: [0.08, 0.52, 1.4], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.556, easing: "linear", position: [0.08, 0.52, 1.4], scale: 0.15, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.667, easing: "linear", position: [0.08, 0.8, 1.4], scale: 0.15, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.778, easing: "smooth", position: [0.08, 0.88, 1.4], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.889, easing: "smooth", position: [0.08, 0.88, 1.4], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0.08, 0.88, 1.4], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "text",
+    text: "Atención\npersonalizada,\ncálida y profesional.",
+    textColor: "#ffffff",
+    textGradient: null,
+    fontFamily: "'Fredoka', sans-serif",
+    letterSpacing: 0,
+    lineHeight: 0.8,
+    wordStyles: {"2":{"mode":"solid","color":"#e193d0"}},
+    fontWeight: 400,
+    textAlign: "left",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [-0.12, 0.12, 1.04], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.111, easing: "smooth", position: [-0.12, 0.12, 1.04], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.222, easing: "smooth", position: [-0.12, 0.12, 1.04], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [-0.12, 0.12, 1.04], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.444, easing: "linear", position: [-0.12, 0.12, 1.04], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.556, easing: "linear", position: [-0.12, 0.12, 1.04], scale: 0.15, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.667, easing: "linear", position: [-0.12, 0.3, 1.04], scale: 0.15, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.778, easing: "smooth", position: [-0.12, 0.28, 1.04], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.889, easing: "smooth", position: [-0.12, 0.28, 1.04], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [-0.12, 0.28, 1.04], scale: 0.15, rotationY: 0, hidden: true, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "text",
+    text: "Servicios",
+    textColor: "#ffffff",
+    textGradient: null,
+    fontFamily: "'Fredoka', sans-serif",
+    letterSpacing: 0.17,
+    lineHeight: 1.2,
+    wordStyles: {},
+    fontWeight: 600,
+    textAlign: "center",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.4, 0], scale: 0.08, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.111, easing: "smooth", position: [0, 0.4, 0], scale: 0.08, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.222, easing: "smooth", position: [0, 0.4, 0], scale: 0.08, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0, 0.4, 0], scale: 0.08, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.444, easing: "linear", position: [0, 0.4, 0], scale: 0.08, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.556, easing: "linear", position: [0, 0.4, 0], scale: 0.08, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.667, easing: "linear", position: [0, 0.4, 0], scale: 0.08, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.778, easing: "smooth", position: [0, 0.4, 0], scale: 0.08, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.889, easing: "smooth", position: [0, 0.72, 0], scale: 0.08, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 1.3, 0], scale: 0.12, rotationY: 0, hidden: false, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "video",
+    url: "./assets/models/WhatsApp_Video_2026-10-03_at_18.33.11.mp4",
+    videoMode: "play",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
+    glow: 0,
+    shadows: true,
+    billboard: true,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.111, easing: "smooth", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.222, easing: "smooth", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.333, easing: "smooth", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.444, easing: "linear", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.556, easing: "linear", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.667, easing: "linear", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.778, easing: "smooth", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.889, easing: "smooth", position: [0, 0.68, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 0.48, -0.32], scale: 1.67, rotationY: 0, hidden: false, fadeDir: "fade" },
+    ],
+  },
+];
+/*@GEN:OBJECTS_END*/
+
+// Se mantienen porque HeroText usa ST_TURN_END para sincronizar su propio
+// zoom con el fin del giro. Ya NO gobiernan el movimiento del personaje
+// (eso ahora vive en MOVEMENT_KEYFRAMES, más abajo).
+const ST_FRONT_END = 0.18;
+const ST_APPROACH_END = 0.38;
+const ST_TURN_END = 0.56;
+const ST_PAUSE1_END = 0.64;
+const ST_FALLPOSE_END = 0.80;
+const ST_PAUSE2_END = 0.88;
+
+function smoothstep(edge0, edge1, x) {
+  const t = clamp((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+/* Curva de velocidad ("easing") por tramo, elegible desde la pestaña
+   Duración. Se aplica por igual a cámara, movimiento, pose y ambiente
+   para que todos lleguen coordinados al mismo punto en el tiempo. */
+function applyEasing(t, kind) {
+  switch (kind) {
+    case "linear": return t;
+    case "easeIn": return t * t;
+    case "easeOut": return 1 - (1 - t) * (1 - t);
+    case "smooth":
+    default: return smoothstep(0, 1, t);
+  }
+}
+
+/* ============================================================
+   CONFIG: scenes.config — cámara, luz, niebla, partículas por etapa.
+   Las etapas ahora son genéricas (Pose 1, Pose 2, ...) en cantidad
+   variable — no hay un número fijo.
+   ============================================================ */
+/*@GEN:SCENES_START*/
+const scenes = [
+  {
+    id: "pose-1",
+    progress: 0,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.2, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+  },
+  {
+    id: "pose-1791039048503",
+    progress: 0.111,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.9, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+  },
+  {
+    id: "pose-1791039166751",
+    progress: 0.222,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.9, azimuth: 360, elevation: 39, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.5 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+  },
+  {
+    id: "pose-1791039574302",
+    progress: 0.333,
+    easing: "smooth",
+    camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 180 },
+  },
+  {
+    id: "pose-1791039970322",
+    progress: 0.444,
+    easing: "linear",
+    camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 0 },
+  },
+  {
+    id: "pose-1791040034357",
+    progress: 0.556,
+    easing: "linear",
+    camera: { position: [-0.024, -0.742, 3.31], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 3.75, azimuth: 360, elevation: 74, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.3 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#6b0d78", angle: 360 },
+  },
+  {
+    id: "pose-1791040047941",
+    progress: 0.667,
+    easing: "linear",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#031735", angle: 180 },
+  },
+  {
+    id: "pose-1791054912235",
+    progress: 0.778,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#031735", angle: 180 },
+  },
+  {
+    id: "pose-1791056513072",
+    progress: 0.889,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#031735", angle: 180 },
+  },
+  {
+    id: "pose-1791062685104",
+    progress: 1,
+    easing: "smooth",
+    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 1.35, azimuth: 360, elevation: 42, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.63 },
+    fog: { enabled: false, color: "#05070a", far: 11.5 },
+    background: { from: "#031735", to: "#031735", angle: 180 },
+  },
+];
+/*@GEN:SCENES_END*/
+
+/* ============================================================
+   MOVIMIENTO DEL PERSONAJE — posición (x,y,z) y rotación (yaw/pitch)
+   por etapa, editable desde la herramienta. Cantidad de etapas variable.
+   ============================================================ */
+/*@GEN:MOVEMENT_DEFS_START*/
+const MOVEMENT_KEYFRAMES = [
+  { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039048503", progress: 0.111, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039166751", progress: 0.222, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039574302", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039970322", progress: 0.444, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791040034357", progress: 0.556, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791040047941", progress: 0.667, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791054912235", progress: 0.778, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791056513072", progress: 0.889, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791062685104", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+];
+
+function sampleMovement(progress) {
+  const list = MOVEMENT_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  if (p <= list[0].progress) return list[0];
+  const last = list[list.length - 1];
+  if (p >= last.progress) return last;
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
+  return {
+    pos: [lerp(a.pos[0], b.pos[0], t), lerp(a.pos[1], b.pos[1], t), lerp(a.pos[2], b.pos[2], t)],
+    yaw: lerp(a.yaw, b.yaw, t),
+    pitch: lerp(a.pitch, b.pitch, t),
+  };
+}
+/*@GEN:MOVEMENT_DEFS_END*/
+
+/*@GEN:BONES_START*/
+const BONE_POSE_KEYFRAMES = [
+  {
+    id: "pose-1",
+    progress: 0,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791039048503",
+    progress: 0.111,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791039166751",
+    progress: 0.222,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791039574302",
+    progress: 0.333,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791039970322",
+    progress: 0.444,
+    easing: "linear",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791040034357",
+    progress: 0.556,
+    easing: "linear",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791040047941",
+    progress: 0.667,
+    easing: "linear",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791054912235",
+    progress: 0.778,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791056513072",
+    progress: 0.889,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791062685104",
+    progress: 1,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+];
+/*@GEN:BONES_END*/
+
+function sampleBonePose(progress) {
+  const list = BONE_POSE_KEYFRAMES;
+  const p = clamp(progress, 0, 1);
+  const pick = (kf) => kf.bones;
+  if (p <= list[0].progress) return pick(list[0]);
+  const last = list[list.length - 1];
+  if (p >= last.progress) return pick(last);
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
+  const out = {};
+  const keys = new Set([...Object.keys(a.bones), ...Object.keys(b.bones)]);
+  keys.forEach((k) => {
+    const va = a.bones[k] || [0, 0, 0];
+    const vb = b.bones[k] || [0, 0, 0];
+    out[k] = [lerp(va[0], vb[0], t), lerp(va[1], vb[1], t), lerp(va[2], vb[2], t)];
+  });
+  return out;
+}
+
+/*@GEN:SCROLL_LENGTH_START*/
+const SCROLL_LENGTH_VH = 1350;
+/*@GEN:SCROLL_LENGTH_END*/
+
+/*@GEN:POSTFX_START*/
+const VIGNETTE_ENABLED = false;
+const VIGNETTE_DARKNESS = 0.5;
+const VIGNETTE_OFFSET = 0.15;
+const BLOOM_ENABLED = false;
+const BLOOM_INTENSITY = 0.5;
+const BEAM_ENABLED = false;
+const BEAM_OPACITY = 1;
+const BEAM_WIDTH = 0.2;
+const BEAM_HEIGHT = 12.5;
+/*@GEN:POSTFX_END*/
+
+/*@GEN:REFLECTION_START*/
+const REFLECTION_ENABLED = false;
+const REFLECTION_RESOLUTION = 256;
+const REFLECTION_UPDATE_EVERY = 2;
+const REFLECTION_INTENSITY = 1;
+/*@GEN:REFLECTION_END*/
+  
+/*@GEN:TRAIL_START*/
+const TRAIL_ENABLED = false;
+const TRAIL_COLOR = "#ffd873";
+const TRAIL_SIZE = 0.05;
+const TRAIL_LIFE = 0.9;
+const TRAIL_RATE = 40;
+/*@GEN:TRAIL_END*/
+
+/*@GEN:DOCK_START*/
+const DOCK = {
+  "enabled": true,
+  "splitPct": 66,
+  "whatsappPhone": "3435303848",
+  "whatsappMessage": "Hola! Quisiera hacer una consulta.",
+  "address": "José Venturino 1239 Paraná Entre Ríos",
+  "mapUrl": "",
+  "timezone": "America/Argentina/Buenos_Aires",
+  "schedule": [
+    null,
+    [
+      "09:00",
+      "19:00"
+    ],
+    [
+      "09:00",
+      "19:00"
+    ],
+    [
+      "09:00",
+      "19:00"
+    ],
+    [
+      "09:00",
+      "19:00"
+    ],
+    [
+      "09:00",
+      "19:00"
+    ],
+    [
+      "09:00",
+      "13:00"
+    ]
+  ],
+  "turneroTitle": "Sacá tu turno",
+  "turneroDays": 14,
+  "turneroMessage": "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
+  "accent": "#ee5da3"
+};
+/*@GEN:DOCK_END*/
+
+function damp(current, target, lambda, dt) {
+  return current + (target - current) * (1 - Math.exp(-lambda * dt));
+}
+function clamp(value, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getDeviceProfile() {
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  return {
+    isMobile,
+    dpr: isMobile ? [1, 2] : [1, 1.5],
+    enablePostProcessing: !isMobile,
+  };
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+function lerpVec3(a, b, t) {
+  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+}
+function lerpAngle(a, b, t) {
+  let diff = ((b - a + 180) % 360 + 360) % 360 - 180;
+  return a + diff * t;
+}
+function lightDirFromAngles(azimuthDeg, elevationDeg, distance) {
+  const az = (azimuthDeg * Math.PI) / 180;
+  const el = (elevationDeg * Math.PI) / 180;
+  return [
+    distance * Math.cos(el) * Math.sin(az),
+    distance * Math.sin(el),
+    distance * Math.cos(el) * Math.cos(az),
+  ];
+}
+function lerpColor(a, b, t) {
+  const ca = new THREE.Color(a);
+  const cb = new THREE.Color(b);
+  ca.lerp(cb, t);
+  return "#" + ca.getHexString();
+}
+
+function sceneToState(kf) {
+  return {
+    camera: kf.camera,
+    light: kf.light,
+    fog: kf.fog,
+    background: kf.background,
+  };
+}
+
+function blendScenes(list, rawProgress) {
+  const progress = clamp(rawProgress, 0, 1);
+  if (progress <= list[0].progress) return sceneToState(list[0]);
+  const last = list[list.length - 1];
+  if (progress >= last.progress) return sceneToState(last);
+
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < progress) i++;
+  const a = list[i];
+  const b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = applyEasing(clamp((progress - a.progress) / span), b.easing);
+
+  return {
+    camera: {
+      position: lerpVec3(a.camera.position, b.camera.position, t),
+      lookAt: lerpVec3(a.camera.lookAt, b.camera.lookAt, t),
+      fov: lerp(a.camera.fov, b.camera.fov, t),
+      roll: lerp(a.camera.roll || 0, b.camera.roll || 0, t),
+    },
+    light: {
+      color: lerpColor(a.light.color, b.light.color, t),
+      intensity: lerp(a.light.intensity, b.light.intensity, t),
+      azimuth: lerpAngle(a.light.azimuth ?? 45, b.light.azimuth ?? 45, t),
+      elevation: lerp(a.light.elevation ?? 35, b.light.elevation ?? 35, t),
+      rimColor: lerpColor(a.light.rimColor, b.light.rimColor, t),
+      rimIntensity: lerp(a.light.rimIntensity, b.light.rimIntensity, t),
+      ambient: lerp(a.light.ambient ?? 0.28, b.light.ambient ?? 0.28, t),
+    },
+    fog: {
+      enabled: t < 0.5 ? (a.fog.enabled ?? true) : (b.fog.enabled ?? true),
+      color: lerpColor(a.fog.color, b.fog.color, t),
+      far: lerp(a.fog.far, b.fog.far, t),
+    },
+    background: {
+      from: lerpColor(a.background.from, b.background.from, t),
+      to: lerpColor(a.background.to, b.background.to, t),
+      angle: lerp(a.background.angle ?? 180, b.background.angle ?? 180, t),
+    },
+  };
+}
+
+const useScrollStore = create((set) => ({
+  progress: 0,
+  smoothProgress: 0,
+  setProgress: (p) => set({ progress: p }),
+  setSmoothProgress: (p) => set({ smoothProgress: p }),
+}));
+
+function useScrollProgress(spacerRef) {
+  useEffect(() => {
+    const compute = () => {
+      const el = spacerRef.current;
+      if (!el) return;
+      const total = el.offsetHeight - window.innerHeight;
+      const raw = total > 0 ? window.scrollY / total : 0;
+      const p = clamp(raw, 0, 1);
+      useScrollStore.getState().setProgress(p);
+      document.body.classList.toggle("app-root--scrolled", window.scrollY > 20);
+    };
+    compute();
+    window.addEventListener("scroll", compute, { passive: true });
+    window.addEventListener("resize", compute);
+    return () => {
+      window.removeEventListener("scroll", compute);
+      window.removeEventListener("resize", compute);
+    };
+  }, [spacerRef]);
+}
+
+function useArrowKeyScroll(step = 140) {
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+      e.preventDefault();
+      window.scrollBy({ top: e.key === "ArrowDown" ? step : -step, behavior: "smooth" });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [step]);
+}
+
+function ScrollSmoother() {
+  useFrame((_, delta) => {
+    const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
+    setSmoothProgress(damp(smoothProgress, progress, 4, delta));
+  });
+  return null;
+}
+
+function useMouseParallax() {
+  const mouse = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    const onMove = (e) => {
+      if (e.pointerType !== "mouse") return;
+      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+  return mouse;
+}
+
+function CameraRig({ mouse, parallaxStrength = 0.18 }) {
+  const { camera } = useThree();
+  const lookAtTarget = useRef(new THREE.Vector3());
+  const currentLookAt = useRef(new THREE.Vector3());
+  const dampedRoll = useRef(0);
+
+  useFrame((_, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    const [px, py, pz] = state.camera.position;
+    const [lx, ly, lz] = state.camera.lookAt;
+    const mx = mouse.current?.x ?? 0;
+    const my = mouse.current?.y ?? 0;
+
+    camera.position.x = damp(camera.position.x, px + mx * parallaxStrength, 6, delta);
+    camera.position.y = damp(camera.position.y, py - my * parallaxStrength * 0.6, 6, delta);
+    camera.position.z = damp(camera.position.z, pz, 6, delta);
+
+    lookAtTarget.current.set(lx + mx * 0.05, ly - my * 0.05, lz);
+    currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-6 * delta));
+    camera.up.set(0, 1, 0);
+    camera.lookAt(currentLookAt.current);
+
+    dampedRoll.current = damp(dampedRoll.current, state.camera.roll || 0, 6, delta);
+    if (dampedRoll.current) camera.rotateZ((dampedRoll.current * Math.PI) / 180);
+
+    if ("fov" in camera) {
+      camera.fov = damp(camera.fov, state.camera.fov, 5, delta);
+      camera.updateProjectionMatrix();
+    }
+  });
+
+  return null;
+}
+
+/* ============================================================
+   Estela de brillo (sparkle trail) — usada por el personaje
+   (bowl1.glb) para dejar un rastro de partículas brillantes a su
+   paso, que se van desvaneciendo. Es un sistema de partículas
+   simple con THREE.Points + shader propio (glow radial aditivo),
+   sin dependencias extra.
+   ============================================================ */
+const TRAIL_VERTEX_SHADER = `
+  attribute float aSize;
+  attribute float aOpacity;
+  varying float vOpacity;
+  void main() {
+    vOpacity = aOpacity;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize * (300.0 / max(-mvPosition.z, 0.001));
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+const TRAIL_FRAGMENT_SHADER = `
+  uniform vec3 uColor;
+  varying float vOpacity;
+  void main() {
+    vec2 uv = gl_PointCoord.xy - 0.5;
+    float d = length(uv) * 2.0;
+    float glow = smoothstep(1.0, 0.0, d);
+    float core = smoothstep(0.35, 0.0, d);
+    float alpha = (glow * glow * 0.6 + core * 0.9) * vOpacity;
+    vec3 col = mix(uColor, vec3(1.0), core * 0.6);
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
+function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
+  const pointsRef = useRef(null);
+  const materialRef = useRef(null);
+  const particles = useRef([]);
+  const maxParticles = useMemo(() => Math.max(8, Math.ceil(rate * life) + 8), [rate, life]);
+  const positions = useMemo(() => new Float32Array(maxParticles * 3), [maxParticles]);
+  const sizes = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const opacities = useMemo(() => new Float32Array(maxParticles), [maxParticles]);
+  const emitAccum = useRef(0);
+  const prevAnchor = useRef(null);
+  const prevProgress = useRef(null);
+
+  useEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms.uColor.value.set(color);
+  }, [color]);
+
+  useFrame((_, delta) => {
+    const group = pointsRef.current;
+    const anchor = anchorRef && anchorRef.current;
+    if (!group) return;
+
+    if (!enabled || !anchor) {
+      group.visible = false;
+      particles.current.length = 0;
+      prevAnchor.current = null;
+      prevProgress.current = null;
+      return;
+    }
+    group.visible = true;
+
+    const ax = anchor.position.x, ay = anchor.position.y, az = anchor.position.z;
+
+    // Solo emite si el scroll realmente se movió este frame — filtra el
+    // "respirar" idle del personaje, que no cuenta como movimiento real.
+    const progress = useScrollStore.getState().smoothProgress;
+    const SCROLL_EPS = 0.00025;
+    const isScrolling = prevProgress.current !== null && Math.abs(progress - prevProgress.current) > SCROLL_EPS;
+    prevProgress.current = progress;
+
+    if (isScrolling && prevAnchor.current) {
+      emitAccum.current += delta;
+      const emitEvery = 1 / Math.max(rate, 1);
+      const from = prevAnchor.current;
+      while (emitAccum.current >= emitEvery) {
+        emitAccum.current -= emitEvery;
+        const t = 1 - emitAccum.current / delta;
+        const px = lerp(from.x, ax, isFinite(t) ? t : 1);
+        const py = lerp(from.y, ay, isFinite(t) ? t : 1);
+        const pz = lerp(from.z, az, isFinite(t) ? t : 1);
+        particles.current.push({
+          x: px, y: py, z: pz,
+          age: 0,
+          seed: Math.random() * Math.PI * 2,
+          ox: (Math.random() - 0.5) * size * 6,
+          oy: (Math.random() - 0.5) * size * 6,
+          oz: (Math.random() - 0.5) * size * 6,
+          sizeMul: 0.5 + Math.random() * 0.9,
+        });
+        if (particles.current.length > maxParticles) particles.current.shift();
+      }
+    } else {
+      // Sin scroll: no acumules emisión pendiente, así no larga una
+      // ráfaga de golpe apenas el usuario vuelve a mover la rueda.
+      emitAccum.current = 0;
+    }
+    prevAnchor.current = { x: ax, y: ay, z: az };
+
+    for (let i = particles.current.length - 1; i >= 0; i--) {
+      particles.current[i].age += delta;
+      if (particles.current[i].age >= life) particles.current.splice(i, 1);
+    }
+
+    const n = Math.min(particles.current.length, maxParticles);
+    const now = performance.now() * 0.001;
+    for (let i = 0; i < n; i++) {
+      const p = particles.current[i];
+      const t = clamp(p.age / life);
+      const drift = t;
+      positions[i * 3] = p.x + p.ox * drift;
+      positions[i * 3 + 1] = p.y + p.oy * drift + t * size * 4;
+      positions[i * 3 + 2] = p.z + p.oz * drift;
+      const twinkle = 0.5 + 0.5 * Math.sin(now * 9 + p.seed * 7);
+      opacities[i] = (1 - t) * (1 - t) * (0.35 + 0.65 * twinkle);
+      sizes[i] = size * p.sizeMul * (1 - t * 0.35);
+    }
+
+    const geom = group.geometry;
+    geom.attributes.position.needsUpdate = true;
+    geom.attributes.aOpacity.needsUpdate = true;
+    geom.attributes.aSize.needsUpdate = true;
+    geom.setDrawRange(0, n);
+  });
+
+  return (
+    <points key={maxParticles} ref={pointsRef} frustumCulled={false} userData={{ excludeFromReflection: true }}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={maxParticles} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-aSize" count={maxParticles} array={sizes} itemSize={1} />
+        <bufferAttribute attach="attributes-aOpacity" count={maxParticles} array={opacities} itemSize={1} />
+      </bufferGeometry>
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={TRAIL_VERTEX_SHADER}
+        fragmentShader={TRAIL_FRAGMENT_SHADER}
+        uniforms={{ uColor: { value: new THREE.Color(color) } }}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+  /* Cámara de reflejo (cube camera): ubicada en el Modelo principal, cada
+   ciertos frames fotografía los 360° a su alrededor (paredes, objetos,
+   el PNG del perro, etc. — todo lo que haya en la escena, salvo el
+   propio modelo, que se oculta un instante durante la captura) y usa
+   esa foto como reflejo en los materiales metálicos del modelo. La
+   cámara principal (la que ve el usuario) no necesita apuntar a lo que
+   se refleja — el reflejo se calcula aparte, en 360°, todo el tiempo. */
+function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensity }) {
+  const { gl, scene } = useThree();
+  const rtRef = useRef(null);
+  const camRef = useRef(null);
+  const frameRef = useRef(0);
+  const appliedRef = useRef(new Set());
+  const posRef = useRef(new THREE.Vector3());
+
+  useEffect(() => {
+    const rt = new THREE.WebGLCubeRenderTarget(resolution, {
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
+    });
+    rtRef.current = rt;
+    camRef.current = new THREE.CubeCamera(0.05, 1000, rt);
+    appliedRef.current = new Set();
+    return () => rt.dispose();
+  }, [resolution]);
+
+  useFrame(() => {
+    if (!enabled || !anchorRef.current || !camRef.current) return;
+    frameRef.current++;
+    if (frameRef.current % Math.max(1, updateEvery) !== 0) return;
+
+    const anchor = anchorRef.current;
+    anchor.getWorldPosition(posRef.current);
+    camRef.current.position.copy(posRef.current);
+
+    // Oculta el modelo (para que no se refleje a sí mismo) y también todo lo
+    // marcado como "no reflejar" (rayo de luz, estela de chispas) — si no,
+    // esos brillos quedan pegados adentro del reflejo aunque estén apagados
+    // en pantalla, porque el reflejo los captura igual un instante antes.
+    const hidden = [];
+    scene.traverse((obj) => {
+      if (obj.userData && obj.userData.excludeFromReflection && obj.visible) {
+        hidden.push(obj);
+        obj.visible = false;
+      }
+    });
+    const wasVisible = anchor.visible;
+    anchor.visible = false;
+    camRef.current.update(gl, scene);
+    anchor.visible = wasVisible;
+    hidden.forEach((obj) => { obj.visible = true; });
+
+    const texture = rtRef.current.texture;
+    anchor.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((m) => {
+        if (!("envMap" in m)) return;
+        if (!appliedRef.current.has(m.uuid)) {
+          m.envMap = texture;
+          m.needsUpdate = true;
+          appliedRef.current.add(m.uuid);
+        }
+        if ("envMapIntensity" in m) m.envMapIntensity = intensity;
+      });
+    });
+  });
+
+  return null;
+}
+
+/* Textura de degradado para el rayo de luz: brillante en el centro,
+   transparente en los bordes y en las puntas (arriba/abajo) — se genera
+   una sola vez con canvas, no hace falta subir ningún asset. */
+let _beamTextureCache = null;
+function getBeamTexture() {
+  if (_beamTextureCache) return _beamTextureCache;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, size, 0);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.5, "rgba(255,255,255,1)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const vgrad = ctx.createLinearGradient(0, 0, 0, size);
+  vgrad.addColorStop(0, "rgba(0,0,0,1)");
+  vgrad.addColorStop(0.12, "rgba(0,0,0,0)");
+  vgrad.addColorStop(0.82, "rgba(0,0,0,0)");
+  vgrad.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = vgrad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  _beamTextureCache = tex;
+  return tex;
+}
+
+/* Rayo de luz volumétrico (fake): 3 planos cruzados con degradado
+   aditivo, apuntando siempre hacia la dirección/color de la luz de la
+   etapa actual (se actualiza solo — nunca hay que tocar un color a
+   mano acá). No es raymarching real, pero con blending aditivo encima
+   de la niebla se lee como un haz de luz que baja, sin pesar nada.
+   Por ahora apunta al origen de la escena (0,0,0) — si tu objeto
+   principal no está ahí, movelo o avisame para agregar un offset. */
+function LightBeam({ enabled, opacity, width, height }) {
+  const groupRef = useRef(null);
+  const matRefs = useRef([]);
+  const texture = useMemo(() => getBeamTexture(), []);
+
+  useFrame(() => {
+    if (!enabled || !groupRef.current) return;
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    const dir = lightDirFromAngles(state.light.azimuth, state.light.elevation, 1);
+    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
+    groupRef.current.position.set(dirVec.x * height * 0.5, dirVec.y * height * 0.5, dirVec.z * height * 0.5);
+    groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
+    matRefs.current.forEach((m) => {
+      if (!m) return;
+      m.color.set(state.light.color);
+      m.opacity = opacity;
+    });
+  });
+
+  if (!enabled) return null;
+
+  return (
+    <group ref={groupRef} userData={{ excludeFromReflection: true }}>
+      {[0, 60, 120].map((deg, i) => (
+        <mesh key={deg} rotation={[0, (deg * Math.PI) / 180, 0]}>
+          <planeGeometry args={[width, height]} />
+          <meshBasicMaterial
+            ref={(m) => { matRefs.current[i] = m; }}
+            map={texture}
+            transparent
+            opacity={opacity}
+            color="#ffffff"
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+/* ============================================================
+   three/AnimatedCharacter.jsx
+   ============================================================ */
+/*@GEN:CHAR_TRANSFORM_START*/
+const CHAR_CENTER_Y = 0;
+const CHAR_SCALE = 1;
+/*@GEN:CHAR_TRANSFORM_END*/
+
+const _deltaEuler = new THREE.Euler();
+const _deltaQuat = new THREE.Quaternion();
+function applyLocalDelta(bone, restQuat, ex, ey, ez) {
+  _deltaEuler.set(ex, ey, ez, "XYZ");
+  _deltaQuat.setFromEuler(_deltaEuler);
+  bone.quaternion.copy(restQuat).multiply(_deltaQuat);
+}
+
+function AnimatedCharacter({ mouse, anchorRef }) {
+  const outerRef = anchorRef;
+  const pivotRef = useRef(null);
+  const { scene } = useGLTF(CHARACTER_MODEL_URL);
+  const bonesRef = useRef({});
+  const restRef = useRef({});
+  const clockRef = useRef(0);
+
+  const chainRef = useRef({
+    pelvis: 0, spine: 0, chest: 0, shoulder: 0, head: 0,
+    thigh: 0, calf: 0, foot: 0,
+  });
+
+  useEffect(() => {
+    const names = {
+      spine1: "Spine01", spine2: "Spine02", head: "Head", neck: "NeckTwist01",
+      lClavicle: "L_Clavicle", rClavicle: "R_Clavicle",
+      lForearm: "L_Forearm", rForearm: "R_Forearm",
+      lHand: "L_Hand", rHand: "R_Hand",
+      lThigh: "L_Thigh", rThigh: "R_Thigh",
+      lCalf: "L_Calf", rCalf: "R_Calf",
+      lFoot: "L_Foot", rFoot: "R_Foot",
+    };
+    const bones = {};
+    const rest = {};
+    Object.entries(names).forEach(([key, boneName]) => {
+      const bone = scene.getObjectByName(boneName);
+      if (bone) {
+        bones[key] = bone;
+        rest[key] = bone.quaternion.clone();
+      }
+    });
+    bonesRef.current = bones;
+    restRef.current = rest;
+  }, [scene]);
+
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+    });
+  }, [scene]);
+
+  useFrame((_, delta) => {
+    clockRef.current += delta;
+    const t = clockRef.current;
+    const progress = useScrollStore.getState().smoothProgress;
+    const bones = bonesRef.current;
+    const rest = restRef.current;
+    const outer = outerRef.current;
+    const pivot = pivotRef.current;
+    if (!outer || !pivot) return;
+
+    /*@GEN:MOVEMENT_START*/
+    const m = sampleMovement(progress);
+    const idleFloat = 0; // desactivado: hacía que CUALQUIER modelo (bowl incluido) flotara solo,
+    // y esto NO pasaba en el editor (ahí no existía este bamboleo) — por eso se veía
+    // distinto entre el editor y el sitio final descargado.
+    outer.position.x = damp(outer.position.x, m.pos[0], 3, delta);
+    outer.position.y = damp(outer.position.y, m.pos[1] + idleFloat, 5, delta);
+    outer.position.z = damp(outer.position.z, m.pos[2], 2.0, delta);
+
+    pivot.rotation.y = damp(pivot.rotation.y, (m.yaw * Math.PI) / 180, 4.5, delta);
+    pivot.rotation.x = damp(pivot.rotation.x, (m.pitch * Math.PI) / 180, 4.5, delta);
+    
+    /*@GEN:MOVEMENT_END*/
+
+    const chain = chainRef.current;
+    chain.pelvis = pivot.rotation.y;
+    chain.spine = damp(chain.spine, chain.pelvis, 7, delta);
+    chain.chest = damp(chain.chest, chain.spine, 5.5, delta);
+    chain.shoulder = damp(chain.shoulder, chain.chest, 4.2, delta);
+    chain.head = damp(chain.head, chain.shoulder, 3.2, delta);
+
+    chain.thigh = damp(chain.thigh, chain.pelvis, 6, delta);
+    chain.calf = damp(chain.calf, chain.thigh, 5, delta);
+    chain.foot = damp(chain.foot, chain.calf, 4, delta);
+
+    const idleAmp = 1;
+    const floatArm = 0.26 * idleAmp;
+    const floatLeg = 0.18 * idleAmp;
+    const legWave = Math.sin(t * 0.6 + 0.3) * floatLeg;
+    const calfWave = Math.sin(t * 0.7 + 1.0) * floatLeg * 0.7;
+    const footWave = Math.sin(t * 0.8 + 0.2) * floatLeg * 0.5;
+    const limbFloat = {
+      lForearm: [0, 0, Math.sin(t * 0.9 + 0.0) * floatArm],
+      rForearm: [0, 0, Math.sin(t * 0.85 + 1.4) * floatArm],
+      lHand: [Math.sin(t * 1.1 + 0.6) * floatArm * 0.6, 0, 0],
+      rHand: [Math.sin(t * 1.05 + 2.1) * floatArm * 0.6, 0, 0],
+      lThigh: [legWave, 0, 0],
+      rThigh: [legWave, 0, 0],
+      lCalf: [calfWave, 0, 0],
+      rCalf: [calfWave, 0, 0],
+      lFoot: [0, 0, footWave],
+      rFoot: [0, 0, footWave],
+    };
+
+    const _pose = sampleBonePose(progress);
+    Object.entries(_pose).forEach(([key, [ex, ey, ez]]) => {
+      const bone = bones[key];
+      const r = rest[key];
+      if (!bone || !r) return;
+      const f = limbFloat[key];
+      const fx = f ? ex + f[0] : ex;
+      const fy = f ? ey + f[1] : ey;
+      const fz = f ? ez + f[2] : ez;
+      applyLocalDelta(bone, r, fx, fy, fz);
+    });
+  });
+
+  return (
+    <group ref={outerRef} position={[0, 0, 0]}>
+      <group ref={pivotRef}>
+        <primitive object={scene} position={[0, -CHAR_CENTER_Y, 0]} scale={CHAR_SCALE} />
+      </group>
+    </group>
+  );
+}
+if (CHARACTER_MODEL_URL) useGLTF.preload(CHARACTER_MODEL_URL);
+
+/* ============================================================
+   Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
+   sin huesos ni animación propia), una imagen/SVG plana o un video .mp4 (con opción
+   de "billboard" para que siempre mire a cámara). Cada objeto anima
+   su propia posición/escala/rotación por etapa (keyframes), leídas
+   del mismo "progress" de scroll que usa el personaje — por eso el
+   transform se aplica de forma imperativa (ref + useFrame) en vez de
+   como props de React, igual que AnimatedCharacter, para no forzar un
+   re-render en cada frame de scroll.
+   ============================================================ */
+/* ============================================================
+   FADE POR TRANSPARENCIA CON BARRIDO (izq→der / der→izq).
+   Cada pose de un objeto puede estar "invisible". Al pasar de una
+   pose visible a una invisible (o al revés) el objeto se desvanece /
+   aparece con un barrido de transparencia sobre la pantalla, en la
+   dirección elegida en la pose de destino. Funciona sobre cualquier
+   material (modelos .glb, imágenes, SVG y texto) parchando el shader.
+   ============================================================ */
+function makeFadeUniforms() {
+  return {
+    uFadeAmt: { value: 1 },
+    uFadeMode: { value: 0 },
+    uFadeOut: { value: 0 },
+    uFadeDir: { value: 1 },
+    uFadeMin: { value: -1 },
+    uFadeMax: { value: 1 },
+  };
+}
+/* Suavidad del barrido: 0.4 = borde marcado, 1.0 = el degradé ocupa todo
+   el ancho del objeto, más alto = todavía más largo/delicado. */
+const FADE_SOFT = 1.0;
+const FADE_FRAG_DECL = `
+varying float vFadeX;
+uniform float uFadeAmt;
+uniform float uFadeMode;
+uniform float uFadeOut;
+uniform float uFadeDir;
+uniform float uFadeMin;
+uniform float uFadeMax;
+`;
+const FADE_FRAG_BODY = `
+{
+  float fa = uFadeAmt;
+  if (uFadeMode > 0.5) {
+    float u = (vFadeX - uFadeMin) / max(uFadeMax - uFadeMin, 0.0001);
+    if (uFadeDir < 0.0) u = 1.0 - u;
+    float soft = ${FADE_SOFT.toFixed(2)};
+    if (uFadeOut > 0.5) fa = clamp((u - (1.0 - uFadeAmt) * (1.0 + soft) + soft) / soft, 0.0, 1.0);
+    else fa = clamp((uFadeAmt * (1.0 + soft) - u) / soft, 0.0, 1.0);
+    fa = fa * fa * (3.0 - 2.0 * fa);
+  }
+#if defined(USE_ALPHATEST) && !defined(ALPHA_TO_COVERAGE)
+  gl_FragColor.a = 1.0;
+#endif
+  gl_FragColor.a *= fa;
+}
+`;
+function patchFadeMaterial(mat, uniforms) {
+  if (!mat || !uniforms) return;
+  if (Array.isArray(mat)) { mat.forEach((m) => patchFadeMaterial(m, uniforms)); return; }
+  mat.userData = mat.userData || {};
+  if (mat.userData.__fadePatched) {
+    mat.userData.__fadeU = uniforms;
+    if (mat.userData.__fadeShader) Object.assign(mat.userData.__fadeShader.uniforms, uniforms);
+    return;
+  }
+  mat.userData.__fadePatched = true;
+  mat.userData.__fadeU = uniforms;
+  mat.transparent = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev.call(mat, shader, renderer);
+    Object.assign(shader.uniforms, mat.userData.__fadeU);
+    mat.userData.__fadeShader = shader;
+    shader.vertexShader = "varying float vFadeX;\n" + shader.vertexShader.replace(
+      "#include <project_vertex>",
+      "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;"
+    );
+    shader.fragmentShader = FADE_FRAG_DECL + shader.fragmentShader.replace(
+      "#include <dithering_fragment>",
+      "#include <dithering_fragment>\n" + FADE_FRAG_BODY
+    );
+  };
+  mat.customProgramCacheKey = () => "weeb-fade-1";
+  mat.needsUpdate = true;
+}
+/* Estado de fade entre dos poses (a → b), con t ya pasado por el easing.
+   amt = cuánto se ve (0 = invisible, 1 = visible). dir = dirección del
+   barrido, la define la pose de DESTINO. out = true si está desapareciendo. */
+function fadeStateFor(a, b, t) {
+  const ha = !!(a && a.hidden), hb = !!(b && b.hidden);
+  const dir = (b && b.fadeDir) || "ltr";
+  if (ha === hb) return { amt: ha ? 0 : 1, dir, out: false };
+  return hb ? { amt: 1 - t, dir, out: true } : { amt: t, dir, out: false };
+}
+const _fadeBox = new THREE.Box3();
+const _fadeVec = new THREE.Vector3();
+function driveFade(group, camera, uniforms, st) {
+  const amt = st.amt;
+  group.visible = amt > 0.001;
+  uniforms.uFadeAmt.value = amt;
+  const wipe = st.dir !== "fade" && amt > 0.001 && amt < 0.999;
+  uniforms.uFadeMode.value = wipe ? 1 : 0;
+  uniforms.uFadeOut.value = st.out ? 1 : 0;
+  uniforms.uFadeDir.value = st.dir === "rtl" ? -1 : 1;
+  if (!wipe) return;
+  group.updateWorldMatrix(true, true);
+  _fadeBox.setFromObject(group);
+  if (_fadeBox.isEmpty()) return;
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < 8; i++) {
+    _fadeVec.set(
+      i & 1 ? _fadeBox.max.x : _fadeBox.min.x,
+      i & 2 ? _fadeBox.max.y : _fadeBox.min.y,
+      i & 4 ? _fadeBox.max.z : _fadeBox.min.z
+    ).project(camera);
+    mn = Math.min(mn, _fadeVec.x);
+    mx = Math.max(mx, _fadeVec.x);
+  }
+  const pad = (mx - mn) * 0.02;
+  uniforms.uFadeMin.value = mn - pad;
+  uniforms.uFadeMax.value = mx + pad;
+}
+
+function sampleObjectKeyframes(keyframes, progress) {
+  const list = keyframes;
+  const p = clamp(progress, 0, 1);
+  if (p <= list[0].progress) return { ...list[0], fade: fadeStateFor(list[0], list[0], 0) };
+  const last = list[list.length - 1];
+  if (p >= last.progress) return { ...last, fade: fadeStateFor(last, last, 1) };
+  let i = 0;
+  while (i < list.length - 1 && list[i + 1].progress < p) i++;
+  const a = list[i], b = list[i + 1];
+  const span = b.progress - a.progress || 1;
+  const t = applyEasing(clamp((p - a.progress) / span), b.easing);
+  return {
+    position: lerpVec3(a.position, b.position, t),
+    scale: lerp(a.scale, b.scale, t),
+    rotationY: lerpAngle(a.rotationY, b.rotationY, t),
+    fade: fadeStateFor(a, b, t),
+  };
+}
+
+function useObjectTransformRef(keyframes, billboard) {
+  const groupRef = useRef(null);
+  const fade = useMemo(() => makeFadeUniforms(), []);
+  const hasFade = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
+  useFrame((state, delta) => {
+    const g = groupRef.current;
+    if (!g) return;
+    const progress = useScrollStore.getState().smoothProgress;
+    const kf = sampleObjectKeyframes(keyframes, progress);
+    g.position.x = damp(g.position.x, kf.position[0], 4, delta);
+    g.position.y = damp(g.position.y, kf.position[1], 4, delta);
+    g.position.z = damp(g.position.z, kf.position[2], 2.2, delta);
+    const s = damp(g.scale.x, kf.scale, 4, delta);
+    g.scale.set(s, s, s);
+    if (!billboard) {
+      g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
+    }
+    if (hasFade) driveFade(g, state.camera, fade, kf.fade);
+  });
+  return { groupRef, fade, hasFade };
+}
+
+/* Los navegadores rasterizan un SVG a un tamaño chico por defecto
+   (a veces 300x150px) antes de poder usarlo como textura — se ve
+   pixelado al escalarlo grande en pantalla. Esto lo vuelve a dibujar
+   en un canvas de alta resolución antes de crear la textura. Solo
+   aplica a .svg; una imagen .png/.jpg ya es un bitmap y sigue el
+   camino normal (useTexture). */
+function useHiResSvgTexture(url, targetLong) {
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      const w0 = img.naturalWidth || 300;
+      const h0 = img.naturalHeight || 150;
+      const aspect = w0 / h0 || 1;
+      const canvas = document.createElement("canvas");
+      if (aspect >= 1) { canvas.width = targetLong; canvas.height = Math.round(targetLong / aspect); }
+      else { canvas.height = targetLong; canvas.width = Math.round(targetLong * aspect); }
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTexture(tex);
+    };
+    img.onerror = () => { if (!cancelled) setTexture(null); };
+    img.src = url;
+    return () => { cancelled = true; };
+  }, [url, targetLong]);
+  return texture;
+}
+function isSvgUrl(url) {
+  return /\.svg($|\?)/i.test(url || "");
+}
+function isVideoUrl(url) {
+  return /\.(mp4|webm)($|\?)/i.test(url || "");
+}
+/* Video (.mp4 / .webm) como textura. Se crea un <video> en memoria,
+   siempre MUDO + playsInline.
+   - Modo "scroll" (scrub): el video queda en pausa y su tiempo
+     (currentTime) lo manda el scroll — ver seekVideoToProgress().
+   - Modo "play": se reproduce solo (autoplay mudo); si el navegador lo
+     frena, se reintenta con el primer toque/click.
+   Devuelve { texture, aspect, video } cuando ya hay primer frame. */
+function useVideoTexture(url, loop, scrub) {
+  const [state, setState] = useState({ texture: null, aspect: 16 / 9, video: null });
+  useEffect(() => {
+    if (!url) return undefined;
+    let cancelled = false;
+    let tex = null;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.loop = !scrub && loop !== false;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.preload = "auto";
+    const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
+    // Safari/iOS no decodifican frames de un video que nunca se reprodujo:
+    // se lo "despierta" con un play() + pause() inmediato.
+    const wake = () => {
+      const pr = video.play();
+      if (pr && pr.then) pr.then(() => video.pause()).catch(() => {});
+      else video.pause();
+    };
+    const kick = scrub ? wake : tryPlay;
+    const onReady = () => {
+      if (cancelled || tex) return;
+      tex = new THREE.VideoTexture(video);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      const w = video.videoWidth || 16, h = video.videoHeight || 9;
+      setState({ texture: tex, aspect: w / h, video });
+      kick();
+    };
+    const onSeeked = () => { if (tex) tex.needsUpdate = true; };
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("seeked", onSeeked);
+    if (!scrub) video.addEventListener("canplay", tryPlay);
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("touchstart", kick, { once: true, passive: true });
+    video.src = url;
+    video.load();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("touchstart", kick);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      if (tex) tex.dispose();
+      setState({ texture: null, aspect: 16 / 9, video: null });
+    };
+  }, [url, loop, scrub]);
+  return state;
+}
+/* Lleva el video al instante que le corresponde al progreso de scroll
+   "p" (0..1), dentro del tramo [from, to] del scroll. Antes de "from"
+   queda en el primer frame; después de "to", en el último. No encola
+   saltos: si todavía está buscando un frame, espera al siguiente tick. */
+function seekVideoToProgress(video, p, from, to) {
+  if (!video || !isFinite(video.duration) || video.duration <= 0) return;
+  const span = Math.max(0.0001, to - from);
+  const k = Math.min(1, Math.max(0, (p - from) / span));
+  const target = k * Math.max(0, video.duration - 0.05);
+  if (!video.seeking && Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
+}
+
+/* Genera una textura a partir de texto (color + tipografía elegidos),
+   dibujándolo en un canvas — mismo enfoque que useHiResSvgTexture,
+   pero en vez de rasterizar un archivo, dibuja el string directamente.
+   Respeta saltos de línea manuales ("\n"); no hace auto-wrap, así el
+   usuario controla dónde corta cada renglón. */
+/* ---- Catálogo de tipografías ----
+   [valor CSS, nombre, grupo, pesos disponibles, ¿es de Google Fonts? (1/0)]
+   Las de Google Fonts se cargan solas en el momento (ensureTextFont). */
+const DEFAULT_TEXT_FONT = "'Inter', sans-serif";
+const TEXT_FONTS = [
+  ["'Inter', sans-serif", "Inter", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Space Grotesk', sans-serif", "Space Grotesk", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Poppins', sans-serif", "Poppins", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Montserrat', sans-serif", "Montserrat", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Outfit', sans-serif", "Outfit", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Manrope', sans-serif", "Manrope", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'DM Sans', sans-serif", "DM Sans", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Raleway', sans-serif", "Raleway", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Syne', sans-serif", "Syne", "Sans-serif", [400, 500, 600, 700, 800], 1],
+  ["'Unbounded', sans-serif", "Unbounded", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Oswald', sans-serif", "Oswald", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Fredoka', sans-serif", "Fredoka", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Bebas Neue', sans-serif", "Bebas Neue", "Display", [400], 1],
+  ["'Anton', sans-serif", "Anton", "Display", [400], 1],
+  ["'Archivo Black', sans-serif", "Archivo Black", "Display", [400], 1],
+  ["'Righteous', sans-serif", "Righteous", "Display", [400], 1],
+  ["'Lilita One', sans-serif", "Lilita One", "Display", [400], 1],
+  ["'Bungee', sans-serif", "Bungee", "Display", [400], 1],
+  ["'Playfair Display', serif", "Playfair Display", "Serif", [400, 500, 600, 700, 800], 1],
+  ["'Cormorant Garamond', serif", "Cormorant Garamond", "Serif", [300, 400, 500, 600, 700], 1],
+  ["'Lora', serif", "Lora", "Serif", [400, 500, 600, 700], 1],
+  ["'DM Serif Display', serif", "DM Serif Display", "Serif", [400], 1],
+  ["'Abril Fatface', serif", "Abril Fatface", "Serif", [400], 1],
+  ["'Pacifico', cursive", "Pacifico", "Manuscritas", [400], 1],
+  ["'Lobster', cursive", "Lobster", "Manuscritas", [400], 1],
+  ["'Dancing Script', cursive", "Dancing Script", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Caveat', cursive", "Caveat", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Satisfy', cursive", "Satisfy", "Manuscritas", [400], 1],
+  ["'Permanent Marker', cursive", "Permanent Marker", "Manuscritas", [400], 1],
+  ["'JetBrains Mono', monospace", "JetBrains Mono", "Monoespaciadas", [300, 400, 500, 600, 700], 1],
+  ["'Space Mono', monospace", "Space Mono", "Monoespaciadas", [400, 700], 1],
+  ["'Press Start 2P', monospace", "Press Start 2P", "Monoespaciadas", [400], 1],
+  ["Georgia, 'Times New Roman', serif", "Georgia", "Sistema", [400, 700], 0],
+  ["'Courier New', monospace", "Courier New", "Sistema", [400, 700], 0],
+  ["system-ui, sans-serif", "Sistema", "Sistema", [400, 700], 0],
+];
+const DEFAULT_TEXT_GRADIENT = ["#6ee7f9", "#a78bfa"];
+const _textFontLoads = {};
+function ensureTextFont(family) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f || !f[4]) return Promise.resolve();
+  if (_textFontLoads[f[1]]) return _textFontLoads[f[1]];
+  const fam = f[1].replace(/ /g, "+") + (f[3].length > 1 ? ":wght@" + f[3].join(";") : "");
+  _textFontLoads[f[1]] = new Promise((res) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" + fam + "&display=swap";
+    link.onload = () => res();
+    link.onerror = () => res();
+    document.head.appendChild(link);
+  });
+  return _textFontLoads[f[1]];
+}
+/* Peso más cercano que la fuente realmente tiene (evita "negrita falsa"). */
+function textFontWeight(family, weight) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f) return weight;
+  return f[3].reduce((b, w) => (Math.abs(w - weight) < Math.abs(b - weight) ? w : b), f[3][0]);
+}
+/* Relleno de un tramo: color sólido o degradé lineal. angle: 0 = izq→der, 90 = arriba→abajo.
+   rect = zona que cubre el degradé (todo el bloque de texto, o una sola palabra). */
+function makeCanvasFill(ctx, spec, r) {
+  const cols = spec.colors && spec.colors.length ? spec.colors : DEFAULT_TEXT_GRADIENT;
+  if (spec.mode !== "gradient") return spec.color || "#ffffff";
+  const a = (((spec.angle == null ? 0 : spec.angle) % 360) * Math.PI) / 180;
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const half = (Math.abs(r.w * dx) + Math.abs(r.h * dy)) / 2 || 1;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  cols.forEach((c, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), c));
+  return g;
+}
+/* Dibuja el texto completo en un canvas.
+   Por palabra se puede cambiar relleno (color/degradé) y tipografía:
+   opts.wordStyles = { "<n° de palabra, desde 0>": { mode, color, colors, angle, fontFamily } }.
+   Devuelve { canvas, refH }: refH es la altura "de referencia" (la que tenía el
+   texto antes de tocar interlineado/espaciado), así cambiar el interlineado
+   no agranda ni achica las letras en la escena. */
+function drawTextCanvas(text, o) {
+  const FS = 200;
+  const baseFont = o.font || DEFAULT_TEXT_FONT;
+  const baseWeight = o.weight || 600;
+  const ls = (o.letterSpacing || 0) * FS;
+  const lineH = FS * (o.lineHeight || 1.2);
+  const pad = FS * 0.25;
+  const wordStyles = o.wordStyles || {};
+  const mctx = document.createElement("canvas").getContext("2d");
+  const specOf = (fam) => `${textFontWeight(fam, baseWeight)} ${FS}px ${fam}`;
+  let wi = 0;
+  const lines = String(text || "").split("\n").map((line) => {
+    const words = (line.match(/\S+/g) || []).map((w) => {
+      const st = wordStyles[wi] || null;
+      wi++;
+      const spec = specOf((st && st.fontFamily) || baseFont);
+      mctx.font = spec;
+      const chars = Array.from(w);
+      return { w, chars, st, spec, width: mctx.measureText(w).width + Math.max(0, chars.length - 1) * ls };
+    });
+    mctx.font = specOf(baseFont);
+    const spaceW = mctx.measureText(" ").width + ls;
+    const width = words.reduce((a, b) => a + b.width, 0) + Math.max(0, words.length - 1) * spaceW;
+    return { words, width, spaceW };
+  });
+  const n = lines.length;
+  const maxW = Math.max(1, ...lines.map((l) => l.width));
+  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + pad * 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = FS * 0.08;
+  ctx.strokeStyle = o.outlineColor || "#000000";
+  const g = o.gradient;
+  const baseFill = { mode: g && g.on ? "gradient" : "solid", color: o.color || "#ffffff", colors: g && g.colors, angle: g && g.angle };
+  const block = { x: pad, y: pad, w: W - pad * 2, h: n * lineH };
+  const align = o.align || "center";
+  lines.forEach((ln, i) => {
+    const y = pad + lineH * i + lineH / 2;
+    let x = align === "left" ? pad : align === "right" ? W - pad - ln.width : (W - ln.width) / 2;
+    ln.words.forEach((wd) => {
+      ctx.font = wd.spec;
+      const st = wd.st;
+      const own = st && st.mode;
+      const fillSpec = own ? { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle } : baseFill;
+      const rect = own ? { x, y: pad + lineH * i, w: wd.width, h: lineH } : block;
+      ctx.fillStyle = makeCanvasFill(ctx, fillSpec, rect);
+      const draw = (fn) => {
+        if (ls === 0) fn(wd.w, x);
+        else wd.chars.forEach((ch, k) => fn(ch, x + ctx.measureText(wd.chars.slice(0, k).join("")).width + k * ls));
+      };
+      if (o.outline) draw((t, px) => ctx.strokeText(t, px, y));
+      draw((t, px) => ctx.fillText(t, px, y));
+      x += wd.width + ln.spaceW;
+    });
+  });
+  return { canvas, refH: n * FS * 1.2 + FS * 0.5 };
+}
+function useHiResTextTexture(text, opts) {
+  const o = opts || {};
+  const key = JSON.stringify([text, o]);
+  const [texture, setTexture] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const fams = [o.font || DEFAULT_TEXT_FONT].concat(Object.values(o.wordStyles || {}).map((w) => w.fontFamily).filter(Boolean));
+    const weight = o.weight || 600;
+    Promise.all(fams.map(ensureTextFont))
+      .then(() => Promise.all(fams.map((f) => (document.fonts && document.fonts.load ? document.fonts.load(`${textFontWeight(f, weight)} 200px ${f}`).catch(() => {}) : null))))
+      .then(() => {
+        if (cancelled) return;
+        const { canvas, refH } = drawTextCanvas(text, o);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.userData.refH = refH;
+        tex.needsUpdate = true;
+        setTexture((prev) => { if (prev) prev.dispose(); return tex; });
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return texture;
+}
+
+function SceneObjectText({ data }) {
+  const texture = useHiResTextTexture(data.text, {
+    color: data.textColor,
+    gradient: data.textGradient,
+    font: data.fontFamily,
+    weight: data.fontWeight,
+    align: data.textAlign,
+    outline: data.textOutline,
+    outlineColor: data.textOutlineColor,
+    letterSpacing: data.letterSpacing,
+    lineHeight: data.lineHeight,
+    wordStyles: data.wordStyles,
+  });
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  if (!texture) return <group ref={groupRef} />;
+  const refH = texture.userData.refH || texture.image.height;
+  const mesh = (
+    <mesh scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
+
+function applyGlow(scene, glow) {
+  scene.traverse((child) => {
+    if (!child.isMesh) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !("emissive" in m)) return;
+      if (!m.userData._glow0) m.userData._glow0 = { e: m.emissive.clone(), map: m.emissiveMap, i: m.emissiveIntensity };
+      const g = m.userData._glow0;
+      const hasOwn = !!g.map || g.e.r + g.e.g + g.e.b > 0;
+      if (glow <= 0) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i; }
+      else if (hasOwn) { m.emissive.copy(g.e); m.emissiveMap = g.map; m.emissiveIntensity = g.i * (1 + glow); }
+      else { m.emissive.copy(m.color); m.emissiveMap = m.map || null; m.emissiveIntensity = glow; }
+      m.needsUpdate = true;
+    });
+  });
+}
+function SceneObjectModel({ data }) {
+  const { scene } = useGLTF(data.url);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false);
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (child.isMesh) {
+        const mats0 = Array.isArray(child.material) ? child.material : [child.material];
+        mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
+        // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
+        child.castShadow = data.shadows !== false && !mats0.some((m) => m && m.userData.__wasBlend);
+        child.receiveShadow = data.shadows !== false;
+        (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+          if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
+        });
+        if (hasFade) patchFadeMaterial(child.material, fade);
+      }
+    });
+  }, [scene, hasFade, fade, data.shadows]);
+  useEffect(() => { applyGlow(scene, data.glow || 0); }, [scene, data.glow]);
+  return (
+    <group ref={groupRef}>
+      <primitive object={scene} />
+    </group>
+  );
+}
+function SceneObjectImageRaster({ data }) {
+  const texture = useTexture(data.url);
+  const aspect = texture.image ? texture.image.width / texture.image.height : 1;
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
+function SceneObjectImageSvg({ data }) {
+  const texture = useHiResSvgTexture(data.url, 3072);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  if (!texture) return <group ref={groupRef} />;
+  const aspect = texture.image.width / texture.image.height;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
+function SceneObjectVideo({ data }) {
+  const scrub = data.videoMode !== "play";
+  const { texture, aspect, video } = useVideoTexture(data.url, data.loop, scrub);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  useFrame(() => {
+    if (!scrub || !video) return;
+    seekVideoToProgress(video, useScrollStore.getState().smoothProgress, data.scrollFrom ?? 0, data.scrollTo ?? 1);
+  });
+  if (!texture) return <group ref={groupRef} />;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
+function SceneObjectImage({ data }) {
+  return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
+}
+function SceneObject({ data }) {
+  if (data.type === "text") return <SceneObjectText data={data} />;
+  if (data.type === "video") return <SceneObjectVideo data={data} />;
+  return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
+}
+/* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
+   servidor (404) o falla al leerse, esto evita que tumbe TODA la
+   experiencia — sin esto, un solo archivo faltante rompe el canvas
+   entero (WebGL "Context Lost") y la página queda negra. Cada objeto
+   tiene su propio boundary, así uno roto no afecta a los demás ni al
+   personaje. */
+class ObjectBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error) { console.warn("No se pudo cargar un objeto de la escena:", error && error.message); }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+function SceneObjects() {
+  return (
+    <>
+      {OBJECTS.map((obj, i) => (
+        <ObjectBoundary key={i}>
+          <Suspense fallback={null}>
+            <SceneObject data={obj} />
+          </Suspense>
+        </ObjectBoundary>
+      ))}
+    </>
+  );
+}
+OBJECTS.forEach((obj) => {
+  if (obj.type === "text" || obj.type === "video") return; // texto y video no se precargan (el video se baja solo al montarse)
+  if (obj.type === "image") useTexture.preload(obj.url);
+  else useGLTF.preload(obj.url);
+});
+
+function Lighting() {
+  const keyRef = useRef(null);
+  const rimRef = useRef(null);
+  const dampedPos = useRef(new THREE.Vector3(...lightDirFromAngles(45, 35, 6)));
+  const ambRef = useRef();
+  const hemiRef = useRef();
+
+  useFrame((_, delta) => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    if (keyRef.current) {
+      keyRef.current.color.set(state.light.color);
+      keyRef.current.intensity = damp(keyRef.current.intensity, state.light.intensity, 4, delta);
+      const target = lightDirFromAngles(state.light.azimuth, state.light.elevation, 6);
+      dampedPos.current.x = damp(dampedPos.current.x, target[0], 5, delta);
+      dampedPos.current.y = damp(dampedPos.current.y, target[1], 5, delta);
+      dampedPos.current.z = damp(dampedPos.current.z, target[2], 5, delta);
+      keyRef.current.position.copy(dampedPos.current);
+    }
+    if (rimRef.current) {
+      rimRef.current.color.set(state.light.rimColor);
+      rimRef.current.intensity = damp(rimRef.current.intensity, state.light.rimIntensity, 4, delta);
+    }
+    const amb = state.light.ambient ?? 0.28;
+    if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, amb, 4, delta);
+    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, amb * 1.25, 4, delta);
+  });
+
+  return (
+    <>
+      <hemisphereLight ref={hemiRef} color="#cfe8ff" groundColor="#1a1410" intensity={0.35} />
+      <ambientLight ref={ambRef} intensity={0.28} />
+      <directionalLight
+        ref={keyRef}
+        intensity={0.9}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.02}
+        shadow-camera-left={-9}
+        shadow-camera-right={9}
+        shadow-camera-top={9}
+        shadow-camera-bottom={-9}
+        shadow-camera-near={1}
+        shadow-camera-far={20}
+      />
+      <directionalLight position={[-3, 2, -2]} intensity={0.5} />
+      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
+    </>
+  );
+}
+
+function SceneEnvironment() {
+  const { scene } = useThree();
+  const fog = useRef(new THREE.FogExp2("#05070a", 0.12));
+
+  useEffect(() => {
+    scene.background = null;
+  }, [scene]);
+
+  useFrame(() => {
+    const progress = useScrollStore.getState().smoothProgress;
+    const state = blendScenes(scenes, progress);
+    if (state.fog.enabled) {
+      scene.fog = fog.current;
+      fog.current.color.set(state.fog.color);
+      fog.current.density = 1 / Math.max(state.fog.far, 1);
+    } else {
+      scene.fog = null;
+    }
+  });
+
+  return null;
+}
+
+function Experience({ device }) {
+  const mouse = useMouseParallax();
+  const charAnchorRef = useRef(null);
+  return (
+    <>
+      <ScrollSmoother />
+      <SceneEnvironment />
+      <CameraRig mouse={mouse} />
+      <Lighting />
+      <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
+      <Suspense fallback={null}>
+        <SceneObjects />
+        <ObjectBoundary>
+          <Suspense fallback={null}>
+            {CHARACTER_MODEL_URL ? <AnimatedCharacter mouse={mouse} anchorRef={charAnchorRef} /> : null}
+          </Suspense>
+        </ObjectBoundary>
+      </Suspense>
+      <SparkleTrail
+        anchorRef={charAnchorRef}
+        enabled={TRAIL_ENABLED}
+        color={TRAIL_COLOR}
+        size={TRAIL_SIZE}
+        life={TRAIL_LIFE}
+        rate={TRAIL_RATE}
+      />
+
+        <ReflectionProbe
+        anchorRef={charAnchorRef}
+        enabled={REFLECTION_ENABLED}
+        resolution={REFLECTION_RESOLUTION}
+        updateEvery={REFLECTION_UPDATE_EVERY}
+        intensity={REFLECTION_INTENSITY}
+      />
+
+      <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} />
+  
+      {BLOOM_ENABLED && (
+        <EffectComposer multisampling={0}>
+          <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
+        </EffectComposer>
+      )}
+    </>
+  );
+}
+
+function textWeight(kf, progress, window_ = 0.14) {
+  const d = Math.abs(progress - kf.progress);
+  return clamp(1 - d / window_);
+}
+
+/* Divide un título en palabras (para que no corten mal el renglón) y cada
+   palabra en caracteres — cada <span> de caracter se anima individualmente
+   para el efecto de tipografía cinética (entra/sale en cascada con el
+   scroll, no como bloque entero). Guarda cada span en charRefsArr. */
+function renderKineticTitle(text, charRefsArr) {
+  charRefsArr.length = 0;
+  const words = String(text || "").split(" ");
+  let globalIndex = 0;
+  return words.map((word, wi) => (
+    <span key={wi} className="kinetic-word">
+      {word.split("").map((ch, ci) => {
+        const idx = globalIndex++;
+        return (
+          <span
+            key={ci}
+            ref={(el) => { charRefsArr[idx] = el; }}
+            className="kinetic-char"
+            style={{ opacity: 0 }}
+          >
+            {ch}
+          </span>
+        );
+      })}
+      {wi < words.length - 1 ? "\u00A0" : ""}
+    </span>
+  ));
+}
+
+function SceneText() {
+  const refs = useRef([]);
+  const charRefsByScene = useRef(scenes.map(() => []));
+
+  useEffect(() => {
+    const update = (progress) => {
+      scenes.forEach((kf, i) => {
+        const el = refs.current[i];
+        if (!el || !kf.text) return;
+        const weight = textWeight(kf, progress);
+        el.style.opacity = String(weight > 0 ? 1 : 0); // el contenedor solo controla visibilidad/posición del bloque
+        el.style.transform =
+          kf.text.align === "center"
+            ? `translateX(-50%) translateY(${(1 - weight) * 10}px)`
+            : `translateY(${(1 - weight) * 10}px)`;
+        el.style.pointerEvents = weight > 0.5 ? "auto" : "none";
+
+        // Reveal en cascada por caracter (tipografía cinética)
+        const chars = charRefsByScene.current[i];
+        if (chars && chars.length) {
+          const stagger = 0.6; // qué tan "esparcida" queda la cascada entre el primer y el último caracter
+          const n = chars.length;
+          chars.forEach((cel, j) => {
+            if (!cel) return;
+            const localW = clamp(weight * (1 + stagger) - (j / n) * stagger);
+            cel.style.opacity = String(localW);
+            cel.style.transform = `translateY(${(1 - localW) * 14}px)`;
+            cel.style.filter = `blur(${(1 - localW) * 3}px)`;
+          });
+        }
+      });
+    };
+    update(useScrollStore.getState().smoothProgress);
+    const unsubscribe = useScrollStore.subscribe((s) => update(s.smoothProgress));
+    return unsubscribe;
+  }, []);
+
+  return (
+    <div className="scene-text-layer">
+      {scenes.map((kf, i) =>
+        kf.text ? (
+          <div
+            key={kf.id}
+            ref={(el) => { refs.current[i] = el; }}
+            className={`scene-text scene-text--${kf.text.align}`}
+            style={{ opacity: 0 }}
+          >
+            {kf.text.eyebrow && <span className="scene-text__eyebrow">{kf.text.eyebrow}</span>}
+            <h2 className="scene-text__title">{renderKineticTitle(kf.text.title, charRefsByScene.current[i])}</h2>
+            {kf.text.subtitle && <p className="scene-text__subtitle">{kf.text.subtitle}</p>}
+          </div>
+        ) : null
+      )}
+    </div>
+  );
+}
+
+const CTA_START = scenes.find((s) => s.showCTA)?.progress ?? 1;
+const FADE_WINDOW = 0.06;
+
+function CTAButton() {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (!ref.current) return;
+      const weight = clamp((progress - (CTA_START - FADE_WINDOW)) / FADE_WINDOW);
+      ref.current.style.opacity = String(weight);
+      ref.current.style.transform = `translateX(-50%) translateY(${(1 - weight) * 16}px)`;
+      ref.current.style.pointerEvents = weight > 0.6 ? "auto" : "none";
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div ref={ref} className="cta-layer" style={{ opacity: 0 }}>
+      <a className="cta-button" href={clientConfig.cta.href}>
+        {clientConfig.cta.label}
+      </a>
+    </div>
+  );
+}
+
+function BackgroundGradient({ stageRef }) {
+  useEffect(() => {
+    const update = (progress) => {
+      const el = stageRef.current;
+      if (!el) return;
+      const state = blendScenes(scenes, progress);
+      el.style.background = `linear-gradient(${state.background.angle}deg, ${state.background.from}, ${state.background.to})`;
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, [stageRef]);
+
+  return null;
+}
+
+function ProgressIndicator() {
+  const fillRef = useRef(null);
+
+  useEffect(() => {
+    const update = (progress) => {
+      if (fillRef.current) fillRef.current.style.height = `${progress * 100}%`;
+    };
+    update(useScrollStore.getState().smoothProgress);
+    return useScrollStore.subscribe((s) => update(s.smoothProgress));
+  }, []);
+
+  return (
+    <div className="progress-rail" aria-hidden="true">
+      <div className="progress-rail__track">
+        <div ref={fillRef} className="progress-rail__fill" />
+      </div>
+    </div>
+  );
+}
+
+function CursorTrail() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let points = [];
+    let rafId = 0;
+
+    const resize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+
+    const addPoint = (x, y) => {
+      points.push({ x, y, life: 1 });
+      if (points.length > 40) points.shift();
+    };
+    const onPointerMove = (e) => addPoint(e.clientX, e.clientY);
+    const onTouchMove = (e) => {
+      if (e.touches && e.touches[0]) addPoint(e.touches[0].clientX, e.touches[0].clientY);
+    };
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+      points.forEach((p) => { p.life *= 0.94; });
+      points = points.filter((p) => p.life > 0.02);
+
+      if (points.length > 1) {
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 1; i < points.length; i++) {
+          const p0 = points[i - 1];
+          const p1 = points[i];
+          const alpha = Math.min(p0.life, p1.life) * 0.55;
+          ctx.strokeStyle = clientConfig.colors.accent;
+          ctx.globalAlpha = alpha;
+          ctx.lineWidth = 1.5 + alpha * 4;
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
+      rafId = requestAnimationFrame(draw);
+    };
+    rafId = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("touchmove", onTouchMove);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" />;
+}
+
+/* ---- Zona fija de abajo (WhatsApp · Cómo llegar · Turnero) ----
+   Los datos salen del bloque DOCK (se editan en la herramienta, pestaña Config). */
+const DOCK_DOW = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+const DOCK_DOW_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const dockMin = (hhmm) => { const p = String(hhmm).split(":").map(Number); return p[0] * 60 + (p[1] || 0); };
+function dockNow() {
+  let parts;
+  const opts = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false };
+  try { parts = new Intl.DateTimeFormat("en-CA", { ...opts, timeZone: DOCK.timezone }).formatToParts(new Date()); }
+  catch (e) { parts = new Intl.DateTimeFormat("en-CA", opts).formatToParts(new Date()); }
+  const g = (t) => Number(parts.find((p) => p.type === t).value);
+  return { y: g("year"), m: g("month"), d: g("day"), minutes: (g("hour") % 24) * 60 + g("minute") };
+}
+function dockDays(n) {
+  const now = dockNow();
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const dt = new Date(Date.UTC(now.y, now.m - 1, now.d + i, 12));
+    const dow = dt.getUTCDay();
+    const slot = DOCK.schedule[dow];
+    let open = !!slot;
+    if (open && i === 0 && now.minutes >= dockMin(slot[1])) open = false; // hoy ya cerró
+    out.push({ i, open, label: DOCK_DOW[dow], long: DOCK_DOW_LONG[dow], day: dt.getUTCDate(), month: dt.getUTCMonth() + 1 });
+  }
+  return out;
+}
+function dockStatus() {
+  const now = dockNow();
+  const dow = new Date(Date.UTC(now.y, now.m - 1, now.d, 12)).getUTCDay();
+  const slot = DOCK.schedule[dow];
+  if (slot && now.minutes >= dockMin(slot[0]) && now.minutes < dockMin(slot[1])) return { open: true, text: "ABIERTO AHORA" };
+  if (slot && now.minutes < dockMin(slot[0])) return { open: false, text: "ABRE HOY " + slot[0] };
+  for (let k = 1; k <= 7; k++) {
+    const d = (dow + k) % 7;
+    if (DOCK.schedule[d]) return { open: false, text: "ABRE " + (k === 1 ? "MAÑANA" : DOCK_DOW[d]) + " " + DOCK.schedule[d][0] };
+  }
+  return { open: false, text: "CERRADO" };
+}
+function Dock() {
+  const days = useMemo(() => dockDays(DOCK.turneroDays || 14), []);
+  const [sel, setSel] = useState(null);
+  const [status, setStatus] = useState(dockStatus);
+  const stripRef = useRef(null);
+  useEffect(() => {
+    const t = setInterval(() => setStatus(dockStatus()), 60000);
+    return () => clearInterval(t);
+  }, []);
+  const wa = (msg) => "https://wa.me/" + String(DOCK.whatsappPhone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(msg || "");
+  const mapHref = DOCK.mapUrl || "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(DOCK.address || "");
+  const chosen = sel != null ? days[sel] : null;
+  const scrollDays = (dir) => { const el = stripRef.current; if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" }); };
+  const confirmMsg = chosen ? String(DOCK.turneroMessage || "").replace("{dia}", chosen.long + " " + chosen.day + "/" + chosen.month) : "";
+  return (
+    <div className="dock" style={DOCK.accent ? { "--dock-accent": DOCK.accent } : undefined}>
+      <div className="dock__row">
+        <a className="dock__btn" href={wa(DOCK.whatsappMessage)} target="_blank" rel="noopener">
+          <span className="dock__ico"><svg viewBox="0 0 24 24"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 8 19.6z" /><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.5-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z" /></svg></span>
+          <span className="dock__txt"><b>WHATSAPP</b><small className={status.open ? "is-open" : ""}><i />{status.text}</small></span>
+        </a>
+        <a className="dock__btn" href={mapHref} target="_blank" rel="noopener">
+          <span className="dock__ico"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.800 12 21 12 21z" /><circle cx="12" cy="9.500" r="2.500" /></svg></span>
+          <span className="dock__txt"><b>CÓMO LLEGAR</b><small>VER EN EL MAPA</small></span>
+        </a>
+      </div>
+      <div>
+        <div className="dock__turn-head">
+          <svg viewBox="0 0 24 24"><rect x="3.500" y="5" width="17" height="15.500" rx="2.500" /><path d="M3.500 10h17M8 3v4M16 3v4" /></svg>
+          <b>{DOCK.turneroTitle}</b>
+          {chosen && <a className="dock__confirm" href={wa(confirmMsg)} target="_blank" rel="noopener">Pedir turno · {chosen.label} {chosen.day} ›</a>}
+        </div>
+        <div className="dock__days-wrap" style={{ marginTop: 6 }}>
+          <button className="dock__arrow" aria-label="Días anteriores" onClick={() => scrollDays(-1)}>‹</button>
+          <div className="dock__days" ref={stripRef}>
+            {days.map((d) => (
+              <button key={d.i} disabled={!d.open} className={"dock__day" + (!d.open ? " is-closed" : "") + (sel === d.i ? " is-sel" : "")} onClick={() => setSel(sel === d.i ? null : d.i)}>
+                <span>{d.label}</span><b>{d.day}</b>{!d.open && <em>cerrado</em>}
+              </button>
+            ))}
+          </div>
+          <button className="dock__arrow" aria-label="Días siguientes" onClick={() => scrollDays(1)}>›</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const spacerRef = useRef(null);
+  const stageRef = useRef(null);
+  useScrollProgress(spacerRef);
+  useArrowKeyScroll();
+  const device = useMemo(() => getDeviceProfile(), []);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div
+      className={"app-root" + (DOCK.enabled ? " app-root--phone" : "")}
+      style={{
+        "--split": DOCK.splitPct || 66,
+        "--brand-accent": clientConfig.colors.accent,
+        "--brand-accent-2": clientConfig.colors.accentSecondary,
+        "--color-bg": clientConfig.colors.background,
+        "--color-text": clientConfig.colors.textPrimary,
+        "--color-text-muted": clientConfig.colors.textMuted,
+        "--font-display": clientConfig.fonts.display,
+        "--font-body": clientConfig.fonts.body,
+      }}
+    >
+      <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
+        <div className="scene-canvas">
+          <Canvas
+            dpr={device.dpr}
+            shadows="soft"
+            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+            camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
+          >
+            <Experience device={device} />
+          </Canvas>
+        </div>
+        <BackgroundGradient stageRef={stageRef} />
+        {VIGNETTE_ENABLED && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 3,
+              pointerEvents: "none",
+              background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - VIGNETTE_OFFSET) * 100}%, rgba(0,0,0,${VIGNETTE_DARKNESS}) 100%)`,
+            }}
+          />
+        )}
+        <CursorTrail />
+        <SceneText />
+        <ProgressIndicator />
+        <div className="scroll-hint" aria-hidden="true">
+          <span>Scroll</span>
+          <div className="scroll-hint__line" />
+        </div>
+      </div>
+      <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
+      {DOCK.enabled && <Dock />}
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<App />);
+
+</script>
+</body>
+</html>
+
