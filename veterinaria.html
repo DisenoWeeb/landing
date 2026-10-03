@@ -463,7 +463,7 @@ const CHARACTER_MODEL_URL = "./assets/models/bowl1.glb";
 
 // Objetos de entorno (rampas, plataformas, props, etc.) que rodean al
 // personaje. Podés tener uno o varios, cada uno con su propio archivo
-// (modelo .glb o imagen/SVG) y su propia animación de posición/escala/
+// (modelo .glb, imagen/SVG o video .mp4) y su propia animación de posición/escala/
 // rotación por etapa (igual que el personaje) — así también se pueden
 // mover durante el scroll y no quedan estáticos. Se generan desde la
 // pestaña "Objetos" de la herramienta — si algo queda muy grande/chico
@@ -1367,7 +1367,7 @@ if (CHARACTER_MODEL_URL) useGLTF.preload(CHARACTER_MODEL_URL);
 
 /* ============================================================
    Objetos de entorno. Cada uno puede ser un modelo 3D estático (.glb,
-   sin huesos ni animación propia) o una imagen/SVG plana (con opción
+   sin huesos ni animación propia), una imagen/SVG plana o un video .mp4 (con opción
    de "billboard" para que siempre mire a cámara). Cada objeto anima
    su propia posición/escala/rotación por etapa (keyframes), leídas
    del mismo "progress" de scroll que usa el personaje — por eso el
@@ -1565,83 +1565,277 @@ function useHiResSvgTexture(url, targetLong) {
 function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
 }
+function isVideoUrl(url) {
+  return /\.(mp4|webm)($|\?)/i.test(url || "");
+}
+/* Video (.mp4 / .webm) como textura. Se crea un <video> en memoria,
+   siempre MUDO + playsInline.
+   - Modo "scroll" (scrub): el video queda en pausa y su tiempo
+     (currentTime) lo manda el scroll — ver seekVideoToProgress().
+   - Modo "play": se reproduce solo (autoplay mudo); si el navegador lo
+     frena, se reintenta con el primer toque/click.
+   Devuelve { texture, aspect, video } cuando ya hay primer frame. */
+function useVideoTexture(url, loop, scrub) {
+  const [state, setState] = useState({ texture: null, aspect: 16 / 9, video: null });
+  useEffect(() => {
+    if (!url) return undefined;
+    let cancelled = false;
+    let tex = null;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.loop = !scrub && loop !== false;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.preload = "auto";
+    const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
+    // Safari/iOS no decodifican frames de un video que nunca se reprodujo:
+    // se lo "despierta" con un play() + pause() inmediato.
+    const wake = () => {
+      const pr = video.play();
+      if (pr && pr.then) pr.then(() => video.pause()).catch(() => {});
+      else video.pause();
+    };
+    const kick = scrub ? wake : tryPlay;
+    const onReady = () => {
+      if (cancelled || tex) return;
+      tex = new THREE.VideoTexture(video);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      const w = video.videoWidth || 16, h = video.videoHeight || 9;
+      setState({ texture: tex, aspect: w / h, video });
+      kick();
+    };
+    const onSeeked = () => { if (tex) tex.needsUpdate = true; };
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("seeked", onSeeked);
+    if (!scrub) video.addEventListener("canplay", tryPlay);
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("touchstart", kick, { once: true, passive: true });
+    video.src = url;
+    video.load();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("touchstart", kick);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      if (tex) tex.dispose();
+      setState({ texture: null, aspect: 16 / 9, video: null });
+    };
+  }, [url, loop, scrub]);
+  return state;
+}
+/* Lleva el video al instante que le corresponde al progreso de scroll
+   "p" (0..1), dentro del tramo [from, to] del scroll. Antes de "from"
+   queda en el primer frame; después de "to", en el último. No encola
+   saltos: si todavía está buscando un frame, espera al siguiente tick. */
+function seekVideoToProgress(video, p, from, to) {
+  if (!video || !isFinite(video.duration) || video.duration <= 0) return;
+  const span = Math.max(0.0001, to - from);
+  const k = Math.min(1, Math.max(0, (p - from) / span));
+  const target = k * Math.max(0, video.duration - 0.05);
+  if (!video.seeking && Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
+}
 
 /* Genera una textura a partir de texto (color + tipografía elegidos),
    dibujándolo en un canvas — mismo enfoque que useHiResSvgTexture,
    pero en vez de rasterizar un archivo, dibuja el string directamente.
    Respeta saltos de línea manuales ("\n"); no hace auto-wrap, así el
    usuario controla dónde corta cada renglón. */
+/* ---- Catálogo de tipografías ----
+   [valor CSS, nombre, grupo, pesos disponibles, ¿es de Google Fonts? (1/0)]
+   Las de Google Fonts se cargan solas en el momento (ensureTextFont). */
+const DEFAULT_TEXT_FONT = "'Inter', sans-serif";
+const TEXT_FONTS = [
+  ["'Inter', sans-serif", "Inter", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Space Grotesk', sans-serif", "Space Grotesk", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Poppins', sans-serif", "Poppins", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Montserrat', sans-serif", "Montserrat", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Outfit', sans-serif", "Outfit", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Manrope', sans-serif", "Manrope", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'DM Sans', sans-serif", "DM Sans", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Raleway', sans-serif", "Raleway", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Syne', sans-serif", "Syne", "Sans-serif", [400, 500, 600, 700, 800], 1],
+  ["'Unbounded', sans-serif", "Unbounded", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Oswald', sans-serif", "Oswald", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Fredoka', sans-serif", "Fredoka", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Bebas Neue', sans-serif", "Bebas Neue", "Display", [400], 1],
+  ["'Anton', sans-serif", "Anton", "Display", [400], 1],
+  ["'Archivo Black', sans-serif", "Archivo Black", "Display", [400], 1],
+  ["'Righteous', sans-serif", "Righteous", "Display", [400], 1],
+  ["'Lilita One', sans-serif", "Lilita One", "Display", [400], 1],
+  ["'Bungee', sans-serif", "Bungee", "Display", [400], 1],
+  ["'Playfair Display', serif", "Playfair Display", "Serif", [400, 500, 600, 700, 800], 1],
+  ["'Cormorant Garamond', serif", "Cormorant Garamond", "Serif", [300, 400, 500, 600, 700], 1],
+  ["'Lora', serif", "Lora", "Serif", [400, 500, 600, 700], 1],
+  ["'DM Serif Display', serif", "DM Serif Display", "Serif", [400], 1],
+  ["'Abril Fatface', serif", "Abril Fatface", "Serif", [400], 1],
+  ["'Pacifico', cursive", "Pacifico", "Manuscritas", [400], 1],
+  ["'Lobster', cursive", "Lobster", "Manuscritas", [400], 1],
+  ["'Dancing Script', cursive", "Dancing Script", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Caveat', cursive", "Caveat", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Satisfy', cursive", "Satisfy", "Manuscritas", [400], 1],
+  ["'Permanent Marker', cursive", "Permanent Marker", "Manuscritas", [400], 1],
+  ["'JetBrains Mono', monospace", "JetBrains Mono", "Monoespaciadas", [300, 400, 500, 600, 700], 1],
+  ["'Space Mono', monospace", "Space Mono", "Monoespaciadas", [400, 700], 1],
+  ["'Press Start 2P', monospace", "Press Start 2P", "Monoespaciadas", [400], 1],
+  ["Georgia, 'Times New Roman', serif", "Georgia", "Sistema", [400, 700], 0],
+  ["'Courier New', monospace", "Courier New", "Sistema", [400, 700], 0],
+  ["system-ui, sans-serif", "Sistema", "Sistema", [400, 700], 0],
+];
+const DEFAULT_TEXT_GRADIENT = ["#6ee7f9", "#a78bfa"];
+const _textFontLoads = {};
+function ensureTextFont(family) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f || !f[4]) return Promise.resolve();
+  if (_textFontLoads[f[1]]) return _textFontLoads[f[1]];
+  const fam = f[1].replace(/ /g, "+") + (f[3].length > 1 ? ":wght@" + f[3].join(";") : "");
+  _textFontLoads[f[1]] = new Promise((res) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" + fam + "&display=swap";
+    link.onload = () => res();
+    link.onerror = () => res();
+    document.head.appendChild(link);
+  });
+  return _textFontLoads[f[1]];
+}
+/* Peso más cercano que la fuente realmente tiene (evita "negrita falsa"). */
+function textFontWeight(family, weight) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f) return weight;
+  return f[3].reduce((b, w) => (Math.abs(w - weight) < Math.abs(b - weight) ? w : b), f[3][0]);
+}
+/* Relleno de un tramo: color sólido o degradé lineal. angle: 0 = izq→der, 90 = arriba→abajo.
+   rect = zona que cubre el degradé (todo el bloque de texto, o una sola palabra). */
+function makeCanvasFill(ctx, spec, r) {
+  const cols = spec.colors && spec.colors.length ? spec.colors : DEFAULT_TEXT_GRADIENT;
+  if (spec.mode !== "gradient") return spec.color || "#ffffff";
+  const a = (((spec.angle == null ? 0 : spec.angle) % 360) * Math.PI) / 180;
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const half = (Math.abs(r.w * dx) + Math.abs(r.h * dy)) / 2 || 1;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  cols.forEach((c, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), c));
+  return g;
+}
+/* Dibuja el texto completo en un canvas.
+   Por palabra se puede cambiar relleno (color/degradé) y tipografía:
+   opts.wordStyles = { "<n° de palabra, desde 0>": { mode, color, colors, angle, fontFamily } }.
+   Devuelve { canvas, refH }: refH es la altura "de referencia" (la que tenía el
+   texto antes de tocar interlineado/espaciado), así cambiar el interlineado
+   no agranda ni achica las letras en la escena. */
+function drawTextCanvas(text, o) {
+  const FS = 200;
+  const baseFont = o.font || DEFAULT_TEXT_FONT;
+  const baseWeight = o.weight || 600;
+  const ls = (o.letterSpacing || 0) * FS;
+  const lineH = FS * (o.lineHeight || 1.2);
+  const pad = FS * 0.25;
+  const wordStyles = o.wordStyles || {};
+  const mctx = document.createElement("canvas").getContext("2d");
+  const specOf = (fam) => `${textFontWeight(fam, baseWeight)} ${FS}px ${fam}`;
+  let wi = 0;
+  const lines = String(text || "").split("\n").map((line) => {
+    const words = (line.match(/\S+/g) || []).map((w) => {
+      const st = wordStyles[wi] || null;
+      wi++;
+      const spec = specOf((st && st.fontFamily) || baseFont);
+      mctx.font = spec;
+      const chars = Array.from(w);
+      return { w, chars, st, spec, width: mctx.measureText(w).width + Math.max(0, chars.length - 1) * ls };
+    });
+    mctx.font = specOf(baseFont);
+    const spaceW = mctx.measureText(" ").width + ls;
+    const width = words.reduce((a, b) => a + b.width, 0) + Math.max(0, words.length - 1) * spaceW;
+    return { words, width, spaceW };
+  });
+  const n = lines.length;
+  const maxW = Math.max(1, ...lines.map((l) => l.width));
+  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + pad * 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = FS * 0.08;
+  ctx.strokeStyle = o.outlineColor || "#000000";
+  const g = o.gradient;
+  const baseFill = { mode: g && g.on ? "gradient" : "solid", color: o.color || "#ffffff", colors: g && g.colors, angle: g && g.angle };
+  const block = { x: pad, y: pad, w: W - pad * 2, h: n * lineH };
+  const align = o.align || "center";
+  lines.forEach((ln, i) => {
+    const y = pad + lineH * i + lineH / 2;
+    let x = align === "left" ? pad : align === "right" ? W - pad - ln.width : (W - ln.width) / 2;
+    ln.words.forEach((wd) => {
+      ctx.font = wd.spec;
+      const st = wd.st;
+      const own = st && st.mode;
+      const fillSpec = own ? { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle } : baseFill;
+      const rect = own ? { x, y: pad + lineH * i, w: wd.width, h: lineH } : block;
+      ctx.fillStyle = makeCanvasFill(ctx, fillSpec, rect);
+      const draw = (fn) => {
+        if (ls === 0) fn(wd.w, x);
+        else wd.chars.forEach((ch, k) => fn(ch, x + ctx.measureText(wd.chars.slice(0, k).join("")).width + k * ls));
+      };
+      if (o.outline) draw((t, px) => ctx.strokeText(t, px, y));
+      draw((t, px) => ctx.fillText(t, px, y));
+      x += wd.width + ln.spaceW;
+    });
+  });
+  return { canvas, refH: n * FS * 1.2 + FS * 0.5 };
+}
 function useHiResTextTexture(text, opts) {
-  const {
-    color = "#ffffff",
-    font = "'Inter', sans-serif",
-    weight = 600,
-    align = "center",
-    outline = false,
-    outlineColor = "#000000",
-  } = opts || {};
+  const o = opts || {};
+  const key = JSON.stringify([text, o]);
   const [texture, setTexture] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    const fontSizePx = 200;
-    const lineHeight = fontSizePx * 1.2;
-    const padding = fontSizePx * 0.25;
-    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
-    const draw = () => {
-      if (cancelled) return;
-      const lines = (text || "").split("\n");
-      const measureCanvas = document.createElement("canvas");
-      const mctx = measureCanvas.getContext("2d");
-      mctx.font = fontSpec;
-      let maxLineWidth = 1;
-      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(maxLineWidth + padding * 2);
-      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
-      const ctx = canvas.getContext("2d");
-      ctx.font = fontSpec;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = align;
-      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
-      lines.forEach((line, i) => {
-        const y = padding + lineHeight * i + lineHeight / 2;
-        if (outline) {
-          ctx.lineJoin = "round";
-          ctx.lineWidth = fontSizePx * 0.08;
-          ctx.strokeStyle = outlineColor;
-          ctx.strokeText(line, xPos, y);
-        }
-        ctx.fillStyle = color;
-        ctx.fillText(line, xPos, y);
+    const fams = [o.font || DEFAULT_TEXT_FONT].concat(Object.values(o.wordStyles || {}).map((w) => w.fontFamily).filter(Boolean));
+    const weight = o.weight || 600;
+    Promise.all(fams.map(ensureTextFont))
+      .then(() => Promise.all(fams.map((f) => (document.fonts && document.fonts.load ? document.fonts.load(`${textFontWeight(f, weight)} 200px ${f}`).catch(() => {}) : null))))
+      .then(() => {
+        if (cancelled) return;
+        const { canvas, refH } = drawTextCanvas(text, o);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.userData.refH = refH;
+        tex.needsUpdate = true;
+        setTexture((prev) => { if (prev) prev.dispose(); return tex; });
       });
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      setTexture(tex);
-    };
-    if (document.fonts && document.fonts.load) {
-      document.fonts.load(fontSpec).catch(() => {}).then(draw);
-    } else {
-      draw();
-    }
     return () => { cancelled = true; };
-  }, [text, color, font, weight, align, outline, outlineColor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   return texture;
 }
 
 function SceneObjectText({ data }) {
   const texture = useHiResTextTexture(data.text, {
     color: data.textColor,
+    gradient: data.textGradient,
     font: data.fontFamily,
     weight: data.fontWeight,
     align: data.textAlign,
     outline: data.textOutline,
     outlineColor: data.textOutlineColor,
+    letterSpacing: data.letterSpacing,
+    lineHeight: data.lineHeight,
+    wordStyles: data.wordStyles,
   });
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
-  const aspect = texture.image.width / texture.image.height;
+  const refH = texture.userData.refH || texture.image.height;
   const mesh = (
-    <mesh scale={[aspect, 1, 1]}>
+    <mesh scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
@@ -1726,11 +1920,33 @@ function SceneObjectImageSvg({ data }) {
     </group>
   );
 }
+function SceneObjectVideo({ data }) {
+  const scrub = data.videoMode !== "play";
+  const { texture, aspect, video } = useVideoTexture(data.url, data.loop, scrub);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  useFrame(() => {
+    if (!scrub || !video) return;
+    seekVideoToProgress(video, useScrollStore.getState().smoothProgress, data.scrollFrom ?? 0, data.scrollTo ?? 1);
+  });
+  if (!texture) return <group ref={groupRef} />;
+  const mesh = (
+    <mesh scale={[aspect, 1, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
 function SceneObjectImage({ data }) {
   return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
 function SceneObject({ data }) {
   if (data.type === "text") return <SceneObjectText data={data} />;
+  if (data.type === "video") return <SceneObjectVideo data={data} />;
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
 }
 /* Si un archivo de un objeto (glb, png, svg) no se encuentra en el
@@ -1762,7 +1978,7 @@ function SceneObjects() {
   );
 }
 OBJECTS.forEach((obj) => {
-  if (obj.type === "text") return; // el texto no tiene archivo que precargar
+  if (obj.type === "text" || obj.type === "video") return; // texto y video no se precargan (el video se baja solo al montarse)
   if (obj.type === "image") useTexture.preload(obj.url);
   else useGLTF.preload(obj.url);
 });
@@ -2674,7 +2890,7 @@ function applyGlow(scene, glow) {
   });
 }
 function ObjectPreviewModel({ obj, fade }) {
-  const { scene } = useGLTF(obj.url);
+  const { scene } = useGLTF(obj.previewUrl || obj.url);
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
@@ -2736,81 +2952,275 @@ function useHiResSvgTexture(url, targetLong = 3072) {
 function isSvgUrl(url) {
   return /\.svg($|\?)/i.test(url || "");
 }
+function isVideoUrl(url) {
+  return /\.(mp4|webm)($|\?)/i.test(url || "");
+}
+/* Video (.mp4 / .webm) como textura. Se crea un <video> en memoria,
+   siempre MUDO + playsInline.
+   - Modo "scroll" (scrub): el video queda en pausa y su tiempo
+     (currentTime) lo manda el scroll — ver seekVideoToProgress().
+   - Modo "play": se reproduce solo (autoplay mudo); si el navegador lo
+     frena, se reintenta con el primer toque/click.
+   Devuelve { texture, aspect, video } cuando ya hay primer frame. */
+function useVideoTexture(url, loop, scrub) {
+  const [state, setState] = useState({ texture: null, aspect: 16 / 9, video: null });
+  useEffect(() => {
+    if (!url) return undefined;
+    let cancelled = false;
+    let tex = null;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.loop = !scrub && loop !== false;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.preload = "auto";
+    const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
+    // Safari/iOS no decodifican frames de un video que nunca se reprodujo:
+    // se lo "despierta" con un play() + pause() inmediato.
+    const wake = () => {
+      const pr = video.play();
+      if (pr && pr.then) pr.then(() => video.pause()).catch(() => {});
+      else video.pause();
+    };
+    const kick = scrub ? wake : tryPlay;
+    const onReady = () => {
+      if (cancelled || tex) return;
+      tex = new THREE.VideoTexture(video);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      const w = video.videoWidth || 16, h = video.videoHeight || 9;
+      setState({ texture: tex, aspect: w / h, video });
+      kick();
+    };
+    const onSeeked = () => { if (tex) tex.needsUpdate = true; };
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("seeked", onSeeked);
+    if (!scrub) video.addEventListener("canplay", tryPlay);
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("touchstart", kick, { once: true, passive: true });
+    video.src = url;
+    video.load();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("touchstart", kick);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      if (tex) tex.dispose();
+      setState({ texture: null, aspect: 16 / 9, video: null });
+    };
+  }, [url, loop, scrub]);
+  return state;
+}
+/* Lleva el video al instante que le corresponde al progreso de scroll
+   "p" (0..1), dentro del tramo [from, to] del scroll. Antes de "from"
+   queda en el primer frame; después de "to", en el último. No encola
+   saltos: si todavía está buscando un frame, espera al siguiente tick. */
+function seekVideoToProgress(video, p, from, to) {
+  if (!video || !isFinite(video.duration) || video.duration <= 0) return;
+  const span = Math.max(0.0001, to - from);
+  const k = Math.min(1, Math.max(0, (p - from) / span));
+  const target = k * Math.max(0, video.duration - 0.05);
+  if (!video.seeking && Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
+}
 
 /* Misma implementación que en la plantilla final (ver tpl-source),
    para que el texto se vea igual acá en el visor y en el index.html
    exportado. */
+/* ---- Catálogo de tipografías ----
+   [valor CSS, nombre, grupo, pesos disponibles, ¿es de Google Fonts? (1/0)]
+   Las de Google Fonts se cargan solas en el momento (ensureTextFont). */
+const DEFAULT_TEXT_FONT = "'Inter', sans-serif";
+const TEXT_FONTS = [
+  ["'Inter', sans-serif", "Inter", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Space Grotesk', sans-serif", "Space Grotesk", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Poppins', sans-serif", "Poppins", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Montserrat', sans-serif", "Montserrat", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Outfit', sans-serif", "Outfit", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Manrope', sans-serif", "Manrope", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'DM Sans', sans-serif", "DM Sans", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Raleway', sans-serif", "Raleway", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Syne', sans-serif", "Syne", "Sans-serif", [400, 500, 600, 700, 800], 1],
+  ["'Unbounded', sans-serif", "Unbounded", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Oswald', sans-serif", "Oswald", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Fredoka', sans-serif", "Fredoka", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Bebas Neue', sans-serif", "Bebas Neue", "Display", [400], 1],
+  ["'Anton', sans-serif", "Anton", "Display", [400], 1],
+  ["'Archivo Black', sans-serif", "Archivo Black", "Display", [400], 1],
+  ["'Righteous', sans-serif", "Righteous", "Display", [400], 1],
+  ["'Lilita One', sans-serif", "Lilita One", "Display", [400], 1],
+  ["'Bungee', sans-serif", "Bungee", "Display", [400], 1],
+  ["'Playfair Display', serif", "Playfair Display", "Serif", [400, 500, 600, 700, 800], 1],
+  ["'Cormorant Garamond', serif", "Cormorant Garamond", "Serif", [300, 400, 500, 600, 700], 1],
+  ["'Lora', serif", "Lora", "Serif", [400, 500, 600, 700], 1],
+  ["'DM Serif Display', serif", "DM Serif Display", "Serif", [400], 1],
+  ["'Abril Fatface', serif", "Abril Fatface", "Serif", [400], 1],
+  ["'Pacifico', cursive", "Pacifico", "Manuscritas", [400], 1],
+  ["'Lobster', cursive", "Lobster", "Manuscritas", [400], 1],
+  ["'Dancing Script', cursive", "Dancing Script", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Caveat', cursive", "Caveat", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Satisfy', cursive", "Satisfy", "Manuscritas", [400], 1],
+  ["'Permanent Marker', cursive", "Permanent Marker", "Manuscritas", [400], 1],
+  ["'JetBrains Mono', monospace", "JetBrains Mono", "Monoespaciadas", [300, 400, 500, 600, 700], 1],
+  ["'Space Mono', monospace", "Space Mono", "Monoespaciadas", [400, 700], 1],
+  ["'Press Start 2P', monospace", "Press Start 2P", "Monoespaciadas", [400], 1],
+  ["Georgia, 'Times New Roman', serif", "Georgia", "Sistema", [400, 700], 0],
+  ["'Courier New', monospace", "Courier New", "Sistema", [400, 700], 0],
+  ["system-ui, sans-serif", "Sistema", "Sistema", [400, 700], 0],
+];
+const DEFAULT_TEXT_GRADIENT = ["#6ee7f9", "#a78bfa"];
+const _textFontLoads = {};
+function ensureTextFont(family) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f || !f[4]) return Promise.resolve();
+  if (_textFontLoads[f[1]]) return _textFontLoads[f[1]];
+  const fam = f[1].replace(/ /g, "+") + (f[3].length > 1 ? ":wght@" + f[3].join(";") : "");
+  _textFontLoads[f[1]] = new Promise((res) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" + fam + "&display=swap";
+    link.onload = () => res();
+    link.onerror = () => res();
+    document.head.appendChild(link);
+  });
+  return _textFontLoads[f[1]];
+}
+/* Peso más cercano que la fuente realmente tiene (evita "negrita falsa"). */
+function textFontWeight(family, weight) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f) return weight;
+  return f[3].reduce((b, w) => (Math.abs(w - weight) < Math.abs(b - weight) ? w : b), f[3][0]);
+}
+/* Relleno de un tramo: color sólido o degradé lineal. angle: 0 = izq→der, 90 = arriba→abajo.
+   rect = zona que cubre el degradé (todo el bloque de texto, o una sola palabra). */
+function makeCanvasFill(ctx, spec, r) {
+  const cols = spec.colors && spec.colors.length ? spec.colors : DEFAULT_TEXT_GRADIENT;
+  if (spec.mode !== "gradient") return spec.color || "#ffffff";
+  const a = (((spec.angle == null ? 0 : spec.angle) % 360) * Math.PI) / 180;
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const half = (Math.abs(r.w * dx) + Math.abs(r.h * dy)) / 2 || 1;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  cols.forEach((c, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), c));
+  return g;
+}
+/* Dibuja el texto completo en un canvas.
+   Por palabra se puede cambiar relleno (color/degradé) y tipografía:
+   opts.wordStyles = { "<n° de palabra, desde 0>": { mode, color, colors, angle, fontFamily } }.
+   Devuelve { canvas, refH }: refH es la altura "de referencia" (la que tenía el
+   texto antes de tocar interlineado/espaciado), así cambiar el interlineado
+   no agranda ni achica las letras en la escena. */
+function drawTextCanvas(text, o) {
+  const FS = 200;
+  const baseFont = o.font || DEFAULT_TEXT_FONT;
+  const baseWeight = o.weight || 600;
+  const ls = (o.letterSpacing || 0) * FS;
+  const lineH = FS * (o.lineHeight || 1.2);
+  const pad = FS * 0.25;
+  const wordStyles = o.wordStyles || {};
+  const mctx = document.createElement("canvas").getContext("2d");
+  const specOf = (fam) => `${textFontWeight(fam, baseWeight)} ${FS}px ${fam}`;
+  let wi = 0;
+  const lines = String(text || "").split("\n").map((line) => {
+    const words = (line.match(/\S+/g) || []).map((w) => {
+      const st = wordStyles[wi] || null;
+      wi++;
+      const spec = specOf((st && st.fontFamily) || baseFont);
+      mctx.font = spec;
+      const chars = Array.from(w);
+      return { w, chars, st, spec, width: mctx.measureText(w).width + Math.max(0, chars.length - 1) * ls };
+    });
+    mctx.font = specOf(baseFont);
+    const spaceW = mctx.measureText(" ").width + ls;
+    const width = words.reduce((a, b) => a + b.width, 0) + Math.max(0, words.length - 1) * spaceW;
+    return { words, width, spaceW };
+  });
+  const n = lines.length;
+  const maxW = Math.max(1, ...lines.map((l) => l.width));
+  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + pad * 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = FS * 0.08;
+  ctx.strokeStyle = o.outlineColor || "#000000";
+  const g = o.gradient;
+  const baseFill = { mode: g && g.on ? "gradient" : "solid", color: o.color || "#ffffff", colors: g && g.colors, angle: g && g.angle };
+  const block = { x: pad, y: pad, w: W - pad * 2, h: n * lineH };
+  const align = o.align || "center";
+  lines.forEach((ln, i) => {
+    const y = pad + lineH * i + lineH / 2;
+    let x = align === "left" ? pad : align === "right" ? W - pad - ln.width : (W - ln.width) / 2;
+    ln.words.forEach((wd) => {
+      ctx.font = wd.spec;
+      const st = wd.st;
+      const own = st && st.mode;
+      const fillSpec = own ? { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle } : baseFill;
+      const rect = own ? { x, y: pad + lineH * i, w: wd.width, h: lineH } : block;
+      ctx.fillStyle = makeCanvasFill(ctx, fillSpec, rect);
+      const draw = (fn) => {
+        if (ls === 0) fn(wd.w, x);
+        else wd.chars.forEach((ch, k) => fn(ch, x + ctx.measureText(wd.chars.slice(0, k).join("")).width + k * ls));
+      };
+      if (o.outline) draw((t, px) => ctx.strokeText(t, px, y));
+      draw((t, px) => ctx.fillText(t, px, y));
+      x += wd.width + ln.spaceW;
+    });
+  });
+  return { canvas, refH: n * FS * 1.2 + FS * 0.5 };
+}
 function useHiResTextTexture(text, opts) {
-  const {
-    color = "#ffffff",
-    font = "'Inter', sans-serif",
-    weight = 600,
-    align = "center",
-    outline = false,
-    outlineColor = "#000000",
-  } = opts || {};
+  const o = opts || {};
+  const key = JSON.stringify([text, o]);
   const [texture, setTexture] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    const fontSizePx = 200;
-    const lineHeight = fontSizePx * 1.2;
-    const padding = fontSizePx * 0.25;
-    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
-    const draw = () => {
-      if (cancelled) return;
-      const lines = (text || "").split("\n");
-      const measureCanvas = document.createElement("canvas");
-      const mctx = measureCanvas.getContext("2d");
-      mctx.font = fontSpec;
-      let maxLineWidth = 1;
-      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(maxLineWidth + padding * 2);
-      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
-      const ctx = canvas.getContext("2d");
-      ctx.font = fontSpec;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = align;
-      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
-      lines.forEach((line, i) => {
-        const y = padding + lineHeight * i + lineHeight / 2;
-        if (outline) {
-          ctx.lineJoin = "round";
-          ctx.lineWidth = fontSizePx * 0.08;
-          ctx.strokeStyle = outlineColor;
-          ctx.strokeText(line, xPos, y);
-        }
-        ctx.fillStyle = color;
-        ctx.fillText(line, xPos, y);
+    const fams = [o.font || DEFAULT_TEXT_FONT].concat(Object.values(o.wordStyles || {}).map((w) => w.fontFamily).filter(Boolean));
+    const weight = o.weight || 600;
+    Promise.all(fams.map(ensureTextFont))
+      .then(() => Promise.all(fams.map((f) => (document.fonts && document.fonts.load ? document.fonts.load(`${textFontWeight(f, weight)} 200px ${f}`).catch(() => {}) : null))))
+      .then(() => {
+        if (cancelled) return;
+        const { canvas, refH } = drawTextCanvas(text, o);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.userData.refH = refH;
+        tex.needsUpdate = true;
+        setTexture((prev) => { if (prev) prev.dispose(); return tex; });
       });
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      setTexture(tex);
-    };
-    if (document.fonts && document.fonts.load) {
-      document.fonts.load(fontSpec).catch(() => {}).then(draw);
-    } else {
-      draw();
-    }
     return () => { cancelled = true; };
-  }, [text, color, font, weight, align, outline, outlineColor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   return texture;
 }
 
 function ObjectPreviewText({ obj, fade }) {
   const texture = useHiResTextTexture(obj.text, {
     color: obj.textColor,
+    gradient: obj.textGradient,
     font: obj.fontFamily,
     weight: obj.fontWeight,
     align: obj.textAlign,
     outline: obj.textOutline,
     outlineColor: obj.textOutlineColor,
+    letterSpacing: obj.letterSpacing,
+    lineHeight: obj.lineHeight,
+    wordStyles: obj.wordStyles,
   });
   if (!texture) return null;
-  const aspect = texture.image.width / texture.image.height;
+  const refH = texture.userData.refH || texture.image.height;
   const mesh = (
     <mesh
-      scale={[obj.scale * aspect, obj.scale, 1]}
+      scale={[(obj.scale * texture.image.width) / refH, (obj.scale * texture.image.height) / refH, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
@@ -2852,6 +3262,26 @@ function ObjectPreviewImageSvg({ obj, fade }) {
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
 }
+function ObjectPreviewVideo({ obj, fade }) {
+  const scrub = obj.videoMode !== "play";
+  const { texture, aspect, video } = useVideoTexture(obj.previewUrl || obj.url, obj.loop, scrub);
+  useFrame(() => {
+    if (!scrub || !video) return;
+    seekVideoToProgress(video, obj.scrollProgress || 0, (obj.scrubFrom ?? 0) / 100, (obj.scrubTo ?? 100) / 100);
+  });
+  if (!texture) return null;
+  const mesh = (
+    <mesh
+      scale={[obj.scale * aspect, obj.scale, 1]}
+      position={obj.billboard ? [0, 0, 0] : obj.position}
+      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+    </mesh>
+  );
+  return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
+}
 function ObjectPreviewImage({ obj, fade }) {
   return isSvgUrl(obj.url) ? <ObjectPreviewImageSvg obj={obj} fade={fade} /> : <ObjectPreviewImageRaster obj={obj} fade={fade} />;
 }
@@ -2860,6 +3290,7 @@ function ObjectPreview({ obj }) {
   if (obj.type !== "text" && !(obj.previewUrl || obj.url)) return null;
   let inner;
   if (obj.type === "text") inner = <ObjectPreviewText obj={obj} fade={fade} />;
+  else if (obj.type === "video") inner = <ObjectPreviewVideo obj={obj} fade={fade} />;
   else inner = obj.type === "image" ? <ObjectPreviewImage obj={obj} fade={fade} /> : <ObjectPreviewModel obj={obj} fade={fade} />;
   return <FadeGroup obj={obj} fade={fade}>{inner}</FadeGroup>;
 }
@@ -3458,7 +3889,11 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     type: "text",
     text: ${esc(o.text)},
     textColor: "${o.textColor || "#ffffff"}",
+    textGradient: ${o.textGradient && o.textGradient.on ? JSON.stringify({ on: true, colors: o.textGradient.colors, angle: o.textGradient.angle ?? 0 }) : "null"},
     fontFamily: ${esc(o.fontFamily || "'Inter', sans-serif")},
+    letterSpacing: ${fmtNum(o.letterSpacing || 0)},
+    lineHeight: ${fmtNum(o.lineHeight || 1.2)},
+    wordStyles: ${JSON.stringify(Object.fromEntries(Object.entries(o.wordStyles || {}).filter(([k]) => Number(k) < ((o.text || "").match(/\S+/g) || []).length)))},
     fontWeight: ${o.fontWeight || 600},
     textAlign: "${o.textAlign || "center"}",
     textOutline: ${o.textOutline ? "true" : "false"},
@@ -3470,8 +3905,12 @@ ${kfLines}
   },`;
     }
     return `  {
-    type: "${o.type === "image" ? "image" : "model"}",
+    type: "${o.type === "image" || o.type === "video" ? o.type : "model"}",
     url: "${o.url}",
+    videoMode: "${o.type === "video" && o.videoMode === "play" ? "play" : "scroll"}",
+    scrollFrom: ${fmtNum((o.scrubFrom ?? 0) / 100)},
+    scrollTo: ${fmtNum((o.scrubTo ?? 100) / 100)},
+    loop: ${o.loop === false ? "false" : "true"},
     glow: ${fmtNum(o.glow || 0)},
     shadows: ${o.shadows === false ? "false" : "true"},
     billboard: ${o.billboard ? "true" : "false"},
@@ -3508,6 +3947,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
 }
 
 /* ---- UI kit del panel ---- */
+const ANY_OBJ_EXT_RE = /\.(glb|svg|png|jpe?g|webp|mp4|webm)$/i;
 const PALETTE = ["#ff5d73", "#ffb454", "#f6e05e", "#7ee787", "#49d3ff", "#7c8cff", "#d68cff", "#ff8cc6"];
 const AXIS_COLORS = ["#ff5d73", "#7ee787", "#49d3ff"];
 const groupOpenState = {};
@@ -3535,6 +3975,7 @@ const ICONS = {
   next: <path d="M9 5l7 7-7 7" />,
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-8 8" /></>,
   text: <path d="M5 6V4h14v2M12 4v16M9 20h6" />,
+  video: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M10 9.5v5l4.5-2.5z" /></>,
   capture: <><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>,
   reset: <path d="M4 12a8 8 0 108-8M4 4v5h5" />,
 };
@@ -3573,6 +4014,120 @@ function Num({ value, onChange, step = 0.01, label, color }) {
         }}
       />
     </div>
+  );
+}
+/* Texto con estilos por palabra: quita los estilos que ya no corresponden cuando se edita el texto. */
+function remapWordStyles(oldText, newText, styles) {
+  const keys = Object.keys(styles || {});
+  if (!keys.length) return styles || {};
+  const a = (oldText || "").match(/\S+/g) || [], b = (newText || "").match(/\S+/g) || [];
+  const out = {}, taken = new Set();
+  keys.map(Number).sort((x, y) => x - y).forEach((i) => {
+    const w = a[i];
+    let j = -1;
+    if (b[i] === w && !taken.has(i)) j = i;
+    else {
+      let best = Infinity;
+      b.forEach((bw, k) => { if (bw === w && !taken.has(k) && Math.abs(k - i) < best) { best = Math.abs(k - i); j = k; } });
+      if (j < 0 && b.length === a.length && !taken.has(i)) j = i; // palabra editada en el lugar
+    }
+    if (j >= 0) { out[j] = styles[i]; taken.add(j); }
+  });
+  return out;
+}
+const WEIGHT_NAMES = { 300: "Liviana 300", 400: "Normal 400", 500: "Media 500", 600: "Semi 600", 700: "Negrita 700", 800: "Extra 800" };
+const GRADIENT_PRESETS = [
+  ["Aurora", ["#6ee7f9", "#a78bfa"]], ["Atardecer", ["#ff5f6d", "#ffc371"]], ["Océano", ["#00c6ff", "#0072ff"]],
+  ["Neón", ["#f953c6", "#4facfe"]], ["Oro", ["#f7971e", "#ffd200"]], ["Menta", ["#11998e", "#38ef7d"]], ["Arcoíris", ["#ff5f6d", "#ffd93d", "#4ade80", "#38bdf8"]],
+];
+function FontSelect({ label, value, onChange, inherit }) {
+  const groups = [...new Set(TEXT_FONTS.map((f) => f[2]))];
+  const known = TEXT_FONTS.some((f) => f[0] === value);
+  return (
+    <div className="row"><span className="lbl">{label}</span>
+      <select style={{ flex: 1 }} value={value} onChange={(e) => onChange(e.target.value)}>
+        {inherit && <option value="">(la general)</option>}
+        {!known && value && <option value={value}>{value}</option>}
+        {groups.map((g) => <optgroup key={g} label={g}>{TEXT_FONTS.filter((f) => f[2] === g).map((f) => <option key={f[0]} value={f[0]}>{f[1]}</option>)}</optgroup>)}
+      </select>
+    </div>
+  );
+}
+function GradientEditor({ colors, angle, onChange }) {
+  const cols = colors && colors.length >= 2 ? colors : DEFAULT_TEXT_GRADIENT;
+  const ang = angle ?? 0;
+  const set = (patch) => onChange({ colors: cols, angle: ang, ...patch });
+  return (
+    <>
+      <div style={{ height: 14, borderRadius: 6, border: "1px solid var(--line2)", background: `linear-gradient(${ang + 90}deg, ${cols.join(", ")})` }} />
+      <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+        {cols.map((c, i) => (
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <input type="color" value={c} onChange={(e) => set({ colors: cols.map((x, k) => (k === i ? e.target.value : x)) })} />
+            {cols.length > 2 && <button className="chip" title="Quitar color" onClick={() => set({ colors: cols.filter((_, k) => k !== i) })}>×</button>}
+          </span>
+        ))}
+        {cols.length < 4 && <button className="chip" title="Agregar color" onClick={() => set({ colors: [...cols, cols[cols.length - 1]] })}>+</button>}
+      </div>
+      <Slider label="Ángulo" min={0} max={360} step={5} value={ang} onChange={(v) => set({ angle: v })} />
+      <Presets items={GRADIENT_PRESETS} onPick={(v) => set({ colors: v })} />
+    </>
+  );
+}
+function TextStyleEditor({ o, updateObject }) {
+  const [sel, setSel] = useState(null);
+  const words = (o.text || "").match(/\S+/g) || [];
+  const ws = o.wordStyles || {};
+  const font = o.fontFamily || DEFAULT_TEXT_FONT;
+  const fontMeta = TEXT_FONTS.find((f) => f[0] === font);
+  const weights = fontMeta ? fontMeta[3] : [300, 400, 500, 600, 700];
+  const g = o.textGradient || { on: false, colors: DEFAULT_TEXT_GRADIENT, angle: 0 };
+  const up = (patch) => updateObject(o.id, patch);
+  const selOk = sel != null && sel < words.length;
+  const st = selOk ? ws[sel] || {} : {};
+  const wMode = st.mode === "gradient" ? "gradient" : st.mode === "solid" ? "solid" : "inherit";
+  const setWord = (patch) => {
+    const merged = { ...st, ...patch };
+    Object.keys(merged).forEach((k) => { if (merged[k] === undefined || merged[k] === "") delete merged[k]; });
+    const next = { ...ws };
+    if (Object.keys(merged).length) next[sel] = merged; else delete next[sel];
+    up({ wordStyles: next });
+  };
+  return (
+    <>
+      <textarea rows={3} value={o.text || ""} onChange={(e) => up({ text: e.target.value, wordStyles: remapWordStyles(o.text, e.target.value, ws) })} />
+      <FontSelect label="Fuente" value={font} onChange={(v) => up({ fontFamily: v })} />
+      <SelectRow label="Peso" value={textFontWeight(font, o.fontWeight || 600)} onChange={(v) => up({ fontWeight: Number(v) })} options={weights.map((w) => [w, WEIGHT_NAMES[w] || String(w)])} />
+      <Seg value={g.on ? "gradient" : "solid"} onChange={(v) => up({ textGradient: { ...g, on: v === "gradient", colors: g.colors || DEFAULT_TEXT_GRADIENT } })} options={[["solid", "Color"], ["gradient", "Degradé"]]} />
+      {g.on
+        ? <GradientEditor colors={g.colors} angle={g.angle} onChange={(p) => up({ textGradient: { ...g, on: true, ...p } })} />
+        : <ColorRow label="Color" value={o.textColor || "#ffffff"} onChange={(v) => up({ textColor: v })} />}
+      <Slider label="Entre letras" min={-0.1} max={1} step={0.01} value={o.letterSpacing ?? 0} onChange={(v) => up({ letterSpacing: v })} />
+      <Slider label="Interlineado" min={0.5} max={2.5} step={0.05} value={o.lineHeight ?? 1.2} onChange={(v) => up({ lineHeight: v })} />
+      <Seg value={o.textAlign || "center"} onChange={(v) => up({ textAlign: v })} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
+      <div className="row"><Switch checked={!!o.textOutline} onChange={(v) => up({ textOutline: v })} label="Contorno" />
+        {o.textOutline && <input type="color" value={o.textOutlineColor || "#000000"} onChange={(e) => up({ textOutlineColor: e.target.value })} />}</div>
+      {words.length > 0 && (
+        <>
+          <span className="lbl" style={{ marginTop: 4 }}>Por palabra (tocá una para darle otro color, degradé o fuente)</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {words.map((w, i) => (
+              <button key={i} className="chip" style={{ padding: "0 8px", ...(sel === i ? { borderColor: "var(--acc)", color: "var(--acc)" } : ws[i] ? { borderColor: "var(--acc)" } : {}) }} onClick={() => setSel(sel === i ? null : i)}>{w}</button>
+            ))}
+          </div>
+          {selOk && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, border: "1px solid var(--line2)", borderRadius: 6 }}>
+              <span className="stat">Palabra: “{words[sel]}”</span>
+              <Seg value={wMode} onChange={(v) => v === "inherit" ? setWord({ mode: undefined, color: undefined, colors: undefined, angle: undefined }) : setWord({ mode: v, ...(v === "gradient" ? { colors: st.colors || g.colors || DEFAULT_TEXT_GRADIENT, angle: st.angle ?? g.angle ?? 0 } : { color: st.color || o.textColor || "#ffffff" }) })} options={[["inherit", "General"], ["solid", "Color"], ["gradient", "Degradé"]]} />
+              {wMode === "solid" && <ColorRow label="Color" value={st.color || o.textColor || "#ffffff"} onChange={(v) => setWord({ color: v })} />}
+              {wMode === "gradient" && <GradientEditor colors={st.colors} angle={st.angle} onChange={(p) => setWord(p)} />}
+              <FontSelect label="Fuente" value={st.fontFamily || ""} onChange={(v) => setWord({ fontFamily: v })} inherit />
+              {Object.keys(st).length > 0 && <Btn onClick={() => { const next = { ...ws }; delete next[sel]; up({ wordStyles: next }); }}>Quitar estilo de esta palabra</Btn>}
+            </div>
+          )}
+        </>
+      )}
+    </>
   );
 }
 function Slider({ label, value, onChange, min, max, step = 0.01 }) {
@@ -3849,8 +4404,9 @@ function App() {
     const newId = `obj-${Date.now()}`;
     const used = objects.map((o, k) => o.color || PALETTE[k % PALETTE.length]);
     const color = PALETTE.find((c) => !used.includes(c)) || PALETTE[objects.length % PALETTE.length];
-    const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", text: "Texto" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
-    if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000" });
+    const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", video: "Video", text: "Texto" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
+    if (type === "video") Object.assign(base, { loop: true, videoMode: "scroll", scrubFrom: 0, scrubTo: 100 });
+    if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000", textGradient: { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 }, letterSpacing: 0, lineHeight: 1.2, wordStyles: {} });
     setObjects((prev) => [...prev, base]);
     setObjectTransformsByKf((prev) => ({ ...prev, [newId]: Object.fromEntries(stagesComputed.map((st) => [st.id, defaultObjectTransform()])) }));
     setSelectedObj(newId);
@@ -3940,12 +4496,24 @@ function App() {
           textAlign: o.textAlign ?? "center",
           textOutline: o.textOutline ?? false,
           textOutlineColor: o.textOutlineColor ?? "#000000",
+          textGradient: o.textGradient ?? { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 },
+          letterSpacing: o.letterSpacing ?? 0,
+          lineHeight: o.lineHeight ?? 1.2,
+          wordStyles: o.wordStyles ?? {},
         };
       }
       let url = o.url;
-      if (type === "image" && /\.glb$/i.test(url)) url = url.replace(/\.glb$/i, ".png");
-      if (type === "model" && /\.(svg|png|jpe?g|webp)$/i.test(url)) url = url.replace(/\.(svg|png|jpe?g|webp)$/i, ".glb");
-      return { ...o, type, url, previewUrl: type === "model" ? null : o.previewUrl, billboard: type === "image" ? (o.billboard ?? true) : false };
+      const wantExt = { model: ".glb", image: ".png", video: ".mp4" }[type];
+      const ownRe = { model: /\.glb$/i, image: /\.(svg|png|jpe?g|webp)$/i, video: /\.(mp4|webm)$/i }[type];
+      if (url && !ownRe.test(url) && ANY_OBJ_EXT_RE.test(url)) url = url.replace(ANY_OBJ_EXT_RE, wantExt);
+      return {
+        ...o,
+        type,
+        url,
+        previewUrl: o.type === type ? o.previewUrl : null,
+        billboard: type === "model" ? false : (o.billboard ?? true),
+        ...(type === "video" ? { loop: o.loop ?? true } : {}),
+      };
     }));
   };
   /* Subida real de archivo (SVG exportado de Corel Draw, PNG, JPG). El
@@ -3956,13 +4524,21 @@ function App() {
      esperar a que lo copies a mano. */
   const uploadObjectFile = (id, file) => {
     if (!file) return;
+    // El tipo se deduce del archivo: .glb → modelo, .mp4/.webm → video, resto → imagen.
+    let kind = null;
+    if (/\.glb$/i.test(file.name)) kind = "model";
+    else if (/\.(mp4|webm)$/i.test(file.name) || /^video\//.test(file.type)) kind = "video";
+    else if (/\.(svg|png|jpe?g|webp)$/i.test(file.name) || /^image\//.test(file.type)) kind = "image";
+    if (!kind) { window.alert("Formato no soportado. Usá .glb, .mp4, .webm, .png, .jpg, .svg o .webp"); return; }
     const blobUrl = URL.createObjectURL(file);
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const cur = objects.find((o) => o.id === id);
     updateObject(id, {
-      type: "image",
+      type: kind,
       previewUrl: blobUrl,
       url: `./assets/models/${safeName}`,
-      billboard: true,
+      billboard: kind === "model" ? false : (cur && cur.type === kind ? (cur.billboard ?? true) : true),
+      ...(kind === "video" ? { loop: cur && cur.loop !== undefined ? cur.loop : true } : {}),
     });
   };
   /* Si editás el campo "Archivo" a mano (en vez de usar "Subir
@@ -3974,7 +4550,9 @@ function App() {
       if (o.id !== id) return o;
       const isImgExt = /\.(svg|png|jpe?g|webp)$/i.test(newUrl);
       const isGlbExt = /\.glb$/i.test(newUrl);
+      const isVidExt = /\.(mp4|webm)$/i.test(newUrl);
       let patch = { url: newUrl };
+      if (isVidExt && o.type !== "video") patch = { ...patch, type: "video", billboard: o.billboard ?? true, previewUrl: null, loop: o.loop ?? true };
       if (isImgExt && o.type !== "image") patch = { ...patch, type: "image", billboard: o.billboard ?? true, previewUrl: null };
       if (isGlbExt && o.type !== "model") patch = { ...patch, type: "model", billboard: false, previewUrl: null };
       return { ...o, ...patch };
@@ -4080,12 +4658,14 @@ function App() {
   const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stagesComputed, easings) : camsByKf[activeStage];
   const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stagesComputed, easings) : movesByKf[activeStage];
   const renderFx = isPreview ? sampleFx(fxByKf, scrub, stagesComputed, easings) : fxByKf[activeStage];
+  // Progreso de scroll que ve el video en el visor: en Preview es el del slider; en edición, el de la pose activa.
+  const scrollProgressNow = isPreview ? scrub : ((stagesComputed.find((st) => st.id === activeStage) || {}).progress || 0);
   const renderObjects = useMemo(() => objects.map((o) => {
     const transforms = objectTransformsByKf[o.id];
-    if (!transforms) return { ...o, ...editFade(defaultObjectTransform()) };
+    if (!transforms) return { ...o, ...editFade(defaultObjectTransform()), scrollProgress: scrollProgressNow };
     const t = isPreview ? sampleObjectTransform(transforms, scrub, stagesComputed, easings) : editFade(transforms[activeStage] || defaultObjectTransform());
-    return { ...o, ...t };
-  }), [objects, objectTransformsByKf, isPreview, scrub, stagesComputed, easings, activeStage]);
+    return { ...o, ...t, scrollProgress: scrollProgressNow };
+  }), [objects, objectTransformsByKf, isPreview, scrub, stagesComputed, easings, activeStage, scrollProgressNow]);
   const sceneCameraActive = !freeOrbit;
 
   const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed, easings), [posesByKf, stagesComputed, easings]);
@@ -4301,9 +4881,9 @@ function App() {
 
   const renderObjectEditor = (o, idx) => {
     const c = colorOf(o, idx);
-    const isImage = o.type === "image", isText = o.type === "text", isModel = !isImage && !isText;
+    const isImage = o.type === "image", isVideo = o.type === "video", isText = o.type === "text", isModel = !isImage && !isVideo && !isText;
     const t = (objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage]) || defaultObjectTransform();
-    const mismatch = (isModel && /\.(svg|png|jpe?g|webp)$/i.test(o.url)) || (isImage && /\.glb$/i.test(o.url));
+    const mismatch = (isModel && /\.(svg|png|jpe?g|webp|mp4|webm)$/i.test(o.url)) || (isImage && /\.(glb|mp4|webm)$/i.test(o.url)) || (isVideo && /\.(glb|svg|png|jpe?g|webp)$/i.test(o.url));
     return (
       <div className="oed" style={{ "--oc": c }}>
         <div className="oed-h">
@@ -4313,32 +4893,30 @@ function App() {
             {PALETTE.map((p) => <option key={p} value={p} style={{ color: p }}>●</option>)}
           </select>
         </div>
-        <Seg value={o.type || "model"} onChange={(v) => setObjectType(o.id, v)} options={[["model", "Modelo"], ["image", "Imagen / SVG"], ["text", "Texto"]]} />
+        <Seg value={o.type || "model"} onChange={(v) => setObjectType(o.id, v)} options={[["model", "Modelo"], ["image", "Imagen / SVG"], ["video", "Video"], ["text", "Texto"]]} />
         {isText ? (
-          <>
-            <textarea rows={3} value={o.text || ""} onChange={(e) => updateObject(o.id, { text: e.target.value })} />
-            <ColorRow label="Color" value={o.textColor || "#ffffff"} onChange={(v) => updateObject(o.id, { textColor: v })} />
-            <SelectRow label="Fuente" value={o.fontFamily || "'Inter', sans-serif"} onChange={(v) => updateObject(o.id, { fontFamily: v })}
-              options={[["'Inter', sans-serif", "Inter"], ["'Space Grotesk', sans-serif", "Space Grotesk"], ["Georgia, 'Times New Roman', serif", "Serif"], ["'Courier New', monospace", "Mono"], ["system-ui, sans-serif", "Sistema"]]} />
-            <SelectRow label="Peso" value={o.fontWeight || 600} onChange={(v) => updateObject(o.id, { fontWeight: Number(v) })}
-              options={[[300, "Liviana 300"], [400, "Normal 400"], [500, "Media 500"], [600, "Semi 600"], [700, "Negrita 700"]]} />
-            <Seg value={o.textAlign || "center"} onChange={(v) => updateObject(o.id, { textAlign: v })} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
-            <div className="row"><Switch checked={!!o.textOutline} onChange={(v) => updateObject(o.id, { textOutline: v })} label="Contorno" />
-              {o.textOutline && <input type="color" value={o.textOutlineColor || "#000000"} onChange={(e) => updateObject(o.id, { textOutlineColor: e.target.value })} />}</div>
-          </>
+          <TextStyleEditor o={o} updateObject={updateObject} />
         ) : (
           <div className="row">
             <span className="lbl">Archivo</span>
-            <PathInput value={o.url} onCommit={(v) => setObjectUrl(o.id, v)} placeholder={isImage ? "./assets/models/imagen.svg" : "./assets/models/objeto.glb"} />
-            {isImage && (
-              <label className="ibtn" title="Subir imagen"><Icon name="open" size={16} />
-                <input type="file" accept=".svg,image/svg+xml,.png,.jpg,.jpeg,.webp" onChange={(e) => { uploadObjectFile(o.id, e.target.files[0]); e.target.value = ""; }} />
-              </label>
-            )}
-            {isImage && o.previewUrl && <a className="ibtn" href={o.previewUrl} download={o.url.split("/").pop()} title="Descargar archivo subido"><Icon name="export" size={16} /></a>}
+            <PathInput value={o.url} onCommit={(v) => setObjectUrl(o.id, v)} placeholder={isImage ? "./assets/models/imagen.svg" : isVideo ? "./assets/models/video.mp4" : "./assets/models/objeto.glb"} />
+            <label className="ibtn" title="Subir archivo (.glb, .mp4, .png, .jpg, .svg)"><Icon name="open" size={16} />
+              <input type="file" accept=".glb,.mp4,.webm,video/mp4,video/webm,.svg,image/svg+xml,.png,.jpg,.jpeg,.webp" onChange={(e) => { uploadObjectFile(o.id, e.target.files[0]); e.target.value = ""; }} />
+            </label>
+            {o.previewUrl && <a className="ibtn" href={o.previewUrl} download={o.url.split("/").pop()} title="Descargar archivo subido"><Icon name="export" size={16} /></a>}
           </div>
         )}
         {mismatch && <div className="warn">⚠ La extensión no coincide con el tipo</div>}
+        {isVideo && <Seg value={o.videoMode === "play" ? "play" : "scroll"} onChange={(v) => updateObject(o.id, { videoMode: v })} options={[["scroll", "Avanza con el scroll"], ["play", "Reproducción automática"]]} />}
+        {isVideo && o.videoMode !== "play" && (
+          <>
+            <Slider label="Desde %" min={0} max={100} step={1} value={o.scrubFrom ?? 0} onChange={(v) => updateObject(o.id, { scrubFrom: Math.min(v, (o.scrubTo ?? 100) - 1) })} />
+            <Slider label="Hasta %" min={0} max={100} step={1} value={o.scrubTo ?? 100} onChange={(v) => updateObject(o.id, { scrubTo: Math.max(v, (o.scrubFrom ?? 0) + 1) })} />
+            <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>El video avanza y retrocede con el scroll: arranca en "Desde" y termina en "Hasta" (% del scroll total de la página). En Preview o cambiando de pose lo ves moverse.</div>
+          </>
+        )}
+        {isVideo && o.videoMode === "play" && <Switch checked={o.loop !== false} onChange={(v) => updateObject(o.id, { loop: v })} label="Repetir en loop" />}
+        {isVideo && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Va siempre sin sonido. Copiá el archivo a assets/models/ junto al index.html. Para que avance fluido, exportalo con un keyframe cada 2 cuadros (ffmpeg -g 2).</div>}
         {isModel && <Slider label="Brillo" min={0} max={3} step={0.05} value={o.glow || 0} onChange={(v) => updateObject(o.id, { glow: v })} />}
         {isModel && <Switch checked={o.shadows !== false} onChange={(v) => updateObject(o.id, { shadows: v })} label="Sombras (proyecta / recibe)" />}
         {!isModel && <Switch checked={!!o.billboard} onChange={(v) => updateObject(o.id, { billboard: v })} label="Billboard (mira a cámara)" />}
@@ -4558,6 +5136,7 @@ function App() {
                 <div className="tools">
                   <Btn icon="cube" onClick={() => addObject("model")}>Modelo</Btn>
                   <Btn icon="image" onClick={() => addObject("image")}>Imagen</Btn>
+                  <Btn icon="video" onClick={() => addObject("video")}>Video</Btn>
                   <Btn icon="text" onClick={() => addObject("text")}>Texto</Btn>
                   <span className="grow" />
                   <IBtn icon="copy" title="Todos desde la pose anterior" disabled={stageIndex <= 0 || !objects.length} onClick={copyAllObjectTransformsFromPrev} />
@@ -4566,7 +5145,7 @@ function App() {
                 <div className="outliner">
                   {objects.map((o, i) => (
                     <div key={o.id} className={`orow ${selObj && selObj.id === o.id ? "sel" : ""} ${o.visible && !(objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage] && objectTransformsByKf[o.id][activeStage].hidden) ? "" : "off"}`} style={{ "--oc": colorOf(o, i) }} onClick={() => setSelectedObj(o.id)}>
-                      <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "image" ? "image" : "cube"} size={15} /></span>
+                      <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
                       <span className="oname">{o.label}</span>
                       <button className="mini" title="Visible" onClick={(e) => { e.stopPropagation(); updateObject(o.id, { visible: !o.visible }); }}><Icon name={o.visible ? "eye" : "eyeoff"} size={14} /></button>
                       <button className="mini danger" title="Eliminar" onClick={(e) => { e.stopPropagation(); removeObject(o.id); }}><Icon name="trash" size={14} /></button>
