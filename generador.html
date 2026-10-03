@@ -22,6 +22,15 @@
   .mk { pointer-events:none; white-space:nowrap; font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:10px; color:#0a0c11; background:var(--oc); opacity:.85; transform:translateY(-4px); }
   .mk.sel { opacity:1; box-shadow:0 0 0 2px #fff; }
   .mobile-frame { position:absolute; top:0; left:0; pointer-events:none; z-index:4; border:1.5px solid var(--acc); box-shadow:0 0 0 2000px rgba(0,0,0,.45); border-radius:14px; }
+  .scene-box { position:absolute; inset:0; }
+  .phone-bg { position:absolute; pointer-events:none; border-radius:14px; }
+  .phone-split { position:absolute; left:0; right:0; border-top:1.5px dashed var(--acc); opacity:.8; }
+  .phone-dock { position:absolute; left:0; right:0; bottom:0; display:flex; flex-direction:column; justify-content:space-evenly; gap:4px; padding:6px 8px; background:rgba(10,12,17,.38); border-radius:0 0 14px 14px; }
+  .phone-dock .pd-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .phone-dock .pd-btn, .phone-dock .pd-day { background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3); border-radius:9px; color:#fff; font:600 8px ui-monospace, Menlo, monospace; letter-spacing:.12em; display:flex; align-items:center; justify-content:center; min-height:20px; }
+  .phone-dock .pd-days { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .phone-dock .pd-day { min-height:24px; }
+  .phone-dock .pd-t { color:#fff; font:600 8px ui-monospace, Menlo, monospace; letter-spacing:.2em; opacity:.9; }
   .mobile-frame__label { position:absolute; top:-22px; left:0; font-size:10.5px; color:var(--acc); background:rgba(10,12,17,.75); padding:2px 6px; border-radius:4px; white-space:nowrap; }
 
   /* panel */
@@ -61,7 +70,7 @@
   .btn.acc { background:var(--acc); color:#04212b; border-color:var(--acc); font-weight:600; }
   .btn.danger { color:var(--danger); border-color:rgba(255,107,125,.4); }
   .tools { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-  input[type=text], select, textarea { background:var(--bg0); color:var(--tx); border:1px solid var(--line2); border-radius:5px; padding:5px 7px; font:12px system-ui, sans-serif; min-width:0; }
+  input[type=text], input[type=time], input[type=number], select, textarea { background:var(--bg0); color:var(--tx); border:1px solid var(--line2); border-radius:5px; padding:5px 7px; font:12px system-ui, sans-serif; min-width:0; }
   input[type=text]:focus, select:focus, textarea:focus { outline:none; border-color:var(--acc); }
   select option { background:var(--bg1); }
   input[type=color] { width:30px; height:22px; padding:0; border:1px solid var(--line2); border-radius:4px; background:none; cursor:pointer; }
@@ -377,6 +386,45 @@
   .scroll-spacer { width: 100%; }
 
   .app-root--scrolled .scroll-hint { opacity: 0; pointer-events: none; }
+
+  /* ---- Modo celular: 66% animación + zona fija abajo ---- */
+  .scene-canvas { position: absolute; inset: 0; }
+  .app-root--phone { --phone-w: min(100vw, calc(100vh * 9 / 16)); --phone-w: min(100vw, calc(100dvh * 9 / 16)); }
+  .app-root--phone .canvas-stage { inset: 0 0 auto 0; margin: 0 auto; width: var(--phone-w); height: 100vh; height: 100dvh; }
+  .app-root--phone .scene-canvas { inset: 0 0 auto 0; height: calc(var(--split) * 1%); }
+  .app-root--phone .scene-text-layer { bottom: calc((100 - var(--split)) * 1%); }
+  .app-root--phone .progress-rail { position: absolute; right: 10px; top: calc(var(--split) * 0.5%); height: 22%; }
+  .app-root--phone .scroll-hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc((100 - var(--split)) * 1% + 10px); }
+  .app-root--phone .cta-layer { display: none; }
+  .dock { position: fixed; z-index: 8; left: 0; right: 0; bottom: 0; margin: 0 auto; width: var(--phone-w);
+    height: calc((100 - var(--split)) * 1vh); height: calc((100 - var(--split)) * 1dvh);
+    padding: 8px 14px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px;
+    font-family: var(--font-body); color: #fff; --dock-accent: var(--brand-accent); }
+  .dock__btn, .dock__day, .dock__arrow { background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.28); color: inherit;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-family: inherit; }
+  .dock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dock__btn { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 16px; text-decoration: none; min-width: 0; }
+  .dock__ico { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.55); display: grid; place-items: center; }
+  .dock__ico svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .dock__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .dock__txt b { font-weight: 600; font-size: 11px; line-height: 1; letter-spacing: .18em; }
+  .dock__txt small { font-weight: 500; font-size: 8.5px; line-height: 1; letter-spacing: .14em; opacity: .85; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .dock__txt small i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); flex: none; }
+  .dock__txt small.is-open i { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+  .dock__turn-head { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+  .dock__turn-head svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 1.5; flex: none; }
+  .dock__turn-head b { font-weight: 600; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; }
+  .dock__confirm { margin-left: auto; padding: 8px 12px; border-radius: 999px; background: var(--dock-accent); color: #0a0a0a; font-weight: 600; font-size: 10px; line-height: 1; letter-spacing: .06em; text-decoration: none; white-space: nowrap; }
+  .dock__days-wrap { display: flex; align-items: center; gap: 6px; }
+  .dock__days { flex: 1; display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .dock__days::-webkit-scrollbar { display: none; }
+  .dock__day { flex: 0 0 calc((100% - 36px) / 7); scroll-snap-align: start; border-radius: 12px; padding: 7px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+  .dock__day span { font-size: 8.5px; letter-spacing: .12em; opacity: .8; }
+  .dock__day b { font-size: 17px; font-weight: 600; line-height: 1; }
+  .dock__day em { font-size: 7.5px; opacity: .8; font-style: normal; line-height: 1; }
+  .dock__day.is-sel { background: var(--dock-accent); color: #0a0a0a; border-color: transparent; }
+  .dock__day.is-closed { opacity: .4; cursor: default; }
+  .dock__arrow { flex: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 16px; line-height: 1; padding: 0; }
 </style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
@@ -742,6 +790,23 @@ const TRAIL_SIZE = 0.05;
 const TRAIL_LIFE = 0.9;
 const TRAIL_RATE = 40;
 /*@GEN:TRAIL_END*/
+
+/*@GEN:DOCK_START*/
+const DOCK = {
+  "enabled": true,
+  "splitPct": 66,
+  "whatsappPhone": "",
+  "whatsappMessage": "Hola! Quisiera hacer una consulta.",
+  "address": "",
+  "mapUrl": "",
+  "timezone": "America/Argentina/Buenos_Aires",
+  "schedule": [null, ["09:00", "19:00"], ["09:00", "19:00"], ["09:00", "19:00"], ["09:00", "19:00"], ["09:00", "19:00"], ["09:00", "13:00"]],
+  "turneroTitle": "Sacá tu turno",
+  "turneroDays": 14,
+  "turneroMessage": "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
+  "accent": ""
+};
+/*@GEN:DOCK_END*/
 
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
@@ -1648,77 +1713,194 @@ function seekVideoToProgress(video, p, from, to) {
    pero en vez de rasterizar un archivo, dibuja el string directamente.
    Respeta saltos de línea manuales ("\n"); no hace auto-wrap, así el
    usuario controla dónde corta cada renglón. */
+/* ---- Catálogo de tipografías ----
+   [valor CSS, nombre, grupo, pesos disponibles, ¿es de Google Fonts? (1/0)]
+   Las de Google Fonts se cargan solas en el momento (ensureTextFont). */
+const DEFAULT_TEXT_FONT = "'Inter', sans-serif";
+const TEXT_FONTS = [
+  ["'Inter', sans-serif", "Inter", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Space Grotesk', sans-serif", "Space Grotesk", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Poppins', sans-serif", "Poppins", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Montserrat', sans-serif", "Montserrat", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Outfit', sans-serif", "Outfit", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Manrope', sans-serif", "Manrope", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'DM Sans', sans-serif", "DM Sans", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Raleway', sans-serif", "Raleway", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Syne', sans-serif", "Syne", "Sans-serif", [400, 500, 600, 700, 800], 1],
+  ["'Unbounded', sans-serif", "Unbounded", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Oswald', sans-serif", "Oswald", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Fredoka', sans-serif", "Fredoka", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Bebas Neue', sans-serif", "Bebas Neue", "Display", [400], 1],
+  ["'Anton', sans-serif", "Anton", "Display", [400], 1],
+  ["'Archivo Black', sans-serif", "Archivo Black", "Display", [400], 1],
+  ["'Righteous', sans-serif", "Righteous", "Display", [400], 1],
+  ["'Lilita One', sans-serif", "Lilita One", "Display", [400], 1],
+  ["'Bungee', sans-serif", "Bungee", "Display", [400], 1],
+  ["'Playfair Display', serif", "Playfair Display", "Serif", [400, 500, 600, 700, 800], 1],
+  ["'Cormorant Garamond', serif", "Cormorant Garamond", "Serif", [300, 400, 500, 600, 700], 1],
+  ["'Lora', serif", "Lora", "Serif", [400, 500, 600, 700], 1],
+  ["'DM Serif Display', serif", "DM Serif Display", "Serif", [400], 1],
+  ["'Abril Fatface', serif", "Abril Fatface", "Serif", [400], 1],
+  ["'Pacifico', cursive", "Pacifico", "Manuscritas", [400], 1],
+  ["'Lobster', cursive", "Lobster", "Manuscritas", [400], 1],
+  ["'Dancing Script', cursive", "Dancing Script", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Caveat', cursive", "Caveat", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Satisfy', cursive", "Satisfy", "Manuscritas", [400], 1],
+  ["'Permanent Marker', cursive", "Permanent Marker", "Manuscritas", [400], 1],
+  ["'JetBrains Mono', monospace", "JetBrains Mono", "Monoespaciadas", [300, 400, 500, 600, 700], 1],
+  ["'Space Mono', monospace", "Space Mono", "Monoespaciadas", [400, 700], 1],
+  ["'Press Start 2P', monospace", "Press Start 2P", "Monoespaciadas", [400], 1],
+  ["Georgia, 'Times New Roman', serif", "Georgia", "Sistema", [400, 700], 0],
+  ["'Courier New', monospace", "Courier New", "Sistema", [400, 700], 0],
+  ["system-ui, sans-serif", "Sistema", "Sistema", [400, 700], 0],
+];
+const DEFAULT_TEXT_GRADIENT = ["#6ee7f9", "#a78bfa"];
+const _textFontLoads = {};
+function ensureTextFont(family) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f || !f[4]) return Promise.resolve();
+  if (_textFontLoads[f[1]]) return _textFontLoads[f[1]];
+  const fam = f[1].replace(/ /g, "+") + (f[3].length > 1 ? ":wght@" + f[3].join(";") : "");
+  _textFontLoads[f[1]] = new Promise((res) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" + fam + "&display=swap";
+    link.onload = () => res();
+    link.onerror = () => res();
+    document.head.appendChild(link);
+  });
+  return _textFontLoads[f[1]];
+}
+/* Peso más cercano que la fuente realmente tiene (evita "negrita falsa"). */
+function textFontWeight(family, weight) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f) return weight;
+  return f[3].reduce((b, w) => (Math.abs(w - weight) < Math.abs(b - weight) ? w : b), f[3][0]);
+}
+/* Relleno de un tramo: color sólido o degradé lineal. angle: 0 = izq→der, 90 = arriba→abajo.
+   rect = zona que cubre el degradé (todo el bloque de texto, o una sola palabra). */
+function makeCanvasFill(ctx, spec, r) {
+  const cols = spec.colors && spec.colors.length ? spec.colors : DEFAULT_TEXT_GRADIENT;
+  if (spec.mode !== "gradient") return spec.color || "#ffffff";
+  const a = (((spec.angle == null ? 0 : spec.angle) % 360) * Math.PI) / 180;
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const half = (Math.abs(r.w * dx) + Math.abs(r.h * dy)) / 2 || 1;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  cols.forEach((c, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), c));
+  return g;
+}
+/* Dibuja el texto completo en un canvas.
+   Por palabra se puede cambiar relleno (color/degradé) y tipografía:
+   opts.wordStyles = { "<n° de palabra, desde 0>": { mode, color, colors, angle, fontFamily } }.
+   Devuelve { canvas, refH }: refH es la altura "de referencia" (la que tenía el
+   texto antes de tocar interlineado/espaciado), así cambiar el interlineado
+   no agranda ni achica las letras en la escena. */
+function drawTextCanvas(text, o) {
+  const FS = 200;
+  const baseFont = o.font || DEFAULT_TEXT_FONT;
+  const baseWeight = o.weight || 600;
+  const ls = (o.letterSpacing || 0) * FS;
+  const lineH = FS * (o.lineHeight || 1.2);
+  const pad = FS * 0.25;
+  const wordStyles = o.wordStyles || {};
+  const mctx = document.createElement("canvas").getContext("2d");
+  const specOf = (fam) => `${textFontWeight(fam, baseWeight)} ${FS}px ${fam}`;
+  let wi = 0;
+  const lines = String(text || "").split("\n").map((line) => {
+    const words = (line.match(/\S+/g) || []).map((w) => {
+      const st = wordStyles[wi] || null;
+      wi++;
+      const spec = specOf((st && st.fontFamily) || baseFont);
+      mctx.font = spec;
+      const chars = Array.from(w);
+      return { w, chars, st, spec, width: mctx.measureText(w).width + Math.max(0, chars.length - 1) * ls };
+    });
+    mctx.font = specOf(baseFont);
+    const spaceW = mctx.measureText(" ").width + ls;
+    const width = words.reduce((a, b) => a + b.width, 0) + Math.max(0, words.length - 1) * spaceW;
+    return { words, width, spaceW };
+  });
+  const n = lines.length;
+  const maxW = Math.max(1, ...lines.map((l) => l.width));
+  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + pad * 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = FS * 0.08;
+  ctx.strokeStyle = o.outlineColor || "#000000";
+  const g = o.gradient;
+  const baseFill = { mode: g && g.on ? "gradient" : "solid", color: o.color || "#ffffff", colors: g && g.colors, angle: g && g.angle };
+  const block = { x: pad, y: pad, w: W - pad * 2, h: n * lineH };
+  const align = o.align || "center";
+  lines.forEach((ln, i) => {
+    const y = pad + lineH * i + lineH / 2;
+    let x = align === "left" ? pad : align === "right" ? W - pad - ln.width : (W - ln.width) / 2;
+    ln.words.forEach((wd) => {
+      ctx.font = wd.spec;
+      const st = wd.st;
+      const own = st && st.mode;
+      const fillSpec = own ? { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle } : baseFill;
+      const rect = own ? { x, y: pad + lineH * i, w: wd.width, h: lineH } : block;
+      ctx.fillStyle = makeCanvasFill(ctx, fillSpec, rect);
+      const draw = (fn) => {
+        if (ls === 0) fn(wd.w, x);
+        else wd.chars.forEach((ch, k) => fn(ch, x + ctx.measureText(wd.chars.slice(0, k).join("")).width + k * ls));
+      };
+      if (o.outline) draw((t, px) => ctx.strokeText(t, px, y));
+      draw((t, px) => ctx.fillText(t, px, y));
+      x += wd.width + ln.spaceW;
+    });
+  });
+  return { canvas, refH: n * FS * 1.2 + FS * 0.5 };
+}
 function useHiResTextTexture(text, opts) {
-  const {
-    color = "#ffffff",
-    font = "'Inter', sans-serif",
-    weight = 600,
-    align = "center",
-    outline = false,
-    outlineColor = "#000000",
-  } = opts || {};
+  const o = opts || {};
+  const key = JSON.stringify([text, o]);
   const [texture, setTexture] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    const fontSizePx = 200;
-    const lineHeight = fontSizePx * 1.2;
-    const padding = fontSizePx * 0.25;
-    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
-    const draw = () => {
-      if (cancelled) return;
-      const lines = (text || "").split("\n");
-      const measureCanvas = document.createElement("canvas");
-      const mctx = measureCanvas.getContext("2d");
-      mctx.font = fontSpec;
-      let maxLineWidth = 1;
-      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(maxLineWidth + padding * 2);
-      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
-      const ctx = canvas.getContext("2d");
-      ctx.font = fontSpec;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = align;
-      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
-      lines.forEach((line, i) => {
-        const y = padding + lineHeight * i + lineHeight / 2;
-        if (outline) {
-          ctx.lineJoin = "round";
-          ctx.lineWidth = fontSizePx * 0.08;
-          ctx.strokeStyle = outlineColor;
-          ctx.strokeText(line, xPos, y);
-        }
-        ctx.fillStyle = color;
-        ctx.fillText(line, xPos, y);
+    const fams = [o.font || DEFAULT_TEXT_FONT].concat(Object.values(o.wordStyles || {}).map((w) => w.fontFamily).filter(Boolean));
+    const weight = o.weight || 600;
+    Promise.all(fams.map(ensureTextFont))
+      .then(() => Promise.all(fams.map((f) => (document.fonts && document.fonts.load ? document.fonts.load(`${textFontWeight(f, weight)} 200px ${f}`).catch(() => {}) : null))))
+      .then(() => {
+        if (cancelled) return;
+        const { canvas, refH } = drawTextCanvas(text, o);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.userData.refH = refH;
+        tex.needsUpdate = true;
+        setTexture((prev) => { if (prev) prev.dispose(); return tex; });
       });
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      setTexture(tex);
-    };
-    if (document.fonts && document.fonts.load) {
-      document.fonts.load(fontSpec).catch(() => {}).then(draw);
-    } else {
-      draw();
-    }
     return () => { cancelled = true; };
-  }, [text, color, font, weight, align, outline, outlineColor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   return texture;
 }
 
 function SceneObjectText({ data }) {
   const texture = useHiResTextTexture(data.text, {
     color: data.textColor,
+    gradient: data.textGradient,
     font: data.fontFamily,
     weight: data.fontWeight,
     align: data.textAlign,
     outline: data.textOutline,
     outlineColor: data.textOutlineColor,
+    letterSpacing: data.letterSpacing,
+    lineHeight: data.lineHeight,
+    wordStyles: data.wordStyles,
   });
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
-  const aspect = texture.image.width / texture.image.height;
+  const refH = texture.userData.refH || texture.image.height;
   const mesh = (
-    <mesh scale={[aspect, 1, 1]}>
+    <mesh scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
@@ -2214,6 +2396,92 @@ function CursorTrail() {
   return <canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" />;
 }
 
+/* ---- Zona fija de abajo (WhatsApp · Cómo llegar · Turnero) ----
+   Los datos salen del bloque DOCK (se editan en la herramienta, pestaña Config). */
+const DOCK_DOW = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+const DOCK_DOW_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const dockMin = (hhmm) => { const p = String(hhmm).split(":").map(Number); return p[0] * 60 + (p[1] || 0); };
+function dockNow() {
+  let parts;
+  const opts = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false };
+  try { parts = new Intl.DateTimeFormat("en-CA", { ...opts, timeZone: DOCK.timezone }).formatToParts(new Date()); }
+  catch (e) { parts = new Intl.DateTimeFormat("en-CA", opts).formatToParts(new Date()); }
+  const g = (t) => Number(parts.find((p) => p.type === t).value);
+  return { y: g("year"), m: g("month"), d: g("day"), minutes: (g("hour") % 24) * 60 + g("minute") };
+}
+function dockDays(n) {
+  const now = dockNow();
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const dt = new Date(Date.UTC(now.y, now.m - 1, now.d + i, 12));
+    const dow = dt.getUTCDay();
+    const slot = DOCK.schedule[dow];
+    let open = !!slot;
+    if (open && i === 0 && now.minutes >= dockMin(slot[1])) open = false; // hoy ya cerró
+    out.push({ i, open, label: DOCK_DOW[dow], long: DOCK_DOW_LONG[dow], day: dt.getUTCDate(), month: dt.getUTCMonth() + 1 });
+  }
+  return out;
+}
+function dockStatus() {
+  const now = dockNow();
+  const dow = new Date(Date.UTC(now.y, now.m - 1, now.d, 12)).getUTCDay();
+  const slot = DOCK.schedule[dow];
+  if (slot && now.minutes >= dockMin(slot[0]) && now.minutes < dockMin(slot[1])) return { open: true, text: "ABIERTO AHORA" };
+  if (slot && now.minutes < dockMin(slot[0])) return { open: false, text: "ABRE HOY " + slot[0] };
+  for (let k = 1; k <= 7; k++) {
+    const d = (dow + k) % 7;
+    if (DOCK.schedule[d]) return { open: false, text: "ABRE " + (k === 1 ? "MAÑANA" : DOCK_DOW[d]) + " " + DOCK.schedule[d][0] };
+  }
+  return { open: false, text: "CERRADO" };
+}
+function Dock() {
+  const days = useMemo(() => dockDays(DOCK.turneroDays || 14), []);
+  const [sel, setSel] = useState(null);
+  const [status, setStatus] = useState(dockStatus);
+  const stripRef = useRef(null);
+  useEffect(() => {
+    const t = setInterval(() => setStatus(dockStatus()), 60000);
+    return () => clearInterval(t);
+  }, []);
+  const wa = (msg) => "https://wa.me/" + String(DOCK.whatsappPhone || "").replace(/\D/g, "") + "?text=" + encodeURIComponent(msg || "");
+  const mapHref = DOCK.mapUrl || "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(DOCK.address || "");
+  const chosen = sel != null ? days[sel] : null;
+  const scrollDays = (dir) => { const el = stripRef.current; if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" }); };
+  const confirmMsg = chosen ? String(DOCK.turneroMessage || "").replace("{dia}", chosen.long + " " + chosen.day + "/" + chosen.month) : "";
+  return (
+    <div className="dock" style={DOCK.accent ? { "--dock-accent": DOCK.accent } : undefined}>
+      <div className="dock__row">
+        <a className="dock__btn" href={wa(DOCK.whatsappMessage)} target="_blank" rel="noopener">
+          <span className="dock__ico"><svg viewBox="0 0 24 24"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 8 19.6z" /><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.5-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z" /></svg></span>
+          <span className="dock__txt"><b>WHATSAPP</b><small className={status.open ? "is-open" : ""}><i />{status.text}</small></span>
+        </a>
+        <a className="dock__btn" href={mapHref} target="_blank" rel="noopener">
+          <span className="dock__ico"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.800 12 21 12 21z" /><circle cx="12" cy="9.500" r="2.500" /></svg></span>
+          <span className="dock__txt"><b>CÓMO LLEGAR</b><small>VER EN EL MAPA</small></span>
+        </a>
+      </div>
+      <div>
+        <div className="dock__turn-head">
+          <svg viewBox="0 0 24 24"><rect x="3.500" y="5" width="17" height="15.500" rx="2.500" /><path d="M3.500 10h17M8 3v4M16 3v4" /></svg>
+          <b>{DOCK.turneroTitle}</b>
+          {chosen && <a className="dock__confirm" href={wa(confirmMsg)} target="_blank" rel="noopener">Pedir turno · {chosen.label} {chosen.day} ›</a>}
+        </div>
+        <div className="dock__days-wrap" style={{ marginTop: 6 }}>
+          <button className="dock__arrow" aria-label="Días anteriores" onClick={() => scrollDays(-1)}>‹</button>
+          <div className="dock__days" ref={stripRef}>
+            {days.map((d) => (
+              <button key={d.i} disabled={!d.open} className={"dock__day" + (!d.open ? " is-closed" : "") + (sel === d.i ? " is-sel" : "")} onClick={() => setSel(sel === d.i ? null : d.i)}>
+                <span>{d.label}</span><b>{d.day}</b>{!d.open && <em>cerrado</em>}
+              </button>
+            ))}
+          </div>
+          <button className="dock__arrow" aria-label="Días siguientes" onClick={() => scrollDays(1)}>›</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const spacerRef = useRef(null);
   const stageRef = useRef(null);
@@ -2229,8 +2497,9 @@ function App() {
 
   return (
     <div
-      className="app-root"
+      className={"app-root" + (DOCK.enabled ? " app-root--phone" : "")}
       style={{
+        "--split": DOCK.splitPct || 66,
         "--brand-accent": clientConfig.colors.accent,
         "--brand-accent-2": clientConfig.colors.accentSecondary,
         "--color-bg": clientConfig.colors.background,
@@ -2241,14 +2510,16 @@ function App() {
       }}
     >
       <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
-        <Canvas
-          dpr={device.dpr}
-          shadows="soft"
-          gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-          camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
-        >
-          <Experience device={device} />
-        </Canvas>
+        <div className="scene-canvas">
+          <Canvas
+            dpr={device.dpr}
+            shadows="soft"
+            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+            camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
+          >
+            <Experience device={device} />
+          </Canvas>
+        </div>
         <BackgroundGradient stageRef={stageRef} />
         {VIGNETTE_ENABLED && (
           <div
@@ -2271,6 +2542,7 @@ function App() {
         </div>
       </div>
       <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
+      {DOCK.enabled && <Dock />}
     </div>
   );
 }
@@ -2916,77 +3188,194 @@ function seekVideoToProgress(video, p, from, to) {
 /* Misma implementación que en la plantilla final (ver tpl-source),
    para que el texto se vea igual acá en el visor y en el index.html
    exportado. */
+/* ---- Catálogo de tipografías ----
+   [valor CSS, nombre, grupo, pesos disponibles, ¿es de Google Fonts? (1/0)]
+   Las de Google Fonts se cargan solas en el momento (ensureTextFont). */
+const DEFAULT_TEXT_FONT = "'Inter', sans-serif";
+const TEXT_FONTS = [
+  ["'Inter', sans-serif", "Inter", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Space Grotesk', sans-serif", "Space Grotesk", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Poppins', sans-serif", "Poppins", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Montserrat', sans-serif", "Montserrat", "Sans-serif", [300, 400, 500, 600, 700, 800], 1],
+  ["'Outfit', sans-serif", "Outfit", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Manrope', sans-serif", "Manrope", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'DM Sans', sans-serif", "DM Sans", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Raleway', sans-serif", "Raleway", "Sans-serif", [300, 400, 500, 600, 700], 1],
+  ["'Syne', sans-serif", "Syne", "Sans-serif", [400, 500, 600, 700, 800], 1],
+  ["'Unbounded', sans-serif", "Unbounded", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Oswald', sans-serif", "Oswald", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Fredoka', sans-serif", "Fredoka", "Display", [300, 400, 500, 600, 700], 1],
+  ["'Bebas Neue', sans-serif", "Bebas Neue", "Display", [400], 1],
+  ["'Anton', sans-serif", "Anton", "Display", [400], 1],
+  ["'Archivo Black', sans-serif", "Archivo Black", "Display", [400], 1],
+  ["'Righteous', sans-serif", "Righteous", "Display", [400], 1],
+  ["'Lilita One', sans-serif", "Lilita One", "Display", [400], 1],
+  ["'Bungee', sans-serif", "Bungee", "Display", [400], 1],
+  ["'Playfair Display', serif", "Playfair Display", "Serif", [400, 500, 600, 700, 800], 1],
+  ["'Cormorant Garamond', serif", "Cormorant Garamond", "Serif", [300, 400, 500, 600, 700], 1],
+  ["'Lora', serif", "Lora", "Serif", [400, 500, 600, 700], 1],
+  ["'DM Serif Display', serif", "DM Serif Display", "Serif", [400], 1],
+  ["'Abril Fatface', serif", "Abril Fatface", "Serif", [400], 1],
+  ["'Pacifico', cursive", "Pacifico", "Manuscritas", [400], 1],
+  ["'Lobster', cursive", "Lobster", "Manuscritas", [400], 1],
+  ["'Dancing Script', cursive", "Dancing Script", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Caveat', cursive", "Caveat", "Manuscritas", [400, 500, 600, 700], 1],
+  ["'Satisfy', cursive", "Satisfy", "Manuscritas", [400], 1],
+  ["'Permanent Marker', cursive", "Permanent Marker", "Manuscritas", [400], 1],
+  ["'JetBrains Mono', monospace", "JetBrains Mono", "Monoespaciadas", [300, 400, 500, 600, 700], 1],
+  ["'Space Mono', monospace", "Space Mono", "Monoespaciadas", [400, 700], 1],
+  ["'Press Start 2P', monospace", "Press Start 2P", "Monoespaciadas", [400], 1],
+  ["Georgia, 'Times New Roman', serif", "Georgia", "Sistema", [400, 700], 0],
+  ["'Courier New', monospace", "Courier New", "Sistema", [400, 700], 0],
+  ["system-ui, sans-serif", "Sistema", "Sistema", [400, 700], 0],
+];
+const DEFAULT_TEXT_GRADIENT = ["#6ee7f9", "#a78bfa"];
+const _textFontLoads = {};
+function ensureTextFont(family) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f || !f[4]) return Promise.resolve();
+  if (_textFontLoads[f[1]]) return _textFontLoads[f[1]];
+  const fam = f[1].replace(/ /g, "+") + (f[3].length > 1 ? ":wght@" + f[3].join(";") : "");
+  _textFontLoads[f[1]] = new Promise((res) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" + fam + "&display=swap";
+    link.onload = () => res();
+    link.onerror = () => res();
+    document.head.appendChild(link);
+  });
+  return _textFontLoads[f[1]];
+}
+/* Peso más cercano que la fuente realmente tiene (evita "negrita falsa"). */
+function textFontWeight(family, weight) {
+  const f = TEXT_FONTS.find((x) => x[0] === family);
+  if (!f) return weight;
+  return f[3].reduce((b, w) => (Math.abs(w - weight) < Math.abs(b - weight) ? w : b), f[3][0]);
+}
+/* Relleno de un tramo: color sólido o degradé lineal. angle: 0 = izq→der, 90 = arriba→abajo.
+   rect = zona que cubre el degradé (todo el bloque de texto, o una sola palabra). */
+function makeCanvasFill(ctx, spec, r) {
+  const cols = spec.colors && spec.colors.length ? spec.colors : DEFAULT_TEXT_GRADIENT;
+  if (spec.mode !== "gradient") return spec.color || "#ffffff";
+  const a = (((spec.angle == null ? 0 : spec.angle) % 360) * Math.PI) / 180;
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const half = (Math.abs(r.w * dx) + Math.abs(r.h * dy)) / 2 || 1;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  cols.forEach((c, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), c));
+  return g;
+}
+/* Dibuja el texto completo en un canvas.
+   Por palabra se puede cambiar relleno (color/degradé) y tipografía:
+   opts.wordStyles = { "<n° de palabra, desde 0>": { mode, color, colors, angle, fontFamily } }.
+   Devuelve { canvas, refH }: refH es la altura "de referencia" (la que tenía el
+   texto antes de tocar interlineado/espaciado), así cambiar el interlineado
+   no agranda ni achica las letras en la escena. */
+function drawTextCanvas(text, o) {
+  const FS = 200;
+  const baseFont = o.font || DEFAULT_TEXT_FONT;
+  const baseWeight = o.weight || 600;
+  const ls = (o.letterSpacing || 0) * FS;
+  const lineH = FS * (o.lineHeight || 1.2);
+  const pad = FS * 0.25;
+  const wordStyles = o.wordStyles || {};
+  const mctx = document.createElement("canvas").getContext("2d");
+  const specOf = (fam) => `${textFontWeight(fam, baseWeight)} ${FS}px ${fam}`;
+  let wi = 0;
+  const lines = String(text || "").split("\n").map((line) => {
+    const words = (line.match(/\S+/g) || []).map((w) => {
+      const st = wordStyles[wi] || null;
+      wi++;
+      const spec = specOf((st && st.fontFamily) || baseFont);
+      mctx.font = spec;
+      const chars = Array.from(w);
+      return { w, chars, st, spec, width: mctx.measureText(w).width + Math.max(0, chars.length - 1) * ls };
+    });
+    mctx.font = specOf(baseFont);
+    const spaceW = mctx.measureText(" ").width + ls;
+    const width = words.reduce((a, b) => a + b.width, 0) + Math.max(0, words.length - 1) * spaceW;
+    return { words, width, spaceW };
+  });
+  const n = lines.length;
+  const maxW = Math.max(1, ...lines.map((l) => l.width));
+  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + pad * 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = FS * 0.08;
+  ctx.strokeStyle = o.outlineColor || "#000000";
+  const g = o.gradient;
+  const baseFill = { mode: g && g.on ? "gradient" : "solid", color: o.color || "#ffffff", colors: g && g.colors, angle: g && g.angle };
+  const block = { x: pad, y: pad, w: W - pad * 2, h: n * lineH };
+  const align = o.align || "center";
+  lines.forEach((ln, i) => {
+    const y = pad + lineH * i + lineH / 2;
+    let x = align === "left" ? pad : align === "right" ? W - pad - ln.width : (W - ln.width) / 2;
+    ln.words.forEach((wd) => {
+      ctx.font = wd.spec;
+      const st = wd.st;
+      const own = st && st.mode;
+      const fillSpec = own ? { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle } : baseFill;
+      const rect = own ? { x, y: pad + lineH * i, w: wd.width, h: lineH } : block;
+      ctx.fillStyle = makeCanvasFill(ctx, fillSpec, rect);
+      const draw = (fn) => {
+        if (ls === 0) fn(wd.w, x);
+        else wd.chars.forEach((ch, k) => fn(ch, x + ctx.measureText(wd.chars.slice(0, k).join("")).width + k * ls));
+      };
+      if (o.outline) draw((t, px) => ctx.strokeText(t, px, y));
+      draw((t, px) => ctx.fillText(t, px, y));
+      x += wd.width + ln.spaceW;
+    });
+  });
+  return { canvas, refH: n * FS * 1.2 + FS * 0.5 };
+}
 function useHiResTextTexture(text, opts) {
-  const {
-    color = "#ffffff",
-    font = "'Inter', sans-serif",
-    weight = 600,
-    align = "center",
-    outline = false,
-    outlineColor = "#000000",
-  } = opts || {};
+  const o = opts || {};
+  const key = JSON.stringify([text, o]);
   const [texture, setTexture] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    const fontSizePx = 200;
-    const lineHeight = fontSizePx * 1.2;
-    const padding = fontSizePx * 0.25;
-    const fontSpec = `${weight} ${fontSizePx}px ${font}`;
-    const draw = () => {
-      if (cancelled) return;
-      const lines = (text || "").split("\n");
-      const measureCanvas = document.createElement("canvas");
-      const mctx = measureCanvas.getContext("2d");
-      mctx.font = fontSpec;
-      let maxLineWidth = 1;
-      lines.forEach((l) => { maxLineWidth = Math.max(maxLineWidth, mctx.measureText(l || " ").width); });
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(maxLineWidth + padding * 2);
-      canvas.height = Math.ceil(lines.length * lineHeight + padding * 2);
-      const ctx = canvas.getContext("2d");
-      ctx.font = fontSpec;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = align;
-      const xPos = align === "center" ? canvas.width / 2 : align === "right" ? canvas.width - padding : padding;
-      lines.forEach((line, i) => {
-        const y = padding + lineHeight * i + lineHeight / 2;
-        if (outline) {
-          ctx.lineJoin = "round";
-          ctx.lineWidth = fontSizePx * 0.08;
-          ctx.strokeStyle = outlineColor;
-          ctx.strokeText(line, xPos, y);
-        }
-        ctx.fillStyle = color;
-        ctx.fillText(line, xPos, y);
+    const fams = [o.font || DEFAULT_TEXT_FONT].concat(Object.values(o.wordStyles || {}).map((w) => w.fontFamily).filter(Boolean));
+    const weight = o.weight || 600;
+    Promise.all(fams.map(ensureTextFont))
+      .then(() => Promise.all(fams.map((f) => (document.fonts && document.fonts.load ? document.fonts.load(`${textFontWeight(f, weight)} 200px ${f}`).catch(() => {}) : null))))
+      .then(() => {
+        if (cancelled) return;
+        const { canvas, refH } = drawTextCanvas(text, o);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.userData.refH = refH;
+        tex.needsUpdate = true;
+        setTexture((prev) => { if (prev) prev.dispose(); return tex; });
       });
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      setTexture(tex);
-    };
-    if (document.fonts && document.fonts.load) {
-      document.fonts.load(fontSpec).catch(() => {}).then(draw);
-    } else {
-      draw();
-    }
     return () => { cancelled = true; };
-  }, [text, color, font, weight, align, outline, outlineColor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   return texture;
 }
 
 function ObjectPreviewText({ obj, fade }) {
   const texture = useHiResTextTexture(obj.text, {
     color: obj.textColor,
+    gradient: obj.textGradient,
     font: obj.fontFamily,
     weight: obj.fontWeight,
     align: obj.textAlign,
     outline: obj.textOutline,
     outlineColor: obj.textOutlineColor,
+    letterSpacing: obj.letterSpacing,
+    lineHeight: obj.lineHeight,
+    wordStyles: obj.wordStyles,
   });
   if (!texture) return null;
-  const aspect = texture.image.width / texture.image.height;
+  const refH = texture.userData.refH || texture.image.height;
   const mesh = (
     <mesh
-      scale={[obj.scale * aspect, obj.scale, 1]}
+      scale={[(obj.scale * texture.image.width) / refH, (obj.scale * texture.image.height) / refH, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
@@ -3490,18 +3879,16 @@ function LightBeamEditor({ enabled, opacity, width, height, fx }) {
    entrada qué parte de la composición realmente se ve en un teléfono.
    Se recalcula con ResizeObserver porque el visor cambia de tamaño al
    abrir/cerrar el panel o redimensionar la ventana. */
-function MobileFrameOverlay({ containerRef, ratio = 9 / 16 }) {
+/* Caja del "celular" 9:16 centrada en el visor (null si el modo está apagado). */
+function usePhoneBox(containerRef, enabled, ratio = 9 / 16) {
   const [box, setBox] = useState(null);
-
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || !enabled) { setBox(null); return undefined; }
     const compute = () => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
+      const w = el.clientWidth, h = el.clientHeight;
       if (!w || !h) return;
-      let fw = h * ratio;
-      let fh = h;
+      let fw = h * ratio, fh = h;
       if (fw > w) { fw = w; fh = w / ratio; }
       setBox({ w: fw, h: fh, left: (w - fw) / 2, top: (h - fh) / 2 });
     };
@@ -3509,15 +3896,26 @@ function MobileFrameOverlay({ containerRef, ratio = 9 / 16 }) {
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [containerRef, ratio]);
-
+  }, [containerRef, enabled, ratio]);
+  return box;
+}
+/* Marco del celular: raya punteada en el corte (arriba = animación, abajo = zona fija) y maqueta de la zona fija. */
+function MobileFrameOverlay({ box, split, dockOn }) {
   if (!box) return null;
+  const splitPx = box.h * (split / 100);
   return (
-    <div
-      className="mobile-frame"
-      style={{ width: box.w, height: box.h, left: box.left, top: box.top }}
-    >
-      <span className="mobile-frame__label">Celular · 9:16</span>
+    <div className="mobile-frame" style={{ width: box.w, height: box.h, left: box.left, top: box.top }}>
+      <span className="mobile-frame__label">Celular · 9:16{dockOn ? ` · animación ${split}% / zona fija ${100 - split}%` : ""}</span>
+      {dockOn && (
+        <>
+          <div className="phone-split" style={{ top: splitPx }} />
+          <div className="phone-dock" style={{ top: splitPx }}>
+            <div className="pd-row"><div className="pd-btn">WHATSAPP</div><div className="pd-btn">CÓMO LLEGAR</div></div>
+            <div className="pd-t">SACÁ TU TURNO</div>
+            <div className="pd-days">{["L", "M", "M", "J", "V", "S", "D"].map((d, i) => <div key={i} className="pd-day">{d}</div>)}</div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -3638,6 +4036,25 @@ const REFLECTION_UPDATE_EVERY = ${reflection.updateEvery};
 const REFLECTION_INTENSITY = ${reflection.intensity};`;
 }
   
+const DEFAULT_DOCK = {
+  enabled: true,
+  splitPct: 66,
+  whatsappPhone: "",
+  whatsappMessage: "Hola! Quisiera hacer una consulta.",
+  address: "",
+  mapUrl: "",
+  timezone: "America/Argentina/Buenos_Aires",
+  schedule: [null, ["09:00", "19:00"], ["09:00", "19:00"], ["09:00", "19:00"], ["09:00", "19:00"], ["09:00", "19:00"], ["09:00", "13:00"]],
+  turneroTitle: "Sacá tu turno",
+  turneroDays: 14,
+  turneroMessage: "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
+  accent: "",
+};
+/* Bloque @GEN:DOCK de la plantilla: zona fija de abajo (WhatsApp, Cómo llegar, Turnero). */
+function generateDockCode(dock) {
+  return `const DOCK = ${JSON.stringify({ ...DEFAULT_DOCK, ...dock }, null, 2)};`;
+}
+
 function generateObjectsCode(objects, transformsByKf, stages, easings) {
   objects = objects.filter((o) => o.type === "text" || (o.url && o.url.trim()));
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
@@ -3655,7 +4072,11 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     type: "text",
     text: ${esc(o.text)},
     textColor: "${o.textColor || "#ffffff"}",
+    textGradient: ${o.textGradient && o.textGradient.on ? JSON.stringify({ on: true, colors: o.textGradient.colors, angle: o.textGradient.angle ?? 0 }) : "null"},
     fontFamily: ${esc(o.fontFamily || "'Inter', sans-serif")},
+    letterSpacing: ${fmtNum(o.letterSpacing || 0)},
+    lineHeight: ${fmtNum(o.lineHeight || 1.2)},
+    wordStyles: ${JSON.stringify(Object.fromEntries(Object.entries(o.wordStyles || {}).filter(([k]) => Number(k) < ((o.text || "").match(/\S+/g) || []).length)))},
     fontWeight: ${o.fontWeight || 600},
     textAlign: "${o.textAlign || "center"}",
     textOutline: ${o.textOutline ? "true" : "false"},
@@ -3684,7 +4105,7 @@ ${kfLines}
   return `const OBJECTS = [\n${objLines || "  // (sin objetos)"}\n];`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode) {
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -3704,6 +4125,7 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
   tpl = swap(tpl, "/*@GEN:TRAIL_START*/", "/*@GEN:TRAIL_END*/", trailCode);
   tpl = swap(tpl, "/*@GEN:REFLECTION_START*/", "/*@GEN:REFLECTION_END*/", reflectionCode);
   tpl = swap(tpl, "/*@GEN:OBJECTS_START*/", "/*@GEN:OBJECTS_END*/", objectsCode);
+  tpl = swap(tpl, "/*@GEN:DOCK_START*/", "/*@GEN:DOCK_END*/", dockCode);
   tpl = swap(tpl, "/*@GEN:CHAR_TRANSFORM_START*/", "/*@GEN:CHAR_TRANSFORM_END*/", charTransformCode);
   return tpl;
 }
@@ -3776,6 +4198,166 @@ function Num({ value, onChange, step = 0.01, label, color }) {
         }}
       />
     </div>
+  );
+}
+/* Texto con estilos por palabra: quita los estilos que ya no corresponden cuando se edita el texto. */
+function remapWordStyles(oldText, newText, styles) {
+  const keys = Object.keys(styles || {});
+  if (!keys.length) return styles || {};
+  const a = (oldText || "").match(/\S+/g) || [], b = (newText || "").match(/\S+/g) || [];
+  const out = {}, taken = new Set();
+  keys.map(Number).sort((x, y) => x - y).forEach((i) => {
+    const w = a[i];
+    let j = -1;
+    if (b[i] === w && !taken.has(i)) j = i;
+    else {
+      let best = Infinity;
+      b.forEach((bw, k) => { if (bw === w && !taken.has(k) && Math.abs(k - i) < best) { best = Math.abs(k - i); j = k; } });
+      if (j < 0 && b.length === a.length && !taken.has(i)) j = i; // palabra editada en el lugar
+    }
+    if (j >= 0) { out[j] = styles[i]; taken.add(j); }
+  });
+  return out;
+}
+const WEIGHT_NAMES = { 300: "Liviana 300", 400: "Normal 400", 500: "Media 500", 600: "Semi 600", 700: "Negrita 700", 800: "Extra 800" };
+const GRADIENT_PRESETS = [
+  ["Aurora", ["#6ee7f9", "#a78bfa"]], ["Atardecer", ["#ff5f6d", "#ffc371"]], ["Océano", ["#00c6ff", "#0072ff"]],
+  ["Neón", ["#f953c6", "#4facfe"]], ["Oro", ["#f7971e", "#ffd200"]], ["Menta", ["#11998e", "#38ef7d"]], ["Arcoíris", ["#ff5f6d", "#ffd93d", "#4ade80", "#38bdf8"]],
+];
+function FontSelect({ label, value, onChange, inherit }) {
+  const groups = [...new Set(TEXT_FONTS.map((f) => f[2]))];
+  const known = TEXT_FONTS.some((f) => f[0] === value);
+  return (
+    <div className="row"><span className="lbl">{label}</span>
+      <select style={{ flex: 1 }} value={value} onChange={(e) => onChange(e.target.value)}>
+        {inherit && <option value="">(la general)</option>}
+        {!known && value && <option value={value}>{value}</option>}
+        {groups.map((g) => <optgroup key={g} label={g}>{TEXT_FONTS.filter((f) => f[2] === g).map((f) => <option key={f[0]} value={f[0]}>{f[1]}</option>)}</optgroup>)}
+      </select>
+    </div>
+  );
+}
+function GradientEditor({ colors, angle, onChange }) {
+  const cols = colors && colors.length >= 2 ? colors : DEFAULT_TEXT_GRADIENT;
+  const ang = angle ?? 0;
+  const set = (patch) => onChange({ colors: cols, angle: ang, ...patch });
+  return (
+    <>
+      <div style={{ height: 14, borderRadius: 6, border: "1px solid var(--line2)", background: `linear-gradient(${ang + 90}deg, ${cols.join(", ")})` }} />
+      <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+        {cols.map((c, i) => (
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <input type="color" value={c} onChange={(e) => set({ colors: cols.map((x, k) => (k === i ? e.target.value : x)) })} />
+            {cols.length > 2 && <button className="chip" title="Quitar color" onClick={() => set({ colors: cols.filter((_, k) => k !== i) })}>×</button>}
+          </span>
+        ))}
+        {cols.length < 4 && <button className="chip" title="Agregar color" onClick={() => set({ colors: [...cols, cols[cols.length - 1]] })}>+</button>}
+      </div>
+      <Slider label="Ángulo" min={0} max={360} step={5} value={ang} onChange={(v) => set({ angle: v })} />
+      <Presets items={GRADIENT_PRESETS} onPick={(v) => set({ colors: v })} />
+    </>
+  );
+}
+function TextStyleEditor({ o, updateObject }) {
+  const [sel, setSel] = useState(null);
+  const words = (o.text || "").match(/\S+/g) || [];
+  const ws = o.wordStyles || {};
+  const font = o.fontFamily || DEFAULT_TEXT_FONT;
+  const fontMeta = TEXT_FONTS.find((f) => f[0] === font);
+  const weights = fontMeta ? fontMeta[3] : [300, 400, 500, 600, 700];
+  const g = o.textGradient || { on: false, colors: DEFAULT_TEXT_GRADIENT, angle: 0 };
+  const up = (patch) => updateObject(o.id, patch);
+  const selOk = sel != null && sel < words.length;
+  const st = selOk ? ws[sel] || {} : {};
+  const wMode = st.mode === "gradient" ? "gradient" : st.mode === "solid" ? "solid" : "inherit";
+  const setWord = (patch) => {
+    const merged = { ...st, ...patch };
+    Object.keys(merged).forEach((k) => { if (merged[k] === undefined || merged[k] === "") delete merged[k]; });
+    const next = { ...ws };
+    if (Object.keys(merged).length) next[sel] = merged; else delete next[sel];
+    up({ wordStyles: next });
+  };
+  return (
+    <>
+      <textarea rows={3} value={o.text || ""} onChange={(e) => up({ text: e.target.value, wordStyles: remapWordStyles(o.text, e.target.value, ws) })} />
+      <FontSelect label="Fuente" value={font} onChange={(v) => up({ fontFamily: v })} />
+      <SelectRow label="Peso" value={textFontWeight(font, o.fontWeight || 600)} onChange={(v) => up({ fontWeight: Number(v) })} options={weights.map((w) => [w, WEIGHT_NAMES[w] || String(w)])} />
+      <Seg value={g.on ? "gradient" : "solid"} onChange={(v) => up({ textGradient: { ...g, on: v === "gradient", colors: g.colors || DEFAULT_TEXT_GRADIENT } })} options={[["solid", "Color"], ["gradient", "Degradé"]]} />
+      {g.on
+        ? <GradientEditor colors={g.colors} angle={g.angle} onChange={(p) => up({ textGradient: { ...g, on: true, ...p } })} />
+        : <ColorRow label="Color" value={o.textColor || "#ffffff"} onChange={(v) => up({ textColor: v })} />}
+      <Slider label="Entre letras" min={-0.1} max={1} step={0.01} value={o.letterSpacing ?? 0} onChange={(v) => up({ letterSpacing: v })} />
+      <Slider label="Interlineado" min={0.5} max={2.5} step={0.05} value={o.lineHeight ?? 1.2} onChange={(v) => up({ lineHeight: v })} />
+      <Seg value={o.textAlign || "center"} onChange={(v) => up({ textAlign: v })} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
+      <div className="row"><Switch checked={!!o.textOutline} onChange={(v) => up({ textOutline: v })} label="Contorno" />
+        {o.textOutline && <input type="color" value={o.textOutlineColor || "#000000"} onChange={(e) => up({ textOutlineColor: e.target.value })} />}</div>
+      {words.length > 0 && (
+        <>
+          <span className="lbl" style={{ marginTop: 4 }}>Por palabra (tocá una para darle otro color, degradé o fuente)</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {words.map((w, i) => (
+              <button key={i} className="chip" style={{ padding: "0 8px", ...(sel === i ? { borderColor: "var(--acc)", color: "var(--acc)" } : ws[i] ? { borderColor: "var(--acc)" } : {}) }} onClick={() => setSel(sel === i ? null : i)}>{w}</button>
+            ))}
+          </div>
+          {selOk && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, border: "1px solid var(--line2)", borderRadius: 6 }}>
+              <span className="stat">Palabra: “{words[sel]}”</span>
+              <Seg value={wMode} onChange={(v) => v === "inherit" ? setWord({ mode: undefined, color: undefined, colors: undefined, angle: undefined }) : setWord({ mode: v, ...(v === "gradient" ? { colors: st.colors || g.colors || DEFAULT_TEXT_GRADIENT, angle: st.angle ?? g.angle ?? 0 } : { color: st.color || o.textColor || "#ffffff" }) })} options={[["inherit", "General"], ["solid", "Color"], ["gradient", "Degradé"]]} />
+              {wMode === "solid" && <ColorRow label="Color" value={st.color || o.textColor || "#ffffff"} onChange={(v) => setWord({ color: v })} />}
+              {wMode === "gradient" && <GradientEditor colors={st.colors} angle={st.angle} onChange={(p) => setWord(p)} />}
+              <FontSelect label="Fuente" value={st.fontFamily || ""} onChange={(v) => setWord({ fontFamily: v })} inherit />
+              {Object.keys(st).length > 0 && <Btn onClick={() => { const next = { ...ws }; delete next[sel]; up({ wordStyles: next }); }}>Quitar estilo de esta palabra</Btn>}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+function DockFields({ dock, setDockField }) {
+  const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const ORDER = [1, 2, 3, 4, 5, 6, 0];
+  const setSlot = (dow, slot) => setDockField("schedule", dock.schedule.map((v, i) => (i === dow ? slot : v)));
+  const txt = (label, field, placeholder) => (
+    <div className="row"><span className="lbl">{label}</span>
+      <input type="text" style={{ flex: 1 }} value={dock[field] || ""} placeholder={placeholder} spellCheck={false} onChange={(e) => setDockField(field, e.target.value)} />
+    </div>
+  );
+  return (
+    <>
+      <Slider label="Animación %" min={50} max={80} step={1} value={dock.splitPct} onChange={(v) => setDockField("splitPct", v)} />
+      <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>La animación ocupa de arriba hasta la raya punteada del visor (9:16). Lo de abajo queda fijo en el sitio.</div>
+      {txt("WhatsApp", "whatsappPhone", "5491122334455 (con código de país)")}
+      {txt("Mensaje", "whatsappMessage", "Hola! Quisiera hacer una consulta.")}
+      {txt("Dirección", "address", "Calle 123, Ciudad")}
+      {txt("Link mapa", "mapUrl", "(opcional) link de Google Maps")}
+      {txt("Zona horaria", "timezone", "America/Argentina/Buenos_Aires")}
+      <span className="lbl" style={{ marginTop: 4 }}>Horarios de atención</span>
+      {ORDER.map((dow) => {
+        const slot = dock.schedule[dow];
+        return (
+          <div key={dow} className="row">
+            <span className="lbl" style={{ width: 78 }}>{DAYS[dow]}</span>
+            <Switch checked={!!slot} onChange={(v) => setSlot(dow, v ? ["09:00", "19:00"] : null)} />
+            {slot ? (
+              <>
+                <input type="time" value={slot[0]} onChange={(e) => setSlot(dow, [e.target.value, slot[1]])} />
+                <span>–</span>
+                <input type="time" value={slot[1]} onChange={(e) => setSlot(dow, [slot[0], e.target.value])} />
+              </>
+            ) : <span style={{ opacity: 0.55, fontSize: 11 }}>cerrado</span>}
+          </div>
+        );
+      })}
+      <span className="lbl" style={{ marginTop: 4 }}>Turnero</span>
+      {txt("Título", "turneroTitle", "Sacá tu turno")}
+      <Slider label="Días" min={7} max={30} step={1} value={dock.turneroDays} onChange={(v) => setDockField("turneroDays", v)} />
+      {txt("Mensaje", "turneroMessage", "Usá {dia} donde va el día elegido")}
+      <div className="row"><span className="lbl">Color botón</span>
+        <input type="color" value={dock.accent || "#ff4fa3"} onChange={(e) => setDockField("accent", e.target.value)} />
+        {dock.accent && <button className="mini" onClick={() => setDockField("accent", "")}>Usar el de la marca</button>}
+      </div>
+    </>
   );
 }
 function Slider({ label, value, onChange, min, max, step = 0.01 }) {
@@ -3918,6 +4500,8 @@ function App() {
      resolution = nitidez del reflejo (más alto = más pesado). updateEvery
      = cada cuántos frames se recalcula (1 = todos los frames, más preciso
      pero más pesado; 3-5 rinde mejor, sobre todo en celular). */
+  const [dock, setDock] = useState(DEFAULT_DOCK);
+  const setDockField = (field, value) => setDock((prev) => ({ ...prev, [field]: value }));
   const [reflection, setReflection] = useState({
     enabled: false,
     resolution: 256,
@@ -4047,6 +4631,7 @@ function App() {
   const [showFx, setShowFx] = useState(true);
   const [showMobileFrame, setShowMobileFrame] = useState(true);
   const viewportRef = useRef(null);
+  const phoneBox = usePhoneBox(viewportRef, showMobileFrame);
 
   const addObject = (type = "model") => {
     const newId = `obj-${Date.now()}`;
@@ -4054,7 +4639,7 @@ function App() {
     const color = PALETTE.find((c) => !used.includes(c)) || PALETTE[objects.length % PALETTE.length];
     const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", video: "Video", text: "Texto" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
     if (type === "video") Object.assign(base, { loop: true, videoMode: "scroll", scrubFrom: 0, scrubTo: 100 });
-    if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000" });
+    if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000", textGradient: { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 }, letterSpacing: 0, lineHeight: 1.2, wordStyles: {} });
     setObjects((prev) => [...prev, base]);
     setObjectTransformsByKf((prev) => ({ ...prev, [newId]: Object.fromEntries(stagesComputed.map((st) => [st.id, defaultObjectTransform()])) }));
     setSelectedObj(newId);
@@ -4144,6 +4729,10 @@ function App() {
           textAlign: o.textAlign ?? "center",
           textOutline: o.textOutline ?? false,
           textOutlineColor: o.textOutlineColor ?? "#000000",
+          textGradient: o.textGradient ?? { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 },
+          letterSpacing: o.letterSpacing ?? 0,
+          lineHeight: o.lineHeight ?? 1.2,
+          wordStyles: o.wordStyles ?? {},
         };
       }
       let url = o.url;
@@ -4322,6 +4911,7 @@ function App() {
   const postFxCode = useMemo(() => generatePostFxCode(postFx), [postFx]);
   const trailCode = useMemo(() => generateTrailCode(trail), [trail]);
   const reflectionCode = useMemo(() => generateReflectionCode(reflection), [reflection]);
+  const dockCode = useMemo(() => generateDockCode(dock), [dock]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
@@ -4349,6 +4939,7 @@ function App() {
     postFx,
     trail,
     reflection,
+    dock,
     stages,
     durationsVh,
     easings,
@@ -4368,6 +4959,7 @@ function App() {
     if (p.postFx) setPostFx((prev) => ({ ...prev, ...p.postFx }));
     if (p.trail) setTrail((prev) => ({ ...prev, ...p.trail }));
     if (p.reflection) setReflection((prev) => ({ ...prev, ...p.reflection }));
+    setDock({ ...DEFAULT_DOCK, ...(p.dock || {}) });
     const loadedStages = p.stages && p.stages.length ? p.stages : makeDefaultStages();
     setStages(loadedStages);
     setDurationsVh(p.durationsVh || DEFAULT_DURATIONS_VH);
@@ -4461,7 +5053,7 @@ function App() {
   };
 
   const downloadFullHtml = () => {
-        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode);
+        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -4475,7 +5067,7 @@ function App() {
   };
 
   const copyFullHtml = () => {
-        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode);
+        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode);
     copy(html, "full");
   };
 
@@ -4539,17 +5131,7 @@ function App() {
         </div>
         <Seg value={o.type || "model"} onChange={(v) => setObjectType(o.id, v)} options={[["model", "Modelo"], ["image", "Imagen / SVG"], ["video", "Video"], ["text", "Texto"]]} />
         {isText ? (
-          <>
-            <textarea rows={3} value={o.text || ""} onChange={(e) => updateObject(o.id, { text: e.target.value })} />
-            <ColorRow label="Color" value={o.textColor || "#ffffff"} onChange={(v) => updateObject(o.id, { textColor: v })} />
-            <SelectRow label="Fuente" value={o.fontFamily || "'Inter', sans-serif"} onChange={(v) => updateObject(o.id, { fontFamily: v })}
-              options={[["'Inter', sans-serif", "Inter"], ["'Space Grotesk', sans-serif", "Space Grotesk"], ["Georgia, 'Times New Roman', serif", "Serif"], ["'Courier New', monospace", "Mono"], ["system-ui, sans-serif", "Sistema"]]} />
-            <SelectRow label="Peso" value={o.fontWeight || 600} onChange={(v) => updateObject(o.id, { fontWeight: Number(v) })}
-              options={[[300, "Liviana 300"], [400, "Normal 400"], [500, "Media 500"], [600, "Semi 600"], [700, "Negrita 700"]]} />
-            <Seg value={o.textAlign || "center"} onChange={(v) => updateObject(o.id, { textAlign: v })} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
-            <div className="row"><Switch checked={!!o.textOutline} onChange={(v) => updateObject(o.id, { textOutline: v })} label="Contorno" />
-              {o.textOutline && <input type="color" value={o.textOutlineColor || "#000000"} onChange={(e) => updateObject(o.id, { textOutlineColor: e.target.value })} />}</div>
-          </>
+          <TextStyleEditor o={o} updateObject={updateObject} />
         ) : (
           <div className="row">
             <span className="lbl">Archivo</span>
@@ -4593,20 +5175,25 @@ function App() {
   return (
     <>
       <div className="viewport" ref={viewportRef}
-        style={showFx ? { background: `linear-gradient(${renderFx.background.angle}deg, ${renderFx.background.from}, ${renderFx.background.to})` } : undefined}>
+        style={showFx && !phoneBox ? { background: `linear-gradient(${renderFx.background.angle}deg, ${renderFx.background.from}, ${renderFx.background.to})` } : undefined}>
+        {phoneBox && (
+          <div className="phone-bg" style={{ left: phoneBox.left, top: phoneBox.top, width: phoneBox.w, height: phoneBox.h, background: showFx ? `linear-gradient(${renderFx.background.angle}deg, ${renderFx.background.from}, ${renderFx.background.to})` : "#0a0c11" }} />
+        )}
         <div className="vp-bar">
           {[["Libre", freeOrbit, setFreeOrbit], ["Rotar", autoRotate, setAutoRotate, freeOrbit], ["Objetos", showObjects, setShowObjects], ["Grilla", showGrid, setShowGrid], ["Ambiente", showFx, setShowFx], ["9:16", showMobileFrame, setShowMobileFrame]]
             .filter((c) => c[3] === undefined || c[3])
             .map(([t, on, set]) => <span key={t} className={`vchip ${on ? "on" : ""}`} onClick={() => set(!on)}>{t}</span>)}
         </div>
+        <div className="scene-box" style={phoneBox && dock.enabled ? { inset: "auto", left: phoneBox.left, top: phoneBox.top, width: phoneBox.w, height: phoneBox.h * ((dock.splitPct || 66) / 100) } : phoneBox ? { inset: "auto", left: phoneBox.left, top: phoneBox.top, width: phoneBox.w, height: phoneBox.h } : undefined}>
         <Canvas shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
           <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection}
             markers={section === "objects" && showObjects ? markers : null} selectedObjectId={selectedObj} onSelectObject={setSelectedObj} />
         </Canvas>
+        </div>
         {showFx && postFx.vignetteEnabled && (
-          <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none", background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)` }} />
+          <div aria-hidden="true" style={{ position: "absolute", ...(phoneBox ? { left: phoneBox.left, top: phoneBox.top, width: phoneBox.w, height: phoneBox.h } : { inset: 0 }), zIndex: 3, pointerEvents: "none", background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)` }} />
         )}
-        {showMobileFrame && <MobileFrameOverlay containerRef={viewportRef} />}
+        {showMobileFrame && <MobileFrameOverlay box={phoneBox} split={dock.splitPct || 66} dockOn={dock.enabled} />}
         <div className="vp-hud">{isPreview ? `▶ ${scrub.toFixed(3)}` : `${currentStageLabel} · ${stageIndex + 1}/${nStages}`}</div>
       </div>
 
@@ -4663,6 +5250,9 @@ function App() {
                   </div>
                   <Slider label="Escala" min={0.01} max={5} step={0.01} value={charScale} onChange={setCharScale} />
                   <Slider label="Centro Y" min={-2} max={2} step={0.01} value={charCenterY} onChange={setCharCenterY} />
+                </Group>
+                <Group id="dock" title="Pantalla de celular · zona fija" toggle={{ checked: dock.enabled, onChange: (v) => setDockField("enabled", v) }}>
+                  <DockFields dock={dock} setDockField={setDockField} />
                 </Group>
                 <Group id="refl" title="Reflejo" toggle={{ checked: reflection.enabled, onChange: (v) => setReflectionField("enabled", v) }}>
                   <SelectRow label="Resol." value={reflection.resolution} onChange={(v) => setReflectionField("resolution", Number(v))} options={[[128, "128"], [256, "256"], [512, "512"]]} />
