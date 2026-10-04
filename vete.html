@@ -274,10 +274,38 @@
   .dock__day.is-sel { background: var(--dock-accent); color: #0a0a0a; border-color: transparent; }
   .dock__day.is-closed { opacity: .4; cursor: default; }
   .dock__arrow { flex: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 15px; font-weight: 300; line-height: 1; padding: 0; }
+  /* Pantalla de carga inicial (antes de que arranque React) */
+  #pre-ldr { position: fixed; inset: 0; z-index: 99; background: var(--ldr-bg, #05070f); display: grid; place-items: center; }
+  #pre-ldr svg { width: calc(min(62vw, 280px) + 28px); height: calc(min(62vw, 280px) + 28px); animation: preSpin 1.5s linear infinite; }
+  #pre-ldr circle { fill: none; stroke: rgba(255,255,255,.5); stroke-width: .6; stroke-linecap: round; stroke-dasharray: 52 250; }
+  @keyframes preSpin { to { transform: rotate(360deg); } }
+  /* ---- Loader: medalla 3D + anillo de progreso ---- */
+  .ldr { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--ldr-bg, #05070f); touch-action: none;
+    transition: opacity .9s cubic-bezier(.4,0,.2,1), visibility 0s linear .9s; }
+  .ldr--contained { position: absolute; z-index: 30; cursor: pointer; }
+  .ldr--out { opacity: 0; visibility: hidden; pointer-events: none; }
+  .ldr__glow { position: absolute; width: min(90vw, 520px); aspect-ratio: 1; border-radius: 50%; pointer-events: none; filter: blur(10px);
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--ldr-accent, #49d3ff) 20%, transparent), transparent); animation: ldrPulse 4.5s ease-in-out infinite; }
+  .ldr__stage { position: relative; width: min(62vw, 280px); aspect-ratio: 1; animation: ldrIn .9s cubic-bezier(.2,.7,.2,1) both; }
+  .ldr__canvas { position: absolute; inset: 0; }
+  .ldr__ring { position: absolute; left: -14px; top: -14px; width: calc(100% + 28px); height: calc(100% + 28px); overflow: visible; }
+  .ldr__track { fill: none; stroke: rgba(255,255,255,.09); stroke-width: .5; }
+  .ldr__arc { fill: none; stroke: var(--ldr-accent, #49d3ff); stroke-width: .7; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; filter: drop-shadow(0 0 2px var(--ldr-accent, #49d3ff)); }
+  .ldr__dot { fill: #fff; filter: drop-shadow(0 0 3px var(--ldr-accent, #49d3ff)); }
+  .ldr__pct, .ldr__label { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--font-body, system-ui, sans-serif); text-transform: uppercase; color: #fff; }
+  .ldr__pct { top: calc(100% + 34px); font-size: 10px; font-weight: 500; letter-spacing: .32em; opacity: .55; font-variant-numeric: tabular-nums; }
+  .ldr__label { top: calc(100% + 58px); font-size: 9px; font-weight: 400; letter-spacing: .4em; opacity: .38; }
+  @keyframes ldrIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+  @keyframes ldrPulse { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.04); } }
+  @media (prefers-reduced-motion: reduce) { .ldr__glow, .ldr__stage { animation: none; } }
 </style>
+<style id="ldr-vars">/*@GEN:LOADER_CSS_START*/
+:root { --ldr-bg: #05070f; }
+/*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
 <body>
+<div id="pre-ldr"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"></circle></svg></div>
 <div id="root"></div>
 
 <script>
@@ -329,7 +357,7 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Stars, useTexture, Billboard } from "@react-three/drei";
+import { useGLTF, Stars, useTexture, Billboard, useProgress } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
 /* ============================================================
@@ -999,6 +1027,20 @@ const DOCK = {
   "accent": ""
 };
 /*@GEN:DOCK_END*/
+
+/*@GEN:LOADER_START*/
+const LOADER = {
+  "enabled": true,
+  "logoUrl": "",
+  "style": "sway",
+  "accent": "",
+  "background": "#05070f",
+  "minMs": 1600,
+  "showPercent": true,
+  "label": ""
+};
+/*@GEN:LOADER_END*/
+if (LOADER.enabled && LOADER.logoUrl) useGLTF.preload(LOADER.logoUrl);
 
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
@@ -2608,6 +2650,148 @@ function CursorTrail() {
   return <canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" />;
 }
 
+/* ---- Loader: la medalla 3D flota y se mece, un anillo muestra el progreso real y al terminar da una vuelta y se funde ---- */
+const ldrEase = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+function LoaderLogo({ url, styleName, stateRef, reduce }) {
+  const { scene } = useGLTF(url);
+  const group = useRef();
+  const light = useRef();
+  const born = useRef(null);
+  const { obj, scale, mats } = useMemo(() => {
+    const o = scene.clone(true);
+    const m = [];
+    o.traverse((n) => {
+      if (n.isMesh && n.material) {
+        n.material = n.material.clone();
+        n.material.transparent = true;
+        n.material.opacity = 0;
+        m.push(n.material);
+      }
+    });
+    const box = new THREE.Box3().setFromObject(o);
+    const size = box.getSize(new THREE.Vector3());
+    const c = box.getCenter(new THREE.Vector3());
+    o.position.sub(c);
+    return { obj: o, scale: 1.5 / Math.max(size.x, size.y, 0.001), mats: m };
+  }, [scene]);
+  useFrame((st) => {
+    const g = group.current;
+    if (!g) return;
+    if (born.current == null) born.current = st.clock.elapsedTime;
+    const t = st.clock.elapsedTime, a = t - born.current, ex = stateRef.current.exit;
+    const k = reduce ? 0 : 1;
+    const yaw = styleName === "spin" ? t * 0.65 : Math.sin(t * 0.85) * 0.38;
+    g.rotation.y = k * yaw + (reduce ? 0 : ldrEase(ex) * Math.PI * 2);
+    g.rotation.x = k * Math.sin(t * 0.6) * 0.07;
+    g.position.y = k * Math.sin(t * 1.1) * 0.035;
+    const fade = Math.min(1, a / 0.9);
+    g.scale.setScalar(scale * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
+    mats.forEach((m) => { m.opacity = fade; if (fade >= 1 && m.transparent) { m.transparent = false; m.needsUpdate = true; } });
+    if (light.current) {
+      const p = (t % 2.8) / 2.8;
+      light.current.position.x = -2.4 + 4.8 * ldrEase(p);
+      light.current.intensity = reduce ? 0 : 8 * Math.sin(Math.PI * p);
+    }
+  });
+  return (
+    <>
+      <ambientLight intensity={0.75} />
+      <directionalLight position={[2, 3, 4]} intensity={1.7} />
+      <pointLight ref={light} position={[-2.4, 0.5, 1.6]} intensity={0} distance={8} decay={2} />
+      <group ref={group}><primitive object={obj} /></group>
+    </>
+  );
+}
+function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
+  const prog = useProgress();
+  const live = useRef({ progress: 0, active: false, total: 0 });
+  live.current = { progress: prog.progress, active: prog.active, total: prog.total };
+  const [phase, setPhase] = useState("in");
+  const ringRef = useRef(), dotRef = useRef(), pctRef = useRef();
+  const stateRef = useRef({ exit: 0 });
+  const reduce = useMemo(() => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+  const C = 2 * Math.PI * 48;
+  useEffect(() => {
+    const pre = document.getElementById("pre-ldr");
+    if (pre) pre.remove();
+    if (!contained) { document.documentElement.style.overflow = "hidden"; document.body.style.overflow = "hidden"; }
+    let raf = 0, fontsOk = !!simulate, okSince = 0, exitStart = 0, shown = 0, outSet = false;
+    const t0 = performance.now();
+    if (!simulate) {
+      const fams = [];
+      if (typeof OBJECTS !== "undefined") OBJECTS.forEach((o) => { if (o.type === "text") { fams.push(o.fontFamily); Object.values(o.wordStyles || {}).forEach((w) => w.fontFamily && fams.push(w.fontFamily)); } });
+      Promise.all(fams.filter(Boolean).map(ensureTextFont))
+        .then(() => (document.fonts && document.fonts.ready) || null)
+        .catch(() => {})
+        .then(() => { fontsOk = true; });
+    }
+    const minMs = cfg.minMs || 1600;
+    const tick = (now) => {
+      const el = now - t0, L = live.current;
+      let target;
+      if (simulate) target = Math.min(100, (el / minMs) * 100);
+      else target = L.total > 0 ? L.progress : Math.min(40, el / 60);
+      const loaded = simulate ? el >= minMs : (L.total > 0 ? L.progress >= 100 && !L.active : el > 3500);
+      const cond = loaded && fontsOk && el >= minMs;
+      if (cond) { if (!okSince) okSince = now; } else okSince = 0;
+      const go = !exitStart && ((okSince && now - okSince > (simulate ? 0 : 450)) || el > 14000);
+      if (go) exitStart = now;
+      if (exitStart) target = 100;
+      shown += (target - shown) * (exitStart ? 0.18 : 0.07);
+      const sp = exitStart ? shown : Math.min(shown, 99);
+      if (ringRef.current) ringRef.current.style.strokeDashoffset = String(C * (1 - sp / 100));
+      if (dotRef.current) {
+        const ang = -Math.PI / 2 + (sp / 100) * Math.PI * 2;
+        dotRef.current.setAttribute("cx", String(50 + 48 * Math.cos(ang)));
+        dotRef.current.setAttribute("cy", String(50 + 48 * Math.sin(ang)));
+      }
+      if (pctRef.current) pctRef.current.textContent = String(Math.round(sp));
+      if (exitStart) {
+        const x = Math.min(1, (now - exitStart) / 1100);
+        stateRef.current.exit = x;
+        if (!outSet && x > 0.22) { outSet = true; setPhase("out"); }
+        if (x >= 1 && now - exitStart > 1300) {
+          setPhase("gone");
+          if (!contained) { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; }
+          if (onDone) onDone();
+          return;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (!contained) { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (phase === "gone") return null;
+  const url = logoUrl || cfg.logoUrl;
+  return (
+    <div className={"ldr" + (contained ? " ldr--contained" : "") + (phase === "out" ? " ldr--out" : "")} onClick={onClose}
+      style={{ "--ldr-bg": cfg.background || "#05070f", "--ldr-accent": cfg.accent || "var(--brand-accent, #49d3ff)" }}>
+      <div className="ldr__glow" />
+      <div className="ldr__stage">
+        <svg className="ldr__ring" viewBox="0 0 100 100">
+          <circle className="ldr__track" cx="50" cy="50" r="48" />
+          <circle ref={ringRef} className="ldr__arc" cx="50" cy="50" r="48" strokeDasharray={C} strokeDashoffset={C} />
+          <circle ref={dotRef} className="ldr__dot" cx="50" cy="2" r="1.1" />
+        </svg>
+        {url && (
+          <div className="ldr__canvas">
+            <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 4], fov: 30 }} gl={{ alpha: true, antialias: true }}>
+              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} /></Suspense>
+            </Canvas>
+          </div>
+        )}
+        {cfg.showPercent !== false && <div className="ldr__pct"><span ref={pctRef}>0</span>%</div>}
+        {cfg.label && <div className="ldr__label">{cfg.label}</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ---- Zona fija de abajo (WhatsApp · Cómo llegar · Turnero) ----
    Los datos salen del bloque DOCK (se editan en la herramienta, pestaña Config). */
 const DOCK_DOW = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
@@ -2703,6 +2887,7 @@ function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (!LOADER.enabled) { const p = document.getElementById("pre-ldr"); if (p) p.remove(); }
     const t = setTimeout(() => setReady(true), 60);
     return () => clearTimeout(t);
   }, []);
@@ -2722,6 +2907,7 @@ function App() {
         "--font-body": clientConfig.fonts.body,
       }}
     >
+      {LOADER.enabled && <LoaderOverlay cfg={LOADER} />}
       <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
         <div className="scene-canvas">
           <Canvas
