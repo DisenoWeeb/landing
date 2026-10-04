@@ -300,7 +300,7 @@
   @media (prefers-reduced-motion: reduce) { .ldr__glow, .ldr__stage { animation: none; } }
 </style>
 <style id="ldr-vars">/*@GEN:LOADER_CSS_START*/
-:root { --ldr-bg: #071a64; }
+:root { --ldr-bg: #f9dbb8; }
 /*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
@@ -987,11 +987,11 @@ const TRAIL_RATE = 40;
 /*@GEN:DOCK_START*/
 const DOCK = {
   "enabled": true,
-  "splitPct": 67,
-  "shadeStrength": 0.85,
+  "splitPct": 74,
+  "shadeStrength": 0.55,
   "whatsappPhone": "5493435303848",
   "whatsappMessage": "Hola! Quisiera hacer una consulta.",
-  "address": "José Venturino 1239 PAraná Entre Ríos",
+  "address": "José Venturino 1239 Paraná Entre Ríos",
   "mapUrl": "",
   "timezone": "America/Argentina/Buenos_Aires",
   "schedule": [
@@ -1024,7 +1024,7 @@ const DOCK = {
   "turneroTitle": "Sacá tu turno",
   "turneroDays": 365,
   "turneroMessage": "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
-  "accent": ""
+  "accent": "#060b5b"
 };
 /*@GEN:DOCK_END*/
 
@@ -1032,12 +1032,13 @@ const DOCK = {
 const LOADER = {
   "enabled": true,
   "logoUrl": "./assets/models/logobruzera_fix.glb",
-  "style": "spin",
-  "accent": "#e354d0",
-  "background": "#071a64",
-  "minMs": 1600,
+  "logoScale": 0.6,
+  "style": "sway",
+  "accent": "#f5e7d6",
+  "background": "#f9dbb8",
+  "minMs": 2200,
   "showPercent": true,
-  "label": ""
+  "label": "Cargando Veterinaria 3D"
 };
 /*@GEN:LOADER_END*/
 if (LOADER.enabled && LOADER.logoUrl) useGLTF.preload(LOADER.logoUrl);
@@ -2652,7 +2653,7 @@ function CursorTrail() {
 
 /* ---- Loader: la medalla 3D flota y se mece, un anillo muestra el progreso real y al terminar da una vuelta y se funde ---- */
 const ldrEase = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-function LoaderLogo({ url, styleName, stateRef, reduce }) {
+function LoaderLogo({ url, styleName, stateRef, reduce, mul = 1 }) {
   const { scene } = useGLTF(url);
   const group = useRef();
   const light = useRef();
@@ -2685,7 +2686,7 @@ function LoaderLogo({ url, styleName, stateRef, reduce }) {
     g.rotation.x = k * Math.sin(t * 0.6) * 0.07;
     g.position.y = k * Math.sin(t * 1.1) * 0.035;
     const fade = Math.min(1, a / 0.9);
-    g.scale.setScalar(scale * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
+    g.scale.setScalar(scale * mul * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
     mats.forEach((m) => { m.opacity = fade; if (fade >= 1 && m.transparent) { m.transparent = false; m.needsUpdate = true; } });
     if (light.current) {
       const p = (t % 2.8) / 2.8;
@@ -2781,7 +2782,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
         {url && (
           <div className="ldr__canvas">
             <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 4], fov: 30 }} gl={{ alpha: true, antialias: true }}>
-              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} /></Suspense>
+              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} mul={cfg.logoScale || 1} /></Suspense>
             </Canvas>
           </div>
         )}
