@@ -253,9 +253,10 @@
   .dock__btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 16px; text-decoration: none; min-width: 0; height: 50px; box-sizing: border-box; }
   .dock__ico { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); display: grid; place-items: center; }
   .dock__ico svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 1.05; stroke-linecap: round; stroke-linejoin: round; }
-  .dock__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .dock__txt b { font-weight: 500; font-size: 11px; line-height: 1; letter-spacing: .18em; }
-  .dock__txt small { font-weight: 400; font-size: 8.5px; line-height: 1; letter-spacing: .14em; opacity: .85; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .dock__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+  .dock__txt b { font-weight: 500; font-size: 11px; line-height: 1; letter-spacing: .18em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dock__txt small { font-weight: 400; font-size: 8.5px; line-height: 1; letter-spacing: .1em; opacity: .85; display: flex; align-items: center; gap: 5px; min-width: 0; }
+  .dock__txt small span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dock__txt small i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); flex: none; }
   .dock__txt small.is-open i { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
   .dock__turn-head { display: flex; align-items: center; gap: 10px; height: 26px; }
@@ -997,8 +998,14 @@ const DOCK = {
   "schedule": [
     null,
     [
-      "09:00",
-      "19:00"
+      [
+        "09:00",
+        "13:00"
+      ],
+      [
+        "16:00",
+        "19:00"
+      ]
     ],
     [
       "09:00",
@@ -2806,15 +2813,17 @@ function dockNow() {
   const g = (t) => Number(parts.find((p) => p.type === t).value);
   return { y: g("year"), m: g("month"), d: g("day"), minutes: (g("hour") % 24) * 60 + g("minute") };
 }
+/* Un día puede tener 1 rango ["09:00","19:00"] (corrido) o varios [["09:00","13:00"],["16:00","20:00"]] (con corte). */
+const dockRanges = (slot) => (!slot ? [] : Array.isArray(slot[0]) ? slot : [slot]);
 function dockDays(n) {
   const now = dockNow();
   const out = [];
   for (let i = 0; i < n; i++) {
     const dt = new Date(Date.UTC(now.y, now.m - 1, now.d + i, 12));
     const dow = dt.getUTCDay();
-    const slot = DOCK.schedule[dow];
-    let open = !!slot;
-    if (open && i === 0 && now.minutes >= dockMin(slot[1])) open = false; // hoy ya cerró
+    const rs = dockRanges(DOCK.schedule[dow]);
+    let open = rs.length > 0;
+    if (open && i === 0 && now.minutes >= dockMin(rs[rs.length - 1][1])) open = false; // hoy ya cerró
     out.push({ i, open, label: DOCK_DOW[dow], long: DOCK_DOW_LONG[dow], day: dt.getUTCDate(), month: dt.getUTCMonth() + 1 });
   }
   return out;
@@ -2822,12 +2831,14 @@ function dockDays(n) {
 function dockStatus() {
   const now = dockNow();
   const dow = new Date(Date.UTC(now.y, now.m - 1, now.d, 12)).getUTCDay();
-  const slot = DOCK.schedule[dow];
-  if (slot && now.minutes >= dockMin(slot[0]) && now.minutes < dockMin(slot[1])) return { open: true, text: "ABIERTO AHORA" };
-  if (slot && now.minutes < dockMin(slot[0])) return { open: false, text: "ABRE HOY " + slot[0] };
+  const rs = dockRanges(DOCK.schedule[dow]);
+  if (rs.some((r) => now.minutes >= dockMin(r[0]) && now.minutes < dockMin(r[1]))) return { open: true, text: "ABIERTO AHORA" };
+  const next = rs.find((r) => now.minutes < dockMin(r[0])); // todavía no abrió, o está en el corte
+  if (next) return { open: false, text: "ABRE HOY " + next[0] };
   for (let k = 1; k <= 7; k++) {
     const d = (dow + k) % 7;
-    if (DOCK.schedule[d]) return { open: false, text: "ABRE " + (k === 1 ? "MAÑANA" : DOCK_DOW[d]) + " " + DOCK.schedule[d][0] };
+    const r2 = dockRanges(DOCK.schedule[d]);
+    if (r2.length) return { open: false, text: "ABRE " + (k === 1 ? "MAÑ." : DOCK_DOW[d]) + " " + r2[0][0] };
   }
   return { open: false, text: "CERRADO" };
 }
@@ -2850,7 +2861,7 @@ function Dock() {
       <div className="dock__row">
         <a className="dock__btn" href={wa(DOCK.whatsappMessage)} target="_blank" rel="noopener">
           <span className="dock__ico"><svg viewBox="0 0 24 24"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 8 19.6z" /><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.5-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z" /></svg></span>
-          <span className="dock__txt"><b>WHATSAPP</b><small className={status.open ? "is-open" : ""}><i />{status.text}</small></span>
+          <span className="dock__txt"><b>WHATSAPP</b><small className={status.open ? "is-open" : ""}><i /><span>{status.text}</span></small></span>
         </a>
         <a className="dock__btn" href={mapHref} target="_blank" rel="noopener">
           <span className="dock__ico"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.800 12 21 12 21z" /><circle cx="12" cy="9.500" r="2.500" /></svg></span>
