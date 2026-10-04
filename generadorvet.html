@@ -880,6 +880,7 @@ const DOCK = {
 const LOADER = {
   "enabled": true,
   "logoUrl": "",
+  "logoScale": 1,
   "style": "sway",
   "accent": "",
   "background": "#05070f",
@@ -2500,7 +2501,7 @@ function CursorTrail() {
 
 /* ---- Loader: la medalla 3D flota y se mece, un anillo muestra el progreso real y al terminar da una vuelta y se funde ---- */
 const ldrEase = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-function LoaderLogo({ url, styleName, stateRef, reduce }) {
+function LoaderLogo({ url, styleName, stateRef, reduce, mul = 1 }) {
   const { scene } = useGLTF(url);
   const group = useRef();
   const light = useRef();
@@ -2533,7 +2534,7 @@ function LoaderLogo({ url, styleName, stateRef, reduce }) {
     g.rotation.x = k * Math.sin(t * 0.6) * 0.07;
     g.position.y = k * Math.sin(t * 1.1) * 0.035;
     const fade = Math.min(1, a / 0.9);
-    g.scale.setScalar(scale * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
+    g.scale.setScalar(scale * mul * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
     mats.forEach((m) => { m.opacity = fade; if (fade >= 1 && m.transparent) { m.transparent = false; m.needsUpdate = true; } });
     if (light.current) {
       const p = (t % 2.8) / 2.8;
@@ -2629,7 +2630,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
         {url && (
           <div className="ldr__canvas">
             <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 4], fov: 30 }} gl={{ alpha: true, antialias: true }}>
-              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} /></Suspense>
+              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} mul={cfg.logoScale || 1} /></Suspense>
             </Canvas>
           </div>
         )}
@@ -4163,7 +4164,7 @@ function usePhoneBox(containerRef, enabled, ratio = 9 / 16) {
 /* Marco del celular: raya punteada en el corte (arriba = animación, abajo = zona fija) y maqueta de la zona fija. */
 /* ---- Loader: la medalla 3D flota y se mece, un anillo muestra el progreso real y al terminar da una vuelta y se funde ---- */
 const ldrEase = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-function LoaderLogo({ url, styleName, stateRef, reduce }) {
+function LoaderLogo({ url, styleName, stateRef, reduce, mul = 1 }) {
   const { scene } = useGLTF(url);
   const group = useRef();
   const light = useRef();
@@ -4196,7 +4197,7 @@ function LoaderLogo({ url, styleName, stateRef, reduce }) {
     g.rotation.x = k * Math.sin(t * 0.6) * 0.07;
     g.position.y = k * Math.sin(t * 1.1) * 0.035;
     const fade = Math.min(1, a / 0.9);
-    g.scale.setScalar(scale * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
+    g.scale.setScalar(scale * mul * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
     mats.forEach((m) => { m.opacity = fade; if (fade >= 1 && m.transparent) { m.transparent = false; m.needsUpdate = true; } });
     if (light.current) {
       const p = (t % 2.8) / 2.8;
@@ -4292,7 +4293,7 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
         {url && (
           <div className="ldr__canvas">
             <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 4], fov: 30 }} gl={{ alpha: true, antialias: true }}>
-              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} /></Suspense>
+              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} mul={cfg.logoScale || 1} /></Suspense>
             </Canvas>
           </div>
         )}
@@ -4517,7 +4518,7 @@ function generateDockCode(dock) {
   return `const DOCK = ${JSON.stringify({ ...DEFAULT_DOCK, ...dock }, null, 2)};`;
 }
 
-const DEFAULT_LOADER = { enabled: true, logoUrl: "", style: "sway", accent: "", background: "#05070f", minMs: 1600, showPercent: true, label: "" };
+const DEFAULT_LOADER = { enabled: true, logoUrl: "", logoScale: 1, style: "sway", accent: "", background: "#05070f", minMs: 1600, showPercent: true, label: "" };
 /* Bloques @GEN:LOADER y @GEN:LOADER_CSS de la plantilla: pantalla de carga con el logo 3D. */
 function generateLoaderCode(loader) {
   return `const LOADER = ${JSON.stringify({ ...DEFAULT_LOADER, ...loader }, null, 2)};`;
@@ -4813,6 +4814,7 @@ function LoaderFields({ loader, setLoaderField, objects, onPreview, onBlob }) {
           {models.map((m) => <button key={m.id} className="chip" style={{ padding: "0 8px" }} onClick={() => { setLoaderField("logoUrl", m.url); onBlob(m.previewUrl || null); }}>Usar: {m.label}</button>)}
         </div>
       )}
+      <Slider label="Tamaño logo" min={0.4} max={1.2} step={0.05} value={loader.logoScale ?? 1} onChange={(v) => setLoaderField("logoScale", v)} />
       <Seg value={loader.style === "spin" ? "spin" : "sway"} onChange={(v) => setLoaderField("style", v)} options={[["sway", "Vaivén suave"], ["spin", "Giro lento"]]} />
       <div className="row"><span className="lbl">Color anillo</span>
         <input type="color" value={loader.accent || "#49d3ff"} onChange={(e) => setLoaderField("accent", e.target.value)} />
