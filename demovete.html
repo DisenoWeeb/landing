@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
-  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap"
+  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500&display=swap"
   rel="stylesheet"
 />
 
@@ -275,38 +275,27 @@
   .dock__day.is-sel { background: var(--dock-accent); color: #0a0a0a; border-color: transparent; }
   .dock__day.is-closed { opacity: .4; cursor: default; }
   .dock__arrow { flex: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 15px; font-weight: 300; line-height: 1; padding: 0; }
-  /* Pantalla de carga inicial (antes de que arranque React) */
-  #pre-ldr { position: fixed; inset: 0; z-index: 99; background: var(--ldr-bg, #05070f); display: grid; place-items: center; }
-  #pre-ldr svg { width: calc(min(62vw, 280px) + 28px); height: calc(min(62vw, 280px) + 28px); animation: preSpin 1.5s linear infinite; }
-  #pre-ldr circle { fill: none; stroke: rgba(255,255,255,.5); stroke-width: .6; stroke-linecap: round; stroke-dasharray: 52 250; }
-  @keyframes preSpin { to { transform: rotate(360deg); } }
-  /* ---- Loader: medalla 3D + anillo de progreso ---- */
-  .ldr { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--ldr-bg, #05070f); touch-action: none;
-    transition: opacity .9s cubic-bezier(.4,0,.2,1), visibility 0s linear .9s; }
+  /* Pantalla de carga inicial (antes de que arranque React): mismo fondo y mismo "000" que el loader */
+  #pre-ldr { position: fixed; inset: 0; z-index: 99; background: var(--ldr-bg, #05070f); }
+  #pre-ldr span { position: absolute; left: 0; right: 0; bottom: 10%; text-align: center; color: var(--ldr-line, #fff); font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif);
+    font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+  /* ---- Loader: SVG que se dibuja + contador 000 → 100 + zoom de salida ---- */
+  .ldr { position: fixed; inset: 0; z-index: 100; touch-action: none; overflow: hidden; }
   .ldr--contained { position: absolute; z-index: 30; cursor: pointer; }
-  .ldr--out { opacity: 0; visibility: hidden; pointer-events: none; }
-  .ldr__glow { position: absolute; width: min(90vw, 520px); aspect-ratio: 1; border-radius: 50%; pointer-events: none; filter: blur(10px);
-    background: radial-gradient(closest-side, color-mix(in srgb, var(--ldr-accent, #49d3ff) 20%, transparent), transparent); animation: ldrPulse 4.5s ease-in-out infinite; }
-  .ldr__stage { position: relative; width: min(62vw, 280px); aspect-ratio: 1; animation: ldrIn .9s cubic-bezier(.2,.7,.2,1) both; }
-  .ldr__canvas { position: absolute; inset: 0; }
-  .ldr__ring { position: absolute; left: -14px; top: -14px; width: calc(100% + 28px); height: calc(100% + 28px); overflow: visible; }
-  .ldr__track { fill: none; stroke: rgba(255,255,255,.09); stroke-width: .5; }
-  .ldr__arc { fill: none; stroke: var(--ldr-accent, #49d3ff); stroke-width: .7; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; filter: drop-shadow(0 0 2px var(--ldr-accent, #49d3ff)); }
-  .ldr__dot { fill: #fff; filter: drop-shadow(0 0 3px var(--ldr-accent, #49d3ff)); }
-  .ldr__pct, .ldr__label { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--font-body, system-ui, sans-serif); text-transform: uppercase; color: #fff; }
-  .ldr__pct { top: calc(100% + 34px); font-size: 10px; font-weight: 500; letter-spacing: .32em; opacity: .55; font-variant-numeric: tabular-nums; }
-  .ldr__label { top: calc(100% + 58px); font-size: 9px; font-weight: 400; letter-spacing: .4em; opacity: .38; }
-  @keyframes ldrIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
-  @keyframes ldrPulse { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.04); } }
-  @media (prefers-reduced-motion: reduce) { .ldr__glow, .ldr__stage { animation: none; } }
+  .ldr__bg { position: absolute; inset: 0; background: var(--ldr-bg, #05070f); }
+  .ldr__stage { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: grid; place-items: center; }
+  .ldr__zoom { width: min(64vw, 420px, calc(46vh * var(--ar, 1))); aspect-ratio: var(--ar, 1); transform-origin: 50% 50%; }
+  .ldr__zoom svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .ldr__num { position: absolute; left: 0; right: 0; bottom: 10%; text-align: center; color: var(--ldr-line, #fff); user-select: none;
+    font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 </style>
 <style id="ldr-vars">/*@GEN:LOADER_CSS_START*/
-:root { --ldr-bg: #0b0f4c; }
+:root { --ldr-bg: #0b0f4c; --ldr-line: #ffffff; --ldr-font: 'Lilita One', sans-serif; }
 /*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
 <body>
-<div id="pre-ldr"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"></circle></svg></div>
+<div id="pre-ldr"><span>000</span></div>
 <div id="root"></div>
 
 <script>
@@ -928,17 +917,15 @@ const DOCK = {
 /*@GEN:LOADER_START*/
 const LOADER = {
   "enabled": true,
-  "logoUrl": "./assets/models/logobruzera_fix.glb",
-  "logoScale": 0.4,
-  "style": "spin",
-  "accent": "#eeedce",
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xodm=\"http://www.corel.com/coreldraw/odm/2003\" xml:space=\"preserve\" version=\"1.1\" style=\"shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd\" viewBox=\"0 0 5974.39 5974.39\" preserveAspectRatio=\"xMidYMid meet\">\n <defs>\n  \n <\/defs>\n <g id=\"Capa_x0020_1\">\n  <metadata id=\"CorelCorpID_0Corel-Layer\"/>\n  <path class=\"fil0 str0\" d=\"M423.05 5971.17l5128.28 0c230.91,0 419.83,-173.77 419.83,-386.15l0 -5195.65c0,-212.38 -188.92,-386.15 -419.83,-386.15l-5128.28 0c-230.91,0 -419.84,173.77 -419.84,386.15l0 5195.65c0,212.38 188.93,386.15 419.84,386.15z\"/>\n  <path class=\"fil1 str0\" d=\"M2776.8 2855.78l-21 11.17c-19.51,10.36 -27.57,35.11 -17.91,54.99l35.17 72.4c9.65,19.87 33.51,27.64 53.02,17.27l21 -11.16c19.52,-10.38 27.59,-35.12 17.92,-54.99l-35.18 -72.41c-9.65,-19.87 -33.51,-27.65 -53.02,-17.27z\"/>\n  <path class=\"fil1 str0\" d=\"M2885.85 2993.81c21.08,-23.34 55.6,-28.31 84.77,-28.31l32.8 0c29.06,0 63.48,4.92 84.45,28.21 286.31,317.63 -488.23,317.1 -202.01,0.1z\"/>\n  <path class=\"fil1 str0\" d=\"M3197.65 2855.78l20.98 11.17c19.49,10.36 27.52,35.11 17.83,54.99l-35.27 72.4c-9.69,19.87 -33.56,27.64 -53.05,17.27l-20.98 -11.16c-19.51,-10.38 -27.53,-35.12 -17.85,-54.99l35.28 -72.41c9.68,-19.87 33.55,-27.65 53.06,-17.27z\"/>\n  <path class=\"fil1 str0\" d=\"M2896.66 2743.85l-0.01 0.01c-31.73,6.52 -52.81,37.9 -46.85,69.72l12.34 65.85c5.96,31.83 36.79,52.54 68.53,46.02l0.01 0c31.73,-6.51 52.81,-37.9 46.84,-69.73l-12.34 -65.85c-5.95,-31.83 -36.79,-52.54 -68.52,-46.02z\"/>\n  <path class=\"fil1 str0\" d=\"M3082 2743.85l0.02 0.01c31.72,6.52 52.75,37.9 46.74,69.72l-12.42 65.85c-6.01,31.83 -36.87,52.54 -68.59,46.02l-0.02 0c-31.72,-6.51 -52.75,-37.9 -46.74,-69.73l12.42 -65.85c6.01,-31.83 36.87,-52.54 68.59,-46.02z\"/>\n  <path class=\"fil0 str0\" d=\"M592.13 5774.42l4790.15 0c215.68,0 392.15,-162.3 392.15,-360.68l0 -4853.08c0,-198.37 -176.47,-360.68 -392.15,-360.68l-4790.15 0c-215.69,0 -392.15,162.31 -392.15,360.68l0 4853.08c0,198.38 176.47,360.68 392.15,360.68z\"/>\n  <path class=\"fil0 str0\" d=\"M701 5647.72l4572.4 0c205.88,0 374.33,-154.93 374.33,-344.29l0 -4632.48c0,-189.36 -168.45,-344.29 -374.33,-344.29l-4572.4 0c-205.88,0 -374.33,154.93 -374.33,344.29l0 4632.48c0,189.36 168.45,344.29 374.33,344.29z\"/>\n  <path class=\"fil0 str0\" d=\"M809.86 5521.03l4354.68 0c196.08,0 356.5,-147.55 356.5,-327.9l0 -4411.89c0,-180.34 -160.43,-327.9 -356.5,-327.9l-4354.68 0c-196.08,0 -356.5,147.55 -356.5,327.9l0 4411.89c0,180.35 160.43,327.9 356.5,327.9z\"/>\n  <path class=\"fil0 str0\" d=\"M918.73 5394.34l4136.94 0c186.28,0 338.68,-140.17 338.68,-311.5l0 -4191.29c0,-171.33 -152.4,-311.5 -338.68,-311.5l-4136.94 0c-186.28,0 -338.68,140.17 -338.68,311.5l0 4191.29c0,171.33 152.4,311.5 338.68,311.5z\"/>\n  <path class=\"fil0 str0\" d=\"M1027.59 5267.65l3919.21 0c176.47,0 320.85,-132.79 320.85,-295.1l0 -3970.7c0,-162.31 -144.39,-295.11 -320.85,-295.11l-3919.21 0c-176.47,0 -320.85,132.8 -320.85,295.11l0 3970.7c0,162.31 144.39,295.1 320.85,295.1z\"/>\n  <path class=\"fil0 str0\" d=\"M1136.46 5140.96l3701.47 0c166.67,0 303.03,-125.42 303.03,-278.71l0 -3750.1c0,-153.3 -136.36,-278.71 -303.03,-278.71l-3701.47 0c-166.67,0 -303.03,125.42 -303.03,278.71l0 3750.1c0,153.29 136.36,278.71 303.03,278.71z\"/>\n  <path class=\"fil0 str0\" d=\"M1245.32 5014.26l3483.74 0c156.87,0 285.21,-118.03 285.21,-262.31l0 -3529.51c0,-144.28 -128.34,-262.32 -285.21,-262.32l-3483.74 0c-156.86,0 -285.2,118.04 -285.2,262.32l0 3529.51c0,144.28 128.34,262.31 285.2,262.31z\"/>\n  <path class=\"fil0 str0\" d=\"M1354.2 4887.57l3266.01 0c147.06,0 267.38,-110.66 267.38,-245.92l0 -3308.91c0,-135.26 -120.32,-245.93 -267.38,-245.93l-3266.01 0c-147.06,0 -267.38,110.66 -267.38,245.93l0 3308.91c0,135.26 120.32,245.92 267.38,245.92z\"/>\n  <path class=\"fil0 str0\" d=\"M1463.06 4760.88l3048.27 0c137.26,0 249.56,-103.28 249.56,-229.52l0 -3088.32c0,-126.24 -112.3,-229.52 -249.56,-229.52l-3048.27 0c-137.25,0 -249.55,103.29 -249.55,229.52l0 3088.32c0,126.24 112.3,229.52 249.55,229.52z\"/>\n  <path class=\"fil0 str0\" d=\"M1571.93 4634.19l2830.54 0c127.45,0 231.73,-95.91 231.73,-213.13l0 -2867.73c0,-117.22 -104.28,-213.13 -231.73,-213.13l-2830.54 0c-127.45,0 -231.73,95.91 -231.73,213.13l0 2867.73c0,117.22 104.28,213.13 231.73,213.13z\"/>\n  <path class=\"fil0 str0\" d=\"M1680.8 4507.5l2612.8 0c117.65,0 213.91,-88.52 213.91,-196.74l0 -2647.13c0,-108.2 -96.25,-196.74 -213.91,-196.74l-2612.8 0c-117.65,0 -213.91,88.53 -213.91,196.74l0 2647.13c0,108.21 96.25,196.74 213.91,196.74z\"/>\n  <path class=\"fil0 str0\" d=\"M1789.66 4380.8l2395.07 0c107.84,0 196.08,-81.15 196.08,-180.34l0 -2426.53c0,-99.18 -88.24,-180.34 -196.08,-180.34l-2395.07 0c-107.84,0 -196.08,81.16 -196.08,180.34l0 2426.53c0,99.19 88.24,180.34 196.08,180.34z\"/>\n  <path class=\"fil0 str0\" d=\"M1898.53 4254.11l2177.33 0c98.04,0 178.26,-73.77 178.26,-163.95l0 -2205.94c0,-90.17 -80.21,-163.95 -178.26,-163.95l-2177.33 0c-98.04,0 -178.26,73.78 -178.26,163.95l0 2205.94c0,90.18 80.21,163.95 178.26,163.95z\"/>\n  <path class=\"fil0 str0\" d=\"M2007.39 4127.42l1959.61 0c88.24,0 160.43,-66.4 160.43,-147.55l0 -1985.35c0,-81.15 -72.19,-147.55 -160.43,-147.55l-1959.61 0c-88.24,0 -160.43,66.4 -160.43,147.55l0 1985.35c0,81.15 72.19,147.55 160.43,147.55z\"/>\n  <path class=\"fil0 str0\" d=\"M2116.27 4000.73l1741.87 0c78.43,0 142.6,-59.01 142.6,-131.15l0 -1764.75c0,-72.14 -64.17,-131.16 -142.6,-131.16l-1741.87 0c-78.43,0 -142.6,59.02 -142.6,131.16l0 1764.75c0,72.14 64.17,131.15 142.6,131.15z\"/>\n  <path class=\"fil0 str0\" d=\"M2225.13 3874.03l1524.14 0c68.62,0 124.77,-51.64 124.77,-114.76l0 -1544.16c0,-63.12 -56.15,-114.77 -124.77,-114.77l-1524.14 0c-68.62,0 -124.77,51.65 -124.77,114.77l0 1544.16c0,63.12 56.15,114.76 124.77,114.76z\"/>\n  <path class=\"fil0 str0\" d=\"M2334 3747.34l1306.4 0c58.83,0 106.95,-44.26 106.95,-98.36l0 -1323.56c0,-54.11 -48.13,-98.37 -106.95,-98.37l-1306.4 0c-58.83,0 -106.95,44.27 -106.95,98.37l0 1323.56c0,54.11 48.13,98.36 106.95,98.36z\"/>\n  <path class=\"fil0 str0\" d=\"M2442.86 3620.65l1088.67 0c49.01,0 89.12,-36.88 89.12,-81.97l0 -1102.96c0,-45.09 -40.11,-81.98 -89.12,-81.98l-1088.67 0c-49.01,0 -89.12,36.89 -89.12,81.98l0 1102.96c0,45.09 40.11,81.97 89.12,81.97z\"/>\n <\/g>\n<\/svg>",
   "background": "#0b0f4c",
-  "minMs": 2200,
-  "showPercent": true,
-  "label": "DEMO 3D.."
+  "lineColor": "#ffffff",
+  "font": "'Lilita One', sans-serif",
+  "lineWidth": 0.6,
+  "minMs": 1600,
+  "showNumber": true
 };
 /*@GEN:LOADER_END*/
-if (LOADER.enabled && LOADER.logoUrl) useGLTF.preload(LOADER.logoUrl);
 
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
@@ -2548,73 +2535,109 @@ function CursorTrail() {
   return <canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" />;
 }
 
-/* ---- Loader: la medalla 3D flota y se mece, un anillo muestra el progreso real y al terminar da una vuelta y se funde ---- */
+/* ---- Loader: un SVG que se dibuja de abajo hacia arriba, contador 000 → 100 y, al terminar, zoom hacia adentro del SVG ---- */
 const ldrEase = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-function LoaderLogo({ url, styleName, stateRef, reduce, mul = 1 }) {
-  const { scene } = useGLTF(url);
-  const group = useRef();
-  const light = useRef();
-  const born = useRef(null);
-  const { obj, scale, mats } = useMemo(() => {
-    const o = scene.clone(true);
-    const m = [];
-    o.traverse((n) => {
-      if (n.isMesh && n.material) {
-        n.material = n.material.clone();
-        n.material.transparent = true;
-        n.material.opacity = 0;
-        m.push(n.material);
-      }
-    });
-    const box = new THREE.Box3().setFromObject(o);
-    const size = box.getSize(new THREE.Vector3());
-    const c = box.getCenter(new THREE.Vector3());
-    o.position.sub(c);
-    return { obj: o, scale: 1.5 / Math.max(size.x, size.y, 0.001), mats: m };
-  }, [scene]);
-  useFrame((st) => {
-    const g = group.current;
-    if (!g) return;
-    if (born.current == null) born.current = st.clock.elapsedTime;
-    const t = st.clock.elapsedTime, a = t - born.current, ex = stateRef.current.exit;
-    const k = reduce ? 0 : 1;
-    const yaw = styleName === "spin" ? t * 0.65 : Math.sin(t * 0.85) * 0.38;
-    g.rotation.y = k * yaw + (reduce ? 0 : ldrEase(ex) * Math.PI * 2);
-    g.rotation.x = k * Math.sin(t * 0.6) * 0.07;
-    g.position.y = k * Math.sin(t * 1.1) * 0.035;
-    const fade = Math.min(1, a / 0.9);
-    g.scale.setScalar(scale * mul * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
-    mats.forEach((m) => { m.opacity = fade; if (fade >= 1 && m.transparent) { m.transparent = false; m.needsUpdate = true; } });
-    if (light.current) {
-      const p = (t % 2.8) / 2.8;
-      light.current.position.x = -2.4 + 4.8 * ldrEase(p);
-      light.current.intensity = reduce ? 0 : 8 * Math.sin(Math.PI * p);
-    }
-  });
-  return (
-    <>
-      <ambientLight intensity={0.75} />
-      <directionalLight position={[2, 3, 4]} intensity={1.7} />
-      <pointLight ref={light} position={[-2.4, 0.5, 1.6]} intensity={0} distance={8} decay={2} />
-      <group ref={group}><primitive object={obj} /></group>
-    </>
-  );
+const ldrClamp = (v) => Math.min(1, Math.max(0, v));
+const LDR_DRAWABLE = "path, line, polyline, polygon, rect, circle, ellipse";
+const LDR_SPAN = 0.35;      // cuánto del progreso tarda cada trazo en dibujarse (se superponen)
+const LDR_ZOOM_MAX = 60;    // cuánto se agranda el SVG en el zoom de salida
+/* Lee el SVG, saca lo peligroso (scripts, eventos, imágenes, <style> que se filtraría al resto de la página) y le asegura un viewBox. */
+function ldrParseSvg(text) {
+  if (!text) return null;
+  let doc;
+  try { doc = new DOMParser().parseFromString(text, "image/svg+xml"); } catch (e) { return null; }
+  const svg = doc.documentElement;
+  if (!svg || svg.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) return null;
+  svg.querySelectorAll("script, foreignObject, iframe, object, embed, style, image").forEach((n) => n.remove());
+  [svg, ...svg.querySelectorAll("*")].forEach((n) => Array.from(n.attributes).forEach((a) => {
+    if (/^on/i.test(a.name) || /^\s*javascript:/i.test(a.value)) n.removeAttribute(a.name);
+  }));
+  if (!svg.getAttribute("viewBox")) {
+    const w = parseFloat(svg.getAttribute("width")), h = parseFloat(svg.getAttribute("height"));
+    if (w > 0 && h > 0) svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  }
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  return svg;
 }
-function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
+function ldrSanitizeSvg(text) { const svg = ldrParseSvg(text); return svg ? new XMLSerializer().serializeToString(svg) : null; }
+function ldrCountStrokes(text) {
+  const svg = ldrParseSvg(text);
+  return svg ? Array.from(svg.querySelectorAll(LDR_DRAWABLE)).filter((el) => !el.closest("defs, clipPath, mask, pattern, marker, symbol")).length : 0;
+}
+/* Monta el SVG en "host" y lo deja listo para dibujarse: sólo contornos, del color de las líneas.
+   Devuelve { count, setDraw(p), setZoom(z, boost) } o null si el SVG no sirve. */
+function ldrPrepare(host, svgText, lineColor, swPx) {
+  const parsed = ldrParseSvg(svgText);
+  if (!parsed) return null;
+  host.innerHTML = "";
+  const svg = document.importNode(parsed, true);
+  host.appendChild(svg);
+  if (!svg.getAttribute("viewBox")) {
+    try { const b = svg.getBBox(); if (b.width > 0 && b.height > 0) svg.setAttribute("viewBox", `${b.x} ${b.y} ${b.width} ${b.height}`); } catch (e) { /* sin viewBox */ }
+  }
+  const vb = (svg.getAttribute("viewBox") || "0 0 100 100").trim().split(/[\s,]+/).map(Number);
+  host.style.setProperty("--ar", String((vb[2] || 100) / (vb[3] || 100)));
+  const items = [];
+  svg.querySelectorAll(LDR_DRAWABLE).forEach((el) => {
+    if (el.closest("defs, clipPath, mask, pattern, marker, symbol")) return;
+    if (getComputedStyle(el).display === "none") return;
+    let len = 0;
+    try { len = el.getTotalLength(); } catch (e) { return; }
+    if (!(len > 0)) return;
+    const r = el.getBoundingClientRect();
+    let k = 1; // píxeles de pantalla por unidad del SVG en este trazo (para que la línea mida lo mismo en todos)
+    try { const m = el.getScreenCTM(); if (m) k = Math.hypot(m.a, m.b) || 1; } catch (e) { /* k = 1 */ }
+    items.push({ el, len, cy: r.top + r.height / 2, k });
+  });
+  items.sort((a, b) => b.cy - a.cy); // primero lo de abajo: el dibujo "sube"
+  items.forEach((it) => {
+    it.el.removeAttribute("pathLength");
+    it.el.removeAttribute("vector-effect");
+    const st = it.el.style;
+    st.setProperty("fill", "none", "important");
+    st.setProperty("stroke", lineColor, "important");
+    st.setProperty("stroke-linejoin", "round", "important");
+    st.setProperty("stroke-dasharray", `${it.len} ${it.len}`, "important");
+    st.setProperty("stroke-dashoffset", String(it.len), "important");
+    st.setProperty("stroke-width", String(swPx / it.k), "important");
+    st.visibility = "hidden";
+  });
+  const n = items.length;
+  return {
+    count: n,
+    setDraw(p) {
+      items.forEach((it, i) => {
+        const start = (n > 1 ? i / (n - 1) : 0) * (1 - LDR_SPAN);
+        const f = ldrClamp((p - start) / LDR_SPAN);
+        it.el.style.setProperty("stroke-dashoffset", String(it.len * (1 - ldrEase(f))), "important");
+        it.el.style.visibility = f > 0.001 ? "visible" : "hidden";
+      });
+    },
+    setZoom(z, boost) {
+      items.forEach((it) => it.el.style.setProperty("stroke-width", String((swPx * boost) / (it.k * z)), "important"));
+    },
+  };
+}
+function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
   const prog = useProgress();
   const live = useRef({ progress: 0, active: false, total: 0 });
   live.current = { progress: prog.progress, active: prog.active, total: prog.total };
-  const [phase, setPhase] = useState("in");
-  const ringRef = useRef(), dotRef = useRef(), pctRef = useRef();
-  const stateRef = useRef({ exit: 0 });
-  const reduce = useMemo(() => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
-  const C = 2 * Math.PI * 48;
+  const [gone, setGone] = useState(false);
+  const rootRef = useRef(), bgRef = useRef(), zoomRef = useRef(), numRef = useRef();
   useEffect(() => {
     const pre = document.getElementById("pre-ldr");
     if (pre) pre.remove();
-    if (!contained) { document.documentElement.style.overflow = "hidden"; document.body.style.overflow = "hidden"; }
-    let raf = 0, fontsOk = !!simulate, okSince = 0, exitStart = 0, shown = 0, outSet = false;
-    const t0 = performance.now();
+    const lock = (on) => { if (!contained) { document.documentElement.style.overflow = on ? "hidden" : ""; document.body.style.overflow = on ? "hidden" : ""; } };
+    lock(true);
+    ensureTextFont(cfg.font || "'Space Grotesk', sans-serif");
+    const reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const ctl = zoomRef.current ? ldrPrepare(zoomRef.current, cfg.svg, cfg.lineColor || "#ffffff", cfg.lineWidth || 1.4) : null;
+    if (ctl) { ctl.setDraw(0); ctl.setZoom(1, 1); }
+    let raf = 0, fontsOk = !!simulate, okSince = 0, finishAt = 0, exitStart = 0, shown = 0;
+    let last = performance.now();
+    const t0 = last;
     if (!simulate) {
       const fams = [];
       if (typeof OBJECTS !== "undefined") OBJECTS.forEach((o) => { if (o.type === "text") { fams.push(o.fontFamily); Object.values(o.wordStyles || {}).forEach((w) => w.fontFamily && fams.push(w.fontFamily)); } });
@@ -2623,69 +2646,48 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
         .catch(() => {})
         .then(() => { fontsOk = true; });
     }
-    const minMs = cfg.minMs || 1600;
+    const minMs = cfg.minMs || 1800;
+    const ZOOM_MS = 1400;
     const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
       const el = now - t0, L = live.current;
-      let target;
-      if (simulate) target = Math.min(100, (el / minMs) * 100);
-      else target = L.total > 0 ? L.progress : Math.min(40, el / 60);
+      // progreso real de carga, pero sin avanzar más rápido que "duración mín." para que se llegue a ver la animación
+      let target = simulate ? 100 : (L.total > 0 ? L.progress : Math.min(35, el / 80));
+      target = Math.min(target, (el / minMs) * 100);
       const loaded = simulate ? el >= minMs : (L.total > 0 ? L.progress >= 100 && !L.active : el > 3500);
-      const cond = loaded && fontsOk && el >= minMs;
-      if (cond) { if (!okSince) okSince = now; } else okSince = 0;
-      const go = !exitStart && ((okSince && now - okSince > (simulate ? 0 : 450)) || el > 14000);
-      if (go) exitStart = now;
-      if (exitStart) target = 100;
-      shown += (target - shown) * (exitStart ? 0.18 : 0.07);
-      const sp = exitStart ? shown : Math.min(shown, 99);
-      if (ringRef.current) ringRef.current.style.strokeDashoffset = String(C * (1 - sp / 100));
-      if (dotRef.current) {
-        const ang = -Math.PI / 2 + (sp / 100) * Math.PI * 2;
-        dotRef.current.setAttribute("cx", String(50 + 48 * Math.cos(ang)));
-        dotRef.current.setAttribute("cy", String(50 + 48 * Math.sin(ang)));
-      }
-      if (pctRef.current) pctRef.current.textContent = String(Math.round(sp));
+      if (loaded && fontsOk && target >= 99.9) { if (!okSince) okSince = now; } else okSince = 0;
+      if (!finishAt && ((okSince && now - okSince > (simulate ? 0 : 350)) || el > 14000)) finishAt = now;
+      if (finishAt) target = 100;
+      shown += (target - shown) * (1 - Math.exp(-dt * (finishAt ? 14 : 5)));
+      const disp = finishAt ? Math.round(shown) : Math.min(99, Math.floor(shown));
+      if (numRef.current) numRef.current.textContent = String(disp).padStart(3, "0");
+      if (ctl) ctl.setDraw(Math.min(1, shown / 100));
+      if (finishAt && !exitStart && now - finishAt > 700) exitStart = now; // se queda un instante en 100 y recién ahí hace zoom
       if (exitStart) {
-        const x = Math.min(1, (now - exitStart) / 1100);
-        stateRef.current.exit = x;
-        if (!outSet && x > 0.22) { outSet = true; setPhase("out"); }
-        if (x >= 1 && now - exitStart > 1300) {
-          setPhase("gone");
-          if (!contained) { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; }
-          if (onDone) onDone();
-          return;
-        }
+        const x = Math.min(1, (now - exitStart) / ZOOM_MS);
+        const e = reduce ? 0 : Math.pow(x, 2.2);
+        const z = Math.exp(Math.log(LDR_ZOOM_MAX) * e);
+        if (zoomRef.current) { zoomRef.current.style.transform = `scale(${z})`; zoomRef.current.style.opacity = String(1 - ldrClamp((x - 0.72) / 0.28)); }
+        if (ctl) ctl.setZoom(z, 1 + 1.5 * e);
+        if (bgRef.current) bgRef.current.style.opacity = String(1 - ldrClamp((x - 0.3) / 0.5));
+        if (numRef.current) numRef.current.style.opacity = String(1 - ldrClamp(x / 0.2));
+        if (rootRef.current && x > 0.8) rootRef.current.style.pointerEvents = "none";
+        if (x >= 1) { lock(false); setGone(true); if (onDone) onDone(); return; }
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(raf);
-      if (!contained) { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; }
-    };
+    return () => { cancelAnimationFrame(raf); lock(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  if (phase === "gone") return null;
-  const url = logoUrl || cfg.logoUrl;
+  if (gone) return null;
   return (
-    <div className={"ldr" + (contained ? " ldr--contained" : "") + (phase === "out" ? " ldr--out" : "")} onClick={onClose}
-      style={{ "--ldr-bg": cfg.background || "#05070f", "--ldr-accent": cfg.accent || "var(--brand-accent, #49d3ff)" }}>
-      <div className="ldr__glow" />
-      <div className="ldr__stage">
-        <svg className="ldr__ring" viewBox="0 0 100 100">
-          <circle className="ldr__track" cx="50" cy="50" r="48" />
-          <circle ref={ringRef} className="ldr__arc" cx="50" cy="50" r="48" strokeDasharray={C} strokeDashoffset={C} />
-          <circle ref={dotRef} className="ldr__dot" cx="50" cy="2" r="1.1" />
-        </svg>
-        {url && (
-          <div className="ldr__canvas">
-            <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 4], fov: 30 }} gl={{ alpha: true, antialias: true }}>
-              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} mul={cfg.logoScale || 1} /></Suspense>
-            </Canvas>
-          </div>
-        )}
-        {cfg.showPercent !== false && <div className="ldr__pct"><span ref={pctRef}>0</span>%</div>}
-        {cfg.label && <div className="ldr__label">{cfg.label}</div>}
-      </div>
+    <div ref={rootRef} className={"ldr" + (contained ? " ldr--contained" : "")} onClick={onClose}
+      style={{ "--ldr-bg": cfg.background || "#05070f", "--ldr-line": cfg.lineColor || "#ffffff", "--ldr-font": cfg.font || "'Space Grotesk', sans-serif" }}>
+      <div ref={bgRef} className="ldr__bg" />
+      <div className="ldr__stage"><div ref={zoomRef} className="ldr__zoom" /></div>
+      {cfg.showNumber !== false && <div ref={numRef} className="ldr__num">000</div>}
     </div>
   );
 }
