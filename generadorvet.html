@@ -53,25 +53,15 @@
   .dock__day.is-sel { background: var(--dock-accent); color: #0a0a0a; border-color: transparent; }
   .dock__day.is-closed { opacity: .4; cursor: default; }
   .dock__arrow { flex: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 15px; font-weight: 300; line-height: 1; padding: 0; }
-  /* ---- Loader: medalla 3D + anillo de progreso ---- */
-  .ldr { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--ldr-bg, #05070f); touch-action: none;
-    transition: opacity .9s cubic-bezier(.4,0,.2,1), visibility 0s linear .9s; }
+  /* ---- Loader: SVG que se dibuja + contador 000 → 100 + zoom de salida ---- */
+  .ldr { position: fixed; inset: 0; z-index: 100; touch-action: none; overflow: hidden; }
   .ldr--contained { position: absolute; z-index: 30; cursor: pointer; }
-  .ldr--out { opacity: 0; visibility: hidden; pointer-events: none; }
-  .ldr__glow { position: absolute; width: min(90vw, 520px); aspect-ratio: 1; border-radius: 50%; pointer-events: none; filter: blur(10px);
-    background: radial-gradient(closest-side, color-mix(in srgb, var(--ldr-accent, #49d3ff) 20%, transparent), transparent); animation: ldrPulse 4.5s ease-in-out infinite; }
-  .ldr__stage { position: relative; width: min(62vw, 280px); aspect-ratio: 1; animation: ldrIn .9s cubic-bezier(.2,.7,.2,1) both; }
-  .ldr__canvas { position: absolute; inset: 0; }
-  .ldr__ring { position: absolute; left: -14px; top: -14px; width: calc(100% + 28px); height: calc(100% + 28px); overflow: visible; }
-  .ldr__track { fill: none; stroke: rgba(255,255,255,.09); stroke-width: .5; }
-  .ldr__arc { fill: none; stroke: var(--ldr-accent, #49d3ff); stroke-width: .7; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; filter: drop-shadow(0 0 2px var(--ldr-accent, #49d3ff)); }
-  .ldr__dot { fill: #fff; filter: drop-shadow(0 0 3px var(--ldr-accent, #49d3ff)); }
-  .ldr__pct, .ldr__label { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--font-body, system-ui, sans-serif); text-transform: uppercase; color: #fff; }
-  .ldr__pct { top: calc(100% + 34px); font-size: 10px; font-weight: 500; letter-spacing: .32em; opacity: .55; font-variant-numeric: tabular-nums; }
-  .ldr__label { top: calc(100% + 58px); font-size: 9px; font-weight: 400; letter-spacing: .4em; opacity: .38; }
-  @keyframes ldrIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
-  @keyframes ldrPulse { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.04); } }
-  @media (prefers-reduced-motion: reduce) { .ldr__glow, .ldr__stage { animation: none; } }
+  .ldr__bg { position: absolute; inset: 0; background: var(--ldr-bg, #05070f); }
+  .ldr__stage { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: grid; place-items: center; }
+  .ldr__zoom { width: min(64vw, 420px, calc(46vh * var(--ar, 1))); aspect-ratio: var(--ar, 1); transform-origin: 50% 50%; }
+  .ldr__zoom svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .ldr__num { position: absolute; left: 0; right: 0; bottom: 10%; text-align: center; color: var(--ldr-line, #fff); user-select: none;
+    font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
   .mobile-frame__label { position:absolute; top:-22px; left:0; font-size:10.5px; color:var(--acc); background:rgba(10,12,17,.75); padding:2px 6px; border-radius:4px; white-space:nowrap; }
 
   /* panel */
@@ -201,7 +191,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
-  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap"
+  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500&display=swap"
   rel="stylesheet"
 />
 
@@ -468,36 +458,25 @@
   .dock__day.is-sel { background: var(--dock-accent); color: #0a0a0a; border-color: transparent; }
   .dock__day.is-closed { opacity: .4; cursor: default; }
   .dock__arrow { flex: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; font-size: 15px; font-weight: 300; line-height: 1; padding: 0; }
-  /* Pantalla de carga inicial (antes de que arranque React) */
-  #pre-ldr { position: fixed; inset: 0; z-index: 99; background: var(--ldr-bg, #05070f); display: grid; place-items: center; }
-  #pre-ldr svg { width: calc(min(62vw, 280px) + 28px); height: calc(min(62vw, 280px) + 28px); animation: preSpin 1.5s linear infinite; }
-  #pre-ldr circle { fill: none; stroke: rgba(255,255,255,.5); stroke-width: .6; stroke-linecap: round; stroke-dasharray: 52 250; }
-  @keyframes preSpin { to { transform: rotate(360deg); } }
-  /* ---- Loader: medalla 3D + anillo de progreso ---- */
-  .ldr { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--ldr-bg, #05070f); touch-action: none;
-    transition: opacity .9s cubic-bezier(.4,0,.2,1), visibility 0s linear .9s; }
+  /* Pantalla de carga inicial (antes de que arranque React): mismo fondo y mismo "000" que el loader */
+  #pre-ldr { position: fixed; inset: 0; z-index: 99; background: var(--ldr-bg, #05070f); }
+  #pre-ldr span { position: absolute; left: 0; right: 0; bottom: 10%; text-align: center; color: var(--ldr-line, #fff); font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif);
+    font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+  /* ---- Loader: SVG que se dibuja + contador 000 → 100 + zoom de salida ---- */
+  .ldr { position: fixed; inset: 0; z-index: 100; touch-action: none; overflow: hidden; }
   .ldr--contained { position: absolute; z-index: 30; cursor: pointer; }
-  .ldr--out { opacity: 0; visibility: hidden; pointer-events: none; }
-  .ldr__glow { position: absolute; width: min(90vw, 520px); aspect-ratio: 1; border-radius: 50%; pointer-events: none; filter: blur(10px);
-    background: radial-gradient(closest-side, color-mix(in srgb, var(--ldr-accent, #49d3ff) 20%, transparent), transparent); animation: ldrPulse 4.5s ease-in-out infinite; }
-  .ldr__stage { position: relative; width: min(62vw, 280px); aspect-ratio: 1; animation: ldrIn .9s cubic-bezier(.2,.7,.2,1) both; }
-  .ldr__canvas { position: absolute; inset: 0; }
-  .ldr__ring { position: absolute; left: -14px; top: -14px; width: calc(100% + 28px); height: calc(100% + 28px); overflow: visible; }
-  .ldr__track { fill: none; stroke: rgba(255,255,255,.09); stroke-width: .5; }
-  .ldr__arc { fill: none; stroke: var(--ldr-accent, #49d3ff); stroke-width: .7; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; filter: drop-shadow(0 0 2px var(--ldr-accent, #49d3ff)); }
-  .ldr__dot { fill: #fff; filter: drop-shadow(0 0 3px var(--ldr-accent, #49d3ff)); }
-  .ldr__pct, .ldr__label { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--font-body, system-ui, sans-serif); text-transform: uppercase; color: #fff; }
-  .ldr__pct { top: calc(100% + 34px); font-size: 10px; font-weight: 500; letter-spacing: .32em; opacity: .55; font-variant-numeric: tabular-nums; }
-  .ldr__label { top: calc(100% + 58px); font-size: 9px; font-weight: 400; letter-spacing: .4em; opacity: .38; }
-  @keyframes ldrIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
-  @keyframes ldrPulse { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.04); } }
-  @media (prefers-reduced-motion: reduce) { .ldr__glow, .ldr__stage { animation: none; } }
+  .ldr__bg { position: absolute; inset: 0; background: var(--ldr-bg, #05070f); }
+  .ldr__stage { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: grid; place-items: center; }
+  .ldr__zoom { width: min(64vw, 420px, calc(46vh * var(--ar, 1))); aspect-ratio: var(--ar, 1); transform-origin: 50% 50%; }
+  .ldr__zoom svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .ldr__num { position: absolute; left: 0; right: 0; bottom: 10%; text-align: center; color: var(--ldr-line, #fff); user-select: none;
+    font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 </style>
-<style id="ldr-vars">/*@GEN:LOADER_CSS_START*/:root { --ldr-bg: #05070f; }/*@GEN:LOADER_CSS_END*/</style>
+<style id="ldr-vars">/*@GEN:LOADER_CSS_START*/:root { --ldr-bg: #05070f; --ldr-line: #ffffff; --ldr-font: 'Space Grotesk', sans-serif; }/*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
 <body>
-<div id="pre-ldr"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"></circle></svg></div>
+<div id="pre-ldr"><span>000</span></div>
 <div id="root"></div>
 
 <script>
@@ -881,17 +860,15 @@ const DOCK = {
 /*@GEN:LOADER_START*/
 const LOADER = {
   "enabled": true,
-  "logoUrl": "",
-  "logoScale": 1,
-  "style": "sway",
-  "accent": "",
+  "svg": "",
   "background": "#05070f",
-  "minMs": 1600,
-  "showPercent": true,
-  "label": ""
+  "lineColor": "#ffffff",
+  "font": "'Space Grotesk', sans-serif",
+  "lineWidth": 1.4,
+  "minMs": 1800,
+  "showNumber": true
 };
 /*@GEN:LOADER_END*/
-if (LOADER.enabled && LOADER.logoUrl) useGLTF.preload(LOADER.logoUrl);
 
 function damp(current, target, lambda, dt) {
   return current + (target - current) * (1 - Math.exp(-lambda * dt));
@@ -2501,73 +2478,109 @@ function CursorTrail() {
   return <canvas ref={canvasRef} className="cursor-trail-canvas" aria-hidden="true" />;
 }
 
-/* ---- Loader: la medalla 3D flota y se mece, un anillo muestra el progreso real y al terminar da una vuelta y se funde ---- */
+/* ---- Loader: un SVG que se dibuja de abajo hacia arriba, contador 000 → 100 y, al terminar, zoom hacia adentro del SVG ---- */
 const ldrEase = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-function LoaderLogo({ url, styleName, stateRef, reduce, mul = 1 }) {
-  const { scene } = useGLTF(url);
-  const group = useRef();
-  const light = useRef();
-  const born = useRef(null);
-  const { obj, scale, mats } = useMemo(() => {
-    const o = scene.clone(true);
-    const m = [];
-    o.traverse((n) => {
-      if (n.isMesh && n.material) {
-        n.material = n.material.clone();
-        n.material.transparent = true;
-        n.material.opacity = 0;
-        m.push(n.material);
-      }
-    });
-    const box = new THREE.Box3().setFromObject(o);
-    const size = box.getSize(new THREE.Vector3());
-    const c = box.getCenter(new THREE.Vector3());
-    o.position.sub(c);
-    return { obj: o, scale: 1.5 / Math.max(size.x, size.y, 0.001), mats: m };
-  }, [scene]);
-  useFrame((st) => {
-    const g = group.current;
-    if (!g) return;
-    if (born.current == null) born.current = st.clock.elapsedTime;
-    const t = st.clock.elapsedTime, a = t - born.current, ex = stateRef.current.exit;
-    const k = reduce ? 0 : 1;
-    const yaw = styleName === "spin" ? t * 0.65 : Math.sin(t * 0.85) * 0.38;
-    g.rotation.y = k * yaw + (reduce ? 0 : ldrEase(ex) * Math.PI * 2);
-    g.rotation.x = k * Math.sin(t * 0.6) * 0.07;
-    g.position.y = k * Math.sin(t * 1.1) * 0.035;
-    const fade = Math.min(1, a / 0.9);
-    g.scale.setScalar(scale * mul * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
-    mats.forEach((m) => { m.opacity = fade; if (fade >= 1 && m.transparent) { m.transparent = false; m.needsUpdate = true; } });
-    if (light.current) {
-      const p = (t % 2.8) / 2.8;
-      light.current.position.x = -2.4 + 4.8 * ldrEase(p);
-      light.current.intensity = reduce ? 0 : 8 * Math.sin(Math.PI * p);
-    }
-  });
-  return (
-    <>
-      <ambientLight intensity={0.75} />
-      <directionalLight position={[2, 3, 4]} intensity={1.7} />
-      <pointLight ref={light} position={[-2.4, 0.5, 1.6]} intensity={0} distance={8} decay={2} />
-      <group ref={group}><primitive object={obj} /></group>
-    </>
-  );
+const ldrClamp = (v) => Math.min(1, Math.max(0, v));
+const LDR_DRAWABLE = "path, line, polyline, polygon, rect, circle, ellipse";
+const LDR_SPAN = 0.35;      // cuánto del progreso tarda cada trazo en dibujarse (se superponen)
+const LDR_ZOOM_MAX = 60;    // cuánto se agranda el SVG en el zoom de salida
+/* Lee el SVG, saca lo peligroso (scripts, eventos, imágenes, <style> que se filtraría al resto de la página) y le asegura un viewBox. */
+function ldrParseSvg(text) {
+  if (!text) return null;
+  let doc;
+  try { doc = new DOMParser().parseFromString(text, "image/svg+xml"); } catch (e) { return null; }
+  const svg = doc.documentElement;
+  if (!svg || svg.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) return null;
+  svg.querySelectorAll("script, foreignObject, iframe, object, embed, style, image").forEach((n) => n.remove());
+  [svg, ...svg.querySelectorAll("*")].forEach((n) => Array.from(n.attributes).forEach((a) => {
+    if (/^on/i.test(a.name) || /^\s*javascript:/i.test(a.value)) n.removeAttribute(a.name);
+  }));
+  if (!svg.getAttribute("viewBox")) {
+    const w = parseFloat(svg.getAttribute("width")), h = parseFloat(svg.getAttribute("height"));
+    if (w > 0 && h > 0) svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  }
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  return svg;
 }
-function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
+function ldrSanitizeSvg(text) { const svg = ldrParseSvg(text); return svg ? new XMLSerializer().serializeToString(svg) : null; }
+function ldrCountStrokes(text) {
+  const svg = ldrParseSvg(text);
+  return svg ? Array.from(svg.querySelectorAll(LDR_DRAWABLE)).filter((el) => !el.closest("defs, clipPath, mask, pattern, marker, symbol")).length : 0;
+}
+/* Monta el SVG en "host" y lo deja listo para dibujarse: sólo contornos, del color de las líneas.
+   Devuelve { count, setDraw(p), setZoom(z, boost) } o null si el SVG no sirve. */
+function ldrPrepare(host, svgText, lineColor, swPx) {
+  const parsed = ldrParseSvg(svgText);
+  if (!parsed) return null;
+  host.innerHTML = "";
+  const svg = document.importNode(parsed, true);
+  host.appendChild(svg);
+  if (!svg.getAttribute("viewBox")) {
+    try { const b = svg.getBBox(); if (b.width > 0 && b.height > 0) svg.setAttribute("viewBox", `${b.x} ${b.y} ${b.width} ${b.height}`); } catch (e) { /* sin viewBox */ }
+  }
+  const vb = (svg.getAttribute("viewBox") || "0 0 100 100").trim().split(/[\s,]+/).map(Number);
+  host.style.setProperty("--ar", String((vb[2] || 100) / (vb[3] || 100)));
+  const items = [];
+  svg.querySelectorAll(LDR_DRAWABLE).forEach((el) => {
+    if (el.closest("defs, clipPath, mask, pattern, marker, symbol")) return;
+    if (getComputedStyle(el).display === "none") return;
+    let len = 0;
+    try { len = el.getTotalLength(); } catch (e) { return; }
+    if (!(len > 0)) return;
+    const r = el.getBoundingClientRect();
+    let k = 1; // píxeles de pantalla por unidad del SVG en este trazo (para que la línea mida lo mismo en todos)
+    try { const m = el.getScreenCTM(); if (m) k = Math.hypot(m.a, m.b) || 1; } catch (e) { /* k = 1 */ }
+    items.push({ el, len, cy: r.top + r.height / 2, k });
+  });
+  items.sort((a, b) => b.cy - a.cy); // primero lo de abajo: el dibujo "sube"
+  items.forEach((it) => {
+    it.el.removeAttribute("pathLength");
+    it.el.removeAttribute("vector-effect");
+    const st = it.el.style;
+    st.setProperty("fill", "none", "important");
+    st.setProperty("stroke", lineColor, "important");
+    st.setProperty("stroke-linejoin", "round", "important");
+    st.setProperty("stroke-dasharray", `${it.len} ${it.len}`, "important");
+    st.setProperty("stroke-dashoffset", String(it.len), "important");
+    st.setProperty("stroke-width", String(swPx / it.k), "important");
+    st.visibility = "hidden";
+  });
+  const n = items.length;
+  return {
+    count: n,
+    setDraw(p) {
+      items.forEach((it, i) => {
+        const start = (n > 1 ? i / (n - 1) : 0) * (1 - LDR_SPAN);
+        const f = ldrClamp((p - start) / LDR_SPAN);
+        it.el.style.setProperty("stroke-dashoffset", String(it.len * (1 - ldrEase(f))), "important");
+        it.el.style.visibility = f > 0.001 ? "visible" : "hidden";
+      });
+    },
+    setZoom(z, boost) {
+      items.forEach((it) => it.el.style.setProperty("stroke-width", String((swPx * boost) / (it.k * z)), "important"));
+    },
+  };
+}
+function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
   const prog = useProgress();
   const live = useRef({ progress: 0, active: false, total: 0 });
   live.current = { progress: prog.progress, active: prog.active, total: prog.total };
-  const [phase, setPhase] = useState("in");
-  const ringRef = useRef(), dotRef = useRef(), pctRef = useRef();
-  const stateRef = useRef({ exit: 0 });
-  const reduce = useMemo(() => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
-  const C = 2 * Math.PI * 48;
+  const [gone, setGone] = useState(false);
+  const rootRef = useRef(), bgRef = useRef(), zoomRef = useRef(), numRef = useRef();
   useEffect(() => {
     const pre = document.getElementById("pre-ldr");
     if (pre) pre.remove();
-    if (!contained) { document.documentElement.style.overflow = "hidden"; document.body.style.overflow = "hidden"; }
-    let raf = 0, fontsOk = !!simulate, okSince = 0, exitStart = 0, shown = 0, outSet = false;
-    const t0 = performance.now();
+    const lock = (on) => { if (!contained) { document.documentElement.style.overflow = on ? "hidden" : ""; document.body.style.overflow = on ? "hidden" : ""; } };
+    lock(true);
+    ensureTextFont(cfg.font || "'Space Grotesk', sans-serif");
+    const reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const ctl = zoomRef.current ? ldrPrepare(zoomRef.current, cfg.svg, cfg.lineColor || "#ffffff", cfg.lineWidth || 1.4) : null;
+    if (ctl) { ctl.setDraw(0); ctl.setZoom(1, 1); }
+    let raf = 0, fontsOk = !!simulate, okSince = 0, finishAt = 0, exitStart = 0, shown = 0;
+    let last = performance.now();
+    const t0 = last;
     if (!simulate) {
       const fams = [];
       if (typeof OBJECTS !== "undefined") OBJECTS.forEach((o) => { if (o.type === "text") { fams.push(o.fontFamily); Object.values(o.wordStyles || {}).forEach((w) => w.fontFamily && fams.push(w.fontFamily)); } });
@@ -2576,69 +2589,48 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
         .catch(() => {})
         .then(() => { fontsOk = true; });
     }
-    const minMs = cfg.minMs || 1600;
+    const minMs = cfg.minMs || 1800;
+    const ZOOM_MS = 1400;
     const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
       const el = now - t0, L = live.current;
-      let target;
-      if (simulate) target = Math.min(100, (el / minMs) * 100);
-      else target = L.total > 0 ? L.progress : Math.min(40, el / 60);
+      // progreso real de carga, pero sin avanzar más rápido que "duración mín." para que se llegue a ver la animación
+      let target = simulate ? 100 : (L.total > 0 ? L.progress : Math.min(35, el / 80));
+      target = Math.min(target, (el / minMs) * 100);
       const loaded = simulate ? el >= minMs : (L.total > 0 ? L.progress >= 100 && !L.active : el > 3500);
-      const cond = loaded && fontsOk && el >= minMs;
-      if (cond) { if (!okSince) okSince = now; } else okSince = 0;
-      const go = !exitStart && ((okSince && now - okSince > (simulate ? 0 : 450)) || el > 14000);
-      if (go) exitStart = now;
-      if (exitStart) target = 100;
-      shown += (target - shown) * (exitStart ? 0.18 : 0.07);
-      const sp = exitStart ? shown : Math.min(shown, 99);
-      if (ringRef.current) ringRef.current.style.strokeDashoffset = String(C * (1 - sp / 100));
-      if (dotRef.current) {
-        const ang = -Math.PI / 2 + (sp / 100) * Math.PI * 2;
-        dotRef.current.setAttribute("cx", String(50 + 48 * Math.cos(ang)));
-        dotRef.current.setAttribute("cy", String(50 + 48 * Math.sin(ang)));
-      }
-      if (pctRef.current) pctRef.current.textContent = String(Math.round(sp));
+      if (loaded && fontsOk && target >= 99.9) { if (!okSince) okSince = now; } else okSince = 0;
+      if (!finishAt && ((okSince && now - okSince > (simulate ? 0 : 350)) || el > 14000)) finishAt = now;
+      if (finishAt) target = 100;
+      shown += (target - shown) * (1 - Math.exp(-dt * (finishAt ? 14 : 5)));
+      const disp = finishAt ? Math.round(shown) : Math.min(99, Math.floor(shown));
+      if (numRef.current) numRef.current.textContent = String(disp).padStart(3, "0");
+      if (ctl) ctl.setDraw(Math.min(1, shown / 100));
+      if (finishAt && !exitStart && now - finishAt > 700) exitStart = now; // se queda un instante en 100 y recién ahí hace zoom
       if (exitStart) {
-        const x = Math.min(1, (now - exitStart) / 1100);
-        stateRef.current.exit = x;
-        if (!outSet && x > 0.22) { outSet = true; setPhase("out"); }
-        if (x >= 1 && now - exitStart > 1300) {
-          setPhase("gone");
-          if (!contained) { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; }
-          if (onDone) onDone();
-          return;
-        }
+        const x = Math.min(1, (now - exitStart) / ZOOM_MS);
+        const e = reduce ? 0 : Math.pow(x, 2.2);
+        const z = Math.exp(Math.log(LDR_ZOOM_MAX) * e);
+        if (zoomRef.current) { zoomRef.current.style.transform = `scale(${z})`; zoomRef.current.style.opacity = String(1 - ldrClamp((x - 0.72) / 0.28)); }
+        if (ctl) ctl.setZoom(z, 1 + 1.5 * e);
+        if (bgRef.current) bgRef.current.style.opacity = String(1 - ldrClamp((x - 0.3) / 0.5));
+        if (numRef.current) numRef.current.style.opacity = String(1 - ldrClamp(x / 0.2));
+        if (rootRef.current && x > 0.8) rootRef.current.style.pointerEvents = "none";
+        if (x >= 1) { lock(false); setGone(true); if (onDone) onDone(); return; }
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(raf);
-      if (!contained) { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; }
-    };
+    return () => { cancelAnimationFrame(raf); lock(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  if (phase === "gone") return null;
-  const url = logoUrl || cfg.logoUrl;
+  if (gone) return null;
   return (
-    <div className={"ldr" + (contained ? " ldr--contained" : "") + (phase === "out" ? " ldr--out" : "")} onClick={onClose}
-      style={{ "--ldr-bg": cfg.background || "#05070f", "--ldr-accent": cfg.accent || "var(--brand-accent, #49d3ff)" }}>
-      <div className="ldr__glow" />
-      <div className="ldr__stage">
-        <svg className="ldr__ring" viewBox="0 0 100 100">
-          <circle className="ldr__track" cx="50" cy="50" r="48" />
-          <circle ref={ringRef} className="ldr__arc" cx="50" cy="50" r="48" strokeDasharray={C} strokeDashoffset={C} />
-          <circle ref={dotRef} className="ldr__dot" cx="50" cy="2" r="1.1" />
-        </svg>
-        {url && (
-          <div className="ldr__canvas">
-            <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 4], fov: 30 }} gl={{ alpha: true, antialias: true }}>
-              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} mul={cfg.logoScale || 1} /></Suspense>
-            </Canvas>
-          </div>
-        )}
-        {cfg.showPercent !== false && <div className="ldr__pct"><span ref={pctRef}>0</span>%</div>}
-        {cfg.label && <div className="ldr__label">{cfg.label}</div>}
-      </div>
+    <div ref={rootRef} className={"ldr" + (contained ? " ldr--contained" : "")} onClick={onClose}
+      style={{ "--ldr-bg": cfg.background || "#05070f", "--ldr-line": cfg.lineColor || "#ffffff", "--ldr-font": cfg.font || "'Space Grotesk', sans-serif" }}>
+      <div ref={bgRef} className="ldr__bg" />
+      <div className="ldr__stage"><div ref={zoomRef} className="ldr__zoom" /></div>
+      {cfg.showNumber !== false && <div ref={numRef} className="ldr__num">000</div>}
     </div>
   );
 }
@@ -4168,73 +4160,109 @@ function usePhoneBox(containerRef, enabled, ratio = 9 / 16) {
   return box;
 }
 /* Marco del celular: raya punteada en el corte (arriba = animación, abajo = zona fija) y maqueta de la zona fija. */
-/* ---- Loader: la medalla 3D flota y se mece, un anillo muestra el progreso real y al terminar da una vuelta y se funde ---- */
+/* ---- Loader: un SVG que se dibuja de abajo hacia arriba, contador 000 → 100 y, al terminar, zoom hacia adentro del SVG ---- */
 const ldrEase = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-function LoaderLogo({ url, styleName, stateRef, reduce, mul = 1 }) {
-  const { scene } = useGLTF(url);
-  const group = useRef();
-  const light = useRef();
-  const born = useRef(null);
-  const { obj, scale, mats } = useMemo(() => {
-    const o = scene.clone(true);
-    const m = [];
-    o.traverse((n) => {
-      if (n.isMesh && n.material) {
-        n.material = n.material.clone();
-        n.material.transparent = true;
-        n.material.opacity = 0;
-        m.push(n.material);
-      }
-    });
-    const box = new THREE.Box3().setFromObject(o);
-    const size = box.getSize(new THREE.Vector3());
-    const c = box.getCenter(new THREE.Vector3());
-    o.position.sub(c);
-    return { obj: o, scale: 1.5 / Math.max(size.x, size.y, 0.001), mats: m };
-  }, [scene]);
-  useFrame((st) => {
-    const g = group.current;
-    if (!g) return;
-    if (born.current == null) born.current = st.clock.elapsedTime;
-    const t = st.clock.elapsedTime, a = t - born.current, ex = stateRef.current.exit;
-    const k = reduce ? 0 : 1;
-    const yaw = styleName === "spin" ? t * 0.65 : Math.sin(t * 0.85) * 0.38;
-    g.rotation.y = k * yaw + (reduce ? 0 : ldrEase(ex) * Math.PI * 2);
-    g.rotation.x = k * Math.sin(t * 0.6) * 0.07;
-    g.position.y = k * Math.sin(t * 1.1) * 0.035;
-    const fade = Math.min(1, a / 0.9);
-    g.scale.setScalar(scale * mul * (0.9 + 0.1 * ldrEase(fade)) * (1 + 0.14 * ldrEase(ex)));
-    mats.forEach((m) => { m.opacity = fade; if (fade >= 1 && m.transparent) { m.transparent = false; m.needsUpdate = true; } });
-    if (light.current) {
-      const p = (t % 2.8) / 2.8;
-      light.current.position.x = -2.4 + 4.8 * ldrEase(p);
-      light.current.intensity = reduce ? 0 : 8 * Math.sin(Math.PI * p);
-    }
-  });
-  return (
-    <>
-      <ambientLight intensity={0.75} />
-      <directionalLight position={[2, 3, 4]} intensity={1.7} />
-      <pointLight ref={light} position={[-2.4, 0.5, 1.6]} intensity={0} distance={8} decay={2} />
-      <group ref={group}><primitive object={obj} /></group>
-    </>
-  );
+const ldrClamp = (v) => Math.min(1, Math.max(0, v));
+const LDR_DRAWABLE = "path, line, polyline, polygon, rect, circle, ellipse";
+const LDR_SPAN = 0.35;      // cuánto del progreso tarda cada trazo en dibujarse (se superponen)
+const LDR_ZOOM_MAX = 60;    // cuánto se agranda el SVG en el zoom de salida
+/* Lee el SVG, saca lo peligroso (scripts, eventos, imágenes, <style> que se filtraría al resto de la página) y le asegura un viewBox. */
+function ldrParseSvg(text) {
+  if (!text) return null;
+  let doc;
+  try { doc = new DOMParser().parseFromString(text, "image/svg+xml"); } catch (e) { return null; }
+  const svg = doc.documentElement;
+  if (!svg || svg.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) return null;
+  svg.querySelectorAll("script, foreignObject, iframe, object, embed, style, image").forEach((n) => n.remove());
+  [svg, ...svg.querySelectorAll("*")].forEach((n) => Array.from(n.attributes).forEach((a) => {
+    if (/^on/i.test(a.name) || /^\s*javascript:/i.test(a.value)) n.removeAttribute(a.name);
+  }));
+  if (!svg.getAttribute("viewBox")) {
+    const w = parseFloat(svg.getAttribute("width")), h = parseFloat(svg.getAttribute("height"));
+    if (w > 0 && h > 0) svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  }
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  return svg;
 }
-function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
+function ldrSanitizeSvg(text) { const svg = ldrParseSvg(text); return svg ? new XMLSerializer().serializeToString(svg) : null; }
+function ldrCountStrokes(text) {
+  const svg = ldrParseSvg(text);
+  return svg ? Array.from(svg.querySelectorAll(LDR_DRAWABLE)).filter((el) => !el.closest("defs, clipPath, mask, pattern, marker, symbol")).length : 0;
+}
+/* Monta el SVG en "host" y lo deja listo para dibujarse: sólo contornos, del color de las líneas.
+   Devuelve { count, setDraw(p), setZoom(z, boost) } o null si el SVG no sirve. */
+function ldrPrepare(host, svgText, lineColor, swPx) {
+  const parsed = ldrParseSvg(svgText);
+  if (!parsed) return null;
+  host.innerHTML = "";
+  const svg = document.importNode(parsed, true);
+  host.appendChild(svg);
+  if (!svg.getAttribute("viewBox")) {
+    try { const b = svg.getBBox(); if (b.width > 0 && b.height > 0) svg.setAttribute("viewBox", `${b.x} ${b.y} ${b.width} ${b.height}`); } catch (e) { /* sin viewBox */ }
+  }
+  const vb = (svg.getAttribute("viewBox") || "0 0 100 100").trim().split(/[\s,]+/).map(Number);
+  host.style.setProperty("--ar", String((vb[2] || 100) / (vb[3] || 100)));
+  const items = [];
+  svg.querySelectorAll(LDR_DRAWABLE).forEach((el) => {
+    if (el.closest("defs, clipPath, mask, pattern, marker, symbol")) return;
+    if (getComputedStyle(el).display === "none") return;
+    let len = 0;
+    try { len = el.getTotalLength(); } catch (e) { return; }
+    if (!(len > 0)) return;
+    const r = el.getBoundingClientRect();
+    let k = 1; // píxeles de pantalla por unidad del SVG en este trazo (para que la línea mida lo mismo en todos)
+    try { const m = el.getScreenCTM(); if (m) k = Math.hypot(m.a, m.b) || 1; } catch (e) { /* k = 1 */ }
+    items.push({ el, len, cy: r.top + r.height / 2, k });
+  });
+  items.sort((a, b) => b.cy - a.cy); // primero lo de abajo: el dibujo "sube"
+  items.forEach((it) => {
+    it.el.removeAttribute("pathLength");
+    it.el.removeAttribute("vector-effect");
+    const st = it.el.style;
+    st.setProperty("fill", "none", "important");
+    st.setProperty("stroke", lineColor, "important");
+    st.setProperty("stroke-linejoin", "round", "important");
+    st.setProperty("stroke-dasharray", `${it.len} ${it.len}`, "important");
+    st.setProperty("stroke-dashoffset", String(it.len), "important");
+    st.setProperty("stroke-width", String(swPx / it.k), "important");
+    st.visibility = "hidden";
+  });
+  const n = items.length;
+  return {
+    count: n,
+    setDraw(p) {
+      items.forEach((it, i) => {
+        const start = (n > 1 ? i / (n - 1) : 0) * (1 - LDR_SPAN);
+        const f = ldrClamp((p - start) / LDR_SPAN);
+        it.el.style.setProperty("stroke-dashoffset", String(it.len * (1 - ldrEase(f))), "important");
+        it.el.style.visibility = f > 0.001 ? "visible" : "hidden";
+      });
+    },
+    setZoom(z, boost) {
+      items.forEach((it) => it.el.style.setProperty("stroke-width", String((swPx * boost) / (it.k * z)), "important"));
+    },
+  };
+}
+function LoaderOverlay({ cfg, simulate, contained, onDone, onClose }) {
   const prog = useProgress();
   const live = useRef({ progress: 0, active: false, total: 0 });
   live.current = { progress: prog.progress, active: prog.active, total: prog.total };
-  const [phase, setPhase] = useState("in");
-  const ringRef = useRef(), dotRef = useRef(), pctRef = useRef();
-  const stateRef = useRef({ exit: 0 });
-  const reduce = useMemo(() => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
-  const C = 2 * Math.PI * 48;
+  const [gone, setGone] = useState(false);
+  const rootRef = useRef(), bgRef = useRef(), zoomRef = useRef(), numRef = useRef();
   useEffect(() => {
     const pre = document.getElementById("pre-ldr");
     if (pre) pre.remove();
-    if (!contained) { document.documentElement.style.overflow = "hidden"; document.body.style.overflow = "hidden"; }
-    let raf = 0, fontsOk = !!simulate, okSince = 0, exitStart = 0, shown = 0, outSet = false;
-    const t0 = performance.now();
+    const lock = (on) => { if (!contained) { document.documentElement.style.overflow = on ? "hidden" : ""; document.body.style.overflow = on ? "hidden" : ""; } };
+    lock(true);
+    ensureTextFont(cfg.font || "'Space Grotesk', sans-serif");
+    const reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const ctl = zoomRef.current ? ldrPrepare(zoomRef.current, cfg.svg, cfg.lineColor || "#ffffff", cfg.lineWidth || 1.4) : null;
+    if (ctl) { ctl.setDraw(0); ctl.setZoom(1, 1); }
+    let raf = 0, fontsOk = !!simulate, okSince = 0, finishAt = 0, exitStart = 0, shown = 0;
+    let last = performance.now();
+    const t0 = last;
     if (!simulate) {
       const fams = [];
       if (typeof OBJECTS !== "undefined") OBJECTS.forEach((o) => { if (o.type === "text") { fams.push(o.fontFamily); Object.values(o.wordStyles || {}).forEach((w) => w.fontFamily && fams.push(w.fontFamily)); } });
@@ -4243,69 +4271,48 @@ function LoaderOverlay({ cfg, simulate, contained, onDone, onClose, logoUrl }) {
         .catch(() => {})
         .then(() => { fontsOk = true; });
     }
-    const minMs = cfg.minMs || 1600;
+    const minMs = cfg.minMs || 1800;
+    const ZOOM_MS = 1400;
     const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
       const el = now - t0, L = live.current;
-      let target;
-      if (simulate) target = Math.min(100, (el / minMs) * 100);
-      else target = L.total > 0 ? L.progress : Math.min(40, el / 60);
+      // progreso real de carga, pero sin avanzar más rápido que "duración mín." para que se llegue a ver la animación
+      let target = simulate ? 100 : (L.total > 0 ? L.progress : Math.min(35, el / 80));
+      target = Math.min(target, (el / minMs) * 100);
       const loaded = simulate ? el >= minMs : (L.total > 0 ? L.progress >= 100 && !L.active : el > 3500);
-      const cond = loaded && fontsOk && el >= minMs;
-      if (cond) { if (!okSince) okSince = now; } else okSince = 0;
-      const go = !exitStart && ((okSince && now - okSince > (simulate ? 0 : 450)) || el > 14000);
-      if (go) exitStart = now;
-      if (exitStart) target = 100;
-      shown += (target - shown) * (exitStart ? 0.18 : 0.07);
-      const sp = exitStart ? shown : Math.min(shown, 99);
-      if (ringRef.current) ringRef.current.style.strokeDashoffset = String(C * (1 - sp / 100));
-      if (dotRef.current) {
-        const ang = -Math.PI / 2 + (sp / 100) * Math.PI * 2;
-        dotRef.current.setAttribute("cx", String(50 + 48 * Math.cos(ang)));
-        dotRef.current.setAttribute("cy", String(50 + 48 * Math.sin(ang)));
-      }
-      if (pctRef.current) pctRef.current.textContent = String(Math.round(sp));
+      if (loaded && fontsOk && target >= 99.9) { if (!okSince) okSince = now; } else okSince = 0;
+      if (!finishAt && ((okSince && now - okSince > (simulate ? 0 : 350)) || el > 14000)) finishAt = now;
+      if (finishAt) target = 100;
+      shown += (target - shown) * (1 - Math.exp(-dt * (finishAt ? 14 : 5)));
+      const disp = finishAt ? Math.round(shown) : Math.min(99, Math.floor(shown));
+      if (numRef.current) numRef.current.textContent = String(disp).padStart(3, "0");
+      if (ctl) ctl.setDraw(Math.min(1, shown / 100));
+      if (finishAt && !exitStart && now - finishAt > 700) exitStart = now; // se queda un instante en 100 y recién ahí hace zoom
       if (exitStart) {
-        const x = Math.min(1, (now - exitStart) / 1100);
-        stateRef.current.exit = x;
-        if (!outSet && x > 0.22) { outSet = true; setPhase("out"); }
-        if (x >= 1 && now - exitStart > 1300) {
-          setPhase("gone");
-          if (!contained) { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; }
-          if (onDone) onDone();
-          return;
-        }
+        const x = Math.min(1, (now - exitStart) / ZOOM_MS);
+        const e = reduce ? 0 : Math.pow(x, 2.2);
+        const z = Math.exp(Math.log(LDR_ZOOM_MAX) * e);
+        if (zoomRef.current) { zoomRef.current.style.transform = `scale(${z})`; zoomRef.current.style.opacity = String(1 - ldrClamp((x - 0.72) / 0.28)); }
+        if (ctl) ctl.setZoom(z, 1 + 1.5 * e);
+        if (bgRef.current) bgRef.current.style.opacity = String(1 - ldrClamp((x - 0.3) / 0.5));
+        if (numRef.current) numRef.current.style.opacity = String(1 - ldrClamp(x / 0.2));
+        if (rootRef.current && x > 0.8) rootRef.current.style.pointerEvents = "none";
+        if (x >= 1) { lock(false); setGone(true); if (onDone) onDone(); return; }
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(raf);
-      if (!contained) { document.documentElement.style.overflow = ""; document.body.style.overflow = ""; }
-    };
+    return () => { cancelAnimationFrame(raf); lock(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  if (phase === "gone") return null;
-  const url = logoUrl || cfg.logoUrl;
+  if (gone) return null;
   return (
-    <div className={"ldr" + (contained ? " ldr--contained" : "") + (phase === "out" ? " ldr--out" : "")} onClick={onClose}
-      style={{ "--ldr-bg": cfg.background || "#05070f", "--ldr-accent": cfg.accent || "var(--brand-accent, #49d3ff)" }}>
-      <div className="ldr__glow" />
-      <div className="ldr__stage">
-        <svg className="ldr__ring" viewBox="0 0 100 100">
-          <circle className="ldr__track" cx="50" cy="50" r="48" />
-          <circle ref={ringRef} className="ldr__arc" cx="50" cy="50" r="48" strokeDasharray={C} strokeDashoffset={C} />
-          <circle ref={dotRef} className="ldr__dot" cx="50" cy="2" r="1.1" />
-        </svg>
-        {url && (
-          <div className="ldr__canvas">
-            <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 4], fov: 30 }} gl={{ alpha: true, antialias: true }}>
-              <Suspense fallback={null}><LoaderLogo url={url} styleName={cfg.style} stateRef={stateRef} reduce={reduce} mul={cfg.logoScale || 1} /></Suspense>
-            </Canvas>
-          </div>
-        )}
-        {cfg.showPercent !== false && <div className="ldr__pct"><span ref={pctRef}>0</span>%</div>}
-        {cfg.label && <div className="ldr__label">{cfg.label}</div>}
-      </div>
+    <div ref={rootRef} className={"ldr" + (contained ? " ldr--contained" : "")} onClick={onClose}
+      style={{ "--ldr-bg": cfg.background || "#05070f", "--ldr-line": cfg.lineColor || "#ffffff", "--ldr-font": cfg.font || "'Space Grotesk', sans-serif" }}>
+      <div ref={bgRef} className="ldr__bg" />
+      <div className="ldr__stage"><div ref={zoomRef} className="ldr__zoom" /></div>
+      {cfg.showNumber !== false && <div ref={numRef} className="ldr__num">000</div>}
     </div>
   );
 }
@@ -4526,13 +4533,16 @@ function generateDockCode(dock) {
   return `const DOCK = ${JSON.stringify({ ...DEFAULT_DOCK, ...dock }, null, 2)};`;
 }
 
-const DEFAULT_LOADER = { enabled: true, logoUrl: "", logoScale: 1, style: "sway", accent: "", background: "#05070f", minMs: 1600, showPercent: true, label: "" };
-/* Bloques @GEN:LOADER y @GEN:LOADER_CSS de la plantilla: pantalla de carga con el logo 3D. */
+const DEFAULT_LOADER = { enabled: true, svg: "", background: "#05070f", lineColor: "#ffffff", font: "'Space Grotesk', sans-serif", lineWidth: 1.4, minMs: 1800, showNumber: true };
+/* Bloques @GEN:LOADER y @GEN:LOADER_CSS de la plantilla: pantalla de carga con tu SVG y el contador 000 → 100. */
 function generateLoaderCode(loader) {
-  return `const LOADER = ${JSON.stringify({ ...DEFAULT_LOADER, ...loader }, null, 2)};`;
+  const merged = { ...DEFAULT_LOADER, ...loader };
+  const clean = Object.fromEntries(Object.keys(DEFAULT_LOADER).map((k) => [k, merged[k]]));
+  return `const LOADER = ${JSON.stringify(clean, null, 2).replace(/<\//g, "<\\/")};`;
 }
 function generateLoaderCss(loader) {
-  return `:root { --ldr-bg: ${(loader && loader.background) || DEFAULT_LOADER.background}; }`;
+  const m = { ...DEFAULT_LOADER, ...loader };
+  return `:root { --ldr-bg: ${m.background}; --ldr-line: ${m.lineColor}; --ldr-font: ${m.font}; }`;
 }
 
 function generateObjectsCode(objects, transformsByKf, stages, easings) {
@@ -4796,43 +4806,36 @@ function TextStyleEditor({ o, updateObject }) {
     </>
   );
 }
-function LoaderFields({ loader, setLoaderField, objects, onPreview, onBlob }) {
-  const models = objects.filter((o) => o.type === "model" && o.url);
-  const txt = (label, field, placeholder) => (
-    <div className="row"><span className="lbl">{label}</span>
-      <input type="text" style={{ flex: 1 }} value={loader[field] || ""} placeholder={placeholder} spellCheck={false} onChange={(e) => setLoaderField(field, e.target.value)} />
-    </div>
-  );
+function LoaderFields({ loader, setLoaderField, onPreview }) {
+  const strokes = useMemo(() => ldrCountStrokes(loader.svg), [loader.svg]);
+  const upload = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const clean = ldrSanitizeSvg(String(reader.result || ""));
+      if (!clean) { window.alert("No pude leer ese SVG. Probá exportarlo de nuevo."); return; }
+      if (ldrCountStrokes(clean) === 0) { window.alert("Ese SVG no tiene trazos ni formas para animar (¿solo texto o imágenes?). Convertí el texto a curvas y probá de nuevo."); return; }
+      setLoaderField("svg", clean);
+    };
+    reader.readAsText(file);
+  };
   return (
     <>
       <Btn onClick={onPreview}>▶ Ver loader</Btn>
-      <div className="row"><span className="lbl">Logo .glb</span>
-        <input type="text" style={{ flex: 1 }} value={loader.logoUrl || ""} placeholder="./assets/models/logo.glb" spellCheck={false} onChange={(e) => { setLoaderField("logoUrl", e.target.value); onBlob(null); }} />
-        <label className="ibtn" title="Subir logo .glb"><Icon name="open" size={16} />
-          <input type="file" accept=".glb" onChange={(e) => {
-            const f = e.target.files[0]; e.target.value = "";
-            if (!f) return;
-            setLoaderField("logoUrl", `./assets/models/${f.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`);
-            onBlob(URL.createObjectURL(f));
-          }} />
+      <div className="row"><span className="lbl">SVG</span>
+        <span style={{ flex: 1, fontSize: 11, opacity: 0.75 }}>{loader.svg ? `${strokes} trazos${strokes > 300 ? " · son muchos, puede ir lento" : ""}` : "sin SVG (solo el número)"}</span>
+        <label className="ibtn" title="Subir SVG"><Icon name="open" size={16} />
+          <input type="file" accept=".svg,image/svg+xml" onChange={(e) => { upload(e.target.files[0]); e.target.value = ""; }} />
         </label>
-      </div>
-      {models.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {models.map((m) => <button key={m.id} className="chip" style={{ padding: "0 8px" }} onClick={() => { setLoaderField("logoUrl", m.url); onBlob(m.previewUrl || null); }}>Usar: {m.label}</button>)}
-        </div>
-      )}
-      <Slider label="Tamaño logo" min={0.4} max={1.2} step={0.05} value={loader.logoScale ?? 1} onChange={(v) => setLoaderField("logoScale", v)} />
-      <Seg value={loader.style === "spin" ? "spin" : "sway"} onChange={(v) => setLoaderField("style", v)} options={[["sway", "Vaivén suave"], ["spin", "Giro lento"]]} />
-      <div className="row"><span className="lbl">Color anillo</span>
-        <input type="color" value={loader.accent || "#49d3ff"} onChange={(e) => setLoaderField("accent", e.target.value)} />
-        {loader.accent && <button className="mini" onClick={() => setLoaderField("accent", "")}>Usar el de la marca</button>}
+        {loader.svg && <button className="mini" onClick={() => setLoaderField("svg", "")}>Quitar</button>}
       </div>
       <ColorRow label="Fondo" value={loader.background || "#05070f"} onChange={(v) => setLoaderField("background", v)} />
-      <Slider label="Duración mín." min={600} max={4000} step={100} value={loader.minMs ?? 1600} onChange={(v) => setLoaderField("minMs", v)} />
-      <Switch checked={loader.showPercent !== false} onChange={(v) => setLoaderField("showPercent", v)} label="Mostrar porcentaje" />
-      {txt("Texto", "label", "(opcional) ej: Dra. Bruzera")}
-      <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>El anillo sigue la carga real del sitio (modelos, imágenes y tipografías). La "duración mín." evita que parpadee si todo carga muy rápido. En el visor la carga es simulada.</div>
+      <ColorRow label="Líneas y número" value={loader.lineColor || "#ffffff"} onChange={(v) => setLoaderField("lineColor", v)} />
+      <FontSelect label="Fuente" value={loader.font || "'Space Grotesk', sans-serif"} onChange={(v) => setLoaderField("font", v)} />
+      <Slider label="Grosor línea" min={0.6} max={4} step={0.1} value={loader.lineWidth ?? 1.4} onChange={(v) => setLoaderField("lineWidth", v)} />
+      <Slider label="Duración mín." min={800} max={6000} step={100} value={loader.minMs ?? 1800} onChange={(v) => setLoaderField("minMs", v)} />
+      <Switch checked={loader.showNumber !== false} onChange={(v) => setLoaderField("showNumber", v)} label="Mostrar número 000 → 100" />
+      <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>El SVG se dibuja trazo a trazo, de abajo hacia arriba, mientras carga el sitio (los rellenos se ven solo como contorno). El número sigue la carga real. Al llegar a 100 se hace zoom hacia adentro del SVG y aparece la web. Funciona mejor con SVG simples (menos de 300 trazos) y con el texto convertido a curvas.</div>
     </>
   );
 }
@@ -5052,7 +5055,6 @@ function App() {
   const [loader, setLoader] = useState(DEFAULT_LOADER);
   const setLoaderField = (field, value) => setLoader((prev) => ({ ...prev, [field]: value }));
   const [loaderPreview, setLoaderPreview] = useState(0);   // cuenta: cada click en "Ver loader" lo reinicia
-  const [loaderBlob, setLoaderBlob] = useState(null);      // .glb subido en esta sesión (solo para previsualizar)
   const [dock, setDock] = useState(DEFAULT_DOCK);
   const setDockField = (field, value) => setDock((prev) => ({ ...prev, [field]: value }));
   const [reflection, setReflection] = useState({
@@ -5750,7 +5752,7 @@ function App() {
           <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none", background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)` }} />
         )}
         {showMobileFrame && <MobileFrameOverlay box={phoneBox} split={dock.splitPct || 67} dockOn={dock.enabled} shade={dock.shadeStrength ?? 0.7} dock={dock} />}
-        {loaderPreview > 0 && <LoaderOverlay key={loaderPreview} cfg={loader} simulate contained logoUrl={loaderBlob || loader.logoUrl} onClose={() => setLoaderPreview(0)} onDone={() => setLoaderPreview(0)} />}
+        {loaderPreview > 0 && <LoaderOverlay key={loaderPreview} cfg={loader} simulate contained onClose={() => setLoaderPreview(0)} onDone={() => setLoaderPreview(0)} />}
         <div className="vp-hud">{isPreview ? `▶ ${scrub.toFixed(3)}` : `${currentStageLabel} · ${stageIndex + 1}/${nStages}`}</div>
       </div>
 
@@ -5809,7 +5811,7 @@ function App() {
                   <Slider label="Centro Y" min={-2} max={2} step={0.01} value={charCenterY} onChange={setCharCenterY} />
                 </Group>
                 <Group id="loader" title="Loader · pantalla de carga" toggle={{ checked: loader.enabled, onChange: (v) => setLoaderField("enabled", v) }}>
-                  <LoaderFields loader={loader} setLoaderField={setLoaderField} objects={objects} onPreview={() => setLoaderPreview((n) => n + 1)} onBlob={setLoaderBlob} />
+                  <LoaderFields loader={loader} setLoaderField={setLoaderField} onPreview={() => setLoaderPreview((n) => n + 1)} />
                 </Group>
                 <Group id="dock" title="Pantalla de celular · zona fija" toggle={{ checked: dock.enabled, onChange: (v) => setDockField("enabled", v) }}>
                   <DockFields dock={dock} setDockField={setDockField} />
