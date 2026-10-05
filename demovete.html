@@ -844,11 +844,11 @@ const SCROLL_LENGTH_VH = 1200;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
-const VIGNETTE_ENABLED = false;
-const VIGNETTE_DARKNESS = 0.5;
-const VIGNETTE_OFFSET = 0.15;
+const VIGNETTE_ENABLED = true;
+const VIGNETTE_DARKNESS = 0.25;
+const VIGNETTE_OFFSET = 0.47;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.27;
+const BLOOM_INTENSITY = 1.06;
 const BEAM_ENABLED = false;
 const BEAM_OPACITY = 0.05;
 const BEAM_WIDTH = 0.6;
@@ -873,8 +873,8 @@ const TRAIL_RATE = 40;
 /*@GEN:DOCK_START*/
 const DOCK = {
   "enabled": true,
-  "splitPct": 50,
-  "shadeStrength": 0.75,
+  "splitPct": 65,
+  "shadeStrength": 0.55,
   "whatsappPhone": "5493435303848",
   "whatsappMessage": "Hola! Quisiera hacer una consulta.",
   "address": "José Venturino 1239 Paraná Entre Ríos",
@@ -910,7 +910,7 @@ const DOCK = {
   "turneroTitle": "Sacá tu turno",
   "turneroDays": 14,
   "turneroMessage": "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
-  "accent": "#f0a8e3"
+  "accent": ""
 };
 /*@GEN:DOCK_END*/
 
@@ -921,7 +921,7 @@ const LOADER = {
   "background": "#684b29",
   "lineColor": "#d5a168",
   "font": "'Archivo Black', sans-serif",
-  "lineWidth": 0.9,
+  "lineWidth": 1.3,
   "minMs": 1600,
   "showNumber": true
 };
@@ -2840,7 +2840,7 @@ function App() {
         <SceneText />
         <ProgressIndicator />
         <div className="scroll-hint" aria-hidden="true">
-          <span>Scroll</span>
+          <span>go</span>
           <div className="scroll-hint__line" />
         </div>
       </div>
