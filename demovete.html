@@ -416,10 +416,10 @@ const OBJECTS = [
     shadows: true,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 2.23, 3.32], scale: 5.2, rotationY: -18.3, hidden: false, fadeDir: "fade" },
+      { progress: 0, easing: "smooth", position: [0, -0.32, -0.52], scale: 5.2, rotationY: 0, hidden: false, fadeDir: "fade" },
       { progress: 0.333, easing: "linear", position: [0, 5.44, 0.56], scale: 9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
       { progress: 0.667, easing: "linear", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
-      { progress: 1, easing: "smooth", position: [0, 3.32, 0.56], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 1.88, 0.56], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
     ],
   },
   {
@@ -457,7 +457,7 @@ const OBJECTS = [
       { progress: 0, easing: "smooth", position: [0, 8.31, 0], scale: 2.2, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 0.333, easing: "linear", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
       { progress: 0.667, easing: "linear", position: [0, 11.93, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 7.61, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 6.01, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
     ],
   },
   {
@@ -502,27 +502,6 @@ const OBJECTS = [
       { progress: 1, easing: "smooth", position: [-4.6, -0.06, 11], scale: 1.6, rotationY: 0, hidden: true, fadeDir: "ltr" },
     ],
   },
-  {
-    type: "text",
-    text: "Hola!",
-    textColor: "#ffffff",
-    textGradient: null,
-    fontFamily: "'Fredoka', sans-serif",
-    letterSpacing: 0,
-    lineHeight: 1.2,
-    wordStyles: {},
-    fontWeight: 300,
-    textAlign: "center",
-    textOutline: false,
-    textOutlineColor: "#000000",
-    billboard: true,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [0, -0.72, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.333, easing: "linear", position: [0, 0, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.667, easing: "linear", position: [0, 0, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 1, rotationY: 0, hidden: true, fadeDir: "ltr" },
-    ],
-  },
 ];
 /*@GEN:OBJECTS_END*/
 
@@ -565,10 +544,10 @@ const scenes = [
     id: "pose-1791039574302",
     progress: 0,
     easing: "smooth",
-    camera: { position: [-0.321, -9.235, 19.794], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    camera: { position: [0, -11.76, 0], lookAt: [0, 0.5, 0], fov: 10, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 318, elevation: 41, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.46 },
     fog: { enabled: false, color: "#05070a", far: 3.9 },
-    background: { from: "#031735", to: "#6b0d78", angle: 184, alpha: 1 },
+    background: { from: "#06174b", to: "#a81fa8", angle: 127, alpha: 1 },
   },
   {
     id: "pose-1791039970322",
@@ -595,7 +574,7 @@ const scenes = [
     camera: { position: [0, 0, 35], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 41, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.38 },
     fog: { enabled: false, color: "#05070a", far: 3.9 },
-    background: { from: "#031735", to: "#6b0d78", angle: 140, alpha: 1 },
+    background: { from: "#031735", to: "#6b0d78", angle: 176, alpha: 1 },
   },
 ];
 /*@GEN:SCENES_END*/
