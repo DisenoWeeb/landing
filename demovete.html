@@ -546,7 +546,7 @@ const scenes = [
     easing: "smooth",
     camera: { position: [0, -11.76, -0.021], lookAt: [0, 0.5, -0.08], fov: 10, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 318, elevation: 41, rimColor: "#f1b1f1", rimIntensity: 1.6, ambient: 0.46 },
-    fog: { enabled: true, color: "#05070a", far: 22 },
+    fog: { enabled: false, color: "#05070a", far: 22 },
     background: { from: "#06174b", to: "#a81fa8", angle: 127, alpha: 1 },
   },
   {
@@ -555,7 +555,7 @@ const scenes = [
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 318, elevation: 41, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
-    fog: { enabled: true, color: "#05070a", far: 53 },
+    fog: { enabled: false, color: "#05070a", far: 53 },
     background: { from: "#031735", to: "#6b0d78", angle: 360, alpha: 1 },
   },
   {
@@ -564,7 +564,7 @@ const scenes = [
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 318, elevation: 41, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
-    fog: { enabled: true, color: "#05070a", far: 68 },
+    fog: { enabled: false, color: "#05070a", far: 68 },
     background: { from: "#031735", to: "#6b0d78", angle: 275, alpha: 1 },
   },
   {
@@ -572,8 +572,8 @@ const scenes = [
     progress: 1,
     easing: "smooth",
     camera: { position: [0, 0, 35], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 56, rimColor: "#f1b1f1", rimIntensity: 1.65, ambient: 0.37 },
-    fog: { enabled: true, color: "#05070a", far: 120 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 56, rimColor: "#f1b1f1", rimIntensity: 1.65, ambient: 0.65 },
+    fog: { enabled: false, color: "#05070a", far: 300 },
     background: { from: "#031735", to: "#6b0d78", angle: 176, alpha: 1 },
   },
 ];
@@ -675,8 +675,8 @@ const SCROLL_LENGTH_VH = 610;
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.09;
-const VIGNETTE_OFFSET = 0.28;
+const VIGNETTE_DARKNESS = 0.03;
+const VIGNETTE_OFFSET = 0.08;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.09;
 const BEAM_ENABLED = false;
