@@ -349,7 +349,7 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Stars, useTexture, Billboard, useProgress } from "@react-three/drei";
+import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
 /* ============================================================
@@ -400,11 +400,12 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.172, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.339, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.381, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.533, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.689, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.157, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.309, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.347, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.486, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.562, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.734, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
@@ -420,12 +421,13 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, -0.32, -0.52], scale: 5.2, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.172, easing: "smooth", position: [0, 5.44, 0.56], scale: 9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
-      { progress: 0.339, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
-      { progress: 0.381, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
-      { progress: 0.533, easing: "smooth", position: [0, 3.32, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
-      { progress: 0.689, easing: "smooth", position: [0, 3.32, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
-      { progress: 1, easing: "smooth", position: [0, 3.32, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.157, easing: "smooth", position: [0, 5.44, 0.56], scale: 9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
+      { progress: 0.309, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
+      { progress: 0.347, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
+      { progress: 0.486, easing: "smooth", position: [0, 3.4, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.562, easing: "smooth", position: [0, 3.4, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.734, easing: "smooth", position: [-2.96, 1.97, 0.12], scale: 3.04, rotationY: 41.1, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [-2.96, 1.97, 0.12], scale: 3.04, rotationY: 41.1, hidden: false, fadeDir: "fade" },
     ],
   },
   {
@@ -440,11 +442,12 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [-0.24, 2.02, -0.09], scale: 8.32, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.172, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.339, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.381, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.533, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.689, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.157, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.309, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.347, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.486, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.562, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.734, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
@@ -464,12 +467,13 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 8.31, 0], scale: 2.2, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.172, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.339, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.381, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.533, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.689, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 1, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.157, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.309, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.347, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.486, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.562, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.734, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
   {
@@ -488,11 +492,12 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [-1.2, -4.3, 11], scale: 0.9, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.172, easing: "smooth", position: [-0.08, -4.3, 11], scale: 0.75, rotationY: 0, hidden: true, fadeDir: "rtl" },
-      { progress: 0.339, easing: "smooth", position: [-0.84, -4.3, 11], scale: 1.05, rotationY: 0, hidden: false, fadeDir: "rtl" },
-      { progress: 0.381, easing: "smooth", position: [-0.84, -4.3, 11], scale: 1.05, rotationY: 0, hidden: false, fadeDir: "rtl" },
-      { progress: 0.533, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.689, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.157, easing: "smooth", position: [-0.08, -4.3, 11], scale: 0.75, rotationY: 0, hidden: true, fadeDir: "rtl" },
+      { progress: 0.309, easing: "smooth", position: [-0.84, -4.3, 11], scale: 1.05, rotationY: 0, hidden: false, fadeDir: "rtl" },
+      { progress: 0.347, easing: "smooth", position: [-0.84, -4.3, 11], scale: 1.05, rotationY: 0, hidden: false, fadeDir: "rtl" },
+      { progress: 0.486, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.562, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.734, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
       { progress: 1, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
     ],
   },
@@ -512,12 +517,34 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, -1, 0.24], scale: 0.2, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.172, easing: "smooth", position: [0, 9.36, 5.72], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.339, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.381, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.533, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.689, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.157, easing: "smooth", position: [0, 9.36, 5.72], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.309, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.347, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.486, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.562, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.734, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+    ],
+  },
+  {
+    type: "model",
+    url: "./assets/models/piso-violeta2.glb",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
+    glow: 0,
+    shadows: true,
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.157, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.309, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.347, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.486, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.562, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.734, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
     ],
   },
 ];
@@ -569,7 +596,7 @@ const scenes = [
   },
   {
     id: "pose-1791039970322",
-    progress: 0.172,
+    progress: 0.157,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 79, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -578,7 +605,7 @@ const scenes = [
   },
   {
     id: "pose-1791040034357",
-    progress: 0.339,
+    progress: 0.309,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 79, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -587,7 +614,7 @@ const scenes = [
   },
   {
     id: "pose-1791568033990",
-    progress: 0.381,
+    progress: 0.347,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 79, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -596,30 +623,39 @@ const scenes = [
   },
   {
     id: "pose-1791301215862",
-    progress: 0.533,
+    progress: 0.486,
     easing: "smooth",
-    camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 82, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 49, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
     fog: { enabled: false, color: "#05070a", far: 68 },
     background: { from: "#041333", to: "#041333", angle: 90, alpha: 1, mid: "#5b0e81", midPos: 50 },
   },
   {
-    id: "pose-1791569106731",
-    progress: 0.689,
+    id: "pose-1791583652284",
+    progress: 0.562,
     easing: "smooth",
-    camera: { position: [0, -6.782, 34.237], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 55, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 49, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
     fog: { enabled: false, color: "#05070a", far: 68 },
     background: { from: "#041333", to: "#041333", angle: 90, alpha: 1, mid: "#5b0e81", midPos: 50 },
   },
   {
-    id: "pose-1791569234283",
+    id: "pose-1791583697850",
+    progress: 0.734,
+    easing: "smooth",
+    camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 4.7, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 105, elevation: 45, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    fog: { enabled: true, color: "#22032b", far: 56.5 },
+    background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
+  },
+  {
+    id: "pose-1791586521436",
     progress: 1,
     easing: "smooth",
-    camera: { position: [0, -6.782, 34.237], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 55, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
-    fog: { enabled: false, color: "#05070a", far: 68 },
-    background: { from: "#041333", to: "#041333", angle: 90, alpha: 1, mid: "#5b0e81", midPos: 50 },
+    camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 4.7, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 35, elevation: 64, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    fog: { enabled: true, color: "#22032b", far: 56.5 },
+    background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -631,12 +667,13 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1791039574302", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791039970322", progress: 0.172, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791040034357", progress: 0.339, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791568033990", progress: 0.381, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791301215862", progress: 0.533, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791569106731", progress: 0.689, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791569234283", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039970322", progress: 0.157, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791040034357", progress: 0.309, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791568033990", progress: 0.347, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791301215862", progress: 0.486, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791583652284", progress: 0.562, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791583697850", progress: 0.734, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791586521436", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -670,7 +707,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791039970322",
-    progress: 0.172,
+    progress: 0.157,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -678,7 +715,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791040034357",
-    progress: 0.339,
+    progress: 0.309,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -686,7 +723,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791568033990",
-    progress: 0.381,
+    progress: 0.347,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -694,22 +731,30 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791301215862",
-    progress: 0.533,
+    progress: 0.486,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1791569106731",
-    progress: 0.689,
+    id: "pose-1791583652284",
+    progress: 0.562,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1791569234283",
+    id: "pose-1791583697850",
+    progress: 0.734,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791586521436",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -742,41 +787,41 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 1800;
+const SCROLL_LENGTH_VH = 1975;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.17;
-const VIGNETTE_OFFSET = 0.32;
+const VIGNETTE_DARKNESS = 0.54;
+const VIGNETTE_OFFSET = 0.68;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.48;
-const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.02;
+const BLOOM_INTENSITY = 0.13;
+const BEAM_ENABLED = false;
+const BEAM_OPACITY = 0.26;
 const BEAM_WIDTH = 5.2;
 const BEAM_HEIGHT = 40;
-const BEAM_SOFT = 0.44;
-const BEAM_GLOW = 0.08;
-const BEAM_TARGET = [0.1, 2, -1.5];
+const BEAM_SOFT = 0.78;
+const BEAM_GLOW = 0.5;
+const BEAM_TARGET = [0.1, 2.7, -1.5];
 const PART_ENABLED = true;
-const PART_COUNT = 60;
-const PART_SIZE = 0.55;
-const PART_OPACITY = 0.04;
-const PART_SPEED = 1.4;
-const PART_BLUR = 0.9;
+const PART_COUNT = 50;
+const PART_SIZE = 0.3;
+const PART_OPACITY = 0.24;
+const PART_SPEED = 3;
+const PART_BLUR = 0.1;
 const PART_RANGE = 40;
-const PART_BEAM = 0.45;
+const PART_BEAM = 0.71;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
 const REFLECTION_ENABLED = false;
-const REFLECTION_RESOLUTION = 256;
-const REFLECTION_UPDATE_EVERY = 2;
+const REFLECTION_RESOLUTION = 128;
+const REFLECTION_UPDATE_EVERY = 1;
 const REFLECTION_INTENSITY = 1;
 /*@GEN:REFLECTION_END*/
   
 /*@GEN:TRAIL_START*/
-const TRAIL_ENABLED = true;
+const TRAIL_ENABLED = false;
 const TRAIL_COLOR = "#e826e2";
 const TRAIL_SIZE = 0.005;
 const TRAIL_LIFE = 0.1;
@@ -1587,7 +1632,7 @@ function LightBeam({ enabled, opacity, width, height, soft, glow, target }) {
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
 const CHAR_CENTER_Y = 0;
-const CHAR_SCALE = 1;
+const CHAR_SCALE = 2.96;
 /*@GEN:CHAR_TRANSFORM_END*/
 
 const _deltaEuler = new THREE.Euler();
@@ -2199,6 +2244,81 @@ function SceneObjectText({ data }) {
   );
 }
 
+/* Pisos espejo: un .glb no puede reflejar otros objetos por sí solo (el
+   reflejo se calcula en vivo). Si un material del .glb trae en sus
+   "extras" un bloque { reflector: {...} } o su nombre contiene
+   "Reflejo"/"Reflect", se le pone encima un espejo plano real
+   (MeshReflectorMaterial) que refleja al personaje y a los demás
+   objetos, con desenfoque y desvanecido según la distancia al piso. */
+const REFLECTOR_DEFAULTS = { mirror: 0, mixStrength: 3, blur: [300, 80], mixBlur: 0.6, mixContrast: 1, resolution: 1024, depthScale: 0, minDepthThreshold: 0.4, maxDepthThreshold: 1.4, roughness: 0.35, metalness: 0.1 };
+function findReflectorMeshes(scene) {
+  const out = [];
+  scene.traverse((c) => {
+    if (!c.isMesh || (c.userData && c.userData.isReflector)) return;
+    const m = Array.isArray(c.material) ? c.material[0] : c.material;
+    if (!m) return;
+    const cfg = (m.userData && m.userData.reflector) || (/reflej|reflect/i.test(m.name || "") ? {} : null);
+    if (cfg) out.push({ mesh: c, mat: m, cfg: { ...REFLECTOR_DEFAULTS, ...cfg } });
+  });
+  return out;
+}
+function ReflectiveSurfaces({ scene, shadows }) {
+  const items = useMemo(() => findReflectorMeshes(scene), [scene]);
+  /* MeshReflectorMaterial toma como normal del espejo el +Z local; el piso
+     viene acostado (normal +Y), así que se gira la geometría y se compensa. */
+  const geos = useMemo(() => items.map(({ mesh }) => mesh.geometry.clone().rotateX(Math.PI / 2)), [items]);
+  const refs = useRef([]);
+  const rot = useMemo(() => new THREE.Matrix4().makeRotationX(-Math.PI / 2), []);
+  const inv = useMemo(() => new THREE.Matrix4(), []);
+  useEffect(() => {
+    items.forEach(({ mesh, mat }) => { mat.visible = false; mesh.castShadow = false; });
+    return () => items.forEach(({ mat }) => { mat.visible = true; });
+  }, [items]);
+  /* El espejo NO va dentro del modelo (un portal de R3F le cambiaría la
+     "escena" que ve y solo se reflejaría a sí mismo): va en el árbol
+     normal y copia cada frame la posición/escala/visibilidad del piso
+     original. Prioridad -1 = corre antes de que el espejo calcule el reflejo. */
+  useFrame(() => {
+    items.forEach(({ mesh }, i) => {
+      const r = refs.current[i];
+      if (!r) return;
+      mesh.updateWorldMatrix(true, false);
+      r.matrixWorld.multiplyMatrices(mesh.matrixWorld, rot);
+      if (r.parent) { r.parent.updateWorldMatrix(true, false); inv.copy(r.parent.matrixWorld).invert(); r.matrix.multiplyMatrices(inv, r.matrixWorld); }
+      else r.matrix.copy(r.matrixWorld);
+      let v = true; for (let o = mesh; o; o = o.parent) if (!o.visible) { v = false; break; }
+      r.visible = v;
+    });
+  }, -1);
+  return items.map(({ mesh, mat, cfg }, i) => (
+    <mesh
+      key={i}
+      ref={(el) => { refs.current[i] = el; }}
+      geometry={geos[i]}
+      matrixAutoUpdate={false}
+      frustumCulled={false}
+      receiveShadow={shadows !== false}
+      userData={{ isReflector: true, excludeFromReflection: true }}
+    >
+      <MeshReflectorMaterial
+        color={mat.color}
+        map={mat.map || null}
+        vertexColors={!!mesh.geometry.attributes.color}
+        roughness={cfg.roughness}
+        metalness={cfg.metalness}
+        mirror={cfg.mirror}
+        mixStrength={cfg.mixStrength}
+        mixBlur={cfg.mixBlur}
+        mixContrast={cfg.mixContrast}
+        blur={cfg.blur}
+        resolution={cfg.resolution}
+        depthScale={cfg.depthScale}
+        minDepthThreshold={cfg.minDepthThreshold}
+        maxDepthThreshold={cfg.maxDepthThreshold}
+      />
+    </mesh>
+  ));
+}
 function applyGlow(scene, glow) {
   scene.traverse((child) => {
     if (!child.isMesh) return;
@@ -2219,7 +2339,7 @@ function SceneObjectModel({ data }) {
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false);
   useEffect(() => {
     scene.traverse((child) => {
-      if (child.isMesh) {
+      if (child.isMesh && !(child.userData && child.userData.isReflector)) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
         // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
@@ -2236,6 +2356,7 @@ function SceneObjectModel({ data }) {
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
+      <ReflectiveSurfaces scene={scene} shadows={data.shadows} />
     </group>
   );
 }
