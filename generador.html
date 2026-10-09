@@ -1331,6 +1331,168 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
   return null;
 }
 
+/* ---- Partículas ambientales (polvo en suspensión / bokeh) ----
+   Partículas 3D reales (no un overlay): flotan en el espacio, así que tienen parallax
+   cuando la cámara se mueve con el scroll. Lo que las hace creíbles:
+   - casi todas muy chicas y suaves; pocas más grandes (como el polvo real);
+   - profundidad de campo: lejos del plano de foco (el punto al que mira la cámara)
+     se agrandan y se apagan, como un bokeh de lente;
+   - deriva lenta + vaivén propio + un leve centelleo al "agarrar" la luz;
+   - dentro del rayo de luz (si está prendido) se ven más, como el polvo en un haz;
+   - tamaño medido en el espacio 3D: se ven igual en cualquier resolución (también en el MP4).
+   El movimiento sale de un tiempo, no del frame: en el MP4 se usa el tiempo del video
+   (window.__wsExportTime), así el resultado es fluido y repetible. */
+const PART_MAX = 3000;
+const PART_WHITE = new THREE.Color("#ffffff");
+const PART_VERT = `
+  attribute vec4 aA;
+  attribute vec4 aB;
+  uniform float uTime;
+  uniform vec3 uCenter;
+  uniform vec3 uBox;
+  uniform float uSize;
+  uniform float uBlur;
+  uniform float uFocus;
+  uniform float uScale;
+  uniform float uOpacity;
+  uniform float uPxH;
+  uniform vec3 uBeamO;
+  uniform vec3 uBeamD;
+  uniform float uBeamR;
+  uniform float uBeamL;
+  uniform float uBeamBoost;
+  varying vec2 vUv;
+  varying float vAlpha;
+  varying float vSoft;
+  void main() {
+    float t = uTime;
+    vec3 p = aA.xyz * uBox;
+    vec3 drift = vec3(0.018 + 0.026 * aB.z, 0.010 + 0.018 * aB.w, -0.008) * t;
+    vec3 wob = vec3(sin(t * 0.31 * aB.y + aB.x * 6.2831), sin(t * 0.23 * aB.y + aB.x * 11.0), sin(t * 0.27 * aB.y + aB.x * 15.0)) * 0.16;
+    vec3 rel = mod(p + drift + wob - uCenter + uBox * 0.5, uBox) - uBox * 0.5;
+    vec3 world = uCenter + rel;
+    vec4 mv = viewMatrix * vec4(world, 1.0);
+    float depth = max(-mv.z, 0.001);
+
+    float rs = fract(aA.w * 37.0);
+    float big = step(0.9, aA.w);
+    float phys = 0.012 * uScale * uSize * mix(0.7 + 0.9 * rs, 2.5 + 2.0 * rs, big);
+    float coc = uBlur * 0.045 * max(abs(depth - uFocus) - 0.7, 0.0);
+    float sz = phys + coc;
+    float blurK = coc / sz;
+    float energy = clamp(pow(phys / sz, 0.75) * 1.6, 0.0, 1.0);
+    // tamaño mínimo en pantalla: una mota de menos de ~2 px se agranda y se atenúa (misma energía),
+    // así no desaparece en el visor del editor ni en pantallas chicas
+    float px = sz * projectionMatrix[1][1] / depth * uPxH * 0.5;
+    float minPx = 2.2;
+    float grow = max(1.0, minPx / max(px, 0.0001));
+    sz *= grow;
+    energy /= grow;
+    float lum = 0.25 + 0.75 * pow(fract(aA.w * 131.7), 2.0);
+
+    vec3 q = abs(rel) / (uBox * 0.5);
+    float edge = (1.0 - smoothstep(0.7, 1.0, q.x)) * (1.0 - smoothstep(0.7, 1.0, q.y)) * (1.0 - smoothstep(0.7, 1.0, q.z));
+    float nearF = smoothstep(0.3, 1.2, depth);
+    float tw = 0.45 + 0.55 * pow(0.5 + 0.5 * sin(uTime * aB.y * 1.3 + aB.x * 6.2831), 2.0);
+
+    vec3 rb = world - uBeamO;
+    float along = dot(rb, uBeamD);
+    float dist = length(rb - uBeamD * along);
+    float rr = dist / max(uBeamR, 0.001);
+    float shaft = exp(-rr * rr * 1.5) * smoothstep(-0.3, 0.8, along) * (1.0 - smoothstep(uBeamL * 0.8, uBeamL, along));
+    float vis = mix(1.0, 0.3 + 2.4 * shaft, uBeamBoost);
+
+    vAlpha = uOpacity * energy * lum * edge * nearF * tw * vis;
+    vSoft = mix(0.8, 0.5, blurK);
+    vUv = position.xy * 2.0;
+    mv.xy += position.xy * sz;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+const PART_FRAG = `
+  uniform vec3 uColor;
+  varying vec2 vUv;
+  varying float vAlpha;
+  varying float vSoft;
+  void main() {
+    float r = length(vUv);
+    float e = 1.0 - smoothstep(1.0 - vSoft, 1.0, r);
+    gl_FragColor = vec4(uColor, e * vAlpha);
+    #include <colorspace_fragment>
+  }
+`;
+function makePartGeometry() {
+  const g = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1));
+  const A = new Float32Array(PART_MAX * 4), B = new Float32Array(PART_MAX * 4);
+  let s = 1234567;
+  const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (let i = 0; i < PART_MAX; i++) {
+    A[i * 4] = rnd(); A[i * 4 + 1] = rnd(); A[i * 4 + 2] = rnd(); A[i * 4 + 3] = rnd();
+    B[i * 4] = rnd(); B[i * 4 + 1] = 0.5 + rnd() * 1.1; B[i * 4 + 2] = rnd() * 2 - 1; B[i * 4 + 3] = rnd() * 2 - 1;
+  }
+  g.setAttribute("aA", new THREE.InstancedBufferAttribute(A, 4));
+  g.setAttribute("aB", new THREE.InstancedBufferAttribute(B, 4));
+  g.instanceCount = 650;
+  return g;
+}
+function AmbientParticles({ enabled, count, size, opacity, speed, blur, range, beam, beamWidth, beamHeight, beamTarget, getLight, getLookAt }) {
+  const meshRef = useRef(null);
+  const geom = useMemo(() => makePartGeometry(), []);
+  const mat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 }, uCenter: { value: new THREE.Vector3() }, uBox: { value: new THREE.Vector3(16, 10, 16) },
+      uSize: { value: 1 }, uBlur: { value: 0.6 }, uFocus: { value: 5 }, uScale: { value: 1 }, uOpacity: { value: 0.5 }, uPxH: { value: 800 }, uColor: { value: new THREE.Color("#ffffff") },
+      uBeamO: { value: new THREE.Vector3() }, uBeamD: { value: new THREE.Vector3(0, 1, 0) }, uBeamR: { value: 1 }, uBeamL: { value: 14 }, uBeamBoost: { value: 0 },
+    },
+    vertexShader: PART_VERT, fragmentShader: PART_FRAG,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  }), []);
+  useEffect(() => () => { geom.dispose(); mat.dispose(); }, [geom, mat]);
+  const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), look: new THREE.Vector3(), px: new THREE.Vector2(), simT: 0 }), []);
+
+  useFrame(({ camera, gl }, delta) => {
+    if (!enabled || !meshRef.current) return;
+    const u = mat.uniforms;
+    gl.getDrawingBufferSize(tmp.px);
+    u.uPxH.value = tmp.px.y;
+    const sp = speed == null ? 1 : speed;
+    const ext = typeof window !== "undefined" ? window.__wsExportTime : null;
+    if (ext != null) tmp.simT = ext * sp;            // MP4: tiempo del video (determinista)
+    else tmp.simT += Math.min(delta, 0.1) * sp;      // vivo: acumulado (cambiar la velocidad no da saltos)
+    u.uTime.value = tmp.simT;
+    const rg = range || 16;
+    camera.getWorldDirection(tmp.fwd);
+    u.uBox.value.set(rg, rg * 0.65, rg);
+    const la = getLookAt ? getLookAt() : null;
+    if (la) tmp.look.set(la[0], la[1], la[2]); else tmp.look.set(0, 0.5, 0);
+    u.uFocus.value = Math.max(0.5, camera.position.distanceTo(tmp.look));
+    // el volumen de particulas acompana al sujeto: con camara lejos se centra cerca del punto de enfoque
+    // (antes quedaba pegado a la camara: todo fuera de foco = discos enormes)
+    u.uCenter.value.copy(camera.position).addScaledVector(tmp.fwd, Math.max(rg * 0.28, u.uFocus.value - rg * 0.22));
+    u.uScale.value = Math.max(1, u.uFocus.value / 6.5);   // mismo tamano en pantalla sin importar la distancia de camara
+    u.uSize.value = size == null ? 1 : size;
+    u.uBlur.value = blur == null ? 0.6 : blur;
+    u.uOpacity.value = opacity == null ? 0.65 : opacity;
+    geom.instanceCount = Math.max(0, Math.min(PART_MAX, Math.round(count == null ? 650 : count)));
+    const L = getLight();
+    const c = u.uColor.value.set(L.color || "#ffffff");
+    c.lerp(PART_WHITE, 0.45);
+    const d = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, 1);
+    u.uBeamD.value.set(d[0], d[1], d[2]).normalize();
+    u.uBeamO.value.set(beamTarget ? beamTarget[0] : 0, beamTarget ? beamTarget[1] : 0, beamTarget ? beamTarget[2] : 0);
+    u.uBeamR.value = (beamWidth || 2.5) * 0.5;
+    u.uBeamL.value = beamHeight || 14;
+    u.uBeamBoost.value = beam || 0;
+  });
+
+  if (!enabled) return null;
+  return (
+    <group userData={{ excludeFromReflection: true }}>
+      <mesh ref={meshRef} geometry={geom} material={mat} frustumCulled={false} />
+    </group>
+  );
+}
+
 /* ---- Rayo de luz (volumétrico falso) ----
    Antes eran 3 planos cruzados: de frente o desde abajo se veían como una
    estrella de líneas y el final cortaba recto. Ahora es UN solo plano que
@@ -2326,6 +2488,12 @@ function Experience({ device }) {
       />
 
       <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
+      <AmbientParticles
+        enabled={PART_ENABLED} count={PART_COUNT} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
+        beam={BEAM_ENABLED ? PART_BEAM : 0} beamWidth={BEAM_WIDTH} beamHeight={BEAM_HEIGHT} beamTarget={BEAM_TARGET}
+        getLight={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).light}
+        getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
+      />
   
       {BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
@@ -3986,6 +4154,18 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           fx={fx}
         />
       )}
+      {showFx && postFx && postFx.partEnabled && (
+        <AmbientParticles
+          enabled
+          count={postFx.partCount ?? 650} size={postFx.partSize ?? 1} opacity={postFx.partOpacity ?? 0.65}
+          speed={postFx.partSpeed ?? 1} blur={postFx.partBlur ?? 0.6} range={postFx.partRange ?? 16}
+          beam={postFx.beamEnabled ? (postFx.partBeam ?? 0.6) : 0}
+          beamWidth={postFx.beamWidth ?? 2.5} beamHeight={postFx.beamHeight ?? 14}
+          beamTarget={[postFx.beamTx ?? 0, postFx.beamTy ?? 0, postFx.beamTz ?? 0]}
+          getLight={() => (fx && fx.light) || { color: "#ffffff", azimuth: 45, elevation: 35 }}
+          getLookAt={() => (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0]}
+        />
+      )}
       {markers && <ObjectMarkers markers={markers} selectedId={selectedObjectId} onSelect={onSelectObject} />}
       {sceneCameraActive ? (
         <SceneCameraDriver target={cameraTarget} active={true} />
@@ -4214,6 +4394,168 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
 
   return null;
 }
+/* ---- Partículas ambientales (polvo en suspensión / bokeh) ----
+   Partículas 3D reales (no un overlay): flotan en el espacio, así que tienen parallax
+   cuando la cámara se mueve con el scroll. Lo que las hace creíbles:
+   - casi todas muy chicas y suaves; pocas más grandes (como el polvo real);
+   - profundidad de campo: lejos del plano de foco (el punto al que mira la cámara)
+     se agrandan y se apagan, como un bokeh de lente;
+   - deriva lenta + vaivén propio + un leve centelleo al "agarrar" la luz;
+   - dentro del rayo de luz (si está prendido) se ven más, como el polvo en un haz;
+   - tamaño medido en el espacio 3D: se ven igual en cualquier resolución (también en el MP4).
+   El movimiento sale de un tiempo, no del frame: en el MP4 se usa el tiempo del video
+   (window.__wsExportTime), así el resultado es fluido y repetible. */
+const PART_MAX = 3000;
+const PART_WHITE = new THREE.Color("#ffffff");
+const PART_VERT = `
+  attribute vec4 aA;
+  attribute vec4 aB;
+  uniform float uTime;
+  uniform vec3 uCenter;
+  uniform vec3 uBox;
+  uniform float uSize;
+  uniform float uBlur;
+  uniform float uFocus;
+  uniform float uScale;
+  uniform float uOpacity;
+  uniform float uPxH;
+  uniform vec3 uBeamO;
+  uniform vec3 uBeamD;
+  uniform float uBeamR;
+  uniform float uBeamL;
+  uniform float uBeamBoost;
+  varying vec2 vUv;
+  varying float vAlpha;
+  varying float vSoft;
+  void main() {
+    float t = uTime;
+    vec3 p = aA.xyz * uBox;
+    vec3 drift = vec3(0.018 + 0.026 * aB.z, 0.010 + 0.018 * aB.w, -0.008) * t;
+    vec3 wob = vec3(sin(t * 0.31 * aB.y + aB.x * 6.2831), sin(t * 0.23 * aB.y + aB.x * 11.0), sin(t * 0.27 * aB.y + aB.x * 15.0)) * 0.16;
+    vec3 rel = mod(p + drift + wob - uCenter + uBox * 0.5, uBox) - uBox * 0.5;
+    vec3 world = uCenter + rel;
+    vec4 mv = viewMatrix * vec4(world, 1.0);
+    float depth = max(-mv.z, 0.001);
+
+    float rs = fract(aA.w * 37.0);
+    float big = step(0.9, aA.w);
+    float phys = 0.012 * uScale * uSize * mix(0.7 + 0.9 * rs, 2.5 + 2.0 * rs, big);
+    float coc = uBlur * 0.045 * max(abs(depth - uFocus) - 0.7, 0.0);
+    float sz = phys + coc;
+    float blurK = coc / sz;
+    float energy = clamp(pow(phys / sz, 0.75) * 1.6, 0.0, 1.0);
+    // tamaño mínimo en pantalla: una mota de menos de ~2 px se agranda y se atenúa (misma energía),
+    // así no desaparece en el visor del editor ni en pantallas chicas
+    float px = sz * projectionMatrix[1][1] / depth * uPxH * 0.5;
+    float minPx = 2.2;
+    float grow = max(1.0, minPx / max(px, 0.0001));
+    sz *= grow;
+    energy /= grow;
+    float lum = 0.25 + 0.75 * pow(fract(aA.w * 131.7), 2.0);
+
+    vec3 q = abs(rel) / (uBox * 0.5);
+    float edge = (1.0 - smoothstep(0.7, 1.0, q.x)) * (1.0 - smoothstep(0.7, 1.0, q.y)) * (1.0 - smoothstep(0.7, 1.0, q.z));
+    float nearF = smoothstep(0.3, 1.2, depth);
+    float tw = 0.45 + 0.55 * pow(0.5 + 0.5 * sin(uTime * aB.y * 1.3 + aB.x * 6.2831), 2.0);
+
+    vec3 rb = world - uBeamO;
+    float along = dot(rb, uBeamD);
+    float dist = length(rb - uBeamD * along);
+    float rr = dist / max(uBeamR, 0.001);
+    float shaft = exp(-rr * rr * 1.5) * smoothstep(-0.3, 0.8, along) * (1.0 - smoothstep(uBeamL * 0.8, uBeamL, along));
+    float vis = mix(1.0, 0.3 + 2.4 * shaft, uBeamBoost);
+
+    vAlpha = uOpacity * energy * lum * edge * nearF * tw * vis;
+    vSoft = mix(0.8, 0.5, blurK);
+    vUv = position.xy * 2.0;
+    mv.xy += position.xy * sz;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+const PART_FRAG = `
+  uniform vec3 uColor;
+  varying vec2 vUv;
+  varying float vAlpha;
+  varying float vSoft;
+  void main() {
+    float r = length(vUv);
+    float e = 1.0 - smoothstep(1.0 - vSoft, 1.0, r);
+    gl_FragColor = vec4(uColor, e * vAlpha);
+    #include <colorspace_fragment>
+  }
+`;
+function makePartGeometry() {
+  const g = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1));
+  const A = new Float32Array(PART_MAX * 4), B = new Float32Array(PART_MAX * 4);
+  let s = 1234567;
+  const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (let i = 0; i < PART_MAX; i++) {
+    A[i * 4] = rnd(); A[i * 4 + 1] = rnd(); A[i * 4 + 2] = rnd(); A[i * 4 + 3] = rnd();
+    B[i * 4] = rnd(); B[i * 4 + 1] = 0.5 + rnd() * 1.1; B[i * 4 + 2] = rnd() * 2 - 1; B[i * 4 + 3] = rnd() * 2 - 1;
+  }
+  g.setAttribute("aA", new THREE.InstancedBufferAttribute(A, 4));
+  g.setAttribute("aB", new THREE.InstancedBufferAttribute(B, 4));
+  g.instanceCount = 650;
+  return g;
+}
+function AmbientParticles({ enabled, count, size, opacity, speed, blur, range, beam, beamWidth, beamHeight, beamTarget, getLight, getLookAt }) {
+  const meshRef = useRef(null);
+  const geom = useMemo(() => makePartGeometry(), []);
+  const mat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 }, uCenter: { value: new THREE.Vector3() }, uBox: { value: new THREE.Vector3(16, 10, 16) },
+      uSize: { value: 1 }, uBlur: { value: 0.6 }, uFocus: { value: 5 }, uScale: { value: 1 }, uOpacity: { value: 0.5 }, uPxH: { value: 800 }, uColor: { value: new THREE.Color("#ffffff") },
+      uBeamO: { value: new THREE.Vector3() }, uBeamD: { value: new THREE.Vector3(0, 1, 0) }, uBeamR: { value: 1 }, uBeamL: { value: 14 }, uBeamBoost: { value: 0 },
+    },
+    vertexShader: PART_VERT, fragmentShader: PART_FRAG,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  }), []);
+  useEffect(() => () => { geom.dispose(); mat.dispose(); }, [geom, mat]);
+  const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), look: new THREE.Vector3(), px: new THREE.Vector2(), simT: 0 }), []);
+
+  useFrame(({ camera, gl }, delta) => {
+    if (!enabled || !meshRef.current) return;
+    const u = mat.uniforms;
+    gl.getDrawingBufferSize(tmp.px);
+    u.uPxH.value = tmp.px.y;
+    const sp = speed == null ? 1 : speed;
+    const ext = typeof window !== "undefined" ? window.__wsExportTime : null;
+    if (ext != null) tmp.simT = ext * sp;            // MP4: tiempo del video (determinista)
+    else tmp.simT += Math.min(delta, 0.1) * sp;      // vivo: acumulado (cambiar la velocidad no da saltos)
+    u.uTime.value = tmp.simT;
+    const rg = range || 16;
+    camera.getWorldDirection(tmp.fwd);
+    u.uBox.value.set(rg, rg * 0.65, rg);
+    const la = getLookAt ? getLookAt() : null;
+    if (la) tmp.look.set(la[0], la[1], la[2]); else tmp.look.set(0, 0.5, 0);
+    u.uFocus.value = Math.max(0.5, camera.position.distanceTo(tmp.look));
+    // el volumen de particulas acompana al sujeto: con camara lejos se centra cerca del punto de enfoque
+    // (antes quedaba pegado a la camara: todo fuera de foco = discos enormes)
+    u.uCenter.value.copy(camera.position).addScaledVector(tmp.fwd, Math.max(rg * 0.28, u.uFocus.value - rg * 0.22));
+    u.uScale.value = Math.max(1, u.uFocus.value / 6.5);   // mismo tamano en pantalla sin importar la distancia de camara
+    u.uSize.value = size == null ? 1 : size;
+    u.uBlur.value = blur == null ? 0.6 : blur;
+    u.uOpacity.value = opacity == null ? 0.65 : opacity;
+    geom.instanceCount = Math.max(0, Math.min(PART_MAX, Math.round(count == null ? 650 : count)));
+    const L = getLight();
+    const c = u.uColor.value.set(L.color || "#ffffff");
+    c.lerp(PART_WHITE, 0.45);
+    const d = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, 1);
+    u.uBeamD.value.set(d[0], d[1], d[2]).normalize();
+    u.uBeamO.value.set(beamTarget ? beamTarget[0] : 0, beamTarget ? beamTarget[1] : 0, beamTarget ? beamTarget[2] : 0);
+    u.uBeamR.value = (beamWidth || 2.5) * 0.5;
+    u.uBeamL.value = beamHeight || 14;
+    u.uBeamBoost.value = beam || 0;
+  });
+
+  if (!enabled) return null;
+  return (
+    <group userData={{ excludeFromReflection: true }}>
+      <mesh ref={meshRef} geometry={geom} material={mat} frustumCulled={false} />
+    </group>
+  );
+}
+
 /* ---- Rayo de luz (volumétrico falso) ----
    Antes eran 3 planos cruzados: de frente o desde abajo se veían como una
    estrella de líneas y el final cortaba recto. Ahora es UN solo plano que
@@ -4811,7 +5153,15 @@ const BEAM_WIDTH = ${postFx.beamWidth ?? 2.5};
 const BEAM_HEIGHT = ${postFx.beamHeight ?? 14};
 const BEAM_SOFT = ${postFx.beamSoft ?? 0.5};
 const BEAM_GLOW = ${postFx.beamGlow ?? 0.35};
-const BEAM_TARGET = [${postFx.beamTx ?? 0}, ${postFx.beamTy ?? 0}, ${postFx.beamTz ?? 0}];`;
+const BEAM_TARGET = [${postFx.beamTx ?? 0}, ${postFx.beamTy ?? 0}, ${postFx.beamTz ?? 0}];
+const PART_ENABLED = ${postFx.partEnabled ? "true" : "false"};
+const PART_COUNT = ${postFx.partCount ?? 650};
+const PART_SIZE = ${postFx.partSize ?? 1};
+const PART_OPACITY = ${postFx.partOpacity ?? 0.65};
+const PART_SPEED = ${postFx.partSpeed ?? 1};
+const PART_BLUR = ${postFx.partBlur ?? 0.6};
+const PART_RANGE = ${postFx.partRange ?? 16};
+const PART_BEAM = ${postFx.partBeam ?? 0.6};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -5339,6 +5689,9 @@ const VIDEO_FORMATS = {
   story: { label: "Historias / Reel 9:16", w: 1080, h: 1920, file: "historia-9x16" },
   feed: { label: "Feed 4:5", w: 1080, h: 1350, file: "feed-4x5" },
 };
+/* Composición de referencia: el 9:16 del visor. Todos los formatos se renderizan en este lienzo
+   (así el logo y los objetos miden lo mismo que en el marco 9:16) y el 4:5 es un recorte vertical. */
+const VIDEO_REF = { w: 1080, h: 1920 };
 const VIDEO_BASE_BG = "#05070f";
 function paintVideoBackground(ctx, w, h, bg) {
   ctx.globalAlpha = 1;
@@ -5452,6 +5805,14 @@ function App() {
     beamTx: 0,
     beamTy: 0,
     beamTz: 0,
+    partEnabled: false,
+    partCount: 650,
+    partSize: 1,
+    partOpacity: 0.65,
+    partSpeed: 1,
+    partBlur: 0.6,
+    partRange: 16,
+    partBeam: 0.6,
   });
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
   /* Estela de brillo (sparkle trail) que deja el personaje (bowl1.glb) a
@@ -5584,6 +5945,7 @@ function App() {
   const [exportT, setExportT] = useState(null);      // progreso fijado por el exportador de video (null = inactivo)
   const [vidBox, setVidBox] = useState(null);        // tamano (px) al que se estira el visor mientras se graba
   const [vidFormat, setVidFormat] = useState("story");
+  const [vidCropY, setVidCropY] = useState(0);          // 4:5: 0 = recorte pegado arriba (zona libre), 100 = abajo
   const [vidSeconds, setVidSeconds] = useState(10);
   const [vidFps, setVidFps] = useState(30);
   const [vidQuality, setVidQuality] = useState(1);
@@ -6095,6 +6457,8 @@ function App() {
     const w = fmt.w, h = fmt.h, fps = vidFps, ss = vidQuality;
     const total = Math.max(2, Math.round(clamp(vidSeconds, 1, 90) * fps));
     const bitrate = Math.round(clamp(w * h * fps * 0.18, 6e6, 20e6));
+    const rw = Math.max(w, VIDEO_REF.w), rh = Math.max(h, VIDEO_REF.h);   // lienzo de referencia 9:16
+    const cropSy = Math.round((rh - h) * clamp(vidCropY, 0, 100) / 100);
     const b = vidBridge.current;
     let encoder = null;
     let started = false;
@@ -6111,7 +6475,11 @@ function App() {
 
       const out = document.createElement("canvas");
       out.width = w; out.height = h;
-      const ctx = out.getContext("2d");
+      const octx = out.getContext("2d");
+      octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = "high";
+      const full = rh === h ? out : document.createElement("canvas");
+      if (full !== out) { full.width = rw; full.height = rh; }
+      const ctx = full === out ? octx : full.getContext("2d");
       ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
       const pv = vidPreviewRef.current;
       const pctx = pv ? pv.getContext("2d") : null;
@@ -6119,11 +6487,12 @@ function App() {
 
       // Estira el visor al tamano del video y fija t = 0
       b.tag = null;
-      setVidBox({ w: w * ss, h: h * ss });
+      setVidBox({ w: rw * ss, h: rh * ss });
+      window.__wsExportTime = 0;
       setExportT(0);
       started = true;
-      const sized = await vxUntil(() => b.canvas && b.canvas.width === w * ss && b.canvas.height === h * ss && b.tag === 0);
-      if (!sized) throw new Error("El visor no pudo ajustarse a " + w * ss + "x" + h * ss + ". Proba calidad Normal.");
+      const sized = await vxUntil(() => b.canvas && b.canvas.width === rw * ss && b.canvas.height === rh * ss && b.tag === 0);
+      if (!sized) throw new Error("El visor no pudo ajustarse a " + rw * ss + "x" + rh * ss + ". Proba calidad Normal.");
       await vxFrames(8);
 
       for (let i = 0; i < total; i++) {
@@ -6131,6 +6500,7 @@ function App() {
         if (encErr) throw encErr;
         const t = i / (total - 1);
         const f0 = b.frames;
+        window.__wsExportTime = i / fps;
         if (i > 0) {
           setExportT(t);
           const ok = await vxUntil(() => b.tag === t && b.frames > f0);
@@ -6141,9 +6511,10 @@ function App() {
         if (vids.length) { await vxUntil(() => vids.every((v) => !v.seeking), 120); await vxFrames(2); }
 
         const bg = sampleFx(fxByKf, t, stagesComputed, easings).background;
-        paintVideoBackground(ctx, w, h, bg);
-        ctx.drawImage(b.canvas, 0, 0, w, h);
-        if (postFx.vignetteEnabled) paintVideoVignette(ctx, w, h, postFx.vignetteOffset == null ? 0.15 : postFx.vignetteOffset, postFx.vignetteDarkness == null ? 0.5 : postFx.vignetteDarkness);
+        paintVideoBackground(ctx, rw, rh, bg);
+        ctx.drawImage(b.canvas, 0, 0, rw, rh);
+        if (postFx.vignetteEnabled) paintVideoVignette(ctx, rw, rh, postFx.vignetteOffset == null ? 0.15 : postFx.vignetteOffset, postFx.vignetteDarkness == null ? 0.5 : postFx.vignetteDarkness);
+        if (full !== out) octx.drawImage(full, 0, cropSy, w, h, 0, 0, w, h);   // 4:5 = recorte del 9:16
 
         const frame = new VideoFrame(out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
         encoder.encode(frame, { keyFrame: i % (fps * 2) === 0 });
@@ -6168,6 +6539,7 @@ function App() {
       else setVidRun({ status: "error", pct: 0, msg: (e && e.message) || String(e) });
     } finally {
       try { if (encoder && encoder.state !== "closed") encoder.close(); } catch (e2) { /* ya cerrado */ }
+      window.__wsExportTime = null;
       if (started) { setExportT(null); setVidBox(null); }
     }
   };
@@ -6196,7 +6568,7 @@ function App() {
     if (!window.confirm("¿Vaciar todo y empezar un proyecto nuevo?")) return;
     const st = makeDefaultStages();
     setModelUrl(""); setCharScale(1); setCharCenterY(0);
-    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0 });
+    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0, partEnabled: false, partCount: 650, partSize: 1, partOpacity: 0.65, partSpeed: 1, partBlur: 0.6, partRange: 16, partBeam: 0.6 });
     setTrail({ enabled: false, color: "#ffd873", size: 0.05, life: 0.9, rate: 40 });
     setReflection({ enabled: false, resolution: 256, updateEvery: 2, intensity: 1 });
     setDock(DEFAULT_DOCK); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR);
@@ -6427,6 +6799,16 @@ function App() {
                   <Slider label="Final · Altura" min={-10} max={10} step={0.1} value={postFx.beamTy ?? 0} onChange={(v) => setPostFxField("beamTy", v)} />
                   <Slider label="Final · Z" min={-10} max={10} step={0.1} value={postFx.beamTz ?? 0} onChange={(v) => setPostFxField("beamTz", v)} />
                 </Group>
+                <Group id="particles" title="Partículas (polvo / bokeh)" toggle={{ checked: !!postFx.partEnabled, onChange: (v) => setPostFxField("partEnabled", v) }}>
+                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Polvo en suspensión como en el cine: flota en el espacio 3D (tiene parallax con el scroll) y se desenfoca según la distancia al punto que mira la cámara. Sale igual en el index.html y en el MP4.</div>
+                  <Slider label="Cantidad" min={50} max={2500} step={10} value={postFx.partCount ?? 650} onChange={(v) => setPostFxField("partCount", v)} />
+                  <Slider label="Intensidad" min={0} max={1} step={0.01} value={postFx.partOpacity ?? 0.65} onChange={(v) => setPostFxField("partOpacity", v)} />
+                  <Slider label="Tamaño" min={0.3} max={3} step={0.05} value={postFx.partSize ?? 1} onChange={(v) => setPostFxField("partSize", v)} />
+                  <Slider label="Desenfoque (bokeh)" min={0} max={1} step={0.01} value={postFx.partBlur ?? 0.6} onChange={(v) => setPostFxField("partBlur", v)} />
+                  <Slider label="Velocidad" min={0} max={3} step={0.05} value={postFx.partSpeed ?? 1} onChange={(v) => setPostFxField("partSpeed", v)} />
+                  <Slider label="Alcance" min={6} max={40} step={0.5} value={postFx.partRange ?? 16} onChange={(v) => setPostFxField("partRange", v)} />
+                  <Slider label="Brillo en el rayo" min={0} max={1} step={0.01} value={postFx.partBeam ?? 0.6} onChange={(v) => setPostFxField("partBeam", v)} />
+                </Group>
               </>
             )}
 
@@ -6584,11 +6966,12 @@ function App() {
                 </Group>
                 <Group id="vid" title="Video para redes (MP4)">
                   <Seg value={vidFormat} onChange={setVidFormat} options={[["story", "Historias - Reel 9:16"], ["feed", "Feed 4:5"]]} />
+                  {vidFormat === "feed" && <Slider label="Encuadre vertical %" min={0} max={100} step={1} value={vidCropY} onChange={setVidCropY} />}
                   <Slider label="Duracion (s)" min={3} max={60} step={1} value={vidSeconds} onChange={setVidSeconds} />
                   <Seg value={vidFps} onChange={setVidFps} options={[[30, "30 fps"], [60, "60 fps"]]} />
                   <Seg value={vidQuality} onChange={setVidQuality} options={[[1, "Calidad normal"], [2, "Alta (2x, mas lento)"]]} />
                   <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>
-                    {VIDEO_FORMATS[vidFormat].w}x{VIDEO_FORMATS[vidFormat].h}. Recorre el scroll de 0 a 100% y graba solo el canvas (sin WhatsApp, Como llegar, Turnero, barra de progreso ni aviso de scroll). Deja la pestana visible mientras exporta.
+                    {VIDEO_FORMATS[vidFormat].w}x{VIDEO_FORMATS[vidFormat].h}.{vidFormat === "feed" ? " Se arma con la misma composicion del marco 9:16 (el logo mide igual) y se recorta en alto: 0% = pegado arriba (zona libre), 100% = pegado abajo." : ""} Recorre el scroll de 0 a 100% y graba solo el canvas (sin WhatsApp, Como llegar, Turnero, barra de progreso ni aviso de scroll). Deja la pestana visible mientras exporta.
                   </div>
                   <div className="tools"><Btn icon="play" kind="acc" onClick={startVideoExport} disabled={vidRun && vidRun.status === "running"}>Exportar MP4</Btn></div>
                 </Group>
