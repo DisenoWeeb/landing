@@ -587,9 +587,9 @@ const scenes = [
     progress: 1,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 65, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    light: { color: "#eae7c8", intensity: 3.15, azimuth: 360, elevation: 65, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
     fog: { enabled: false, color: "#05070a", far: 68 },
-    background: { from: "#031735", to: "#6b0d78", angle: 275, alpha: 1 },
+    background: { from: "#031735", to: "#6b0d78", angle: 0, alpha: 1 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -704,9 +704,12 @@ const VIGNETTE_OFFSET = 0.37;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.09;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.03;
-const BEAM_WIDTH = 5;
+const BEAM_OPACITY = 0.05;
+const BEAM_WIDTH = 4.5;
 const BEAM_HEIGHT = 40;
+const BEAM_SOFT = 0.89;
+const BEAM_GLOW = 0.03;
+const BEAM_TARGET = [0, 1.8, 0];
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -1211,83 +1214,135 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
   return null;
 }
 
-/* Textura de degradado para el rayo de luz: brillante en el centro,
-   transparente en los bordes y en las puntas (arriba/abajo) — se genera
-   una sola vez con canvas, no hace falta subir ningún asset. */
-let _beamTextureCache = null;
-function getBeamTexture() {
-  if (_beamTextureCache) return _beamTextureCache;
-  const size = 128;
-  const canvas = document.createElement("canvas");
-  canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  const grad = ctx.createLinearGradient(0, 0, size, 0);
-  grad.addColorStop(0, "rgba(255,255,255,0)");
-  grad.addColorStop(0.5, "rgba(255,255,255,1)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-  const vgrad = ctx.createLinearGradient(0, 0, 0, size);
-  vgrad.addColorStop(0, "rgba(0,0,0,1)");
-  vgrad.addColorStop(0.12, "rgba(0,0,0,0)");
-  vgrad.addColorStop(0.82, "rgba(0,0,0,0)");
-  vgrad.addColorStop(1, "rgba(0,0,0,1)");
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.fillStyle = vgrad;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(canvas);
-  _beamTextureCache = tex;
-  return tex;
+/* ---- Rayo de luz (volumétrico falso) ----
+   Antes eran 3 planos cruzados: de frente o desde abajo se veían como una
+   estrella de líneas y el final cortaba recto. Ahora es UN solo plano que
+   gira alrededor del eje del rayo para mirar siempre a la cámara
+   ("billboard cilíndrico"), con perfil suave (gaussiano) a los costados y
+   un difuminado regulable en la punta. Si se mira justo de frente al rayo
+   el plano se va apagando y lo reemplaza un halo redondo en el punto final.
+   El final del rayo ("destino") se puede mover en X / altura / Z. */
+const BEAM_VERT = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const BEAM_BODY_FRAG = `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  uniform float uSoftFrac;
+  uniform float uFacing;
+  varying vec2 vUv;
+  void main() {
+    float x = (vUv.x - 0.5) * 2.0;
+    float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
+    float v = vUv.y;
+    float tip = smoothstep(0.0, uSoftFrac, v);
+    float src = 1.0 - smoothstep(0.78, 1.0, v);
+    float a = side * tip * src * uOpacity * uFacing;
+    gl_FragColor = vec4(uColor, a);
+    #include <colorspace_fragment>
+  }
+`;
+const BEAM_GLOW_FRAG = `
+  uniform vec3 uColor;
+  uniform float uAlpha;
+  varying vec2 vUv;
+  void main() {
+    vec2 p = (vUv - 0.5) * 2.0;
+    float g = max(0.0, (exp(-dot(p, p) * 4.5) - 0.011) / 0.989);
+    gl_FragColor = vec4(uColor, g * uAlpha);
+    #include <colorspace_fragment>
+  }
+`;
+function makeBeamMaterial(frag, uniforms) {
+  return new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: BEAM_VERT,
+    fragmentShader: frag,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
 }
-
-/* Rayo de luz volumétrico (fake): 3 planos cruzados con degradado
-   aditivo, apuntando siempre hacia la dirección/color de la luz de la
-   etapa actual (se actualiza solo — nunca hay que tocar un color a
-   mano acá). No es raymarching real, pero con blending aditivo encima
-   de la niebla se lee como un haz de luz que baja, sin pesar nada.
-   Por ahora apunta al origen de la escena (0,0,0) — si tu objeto
-   principal no está ahí, movelo o avisame para agregar un offset. */
-function LightBeam({ enabled, opacity, width, height }) {
+/* Antes se sumaban 3 planos; ahora hay 1. Esta ganancia mantiene el mismo brillo que ya tenías ajustado. */
+const BEAM_GAIN = 2.4;
+function LightBeamCore({ enabled, opacity, width, height, soft, glow, target, getLight }) {
   const groupRef = useRef(null);
-  const matRefs = useRef([]);
-  const texture = useMemo(() => getBeamTexture(), []);
+  const bodyRef = useRef(null);
+  const glowRef = useRef(null);
+  const bodyMat = useMemo(() => makeBeamMaterial(BEAM_BODY_FRAG, {
+    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 },
+  }), []);
+  const glowMat = useMemo(() => makeBeamMaterial(BEAM_GLOW_FRAG, {
+    uColor: { value: new THREE.Color("#ffffff") }, uAlpha: { value: 0 },
+  }), []);
+  useEffect(() => () => { bodyMat.dispose(); glowMat.dispose(); }, [bodyMat, glowMat]);
+  const tmp = useMemo(() => ({ dir: new THREE.Vector3(), cam: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0) }), []);
 
-  useFrame(() => {
-    if (!enabled || !groupRef.current) return;
-    const progress = useScrollStore.getState().smoothProgress;
-    const state = blendScenes(scenes, progress);
-    const dir = lightDirFromAngles(state.light.azimuth, state.light.elevation, 1);
-    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
-    groupRef.current.position.set(dirVec.x * height * 0.5, dirVec.y * height * 0.5, dirVec.z * height * 0.5);
-    groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
-    matRefs.current.forEach((m) => {
-      if (!m) return;
-      m.color.set(state.light.color);
-      m.opacity = opacity;
-    });
+  useFrame(({ camera }) => {
+    const g = groupRef.current, body = bodyRef.current;
+    if (!enabled || !g || !body) return;
+    const L = getLight();
+    const d = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, 1);
+    tmp.dir.set(d[0], d[1], d[2]).normalize();
+    const tx = target ? target[0] : 0, ty = target ? target[1] : 0, tz = target ? target[2] : 0;
+    // El rayo nace en el destino y se estira "height" hacia la luz.
+    g.position.set(tx + tmp.dir.x * height * 0.5, ty + tmp.dir.y * height * 0.5, tz + tmp.dir.z * height * 0.5);
+    g.quaternion.setFromUnitVectors(tmp.up, tmp.dir);
+    g.updateMatrixWorld(true);
+    // Gira el plano alrededor del eje para mirar a la cámara.
+    tmp.cam.copy(camera.position);
+    g.worldToLocal(tmp.cam);
+    const len = tmp.cam.length() || 1;
+    body.rotation.y = Math.atan2(tmp.cam.x, tmp.cam.z);
+    // De frente al rayo (mirando a lo largo del eje) el plano queda de canto: se apaga.
+    const perp = Math.hypot(tmp.cam.x, tmp.cam.z) / len;
+    const facing = THREE.MathUtils.smoothstep(perp, 0.04, 0.4);
+    const softFrac = THREE.MathUtils.clamp((soft ?? 0.5) * (width * 1.2 + height * 0.3) / Math.max(height, 0.001), 0.03, 1);
+    const bu = bodyMat.uniforms;
+    bu.uColor.value.set(L.color || "#ffffff");
+    bu.uOpacity.value = opacity * BEAM_GAIN;
+    bu.uSoftFrac.value = softFrac;
+    bu.uFacing.value = facing;
+    const gl = glowRef.current;
+    if (gl) {
+      gl.position.set(tx, ty, tz);
+      gl.quaternion.copy(camera.quaternion);
+      gl.scale.setScalar(Math.max(width * 1.25, 0.6));
+      const gu = glowMat.uniforms;
+      gu.uColor.value.set(L.color || "#ffffff");
+      gu.uAlpha.value = opacity * BEAM_GAIN * (glow ?? 0.35) * (0.45 + 0.55 * (1 - facing));
+    }
   });
 
   if (!enabled) return null;
 
   return (
-    <group ref={groupRef} userData={{ excludeFromReflection: true }}>
-      {[0, 60, 120].map((deg, i) => (
-        <mesh key={deg} rotation={[0, (deg * Math.PI) / 180, 0]}>
+    <group userData={{ excludeFromReflection: true }}>
+      <group ref={groupRef}>
+        <mesh ref={bodyRef} material={bodyMat} frustumCulled={false}>
           <planeGeometry args={[width, height]} />
-          <meshBasicMaterial
-            ref={(m) => { matRefs.current[i] = m; }}
-            map={texture}
-            transparent
-            opacity={opacity}
-            color="#ffffff"
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            side={THREE.DoubleSide}
-            toneMapped={false}
-          />
         </mesh>
-      ))}
+      </group>
+      {(glow ?? 0.35) > 0 && (
+        <mesh ref={glowRef} material={glowMat} frustumCulled={false}>
+          <planeGeometry args={[1, 1]} />
+        </mesh>
+      )}
     </group>
+  );
+}
+function LightBeam({ enabled, opacity, width, height, soft, glow, target }) {
+  return (
+    <LightBeamCore
+      enabled={enabled} opacity={opacity} width={width} height={height} soft={soft} glow={glow} target={target}
+      getLight={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).light}
+    />
   );
 }
 /* ============================================================
@@ -2153,7 +2208,7 @@ function Experience({ device }) {
         intensity={REFLECTION_INTENSITY}
       />
 
-      <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} />
+      <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
   
       {BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
