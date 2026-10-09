@@ -292,7 +292,7 @@
     font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 </style>
 <style id="ldr-vars">/*@GEN:LOADER_CSS_START*/
-:root { --ldr-bg: #684b29; --ldr-line: #d5a168; --ldr-font: 'Archivo Black', sans-serif; }
+:root { --ldr-bg: #121752; --ldr-line: #f1b1f1; --ldr-font: 'Montserrat', sans-serif; }
 /*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
@@ -400,8 +400,9 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.333, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.667, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.408, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.605, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.803, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
@@ -417,9 +418,10 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, -0.32, -0.52], scale: 5.2, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.333, easing: "smooth", position: [0, 5.44, 0.56], scale: 9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
-      { progress: 0.667, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
-      { progress: 1, easing: "smooth", position: [0, 3.32, 0.56], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.408, easing: "smooth", position: [0, 5.44, 0.56], scale: 9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
+      { progress: 0.605, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
+      { progress: 0.803, easing: "smooth", position: [0, 3.32, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [0, 3.32, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
     ],
   },
   {
@@ -434,29 +436,31 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [-0.24, 2.02, -0.09], scale: 8.32, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.333, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.667, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.408, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.605, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.803, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
   {
     type: "text",
-    text: "Un cuidado \npara cada momento.",
+    text: "Un cuidado para \ncada momento.",
     textColor: "#ffffff",
     textGradient: null,
-    fontFamily: "'Fredoka', sans-serif",
+    fontFamily: "'Montserrat', sans-serif",
     letterSpacing: 0.02,
     lineHeight: 0.9,
-    wordStyles: {"1":{"mode":"solid","color":"#ecb7f0"},"3":{"mode":"solid","color":"#efa3e9"},"4":{"mode":"solid","color":"#ec93e0"}},
+    wordStyles: {"1":{"mode":"solid","color":"#f1b1f1"},"3":{"mode":"solid","color":"#f1b1f1"},"4":{"mode":"solid","color":"#f1b1f1"}},
     fontWeight: 400,
     textAlign: "center",
     textOutline: false,
     textOutlineColor: "#000000",
-    billboard: true,
+    billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 8.31, 0], scale: 2.2, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.333, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.667, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.408, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.605, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.803, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
     ],
   },
@@ -465,20 +469,21 @@ const OBJECTS = [
     text: "Un vínculo\npara siempre.",
     textColor: "#ffffff",
     textGradient: null,
-    fontFamily: "'Fredoka', sans-serif",
+    fontFamily: "'Montserrat', sans-serif",
     letterSpacing: 0,
     lineHeight: 0.8,
-    wordStyles: {"1":{"mode":"solid","color":"#f2abf0"}},
+    wordStyles: {"1":{"mode":"solid","color":"#f1b1f1"}},
     fontWeight: 400,
     textAlign: "left",
     textOutline: false,
     textOutlineColor: "#000000",
-    billboard: false,
+    billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [-1.2, -4.3, 11], scale: 0.9, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.333, easing: "smooth", position: [-1.2, -4.3, 11], scale: 1.6, rotationY: 0, hidden: true, fadeDir: "rtl" },
-      { progress: 0.667, easing: "smooth", position: [-0.8, -4.3, 11], scale: 1.51, rotationY: 0, hidden: false, fadeDir: "rtl" },
-      { progress: 1, easing: "smooth", position: [-4.6, -0.06, 11], scale: 1.6, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.408, easing: "smooth", position: [-1.2, -4.3, 11], scale: 1.6, rotationY: 0, hidden: true, fadeDir: "rtl" },
+      { progress: 0.605, easing: "smooth", position: [-0.8, -4.3, 11], scale: 1.3, rotationY: 0, hidden: false, fadeDir: "rtl" },
+      { progress: 0.803, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
     ],
   },
   {
@@ -486,10 +491,10 @@ const OBJECTS = [
     text: "una vida..",
     textColor: "#ffffff",
     textGradient: null,
-    fontFamily: "'Fredoka', sans-serif",
+    fontFamily: "'Montserrat', sans-serif",
     letterSpacing: -0.04,
     lineHeight: 1.2,
-    wordStyles: {"1":{"mode":"solid","color":"#f1b5f2"}},
+    wordStyles: {"1":{"mode":"solid","color":"#f1b1f1"}},
     fontWeight: 400,
     textAlign: "center",
     textOutline: false,
@@ -497,8 +502,9 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, -1, 0.24], scale: 0.2, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.333, easing: "smooth", position: [0, 9.36, 5.72], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.667, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.408, easing: "smooth", position: [0, 9.36, 5.72], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.605, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.803, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
@@ -545,36 +551,45 @@ const scenes = [
     progress: 0,
     easing: "smooth",
     camera: { position: [0, -11.76, -0.021], lookAt: [0, 0.5, -0.08], fov: 10, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 318, elevation: 41, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.46 },
-    fog: { enabled: false, color: "#05070a", far: 3.9 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 314, elevation: 73, rimColor: "#f1b1f1", rimIntensity: 1.6, ambient: 0.8 },
+    fog: { enabled: false, color: "#05070a", far: 22 },
     background: { from: "#06174b", to: "#a81fa8", angle: 127, alpha: 1 },
   },
   {
     id: "pose-1791039970322",
-    progress: 0.333,
+    progress: 0.408,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 318, elevation: 41, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.46 },
-    fog: { enabled: false, color: "#05070a", far: 3.9 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 276, elevation: 35, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    fog: { enabled: false, color: "#05070a", far: 53 },
     background: { from: "#031735", to: "#6b0d78", angle: 360, alpha: 1 },
   },
   {
     id: "pose-1791040034357",
-    progress: 0.667,
+    progress: 0.605,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 318, elevation: 41, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.46 },
-    fog: { enabled: false, color: "#05070a", far: 3.9 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 323, elevation: -90, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    fog: { enabled: false, color: "#05070a", far: 68 },
     background: { from: "#031735", to: "#6b0d78", angle: 275, alpha: 1 },
   },
   {
     id: "pose-1791301215862",
+    progress: 0.803,
+    easing: "smooth",
+    camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: -56, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    fog: { enabled: false, color: "#05070a", far: 68 },
+    background: { from: "#031735", to: "#6b0d78", angle: 275, alpha: 1 },
+  },
+  {
+    id: "pose-1791555736964",
     progress: 1,
     easing: "smooth",
-    camera: { position: [0, 0, 35], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 41, rimColor: "#6f47ff", rimIntensity: 1.4, ambient: 0.38 },
-    fog: { enabled: false, color: "#05070a", far: 3.9 },
-    background: { from: "#031735", to: "#6b0d78", angle: 176, alpha: 1 },
+    camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 65, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    fog: { enabled: false, color: "#05070a", far: 68 },
+    background: { from: "#031735", to: "#6b0d78", angle: 275, alpha: 1 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -586,9 +601,10 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1791039574302", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791039970322", progress: 0.333, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791040034357", progress: 0.667, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791301215862", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039970322", progress: 0.408, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791040034357", progress: 0.605, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791301215862", progress: 0.803, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791555736964", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -622,7 +638,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791039970322",
-    progress: 0.333,
+    progress: 0.408,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -630,7 +646,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791040034357",
-    progress: 0.667,
+    progress: 0.605,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -638,6 +654,14 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791301215862",
+    progress: 0.803,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
+  {
+    id: "pose-1791555736964",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -670,19 +694,19 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 930;
+const SCROLL_LENGTH_VH = 760;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
-const VIGNETTE_ENABLED = false;
-const VIGNETTE_DARKNESS = 0.5;
-const VIGNETTE_OFFSET = 0.15;
+const VIGNETTE_ENABLED = true;
+const VIGNETTE_DARKNESS = 0.34;
+const VIGNETTE_OFFSET = 0.37;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.15;
-const BEAM_ENABLED = false;
-const BEAM_OPACITY = 0.05;
-const BEAM_WIDTH = 0.6;
-const BEAM_HEIGHT = 12.5;
+const BLOOM_INTENSITY = 0.09;
+const BEAM_ENABLED = true;
+const BEAM_OPACITY = 0.03;
+const BEAM_WIDTH = 5;
+const BEAM_HEIGHT = 40;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -704,7 +728,7 @@ const TRAIL_RATE = 2;
 const DOCK = {
   "enabled": true,
   "splitPct": 50,
-  "shadeStrength": 0.75,
+  "shadeStrength": 1,
   "whatsappPhone": "5493435303848",
   "whatsappMessage": "Hola! Quisiera hacer una consulta.",
   "address": "José Venturino 1239 Paraná Entre Ríos",
@@ -740,7 +764,7 @@ const DOCK = {
   "turneroTitle": "Sacá tu turno",
   "turneroDays": 14,
   "turneroMessage": "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
-  "accent": "#f0a8e3"
+  "accent": "#f1b1f1"
 };
 /*@GEN:DOCK_END*/
 
@@ -748,11 +772,11 @@ const DOCK = {
 const LOADER = {
   "enabled": true,
   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:xodm=\"http://www.corel.com/coreldraw/odm/2003\" xml:space=\"preserve\" version=\"1.1\" style=\"shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd\" viewBox=\"0 0 5974.39 5974.39\" preserveAspectRatio=\"xMidYMid meet\">\n <defs>\n \n <\/defs>\n <g id=\"Capa_x0020_1\">\n <metadata id=\"CorelCorpID_0Corel-Layer\"/>\n <path class=\"fil0 str0\" d=\"M423.05 5971.17l5128.28 0c230.91,0 419.83,-173.77 419.83,-386.15l0 -5195.65c0,-212.38 -188.92,-386.15 -419.83,-386.15l-5128.28 0c-230.91,0 -419.84,173.77 -419.84,386.15l0 5195.65c0,212.38 188.93,386.15 419.84,386.15z\"/>\n <path class=\"fil1 str0\" d=\"M2776.8 2855.78l-21 11.17c-19.51,10.36 -27.57,35.11 -17.91,54.99l35.17 72.4c9.65,19.87 33.51,27.64 53.02,17.27l21 -11.16c19.52,-10.38 27.59,-35.12 17.92,-54.99l-35.18 -72.41c-9.65,-19.87 -33.51,-27.65 -53.02,-17.27z\"/>\n <path class=\"fil1 str0\" d=\"M2885.85 2993.81c21.08,-23.34 55.6,-28.31 84.77,-28.31l32.8 0c29.06,0 63.48,4.92 84.45,28.21 286.31,317.63 -488.23,317.1 -202.01,0.1z\"/>\n <path class=\"fil1 str0\" d=\"M3197.65 2855.78l20.98 11.17c19.49,10.36 27.52,35.11 17.83,54.99l-35.27 72.4c-9.69,19.87 -33.56,27.64 -53.05,17.27l-20.98 -11.16c-19.51,-10.38 -27.53,-35.12 -17.85,-54.99l35.28 -72.41c9.68,-19.87 33.55,-27.65 53.06,-17.27z\"/>\n <path class=\"fil1 str0\" d=\"M2896.66 2743.85l-0.01 0.01c-31.73,6.52 -52.81,37.9 -46.85,69.72l12.34 65.85c5.96,31.83 36.79,52.54 68.53,46.02l0.01 0c31.73,-6.51 52.81,-37.9 46.84,-69.73l-12.34 -65.85c-5.95,-31.83 -36.79,-52.54 -68.52,-46.02z\"/>\n <path class=\"fil1 str0\" d=\"M3082 2743.85l0.02 0.01c31.72,6.52 52.75,37.9 46.74,69.72l-12.42 65.85c-6.01,31.83 -36.87,52.54 -68.59,46.02l-0.02 0c-31.72,-6.51 -52.75,-37.9 -46.74,-69.73l12.42 -65.85c6.01,-31.83 36.87,-52.54 68.59,-46.02z\"/>\n <path class=\"fil0 str0\" d=\"M592.13 5774.42l4790.15 0c215.68,0 392.15,-162.3 392.15,-360.68l0 -4853.08c0,-198.37 -176.47,-360.68 -392.15,-360.68l-4790.15 0c-215.69,0 -392.15,162.31 -392.15,360.68l0 4853.08c0,198.38 176.47,360.68 392.15,360.68z\"/>\n <path class=\"fil0 str0\" d=\"M701 5647.72l4572.4 0c205.88,0 374.33,-154.93 374.33,-344.29l0 -4632.48c0,-189.36 -168.45,-344.29 -374.33,-344.29l-4572.4 0c-205.88,0 -374.33,154.93 -374.33,344.29l0 4632.48c0,189.36 168.45,344.29 374.33,344.29z\"/>\n <path class=\"fil0 str0\" d=\"M809.86 5521.03l4354.68 0c196.08,0 356.5,-147.55 356.5,-327.9l0 -4411.89c0,-180.34 -160.43,-327.9 -356.5,-327.9l-4354.68 0c-196.08,0 -356.5,147.55 -356.5,327.9l0 4411.89c0,180.35 160.43,327.9 356.5,327.9z\"/>\n <path class=\"fil0 str0\" d=\"M918.73 5394.34l4136.94 0c186.28,0 338.68,-140.17 338.68,-311.5l0 -4191.29c0,-171.33 -152.4,-311.5 -338.68,-311.5l-4136.94 0c-186.28,0 -338.68,140.17 -338.68,311.5l0 4191.29c0,171.33 152.4,311.5 338.68,311.5z\"/>\n <path class=\"fil0 str0\" d=\"M1027.59 5267.65l3919.21 0c176.47,0 320.85,-132.79 320.85,-295.1l0 -3970.7c0,-162.31 -144.39,-295.11 -320.85,-295.11l-3919.21 0c-176.47,0 -320.85,132.8 -320.85,295.11l0 3970.7c0,162.31 144.39,295.1 320.85,295.1z\"/>\n <path class=\"fil0 str0\" d=\"M1136.46 5140.96l3701.47 0c166.67,0 303.03,-125.42 303.03,-278.71l0 -3750.1c0,-153.3 -136.36,-278.71 -303.03,-278.71l-3701.47 0c-166.67,0 -303.03,125.42 -303.03,278.71l0 3750.1c0,153.29 136.36,278.71 303.03,278.71z\"/>\n <path class=\"fil0 str0\" d=\"M1245.32 5014.26l3483.74 0c156.87,0 285.21,-118.03 285.21,-262.31l0 -3529.51c0,-144.28 -128.34,-262.32 -285.21,-262.32l-3483.74 0c-156.86,0 -285.2,118.04 -285.2,262.32l0 3529.51c0,144.28 128.34,262.31 285.2,262.31z\"/>\n <path class=\"fil0 str0\" d=\"M1354.2 4887.57l3266.01 0c147.06,0 267.38,-110.66 267.38,-245.92l0 -3308.91c0,-135.26 -120.32,-245.93 -267.38,-245.93l-3266.01 0c-147.06,0 -267.38,110.66 -267.38,245.93l0 3308.91c0,135.26 120.32,245.92 267.38,245.92z\"/>\n <path class=\"fil0 str0\" d=\"M1463.06 4760.88l3048.27 0c137.26,0 249.56,-103.28 249.56,-229.52l0 -3088.32c0,-126.24 -112.3,-229.52 -249.56,-229.52l-3048.27 0c-137.25,0 -249.55,103.29 -249.55,229.52l0 3088.32c0,126.24 112.3,229.52 249.55,229.52z\"/>\n <path class=\"fil0 str0\" d=\"M1571.93 4634.19l2830.54 0c127.45,0 231.73,-95.91 231.73,-213.13l0 -2867.73c0,-117.22 -104.28,-213.13 -231.73,-213.13l-2830.54 0c-127.45,0 -231.73,95.91 -231.73,213.13l0 2867.73c0,117.22 104.28,213.13 231.73,213.13z\"/>\n <path class=\"fil0 str0\" d=\"M1680.8 4507.5l2612.8 0c117.65,0 213.91,-88.52 213.91,-196.74l0 -2647.13c0,-108.2 -96.25,-196.74 -213.91,-196.74l-2612.8 0c-117.65,0 -213.91,88.53 -213.91,196.74l0 2647.13c0,108.21 96.25,196.74 213.91,196.74z\"/>\n <path class=\"fil0 str0\" d=\"M1789.66 4380.8l2395.07 0c107.84,0 196.08,-81.15 196.08,-180.34l0 -2426.53c0,-99.18 -88.24,-180.34 -196.08,-180.34l-2395.07 0c-107.84,0 -196.08,81.16 -196.08,180.34l0 2426.53c0,99.19 88.24,180.34 196.08,180.34z\"/>\n <path class=\"fil0 str0\" d=\"M1898.53 4254.11l2177.33 0c98.04,0 178.26,-73.77 178.26,-163.95l0 -2205.94c0,-90.17 -80.21,-163.95 -178.26,-163.95l-2177.33 0c-98.04,0 -178.26,73.78 -178.26,163.95l0 2205.94c0,90.18 80.21,163.95 178.26,163.95z\"/>\n <path class=\"fil0 str0\" d=\"M2007.39 4127.42l1959.61 0c88.24,0 160.43,-66.4 160.43,-147.55l0 -1985.35c0,-81.15 -72.19,-147.55 -160.43,-147.55l-1959.61 0c-88.24,0 -160.43,66.4 -160.43,147.55l0 1985.35c0,81.15 72.19,147.55 160.43,147.55z\"/>\n <path class=\"fil0 str0\" d=\"M2116.27 4000.73l1741.87 0c78.43,0 142.6,-59.01 142.6,-131.15l0 -1764.75c0,-72.14 -64.17,-131.16 -142.6,-131.16l-1741.87 0c-78.43,0 -142.6,59.02 -142.6,131.16l0 1764.75c0,72.14 64.17,131.15 142.6,131.15z\"/>\n <path class=\"fil0 str0\" d=\"M2225.13 3874.03l1524.14 0c68.62,0 124.77,-51.64 124.77,-114.76l0 -1544.16c0,-63.12 -56.15,-114.77 -124.77,-114.77l-1524.14 0c-68.62,0 -124.77,51.65 -124.77,114.77l0 1544.16c0,63.12 56.15,114.76 124.77,114.76z\"/>\n <path class=\"fil0 str0\" d=\"M2334 3747.34l1306.4 0c58.83,0 106.95,-44.26 106.95,-98.36l0 -1323.56c0,-54.11 -48.13,-98.37 -106.95,-98.37l-1306.4 0c-58.83,0 -106.95,44.27 -106.95,98.37l0 1323.56c0,54.11 48.13,98.36 106.95,98.36z\"/>\n <path class=\"fil0 str0\" d=\"M2442.86 3620.65l1088.67 0c49.01,0 89.12,-36.88 89.12,-81.97l0 -1102.96c0,-45.09 -40.11,-81.98 -89.12,-81.98l-1088.67 0c-49.01,0 -89.12,36.89 -89.12,81.98l0 1102.96c0,45.09 40.11,81.97 89.12,81.97z\"/>\n <\/g>\n<\/svg>",
-  "background": "#684b29",
-  "lineColor": "#d5a168",
-  "font": "'Archivo Black', sans-serif",
+  "background": "#121752",
+  "lineColor": "#f1b1f1",
+  "font": "'Montserrat', sans-serif",
   "lineWidth": 0.9,
-  "minMs": 1600,
+  "minMs": 1800,
   "showNumber": true
 };
 /*@GEN:LOADER_END*/
@@ -760,15 +784,15 @@ const LOADER = {
 /*@GEN:EXTRAS_START*/
 const CURSOR = {
   "enabled": true,
-  "color": "#ffffff",
-  "size": 56,
-  "life": 0.7,
-  "intensity": 0.6,
-  "shift": 60
+  "color": "#f1b1f1",
+  "size": 86,
+  "life": 1.1,
+  "intensity": 10,
+  "shift": 0
 };
 const PROGRESS_BAR = {
   "enabled": true,
-  "color": "#a804be"
+  "color": "#f1b1f1"
 };
 /*@GEN:EXTRAS_END*/
 
@@ -1270,8 +1294,8 @@ function LightBeam({ enabled, opacity, width, height }) {
    three/AnimatedCharacter.jsx
    ============================================================ */
 /*@GEN:CHAR_TRANSFORM_START*/
-const CHAR_CENTER_Y = 0.05;
-const CHAR_SCALE = 8;
+const CHAR_CENTER_Y = 0;
+const CHAR_SCALE = 1;
 /*@GEN:CHAR_TRANSFORM_END*/
 
 const _deltaEuler = new THREE.Euler();
