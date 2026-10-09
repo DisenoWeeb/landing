@@ -177,6 +177,13 @@
   textarea.code { width:100%; height:110px; resize:vertical; font:10.5px ui-monospace, Menlo, monospace; color:#9fe3b5; }
   .toast { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); background:var(--acc); color:#04212b; padding:6px 14px; border-radius:16px; font-weight:600; font-size:11.5px; z-index:20; }
   .err { color:var(--danger); font-size:11px; }
+  .vx-overlay { position:fixed; inset:0; z-index:99999; background:rgba(6,8,12,.96); display:flex; align-items:center; justify-content:center; }
+  .vx-card { width:min(380px, 92vw); display:flex; flex-direction:column; gap:12px; align-items:center; padding:20px; background:var(--bg1); border:1px solid var(--line2); border-radius:12px; }
+  .vx-card h3 { margin:0; font-size:15px; }
+  .vx-card canvas { background:#000; border:1px solid var(--line2); border-radius:6px; max-width:100%; max-height:52vh; }
+  .vx-bar { width:100%; height:6px; background:var(--line); border-radius:4px; overflow:hidden; }
+  .vx-bar i { display:block; height:100%; background:var(--acc); width:0; }
+  .vx-msg { font:11px ui-monospace, Menlo, monospace; color:var(--tx2); text-align:center; line-height:1.5; }
 </style>
 </head>
 <body>
@@ -1305,83 +1312,135 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
   return null;
 }
 
-/* Textura de degradado para el rayo de luz: brillante en el centro,
-   transparente en los bordes y en las puntas (arriba/abajo) — se genera
-   una sola vez con canvas, no hace falta subir ningún asset. */
-let _beamTextureCache = null;
-function getBeamTexture() {
-  if (_beamTextureCache) return _beamTextureCache;
-  const size = 128;
-  const canvas = document.createElement("canvas");
-  canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  const grad = ctx.createLinearGradient(0, 0, size, 0);
-  grad.addColorStop(0, "rgba(255,255,255,0)");
-  grad.addColorStop(0.5, "rgba(255,255,255,1)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-  const vgrad = ctx.createLinearGradient(0, 0, 0, size);
-  vgrad.addColorStop(0, "rgba(0,0,0,1)");
-  vgrad.addColorStop(0.12, "rgba(0,0,0,0)");
-  vgrad.addColorStop(0.82, "rgba(0,0,0,0)");
-  vgrad.addColorStop(1, "rgba(0,0,0,1)");
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.fillStyle = vgrad;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(canvas);
-  _beamTextureCache = tex;
-  return tex;
+/* ---- Rayo de luz (volumétrico falso) ----
+   Antes eran 3 planos cruzados: de frente o desde abajo se veían como una
+   estrella de líneas y el final cortaba recto. Ahora es UN solo plano que
+   gira alrededor del eje del rayo para mirar siempre a la cámara
+   ("billboard cilíndrico"), con perfil suave (gaussiano) a los costados y
+   un difuminado regulable en la punta. Si se mira justo de frente al rayo
+   el plano se va apagando y lo reemplaza un halo redondo en el punto final.
+   El final del rayo ("destino") se puede mover en X / altura / Z. */
+const BEAM_VERT = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const BEAM_BODY_FRAG = `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  uniform float uSoftFrac;
+  uniform float uFacing;
+  varying vec2 vUv;
+  void main() {
+    float x = (vUv.x - 0.5) * 2.0;
+    float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
+    float v = vUv.y;
+    float tip = smoothstep(0.0, uSoftFrac, v);
+    float src = 1.0 - smoothstep(0.78, 1.0, v);
+    float a = side * tip * src * uOpacity * uFacing;
+    gl_FragColor = vec4(uColor, a);
+    #include <colorspace_fragment>
+  }
+`;
+const BEAM_GLOW_FRAG = `
+  uniform vec3 uColor;
+  uniform float uAlpha;
+  varying vec2 vUv;
+  void main() {
+    vec2 p = (vUv - 0.5) * 2.0;
+    float g = max(0.0, (exp(-dot(p, p) * 4.5) - 0.011) / 0.989);
+    gl_FragColor = vec4(uColor, g * uAlpha);
+    #include <colorspace_fragment>
+  }
+`;
+function makeBeamMaterial(frag, uniforms) {
+  return new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: BEAM_VERT,
+    fragmentShader: frag,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
 }
-
-/* Rayo de luz volumétrico (fake): 3 planos cruzados con degradado
-   aditivo, apuntando siempre hacia la dirección/color de la luz de la
-   etapa actual (se actualiza solo — nunca hay que tocar un color a
-   mano acá). No es raymarching real, pero con blending aditivo encima
-   de la niebla se lee como un haz de luz que baja, sin pesar nada.
-   Por ahora apunta al origen de la escena (0,0,0) — si tu objeto
-   principal no está ahí, movelo o avisame para agregar un offset. */
-function LightBeam({ enabled, opacity, width, height }) {
+/* Antes se sumaban 3 planos; ahora hay 1. Esta ganancia mantiene el mismo brillo que ya tenías ajustado. */
+const BEAM_GAIN = 2.4;
+function LightBeamCore({ enabled, opacity, width, height, soft, glow, target, getLight }) {
   const groupRef = useRef(null);
-  const matRefs = useRef([]);
-  const texture = useMemo(() => getBeamTexture(), []);
+  const bodyRef = useRef(null);
+  const glowRef = useRef(null);
+  const bodyMat = useMemo(() => makeBeamMaterial(BEAM_BODY_FRAG, {
+    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 },
+  }), []);
+  const glowMat = useMemo(() => makeBeamMaterial(BEAM_GLOW_FRAG, {
+    uColor: { value: new THREE.Color("#ffffff") }, uAlpha: { value: 0 },
+  }), []);
+  useEffect(() => () => { bodyMat.dispose(); glowMat.dispose(); }, [bodyMat, glowMat]);
+  const tmp = useMemo(() => ({ dir: new THREE.Vector3(), cam: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0) }), []);
 
-  useFrame(() => {
-    if (!enabled || !groupRef.current) return;
-    const progress = useScrollStore.getState().smoothProgress;
-    const state = blendScenes(scenes, progress);
-    const dir = lightDirFromAngles(state.light.azimuth, state.light.elevation, 1);
-    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
-    groupRef.current.position.set(dirVec.x * height * 0.5, dirVec.y * height * 0.5, dirVec.z * height * 0.5);
-    groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
-    matRefs.current.forEach((m) => {
-      if (!m) return;
-      m.color.set(state.light.color);
-      m.opacity = opacity;
-    });
+  useFrame(({ camera }) => {
+    const g = groupRef.current, body = bodyRef.current;
+    if (!enabled || !g || !body) return;
+    const L = getLight();
+    const d = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, 1);
+    tmp.dir.set(d[0], d[1], d[2]).normalize();
+    const tx = target ? target[0] : 0, ty = target ? target[1] : 0, tz = target ? target[2] : 0;
+    // El rayo nace en el destino y se estira "height" hacia la luz.
+    g.position.set(tx + tmp.dir.x * height * 0.5, ty + tmp.dir.y * height * 0.5, tz + tmp.dir.z * height * 0.5);
+    g.quaternion.setFromUnitVectors(tmp.up, tmp.dir);
+    g.updateMatrixWorld(true);
+    // Gira el plano alrededor del eje para mirar a la cámara.
+    tmp.cam.copy(camera.position);
+    g.worldToLocal(tmp.cam);
+    const len = tmp.cam.length() || 1;
+    body.rotation.y = Math.atan2(tmp.cam.x, tmp.cam.z);
+    // De frente al rayo (mirando a lo largo del eje) el plano queda de canto: se apaga.
+    const perp = Math.hypot(tmp.cam.x, tmp.cam.z) / len;
+    const facing = THREE.MathUtils.smoothstep(perp, 0.04, 0.4);
+    const softFrac = THREE.MathUtils.clamp((soft ?? 0.5) * (width * 1.2 + height * 0.3) / Math.max(height, 0.001), 0.03, 1);
+    const bu = bodyMat.uniforms;
+    bu.uColor.value.set(L.color || "#ffffff");
+    bu.uOpacity.value = opacity * BEAM_GAIN;
+    bu.uSoftFrac.value = softFrac;
+    bu.uFacing.value = facing;
+    const gl = glowRef.current;
+    if (gl) {
+      gl.position.set(tx, ty, tz);
+      gl.quaternion.copy(camera.quaternion);
+      gl.scale.setScalar(Math.max(width * 1.25, 0.6));
+      const gu = glowMat.uniforms;
+      gu.uColor.value.set(L.color || "#ffffff");
+      gu.uAlpha.value = opacity * BEAM_GAIN * (glow ?? 0.35) * (0.45 + 0.55 * (1 - facing));
+    }
   });
 
   if (!enabled) return null;
 
   return (
-    <group ref={groupRef} userData={{ excludeFromReflection: true }}>
-      {[0, 60, 120].map((deg, i) => (
-        <mesh key={deg} rotation={[0, (deg * Math.PI) / 180, 0]}>
+    <group userData={{ excludeFromReflection: true }}>
+      <group ref={groupRef}>
+        <mesh ref={bodyRef} material={bodyMat} frustumCulled={false}>
           <planeGeometry args={[width, height]} />
-          <meshBasicMaterial
-            ref={(m) => { matRefs.current[i] = m; }}
-            map={texture}
-            transparent
-            opacity={opacity}
-            color="#ffffff"
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            side={THREE.DoubleSide}
-            toneMapped={false}
-          />
         </mesh>
-      ))}
+      </group>
+      {(glow ?? 0.35) > 0 && (
+        <mesh ref={glowRef} material={glowMat} frustumCulled={false}>
+          <planeGeometry args={[1, 1]} />
+        </mesh>
+      )}
     </group>
+  );
+}
+function LightBeam({ enabled, opacity, width, height, soft, glow, target }) {
+  return (
+    <LightBeamCore
+      enabled={enabled} opacity={opacity} width={width} height={height} soft={soft} glow={glow} target={target}
+      getLight={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).light}
+    />
   );
 }
 /* ============================================================
@@ -2247,7 +2306,7 @@ function Experience({ device }) {
         intensity={REFLECTION_INTENSITY}
       />
 
-      <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} />
+      <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
   
       {BLOOM_ENABLED && (
         <EffectComposer multisampling={0}>
@@ -3438,6 +3497,7 @@ function useVideoTexture(url, loop, scrub) {
     video.setAttribute("playsinline", "");
     video.setAttribute("webkit-playsinline", "");
     video.preload = "auto";
+    window.__wsVideos = window.__wsVideos || new Set(); window.__wsVideos.add(video);
     const tryPlay = () => { const pr = video.play(); if (pr && pr.catch) pr.catch(() => {}); };
     // Safari/iOS no decodifican frames de un video que nunca se reprodujo:
     // se lo "despierta" con un play() + pause() inmediato.
@@ -3468,6 +3528,7 @@ function useVideoTexture(url, loop, scrub) {
     video.load();
     return () => {
       cancelled = true;
+      if (window.__wsVideos) window.__wsVideos.delete(video);
       window.removeEventListener("pointerdown", kick);
       window.removeEventListener("touchstart", kick);
       video.pause();
@@ -3880,6 +3941,9 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           opacity={postFx.beamOpacity ?? 0.5}
           width={postFx.beamWidth ?? 2.5}
           height={postFx.beamHeight ?? 14}
+          soft={postFx.beamSoft ?? 0.5}
+          glow={postFx.beamGlow ?? 0.35}
+          target={[postFx.beamTx ?? 0, postFx.beamTy ?? 0, postFx.beamTz ?? 0]}
           fx={fx}
         />
       )}
@@ -4111,73 +4175,136 @@ function ReflectionProbe({ anchorRef, enabled, resolution, updateEvery, intensit
 
   return null;
 }
-/* Igual que LightBeam del sitio final, pero para la vista previa del
-   editor: acá no hay scroll ni blendScenes, el color/dirección salen
-   directo de la etapa activa (fx.light). */
-let _beamTextureCacheEditor = null;
-function getBeamTextureEditor() {
-  if (_beamTextureCacheEditor) return _beamTextureCacheEditor;
-  const size = 128;
-  const canvas = document.createElement("canvas");
-  canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  const grad = ctx.createLinearGradient(0, 0, size, 0);
-  grad.addColorStop(0, "rgba(255,255,255,0)");
-  grad.addColorStop(0.5, "rgba(255,255,255,1)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-  const vgrad = ctx.createLinearGradient(0, 0, 0, size);
-  vgrad.addColorStop(0, "rgba(0,0,0,1)");
-  vgrad.addColorStop(0.12, "rgba(0,0,0,0)");
-  vgrad.addColorStop(0.82, "rgba(0,0,0,0)");
-  vgrad.addColorStop(1, "rgba(0,0,0,1)");
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.fillStyle = vgrad;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(canvas);
-  _beamTextureCacheEditor = tex;
-  return tex;
+/* ---- Rayo de luz (volumétrico falso) ----
+   Antes eran 3 planos cruzados: de frente o desde abajo se veían como una
+   estrella de líneas y el final cortaba recto. Ahora es UN solo plano que
+   gira alrededor del eje del rayo para mirar siempre a la cámara
+   ("billboard cilíndrico"), con perfil suave (gaussiano) a los costados y
+   un difuminado regulable en la punta. Si se mira justo de frente al rayo
+   el plano se va apagando y lo reemplaza un halo redondo en el punto final.
+   El final del rayo ("destino") se puede mover en X / altura / Z. */
+const BEAM_VERT = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const BEAM_BODY_FRAG = `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  uniform float uSoftFrac;
+  uniform float uFacing;
+  varying vec2 vUv;
+  void main() {
+    float x = (vUv.x - 0.5) * 2.0;
+    float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
+    float v = vUv.y;
+    float tip = smoothstep(0.0, uSoftFrac, v);
+    float src = 1.0 - smoothstep(0.78, 1.0, v);
+    float a = side * tip * src * uOpacity * uFacing;
+    gl_FragColor = vec4(uColor, a);
+    #include <colorspace_fragment>
+  }
+`;
+const BEAM_GLOW_FRAG = `
+  uniform vec3 uColor;
+  uniform float uAlpha;
+  varying vec2 vUv;
+  void main() {
+    vec2 p = (vUv - 0.5) * 2.0;
+    float g = max(0.0, (exp(-dot(p, p) * 4.5) - 0.011) / 0.989);
+    gl_FragColor = vec4(uColor, g * uAlpha);
+    #include <colorspace_fragment>
+  }
+`;
+function makeBeamMaterial(frag, uniforms) {
+  return new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: BEAM_VERT,
+    fragmentShader: frag,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
 }
-function LightBeamEditor({ enabled, opacity, width, height, fx }) {
+/* Antes se sumaban 3 planos; ahora hay 1. Esta ganancia mantiene el mismo brillo que ya tenías ajustado. */
+const BEAM_GAIN = 2.4;
+function LightBeamCore({ enabled, opacity, width, height, soft, glow, target, getLight }) {
   const groupRef = useRef(null);
-  const matRefs = useRef([]);
-  const texture = useMemo(() => getBeamTextureEditor(), []);
+  const bodyRef = useRef(null);
+  const glowRef = useRef(null);
+  const bodyMat = useMemo(() => makeBeamMaterial(BEAM_BODY_FRAG, {
+    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 },
+  }), []);
+  const glowMat = useMemo(() => makeBeamMaterial(BEAM_GLOW_FRAG, {
+    uColor: { value: new THREE.Color("#ffffff") }, uAlpha: { value: 0 },
+  }), []);
+  useEffect(() => () => { bodyMat.dispose(); glowMat.dispose(); }, [bodyMat, glowMat]);
+  const tmp = useMemo(() => ({ dir: new THREE.Vector3(), cam: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0) }), []);
 
-  useFrame(() => {
-    if (!enabled || !groupRef.current || !fx) return;
-    const dir = lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 1);
-    const dirVec = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
-    groupRef.current.position.set(dirVec.x * height * 0.5, dirVec.y * height * 0.5, dirVec.z * height * 0.5);
-    groupRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
-    matRefs.current.forEach((m) => {
-      if (!m) return;
-      m.color.set(fx.light.color);
-      m.opacity = opacity;
-    });
+  useFrame(({ camera }) => {
+    const g = groupRef.current, body = bodyRef.current;
+    if (!enabled || !g || !body) return;
+    const L = getLight();
+    const d = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, 1);
+    tmp.dir.set(d[0], d[1], d[2]).normalize();
+    const tx = target ? target[0] : 0, ty = target ? target[1] : 0, tz = target ? target[2] : 0;
+    // El rayo nace en el destino y se estira "height" hacia la luz.
+    g.position.set(tx + tmp.dir.x * height * 0.5, ty + tmp.dir.y * height * 0.5, tz + tmp.dir.z * height * 0.5);
+    g.quaternion.setFromUnitVectors(tmp.up, tmp.dir);
+    g.updateMatrixWorld(true);
+    // Gira el plano alrededor del eje para mirar a la cámara.
+    tmp.cam.copy(camera.position);
+    g.worldToLocal(tmp.cam);
+    const len = tmp.cam.length() || 1;
+    body.rotation.y = Math.atan2(tmp.cam.x, tmp.cam.z);
+    // De frente al rayo (mirando a lo largo del eje) el plano queda de canto: se apaga.
+    const perp = Math.hypot(tmp.cam.x, tmp.cam.z) / len;
+    const facing = THREE.MathUtils.smoothstep(perp, 0.04, 0.4);
+    const softFrac = THREE.MathUtils.clamp((soft ?? 0.5) * (width * 1.2 + height * 0.3) / Math.max(height, 0.001), 0.03, 1);
+    const bu = bodyMat.uniforms;
+    bu.uColor.value.set(L.color || "#ffffff");
+    bu.uOpacity.value = opacity * BEAM_GAIN;
+    bu.uSoftFrac.value = softFrac;
+    bu.uFacing.value = facing;
+    const gl = glowRef.current;
+    if (gl) {
+      gl.position.set(tx, ty, tz);
+      gl.quaternion.copy(camera.quaternion);
+      gl.scale.setScalar(Math.max(width * 1.25, 0.6));
+      const gu = glowMat.uniforms;
+      gu.uColor.value.set(L.color || "#ffffff");
+      gu.uAlpha.value = opacity * BEAM_GAIN * (glow ?? 0.35) * (0.45 + 0.55 * (1 - facing));
+    }
   });
 
   if (!enabled) return null;
 
   return (
-    <group ref={groupRef} userData={{ excludeFromReflection: true }}>
-      {[0, 60, 120].map((deg, i) => (
-        <mesh key={deg} rotation={[0, (deg * Math.PI) / 180, 0]}>
+    <group userData={{ excludeFromReflection: true }}>
+      <group ref={groupRef}>
+        <mesh ref={bodyRef} material={bodyMat} frustumCulled={false}>
           <planeGeometry args={[width, height]} />
-          <meshBasicMaterial
-            ref={(m) => { matRefs.current[i] = m; }}
-            map={texture}
-            transparent
-            opacity={opacity}
-            color="#ffffff"
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            side={THREE.DoubleSide}
-            toneMapped={false}
-          />
         </mesh>
-      ))}
+      </group>
+      {(glow ?? 0.35) > 0 && (
+        <mesh ref={glowRef} material={glowMat} frustumCulled={false}>
+          <planeGeometry args={[1, 1]} />
+        </mesh>
+      )}
     </group>
+  );
+}
+/* Vista previa del editor: el color/dirección salen directo de la etapa activa (fx.light). */
+function LightBeamEditor({ enabled, opacity, width, height, soft, glow, target, fx }) {
+  return (
+    <LightBeamCore
+      enabled={enabled && !!fx} opacity={opacity} width={width} height={height} soft={soft} glow={glow} target={target}
+      getLight={() => (fx && fx.light) || { color: "#ffffff", azimuth: 45, elevation: 35 }}
+    />
   );
 }
 /* Contorno de celular: dibuja el rectángulo 9:16 más grande que entra
@@ -4642,7 +4769,10 @@ const BLOOM_INTENSITY = ${postFx.bloomIntensity};
 const BEAM_ENABLED = ${postFx.beamEnabled ? "true" : "false"};
 const BEAM_OPACITY = ${postFx.beamOpacity ?? 0.5};
 const BEAM_WIDTH = ${postFx.beamWidth ?? 2.5};
-const BEAM_HEIGHT = ${postFx.beamHeight ?? 14};`;
+const BEAM_HEIGHT = ${postFx.beamHeight ?? 14};
+const BEAM_SOFT = ${postFx.beamSoft ?? 0.5};
+const BEAM_GLOW = ${postFx.beamGlow ?? 0.35};
+const BEAM_TARGET = [${postFx.beamTx ?? 0}, ${postFx.beamTy ?? 0}, ${postFx.beamTz ?? 0}];`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -4801,6 +4931,7 @@ const ICONS = {
   open: <path d="M3 7h6l2 2h10v10H3z" />,
   export: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  insert: <><path d="M4 5v14M20 5v14" /><path d="M12 9v6M9 12h6" /></>,
   trash: <path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13" />,
   eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   eyeoff: <path d="M3 3l18 18M10.6 6.2A9.6 9.6 0 0112 6c6 0 10 6 10 6a17 17 0 01-3.2 3.7M6.5 6.9C3.8 8.6 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1" />,
@@ -5158,6 +5289,91 @@ function ObjectMarkers({ markers, selectedId, onSelect }) {
 
 
 /* ---- App ---- */
+/* ---- Exportar video MP4 (reel / historia) ----
+   Solo se graba lo que esta dentro del canvas 3D: fondo del "Ambiente" +
+   escena + vineta. NO incluye WhatsApp / Como llegar / Turnero, ni la
+   barra de progreso, ni el aviso de scroll, ni el cursor.
+   El render es "offline" (cuadro por cuadro, sin depender de la velocidad
+   de tu PC): se fija el progreso t de cada cuadro, se espera a que el canvas
+   lo dibuje, se compone sobre un canvas 2D y se codifica con WebCodecs (H.264). */
+const VIDEO_FORMATS = {
+  story: { label: "Historias / Reel 9:16", w: 1080, h: 1920, file: "historia-9x16" },
+  feed: { label: "Feed 4:5", w: 1080, h: 1350, file: "feed-4x5" },
+};
+const VIDEO_BASE_BG = "#05070f";
+function paintVideoBackground(ctx, w, h, bg) {
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = VIDEO_BASE_BG;
+  ctx.fillRect(0, 0, w, h);
+  if (!bg) return;
+  const a = bg.alpha == null ? 1 : bg.alpha;
+  if (a <= 0.004) return;
+  const ang = ((bg.angle == null ? 180 : bg.angle) * Math.PI) / 180;
+  const dx = Math.sin(ang), dy = -Math.cos(ang);
+  const len = Math.abs(w * dx) + Math.abs(h * dy);
+  const cx = w / 2, cy = h / 2;
+  const g = ctx.createLinearGradient(cx - (dx * len) / 2, cy - (dy * len) / 2, cx + (dx * len) / 2, cy + (dy * len) / 2);
+  g.addColorStop(0, hexToRgba(bg.from, a));
+  g.addColorStop(1, hexToRgba(bg.to, a));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+}
+function paintVideoVignette(ctx, w, h, offset, darkness) {
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.scale((Math.SQRT2 * w) / 2, (Math.SQRT2 * h) / 2);
+  const start = clamp(1 - offset, 0, 0.999);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(start, "rgba(0,0,0,0)");
+  g.addColorStop(1, `rgba(0,0,0,${darkness})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(-1, -1, 2, 2);
+  ctx.restore();
+}
+/* Vive dentro del <Canvas> del visor: avisa que "t" ya se dibujo y entrega el elemento canvas. */
+function VideoExportBridge({ tag, bridgeRef }) {
+  const { gl } = useThree();
+  useFrame(() => {
+    const b = bridgeRef.current;
+    b.tag = tag;
+    b.canvas = gl.domElement;
+    b.frames += 1;
+  });
+  return null;
+}
+const vxRaf = () => new Promise((r) => requestAnimationFrame(() => r()));
+async function vxFrames(n) { for (let i = 0; i < n; i++) await vxRaf(); }
+async function vxUntil(cond, maxFrames = 900) {
+  for (let i = 0; i < maxFrames; i++) { if (cond()) return true; await vxRaf(); }
+  return false;
+}
+async function loadMp4Muxer() {
+  const urls = [
+    "https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.mjs",
+    "https://esm.sh/mp4-muxer@5.1.3",
+  ];
+  let lastErr = null;
+  for (const u of urls) {
+    try { return await import(/* @vite-ignore */ u); } catch (e) { lastErr = e; }
+  }
+  throw new Error("No pude cargar la libreria de MP4 (sin internet?). " + (lastErr && lastErr.message ? lastErr.message : ""));
+}
+async function pickH264Config(w, h, fps, bitrate) {
+  if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") {
+    throw new Error("Este navegador no soporta WebCodecs. Usa Chrome o Edge actualizados (escritorio).");
+  }
+  for (const codec of ["avc1.64002A", "avc1.4D002A", "avc1.42002A"]) {
+    const cfg = { codec, width: w, height: h, bitrate, framerate: fps, latencyMode: "quality" };
+    try {
+      const r = await VideoEncoder.isConfigSupported(cfg);
+      if (r && r.supported) return cfg;
+    } catch (e) { /* probar el siguiente */ }
+  }
+  throw new Error("Este equipo no puede codificar H.264 a " + w + "x" + h + " @" + fps + "fps. Proba 30 fps o Chrome/Edge.");
+}
+
+
 function App() {
   const [section, setSection] = useState("pose"); // pose | camera | movement | timing | objects | preview
 
@@ -5191,6 +5407,11 @@ function App() {
     beamOpacity: 0.5,
     beamWidth: 2.5,
     beamHeight: 14,
+    beamSoft: 0.5,
+    beamGlow: 0.35,
+    beamTx: 0,
+    beamTy: 0,
+    beamTz: 0,
   });
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
   /* Estela de brillo (sparkle trail) que deja el personaje (bowl1.glb) a
@@ -5248,21 +5469,42 @@ function App() {
   // Una sola etapa activa, compartida por Pose / Cámara / Movimiento.
   const [activeStage, setActiveStage] = useState(() => makeDefaultStages()[0].id);
 
-  const addStage = () => {
-    const n = stages.length + 1;
+  /* Agrega una pose. Sin argumento va al final; con afterId se inserta justo
+     DESPUES de esa pose (las siguientes se corren un lugar, no se pierde nada).
+     La nueva arranca como copia de la pose despues de la que se inserta.
+     Al insertar en el medio, el tramo de scroll entre las dos poses vecinas se
+     reparte en dos mitades, asi el largo total del scroll y la posicion de
+     todas las demas poses quedan igual. */
+  const addStage = (afterId) => {
+    const found = afterId ? stages.findIndex((s) => s.id === afterId) : -1;
+    const idx = found === -1 ? stages.length - 1 : found;
+    const atEnd = idx === stages.length - 1;
+    const refId = stages[idx].id;
+    const used = new Set(stages.map((s) => s.label));
+    let n = stages.length + 1;
+    while (used.has(`Pose ${n}`)) n++;
     const newId = `pose-${Date.now()}`;
-    const lastId = stages[stages.length - 1].id;
-    setStages((prev) => [...prev, { id: newId, label: `Pose ${n}` }]);
-    setDurationsVh((prev) => [...prev, 150]);
-    setEasings((prev) => [...prev, "smooth"]);
-    setPosesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || zeroPose())) }));
-    setCamsByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultCamera())) }));
-    setMovesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultMovement())) }));
-    setFxByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultFx())) }));
+    setStages((prev) => { const next = [...prev]; next.splice(idx + 1, 0, { id: newId, label: `Pose ${n}` }); return next; });
+    setDurationsVh((prev) => {
+      const next = [...prev];
+      if (atEnd || next[idx] == null) next.push(150);
+      else { const d = next[idx]; const a = Math.max(1, Math.round(d / 2)); next.splice(idx, 1, a, Math.max(1, d - a)); }
+      return next;
+    });
+    setEasings((prev) => {
+      const next = [...prev];
+      if (atEnd || next[idx] == null) next.push("smooth");
+      else next.splice(idx, 0, next[idx]);
+      return next;
+    });
+    setPosesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[refId] || zeroPose())) }));
+    setCamsByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[refId] || defaultCamera())) }));
+    setMovesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[refId] || defaultMovement())) }));
+    setFxByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[refId] || defaultFx())) }));
     setObjectTransformsByKf((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((objId) => {
-        next[objId] = { ...next[objId], [newId]: JSON.parse(JSON.stringify(next[objId][lastId] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" })) };
+        next[objId] = { ...next[objId], [newId]: JSON.parse(JSON.stringify(next[objId][refId] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" })) };
       });
       return next;
     });
@@ -5299,6 +5541,17 @@ function App() {
 
 
   const [scrub, setScrub] = useState(0);
+  const [exportT, setExportT] = useState(null);      // progreso fijado por el exportador de video (null = inactivo)
+  const [vidBox, setVidBox] = useState(null);        // tamano (px) al que se estira el visor mientras se graba
+  const [vidFormat, setVidFormat] = useState("story");
+  const [vidSeconds, setVidSeconds] = useState(10);
+  const [vidFps, setVidFps] = useState(30);
+  const [vidQuality, setVidQuality] = useState(1);
+  const [vidRun, setVidRun] = useState(null);        // { status: running|done|error, pct, msg }
+  const vidCancelRef = useRef(false);
+  const vidBridge = useRef({ tag: null, canvas: null, frames: 0 });
+  const vidPreviewRef = useRef(null);
+  const exporting = exportT !== null;
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(1);
 
@@ -5607,19 +5860,21 @@ function App() {
   const applyPitchPreset = (deg_) => setMoveField("pitch", null, deg_);
 
   const isPreview = section === "preview";
-  const currentPose = isPreview ? samplePose(posesByKf, scrub, stagesComputed, easings) : posesByKf[activeStage];
-  const currentCamTarget = isPreview ? sampleCamera(camsByKf, scrub, stagesComputed, easings) : camsByKf[activeStage];
-  const currentMovement = isPreview ? sampleMovement(movesByKf, scrub, stagesComputed, easings) : movesByKf[activeStage];
-  const renderFx = isPreview ? sampleFx(fxByKf, scrub, stagesComputed, easings) : fxByKf[activeStage];
+  const sampled = isPreview || exporting;
+  const scrubV = exporting ? exportT : scrub;
+  const currentPose = sampled ? samplePose(posesByKf, scrubV, stagesComputed, easings) : posesByKf[activeStage];
+  const currentCamTarget = sampled ? sampleCamera(camsByKf, scrubV, stagesComputed, easings) : camsByKf[activeStage];
+  const currentMovement = sampled ? sampleMovement(movesByKf, scrubV, stagesComputed, easings) : movesByKf[activeStage];
+  const renderFx = sampled ? sampleFx(fxByKf, scrubV, stagesComputed, easings) : fxByKf[activeStage];
   // Progreso de scroll que ve el video en el visor: en Preview es el del slider; en edición, el de la pose activa.
-  const scrollProgressNow = isPreview ? scrub : ((stagesComputed.find((st) => st.id === activeStage) || {}).progress || 0);
+  const scrollProgressNow = sampled ? scrubV : ((stagesComputed.find((st) => st.id === activeStage) || {}).progress || 0);
   const renderObjects = useMemo(() => objects.map((o) => {
     const transforms = objectTransformsByKf[o.id];
     if (!transforms) return { ...o, ...editFade(defaultObjectTransform()), scrollProgress: scrollProgressNow };
-    const t = isPreview ? sampleObjectTransform(transforms, scrub, stagesComputed, easings) : editFade(transforms[activeStage] || defaultObjectTransform());
+    const t = sampled ? sampleObjectTransform(transforms, scrubV, stagesComputed, easings) : editFade(transforms[activeStage] || defaultObjectTransform());
     return { ...o, ...t, scrollProgress: scrollProgressNow };
-  }), [objects, objectTransformsByKf, isPreview, scrub, stagesComputed, easings, activeStage, scrollProgressNow]);
-  const sceneCameraActive = !freeOrbit;
+  }), [objects, objectTransformsByKf, sampled, scrubV, stagesComputed, easings, activeStage, scrollProgressNow]);
+  const sceneCameraActive = exporting || !freeOrbit;
 
   const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed, easings), [posesByKf, stagesComputed, easings]);
   const scenesCode = useMemo(() => generateScenesArrayCode(camsByKf, fxByKf, stagesComputed, easings), [camsByKf, fxByKf, stagesComputed, easings]);
@@ -5781,6 +6036,89 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const startVideoExport = async () => {
+    if (vidRun && vidRun.status === "running") return;
+    const fmt = VIDEO_FORMATS[vidFormat];
+    const w = fmt.w, h = fmt.h, fps = vidFps, ss = vidQuality;
+    const total = Math.max(2, Math.round(clamp(vidSeconds, 1, 90) * fps));
+    const bitrate = Math.round(clamp(w * h * fps * 0.18, 6e6, 20e6));
+    const b = vidBridge.current;
+    let encoder = null;
+    let started = false;
+    vidCancelRef.current = false;
+    setIsPlaying(false);
+    setVidRun({ status: "running", pct: 0, msg: "Preparando..." });
+    try {
+      const cfg = await pickH264Config(w, h, fps, bitrate);
+      const mod = await loadMp4Muxer();
+      const muxer = new mod.Muxer({ target: new mod.ArrayBufferTarget(), video: { codec: "avc", width: w, height: h, frameRate: fps }, fastStart: "in-memory" });
+      let encErr = null;
+      encoder = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => { encErr = e; } });
+      encoder.configure(cfg);
+
+      const out = document.createElement("canvas");
+      out.width = w; out.height = h;
+      const ctx = out.getContext("2d");
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+      const pv = vidPreviewRef.current;
+      const pctx = pv ? pv.getContext("2d") : null;
+      if (pv) { pv.width = Math.round(w / 5); pv.height = Math.round(h / 5); }
+
+      // Estira el visor al tamano del video y fija t = 0
+      b.tag = null;
+      setVidBox({ w: w * ss, h: h * ss });
+      setExportT(0);
+      started = true;
+      const sized = await vxUntil(() => b.canvas && b.canvas.width === w * ss && b.canvas.height === h * ss && b.tag === 0);
+      if (!sized) throw new Error("El visor no pudo ajustarse a " + w * ss + "x" + h * ss + ". Proba calidad Normal.");
+      await vxFrames(8);
+
+      for (let i = 0; i < total; i++) {
+        if (vidCancelRef.current) throw new Error("__cancel__");
+        if (encErr) throw encErr;
+        const t = i / (total - 1);
+        const f0 = b.frames;
+        if (i > 0) {
+          setExportT(t);
+          const ok = await vxUntil(() => b.tag === t && b.frames > f0);
+          if (!ok) throw new Error("El visor dejo de responder (pestana en segundo plano?).");
+        }
+        await vxFrames(i === 0 ? 4 : 2);
+        const vids = window.__wsVideos ? Array.from(window.__wsVideos) : [];
+        if (vids.length) { await vxUntil(() => vids.every((v) => !v.seeking), 120); await vxFrames(2); }
+
+        const bg = sampleFx(fxByKf, t, stagesComputed, easings).background;
+        paintVideoBackground(ctx, w, h, bg);
+        ctx.drawImage(b.canvas, 0, 0, w, h);
+        if (postFx.vignetteEnabled) paintVideoVignette(ctx, w, h, postFx.vignetteOffset == null ? 0.15 : postFx.vignetteOffset, postFx.vignetteDarkness == null ? 0.5 : postFx.vignetteDarkness);
+
+        const frame = new VideoFrame(out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
+        encoder.encode(frame, { keyFrame: i % (fps * 2) === 0 });
+        frame.close();
+        while (encoder.encodeQueueSize > 6) await new Promise((r) => setTimeout(r, 4));
+
+        if (pctx) pctx.drawImage(out, 0, 0, pv.width, pv.height);
+        if (i % 3 === 0 || i === total - 1) setVidRun({ status: "running", pct: (i + 1) / total, msg: "Cuadro " + (i + 1) + " / " + total + " - deja esta pestana visible" });
+      }
+      await encoder.flush();
+      if (encErr) throw encErr;
+      muxer.finalize();
+      const blob = new Blob([muxer.target.buffer], { type: "video/mp4" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "reel-" + fmt.file + "-" + w + "x" + h + ".mp4";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setVidRun({ status: "done", pct: 1, msg: "reel-" + fmt.file + ".mp4 - " + (blob.size / 1048576).toFixed(1) + " MB - " + (total / fps).toFixed(1) + " s" });
+    } catch (e) {
+      if (e && e.message === "__cancel__") setVidRun(null);
+      else setVidRun({ status: "error", pct: 0, msg: (e && e.message) || String(e) });
+    } finally {
+      try { if (encoder && encoder.state !== "closed") encoder.close(); } catch (e2) { /* ya cerrado */ }
+      if (started) { setExportT(null); setVidBox(null); }
+    }
+  };
+
   const downloadFullHtml = () => {
         const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode, loaderCode, loaderCss, extrasCode);
     const blob = new Blob([html], { type: "text/html" });
@@ -5805,7 +6143,7 @@ function App() {
     if (!window.confirm("¿Vaciar todo y empezar un proyecto nuevo?")) return;
     const st = makeDefaultStages();
     setModelUrl(""); setCharScale(1); setCharCenterY(0);
-    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14 });
+    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0 });
     setTrail({ enabled: false, color: "#ffd873", size: 0.05, life: 0.9, rate: 40 });
     setReflection({ enabled: false, resolution: 256, updateEvery: 2, intensity: 1 });
     setDock(DEFAULT_DOCK); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR);
@@ -5911,10 +6249,11 @@ function App() {
             .filter((c) => c[3] === undefined || c[3])
             .map(([t, on, set]) => <span key={t} className={`vchip ${on ? "on" : ""}`} onClick={() => set(!on)}>{t}</span>)}
         </div>
-        <div className="scene-box">
-        <Canvas shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={autoRotate} movement={currentMovement} objects={renderObjects} showObjects={showObjects} showGrid={showGrid} fx={renderFx} showFx={showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection}
-            markers={section === "objects" && showObjects ? markers : null} selectedObjectId={selectedObj} onSelectObject={setSelectedObj} />
+        <div className="scene-box" style={vidBox ? { position: "fixed", inset: "auto", left: 0, top: 0, width: vidBox.w, height: vidBox.h } : undefined}>
+        <Canvas shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={exporting ? 1 : [1, 2]} gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}>
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={!exporting && autoRotate} movement={currentMovement} objects={renderObjects} showObjects={exporting || showObjects} showGrid={!exporting && showGrid} fx={renderFx} showFx={exporting || showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection}
+            markers={!exporting && section === "objects" && showObjects ? markers : null} selectedObjectId={selectedObj} onSelectObject={setSelectedObj} />
+          <VideoExportBridge tag={exportT} bridgeRef={vidBridge} />
         </Canvas>
         </div>
         {showFx && postFx.vignetteEnabled && (
@@ -5955,11 +6294,12 @@ function App() {
                   {stagesComputed.map((kf, i) => <button key={kf.id} className={`chip ${activeStage === kf.id ? "on" : ""}`} title={`${kf.label} · ${kf.progress.toFixed(3)}`} onClick={() => setActiveStage(kf.id)}>{i + 1}</button>)}
                 </div>
                 <IBtn icon="next" title="Pose siguiente (→)" disabled={stageIndex >= nStages - 1} onClick={() => goStage(1)} />
-                <IBtn icon="plus" kind="acc" title="Agregar pose" onClick={addStage} />
+                <IBtn icon="plus" kind="acc" title="Agregar pose al final" onClick={() => addStage()} />
               </div>
               <div className="stage-row">
                 <input type="text" className="stage-name" value={currentStageLabel} onChange={(e) => renameStage(activeStage, e.target.value)} />
                 <span className="stage-meta">{stagesComputed[stageIndex] ? stagesComputed[stageIndex].progress.toFixed(2) : "0.00"}</span>
+                <Btn icon="insert" kind="acc" title="Insertar una pose nueva justo despues de esta (las siguientes se corren un lugar)" onClick={() => addStage(activeStage)}>Insertar</Btn>
                 <IBtn icon="trash" kind="danger" title="Eliminar pose" disabled={stages.length <= 1} onClick={() => removeStage(activeStage)} />
               </div>
             </div>
@@ -6027,6 +6367,12 @@ function App() {
                   <Slider label="Opacidad" min={0} max={1} step={0.01} value={postFx.beamOpacity} onChange={(v) => setPostFxField("beamOpacity", v)} />
                   <Slider label="Ancho" min={0.2} max={10} step={0.1} value={postFx.beamWidth} onChange={(v) => setPostFxField("beamWidth", v)} />
                   <Slider label="Largo" min={2} max={40} step={0.5} value={postFx.beamHeight} onChange={(v) => setPostFxField("beamHeight", v)} />
+                  <Slider label="Difuminado final" min={0} max={1} step={0.01} value={postFx.beamSoft ?? 0.5} onChange={(v) => setPostFxField("beamSoft", v)} />
+                  <Slider label="Halo del final" min={0} max={1} step={0.01} value={postFx.beamGlow ?? 0.35} onChange={(v) => setPostFxField("beamGlow", v)} />
+                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Dónde termina el rayo (donde "cae"). Altura: subila para que termine en el aire, bajala para que atraviese la grilla.</div>
+                  <Slider label="Final · X" min={-10} max={10} step={0.1} value={postFx.beamTx ?? 0} onChange={(v) => setPostFxField("beamTx", v)} />
+                  <Slider label="Final · Altura" min={-10} max={10} step={0.1} value={postFx.beamTy ?? 0} onChange={(v) => setPostFxField("beamTy", v)} />
+                  <Slider label="Final · Z" min={-10} max={10} step={0.1} value={postFx.beamTz ?? 0} onChange={(v) => setPostFxField("beamTz", v)} />
                 </Group>
               </>
             )}
@@ -6176,6 +6522,16 @@ function App() {
                     <Btn icon="copy" onClick={copyFullHtml}>Copiar index.html</Btn>
                   </div>
                 </Group>
+                <Group id="vid" title="Video para redes (MP4)">
+                  <Seg value={vidFormat} onChange={setVidFormat} options={[["story", "Historias - Reel 9:16"], ["feed", "Feed 4:5"]]} />
+                  <Slider label="Duracion (s)" min={3} max={60} step={1} value={vidSeconds} onChange={setVidSeconds} />
+                  <Seg value={vidFps} onChange={setVidFps} options={[[30, "30 fps"], [60, "60 fps"]]} />
+                  <Seg value={vidQuality} onChange={setVidQuality} options={[[1, "Calidad normal"], [2, "Alta (2x, mas lento)"]]} />
+                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>
+                    {VIDEO_FORMATS[vidFormat].w}x{VIDEO_FORMATS[vidFormat].h}. Recorre el scroll de 0 a 100% y graba solo el canvas (sin WhatsApp, Como llegar, Turnero, barra de progreso ni aviso de scroll). Deja la pestana visible mientras exporta.
+                  </div>
+                  <div className="tools"><Btn icon="play" kind="acc" onClick={startVideoExport} disabled={vidRun && vidRun.status === "running"}>Exportar MP4</Btn></div>
+                </Group>
                 <Group id="code" title="Código" defaultOpen={false}>
                   {[["Huesos", boneCode, "bones"], ["Cámara", scenesCode, "camera"], ["Movimiento", movementCode, "movement"], ["Objetos", objectsCode, "objects"]].map(([t, code, k]) => (
                     <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -6188,6 +6544,19 @@ function App() {
             )}
           </div>
           {toast && <div className="toast">{toast}</div>}
+          {vidRun && (
+            <div className="vx-overlay">
+              <div className="vx-card">
+                <h3>{vidRun.status === "running" ? "Exportando video..." : vidRun.status === "done" ? "Video listo" : "No se pudo exportar"}</h3>
+                <canvas ref={vidPreviewRef} width={216} height={384} style={{ display: vidRun.status === "error" ? "none" : "block" }} />
+                {vidRun.status !== "error" && <div className="vx-bar"><i style={{ width: Math.round(vidRun.pct * 100) + "%" }} /></div>}
+                <div className={vidRun.status === "error" ? "err" : "vx-msg"}>{vidRun.msg}</div>
+                {vidRun.status === "running"
+                  ? <Btn kind="danger" onClick={() => { vidCancelRef.current = true; }}>Cancelar</Btn>
+                  : <Btn kind="acc" onClick={() => setVidRun(null)}>Cerrar</Btn>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
