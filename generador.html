@@ -939,6 +939,24 @@ function lerpColor(a, b, t) {
   return "#" + ca.getHexString();
 }
 
+/* Mezcla de dos hex en sRGB (igual que un degradé CSS), para calcular el medio "implícito" de un degradé de 2 colores. */
+function bgMixHex(a, b, p) {
+  const px = (hex) => { let h = String(hex).replace("#", ""); if (h.length === 3) h = h.split("").map((c) => c + c).join(""); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const A = px(a), B = px(b);
+  return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * p).toString(16).padStart(2, "0")).join("");
+}
+/* Fondo de 3 colores: si una pose lo tiene y la vecina no, a la que no lo tiene se le
+   calcula el medio a partir de su propio degradé, así la transición es continua. */
+function bgMidOf(bg) { return bg.mid && bg.midOn !== false ? bg.mid : null; }
+function lerpBgMid(ba, bb, t) {
+  const ma = bgMidOf(ba), mb = bgMidOf(bb);
+  if (!ma && !mb) return {};
+  const pa = ba.midPos == null ? 50 : ba.midPos, pb = bb.midPos == null ? 50 : bb.midPos;
+  const ca = ma || bgMixHex(ba.from, ba.to, pa / 100);
+  const cb = mb || bgMixHex(bb.from, bb.to, pb / 100);
+  return { mid: lerpColor(ca, cb, t), midPos: lerp(pa, pb, t) };
+}
+
 function sceneToState(kf) {
   return {
     camera: kf.camera,
@@ -987,6 +1005,7 @@ function blendScenes(list, rawProgress) {
       to: lerpColor(a.background.to, b.background.to, t),
       angle: lerp(a.background.angle ?? 180, b.background.angle ?? 180, t),
       alpha: lerp(a.background.alpha ?? 1, b.background.alpha ?? 1, t),
+      ...lerpBgMid(a.background, b.background, t),
     },
   };
 }
@@ -2444,8 +2463,10 @@ function hexToRgba(hex, a) {
 function backgroundCss(bg) {
   const a = bg.alpha == null ? 1 : bg.alpha;
   if (a <= 0.004) return "transparent";
-  if (a >= 0.996) return `linear-gradient(${bg.angle}deg, ${bg.from}, ${bg.to})`;
-  return `linear-gradient(${bg.angle}deg, ${hexToRgba(bg.from, a)}, ${hexToRgba(bg.to, a)})`;
+  const col = (c) => (a >= 0.996 ? c : hexToRgba(c, a));
+  // Color intermedio opcional (degradé de 3 colores): "mid" en la posición "midPos" (%).
+  const mid = bg.mid && bg.midOn !== false ? `, ${col(bg.mid)} ${Math.min(100, Math.max(0, bg.midPos == null ? 50 : bg.midPos))}%` : "";
+  return `linear-gradient(${bg.angle}deg, ${col(bg.from)}${mid}, ${col(bg.to)})`;
 }
 function BackgroundGradient({ stageRef }) {
   useEffect(() => {
@@ -3098,14 +3119,31 @@ function hexToRgba(hex, a) {
 function backgroundCss(bg) {
   const a = bg.alpha == null ? 1 : bg.alpha;
   if (a <= 0.004) return "transparent";
-  if (a >= 0.996) return `linear-gradient(${bg.angle}deg, ${bg.from}, ${bg.to})`;
-  return `linear-gradient(${bg.angle}deg, ${hexToRgba(bg.from, a)}, ${hexToRgba(bg.to, a)})`;
+  const col = (c) => (a >= 0.996 ? c : hexToRgba(c, a));
+  // Color intermedio opcional (degradé de 3 colores): "mid" en la posición "midPos" (%).
+  const mid = bg.mid && bg.midOn !== false ? `, ${col(bg.mid)} ${Math.min(100, Math.max(0, bg.midPos == null ? 50 : bg.midPos))}%` : "";
+  return `linear-gradient(${bg.angle}deg, ${col(bg.from)}${mid}, ${col(bg.to)})`;
 }
 function lerpColorHex(a, b, t) {
   const ca = new THREE.Color(a);
   const cb = new THREE.Color(b);
   ca.lerp(cb, t);
   return "#" + ca.getHexString();
+}
+/* Mezcla de dos hex en sRGB (igual que un degradé CSS), para calcular el medio "implícito" de un degradé de 2 colores. */
+function bgMixHex(a, b, p) {
+  const px = (hex) => { let h = String(hex).replace("#", ""); if (h.length === 3) h = h.split("").map((c) => c + c).join(""); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const A = px(a), B = px(b);
+  return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * p).toString(16).padStart(2, "0")).join("");
+}
+function bgMidOf(bg) { return bg.mid && bg.midOn !== false ? bg.mid : null; }
+function lerpBgMid(ba, bb, t) {
+  const ma = bgMidOf(ba), mb = bgMidOf(bb);
+  if (!ma && !mb) return {};
+  const pa = ba.midPos == null ? 50 : ba.midPos, pb = bb.midPos == null ? 50 : bb.midPos;
+  const ca = ma || bgMixHex(ba.from, ba.to, pa / 100);
+  const cb = mb || bgMixHex(bb.from, bb.to, pb / 100);
+  return { mid: lerpColorHex(ca, cb, t), midPos: lerp(pa, pb, t) };
 }
 function lerpAngleDeg(a, b, t) {
   let diff = ((b - a + 180) % 360 + 360) % 360 - 180;
@@ -3156,6 +3194,7 @@ function sampleFx(fxByKf, progress, stages, easings) {
       to: lerpColorHex(fa.background.to, fb.background.to, t),
       angle: lerp(fa.background.angle ?? 180, fb.background.angle ?? 180, t),
       alpha: lerp(fa.background.alpha ?? 1, fb.background.alpha ?? 1, t),
+      ...lerpBgMid(fa.background, fb.background, t),
     },
   };
 }
@@ -4705,7 +4744,7 @@ function generateScenesArrayCode(camsByKf, fxByKf, stages, easings) {
     camera: { position: ${fmtVec(cam.position)}, lookAt: ${fmtVec(cam.lookAt)}, fov: ${fmtNum(cam.fov)}, roll: ${fmtNum(cam.roll || 0)} },
     light: { color: "${f.light.color}", intensity: ${f.light.intensity}, azimuth: ${fmtNum(f.light.azimuth)}, elevation: ${fmtNum(f.light.elevation)}, rimColor: "${f.light.rimColor}", rimIntensity: ${f.light.rimIntensity}, ambient: ${fmtNum(f.light.ambient ?? 0.28)} },
     fog: { enabled: ${f.fog.enabled === false ? "false" : "true"}, color: "${f.fog.color}", far: ${f.fog.far} },
-    background: { from: "${f.background.from}", to: "${f.background.to}", angle: ${fmtNum(f.background.angle)}, alpha: ${f.background.mode === "transparent" ? 0 : fmtNum(f.background.alpha ?? 1)} },
+    background: { from: "${f.background.from}", to: "${f.background.to}", angle: ${fmtNum(f.background.angle)}, alpha: ${f.background.mode === "transparent" ? 0 : fmtNum(f.background.alpha ?? 1)}${f.background.mode === "gradient" && f.background.midOn && f.background.mid ? `, mid: "${f.background.mid}", midPos: ${fmtNum(f.background.midPos == null ? 50 : f.background.midPos)}` : ""} },
   },`;
   }).join("\n");
   return `const scenes = [\n${kfLines}\n];`;
@@ -5314,6 +5353,7 @@ function paintVideoBackground(ctx, w, h, bg) {
   const cx = w / 2, cy = h / 2;
   const g = ctx.createLinearGradient(cx - (dx * len) / 2, cy - (dy * len) / 2, cx + (dx * len) / 2, cy + (dy * len) / 2);
   g.addColorStop(0, hexToRgba(bg.from, a));
+  if (bg.mid && bg.midOn !== false) g.addColorStop(clamp((bg.midPos == null ? 50 : bg.midPos) / 100, 0, 1), hexToRgba(bg.mid, a));
   g.addColorStop(1, hexToRgba(bg.to, a));
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
@@ -5818,9 +5858,9 @@ function App() {
       const fx = { ...prev[activeStage] };
       const bg = fx.background;
       if (mode === "transparent") {
-        fx.background = { ...bg, mode: "transparent", alpha: 0 };
+        fx.background = { ...bg, mode: "transparent", alpha: 0, midOn: false };
       } else if (mode === "solid") {
-        fx.background = { ...bg, mode: "solid", alpha: 1, to: bg.from };
+        fx.background = { ...bg, mode: "solid", alpha: 1, to: bg.from, midOn: false };
       } else {
         fx.background = { ...bg, mode: "gradient", alpha: 1, to: bg.to !== bg.from ? bg.to : nudgeColor(bg.from) };
       }
@@ -5833,6 +5873,19 @@ function App() {
       const bg = { ...fx.background, [field]: value };
       if (fx.background.mode !== "gradient" && field === "from") bg.to = value;
       fx.background = bg;
+      return { ...prev, [activeStage]: fx };
+    });
+  };
+  /* Degradé de 3 colores: prende/apaga el color intermedio y lo mueve. Al prender, arranca
+     como la mezcla de los dos extremos un poco aclarada, para que se note que está activo. */
+  const toggleBackgroundMid = (on) => {
+    setFxByKf((prev) => {
+      const fx = { ...prev[activeStage] };
+      const bg = fx.background;
+      const patch = { midOn: on };
+      if (on && !bg.mid) patch.mid = lerpColorHex(lerpColorHex(bg.from, bg.to, 0.5), "#ffffff", 0.3);
+      if (on && bg.midPos == null) patch.midPos = 50;
+      fx.background = { ...bg, ...patch };
       return { ...prev, [activeStage]: fx };
     });
   };
@@ -6432,6 +6485,13 @@ function App() {
                   {fxs.background.mode !== "transparent" && <ColorRow label={fxs.background.mode === "gradient" ? "Desde" : "Color"} value={fxs.background.from} onChange={(v) => setBackgroundColor("from", v)} />}
                   {fxs.background.mode === "gradient" && (
                     <>
+                      <Switch checked={!!fxs.background.midOn} onChange={toggleBackgroundMid} label="Color intermedio (3 colores)" />
+                      {fxs.background.midOn && (
+                        <>
+                          <ColorRow label="Medio" value={fxs.background.mid || "#808080"} onChange={(v) => setBackgroundColor("mid", v)} />
+                          <Slider label="Posición %" min={0} max={100} step={1} value={fxs.background.midPos == null ? 50 : fxs.background.midPos} onChange={(v) => setFxField("background", "midPos", v)} />
+                        </>
+                      )}
                       <ColorRow label="Hasta" value={fxs.background.to} onChange={(v) => setBackgroundColor("to", v)} />
                       <Slider label="Ángulo" min={0} max={360} step={1} value={fxs.background.angle ?? 180} onChange={(v) => setFxField("background", "angle", v)} />
                     </>
