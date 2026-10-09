@@ -4810,6 +4810,7 @@ const ICONS = {
   open: <path d="M3 7h6l2 2h10v10H3z" />,
   export: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  insert: <><path d="M4 5v14M20 5v14" /><path d="M12 9v6M9 12h6" /></>,
   trash: <path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13" />,
   eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   eyeoff: <path d="M3 3l18 18M10.6 6.2A9.6 9.6 0 0112 6c6 0 10 6 10 6a17 17 0 01-3.2 3.7M6.5 6.9C3.8 8.6 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1" />,
@@ -5342,21 +5343,42 @@ function App() {
   // Una sola etapa activa, compartida por Pose / Cámara / Movimiento.
   const [activeStage, setActiveStage] = useState(() => makeDefaultStages()[0].id);
 
-  const addStage = () => {
-    const n = stages.length + 1;
+  /* Agrega una pose. Sin argumento va al final; con afterId se inserta justo
+     DESPUES de esa pose (las siguientes se corren un lugar, no se pierde nada).
+     La nueva arranca como copia de la pose despues de la que se inserta.
+     Al insertar en el medio, el tramo de scroll entre las dos poses vecinas se
+     reparte en dos mitades, asi el largo total del scroll y la posicion de
+     todas las demas poses quedan igual. */
+  const addStage = (afterId) => {
+    const found = afterId ? stages.findIndex((s) => s.id === afterId) : -1;
+    const idx = found === -1 ? stages.length - 1 : found;
+    const atEnd = idx === stages.length - 1;
+    const refId = stages[idx].id;
+    const used = new Set(stages.map((s) => s.label));
+    let n = stages.length + 1;
+    while (used.has(`Pose ${n}`)) n++;
     const newId = `pose-${Date.now()}`;
-    const lastId = stages[stages.length - 1].id;
-    setStages((prev) => [...prev, { id: newId, label: `Pose ${n}` }]);
-    setDurationsVh((prev) => [...prev, 150]);
-    setEasings((prev) => [...prev, "smooth"]);
-    setPosesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || zeroPose())) }));
-    setCamsByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultCamera())) }));
-    setMovesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultMovement())) }));
-    setFxByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[lastId] || defaultFx())) }));
+    setStages((prev) => { const next = [...prev]; next.splice(idx + 1, 0, { id: newId, label: `Pose ${n}` }); return next; });
+    setDurationsVh((prev) => {
+      const next = [...prev];
+      if (atEnd || next[idx] == null) next.push(150);
+      else { const d = next[idx]; const a = Math.max(1, Math.round(d / 2)); next.splice(idx, 1, a, Math.max(1, d - a)); }
+      return next;
+    });
+    setEasings((prev) => {
+      const next = [...prev];
+      if (atEnd || next[idx] == null) next.push("smooth");
+      else next.splice(idx, 0, next[idx]);
+      return next;
+    });
+    setPosesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[refId] || zeroPose())) }));
+    setCamsByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[refId] || defaultCamera())) }));
+    setMovesByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[refId] || defaultMovement())) }));
+    setFxByKf((prev) => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[refId] || defaultFx())) }));
     setObjectTransformsByKf((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((objId) => {
-        next[objId] = { ...next[objId], [newId]: JSON.parse(JSON.stringify(next[objId][lastId] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" })) };
+        next[objId] = { ...next[objId], [newId]: JSON.parse(JSON.stringify(next[objId][refId] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" })) };
       });
       return next;
     });
@@ -6146,11 +6168,12 @@ function App() {
                   {stagesComputed.map((kf, i) => <button key={kf.id} className={`chip ${activeStage === kf.id ? "on" : ""}`} title={`${kf.label} · ${kf.progress.toFixed(3)}`} onClick={() => setActiveStage(kf.id)}>{i + 1}</button>)}
                 </div>
                 <IBtn icon="next" title="Pose siguiente (→)" disabled={stageIndex >= nStages - 1} onClick={() => goStage(1)} />
-                <IBtn icon="plus" kind="acc" title="Agregar pose" onClick={addStage} />
+                <IBtn icon="plus" kind="acc" title="Agregar pose al final" onClick={() => addStage()} />
               </div>
               <div className="stage-row">
                 <input type="text" className="stage-name" value={currentStageLabel} onChange={(e) => renameStage(activeStage, e.target.value)} />
                 <span className="stage-meta">{stagesComputed[stageIndex] ? stagesComputed[stageIndex].progress.toFixed(2) : "0.00"}</span>
+                <Btn icon="insert" kind="acc" title="Insertar una pose nueva justo despues de esta (las siguientes se corren un lugar)" onClick={() => addStage(activeStage)}>Insertar</Btn>
                 <IBtn icon="trash" kind="danger" title="Eliminar pose" disabled={stages.length <= 1} onClick={() => removeStage(activeStage)} />
               </div>
             </div>
