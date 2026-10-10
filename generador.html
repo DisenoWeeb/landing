@@ -1513,11 +1513,14 @@ const BEAM_BODY_FRAG = `
   uniform float uOpacity;
   uniform float uSoftFrac;
   uniform float uFacing;
+  uniform float uTaper;
   varying vec2 vUv;
   void main() {
-    float x = (vUv.x - 0.5) * 2.0;
-    float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
     float v = vUv.y;
+    // Cono: abajo (destino) usa todo el ancho; arriba (la luz) se angosta hasta uTaper.
+    float w = mix(1.0, uTaper, v);
+    float x = (vUv.x - 0.5) * 2.0 / max(w, 0.001);
+    float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
     float tip = smoothstep(0.0, uSoftFrac, v);
     float src = 1.0 - smoothstep(0.78, 1.0, v);
     float a = side * tip * src * uOpacity * uFacing;
@@ -1550,12 +1553,15 @@ function makeBeamMaterial(frag, uniforms) {
 }
 /* Antes se sumaban 3 planos; ahora hay 1. Esta ganancia mantiene el mismo brillo que ya tenías ajustado. */
 const BEAM_GAIN = 2.4;
+/* Ancho del rayo en la punta de arriba (junto a la luz), como fracción del ancho de abajo.
+   1 = columna recta; 0.12 = haz cónico que nace en punta y se abre hacia abajo. */
+const BEAM_TOP_WIDTH = 0.12;
 function LightBeamCore({ enabled, opacity, width, height, soft, glow, target, getLight }) {
   const groupRef = useRef(null);
   const bodyRef = useRef(null);
   const glowRef = useRef(null);
   const bodyMat = useMemo(() => makeBeamMaterial(BEAM_BODY_FRAG, {
-    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 },
+    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 }, uTaper: { value: BEAM_TOP_WIDTH },
   }), []);
   const glowMat = useMemo(() => makeBeamMaterial(BEAM_GLOW_FRAG, {
     uColor: { value: new THREE.Color("#ffffff") }, uAlpha: { value: 0 },
@@ -4730,11 +4736,14 @@ const BEAM_BODY_FRAG = `
   uniform float uOpacity;
   uniform float uSoftFrac;
   uniform float uFacing;
+  uniform float uTaper;
   varying vec2 vUv;
   void main() {
-    float x = (vUv.x - 0.5) * 2.0;
-    float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
     float v = vUv.y;
+    // Cono: abajo (destino) usa todo el ancho; arriba (la luz) se angosta hasta uTaper.
+    float w = mix(1.0, uTaper, v);
+    float x = (vUv.x - 0.5) * 2.0 / max(w, 0.001);
+    float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
     float tip = smoothstep(0.0, uSoftFrac, v);
     float src = 1.0 - smoothstep(0.78, 1.0, v);
     float a = side * tip * src * uOpacity * uFacing;
@@ -4767,12 +4776,15 @@ function makeBeamMaterial(frag, uniforms) {
 }
 /* Antes se sumaban 3 planos; ahora hay 1. Esta ganancia mantiene el mismo brillo que ya tenías ajustado. */
 const BEAM_GAIN = 2.4;
+/* Ancho del rayo en la punta de arriba (junto a la luz), como fracción del ancho de abajo.
+   1 = columna recta; 0.12 = haz cónico que nace en punta y se abre hacia abajo. */
+const BEAM_TOP_WIDTH = 0.12;
 function LightBeamCore({ enabled, opacity, width, height, soft, glow, target, getLight }) {
   const groupRef = useRef(null);
   const bodyRef = useRef(null);
   const glowRef = useRef(null);
   const bodyMat = useMemo(() => makeBeamMaterial(BEAM_BODY_FRAG, {
-    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 },
+    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 }, uTaper: { value: BEAM_TOP_WIDTH },
   }), []);
   const glowMat = useMemo(() => makeBeamMaterial(BEAM_GLOW_FRAG, {
     uColor: { value: new THREE.Color("#ffffff") }, uAlpha: { value: 0 },
