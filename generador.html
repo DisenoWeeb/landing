@@ -526,7 +526,8 @@
     "zustand": "https://esm.sh/zustand@4.5.5?external=react",
     "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
     "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
-    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber"
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber,postprocessing",
+    "postprocessing": "https://esm.sh/postprocessing@6.36.4?external=three"
   }
 }
 </script>
@@ -540,8 +541,9 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { useGLTF, Stars, useTexture, Billboard, useProgress } from "@react-three/drei";
+import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
+import { ToneMappingMode } from "postprocessing";
 
 /* ============================================================
    CONFIG: client.config
@@ -1513,14 +1515,11 @@ const BEAM_BODY_FRAG = `
   uniform float uOpacity;
   uniform float uSoftFrac;
   uniform float uFacing;
-  uniform float uTaper;
   varying vec2 vUv;
   void main() {
-    float v = vUv.y;
-    // Cono: abajo (destino) usa todo el ancho; arriba (la luz) se angosta hasta uTaper.
-    float w = mix(1.0, uTaper, v);
-    float x = (vUv.x - 0.5) * 2.0 / max(w, 0.001);
+    float x = (vUv.x - 0.5) * 2.0;
     float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
+    float v = vUv.y;
     float tip = smoothstep(0.0, uSoftFrac, v);
     float src = 1.0 - smoothstep(0.78, 1.0, v);
     float a = side * tip * src * uOpacity * uFacing;
@@ -1553,15 +1552,12 @@ function makeBeamMaterial(frag, uniforms) {
 }
 /* Antes se sumaban 3 planos; ahora hay 1. Esta ganancia mantiene el mismo brillo que ya tenías ajustado. */
 const BEAM_GAIN = 2.4;
-/* Ancho del rayo en la punta de arriba (junto a la luz), como fracción del ancho de abajo.
-   1 = columna recta; 0.12 = haz cónico que nace en punta y se abre hacia abajo. */
-const BEAM_TOP_WIDTH = 0.12;
 function LightBeamCore({ enabled, opacity, width, height, soft, glow, target, getLight }) {
   const groupRef = useRef(null);
   const bodyRef = useRef(null);
   const glowRef = useRef(null);
   const bodyMat = useMemo(() => makeBeamMaterial(BEAM_BODY_FRAG, {
-    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 }, uTaper: { value: BEAM_TOP_WIDTH },
+    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 },
   }), []);
   const glowMat = useMemo(() => makeBeamMaterial(BEAM_GLOW_FRAG, {
     uColor: { value: new THREE.Color("#ffffff") }, uAlpha: { value: 0 },
@@ -2247,81 +2243,92 @@ function SceneObjectText({ data }) {
   );
 }
 
-/* Pisos espejo: un .glb no puede reflejar otros objetos por sí solo (el
-   reflejo se calcula en vivo). Si un material del .glb trae en sus
-   "extras" un bloque { reflector: {...} } o su nombre contiene
-   "Reflejo"/"Reflect", se le pone encima un espejo plano real
-   (MeshReflectorMaterial) que refleja al personaje y a los demás
-   objetos, con desenfoque y desvanecido según la distancia al piso. */
-const REFLECTOR_DEFAULTS = { mirror: 0, mixStrength: 3, blur: [300, 80], mixBlur: 0.6, mixContrast: 1, resolution: 1024, depthScale: 0, minDepthThreshold: 0.4, maxDepthThreshold: 1.4, roughness: 0.35, metalness: 0.1 };
-function findReflectorMeshes(scene) {
-  const out = [];
-  scene.traverse((c) => {
-    if (!c.isMesh || (c.userData && c.userData.isReflector)) return;
-    const m = Array.isArray(c.material) ? c.material[0] : c.material;
-    if (!m) return;
-    const cfg = (m.userData && m.userData.reflector) || (/reflej|reflect/i.test(m.name || "") ? {} : null);
-    if (cfg) out.push({ mesh: c, mat: m, cfg: { ...REFLECTOR_DEFAULTS, ...cfg } });
-  });
-  return out;
+/* ---- Entorno de estudio (reflejos para metales y vidrio) ----
+   Los materiales metálicos (metalness alto) no tienen "color" propio: solo muestran lo que reflejan.
+   Sin entorno reflejan negro salvo cuando una luz les pega justo de frente. Acá se arma un estudio
+   procedural (paredes oscuras + softboxes) y se pasa por PMREM; se aplica a los materiales de los
+   objetos .glb SIN tocar scene.background (el fondo violeta queda igual). Sin descargas de HDRI. */
+function buildStudioEnvTexture(gl) {
+  const env = new THREE.Scene();
+  const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
+  // +x, -x, +y, -y, +z, -z
+  const room = new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#3a3150", 0.5), wall("#3a3150", 0.5), wall("#2a2236", 0.4), wall("#241a30", 0.35), wall("#3d3550", 0.45), wall("#3d3550", 0.45)]);
+  env.add(room);
+  const panel = (w, h, hex, k, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
+  };
+  // Softboxes chicas y brillantes: dan reflejos nítidos al metal sin "inundar" de luz difusa a los materiales mates
+  panel(9, 9, "#fff1dc", 7, 0, 19, 0);          // arriba (cálido)
+  panel(2.6, 20, "#ffffff", 10, -17, 3, 9);     // tira alta adelante-izquierda: dibuja el brillo largo en bordes y placas
+  panel(2.6, 20, "#ffe6c8", 7, 17, 3, 9);       // tira alta adelante-derecha (cálida)
+  panel(3.5, 18, "#ff5fd2", 8, 18, 2, -8);      // acento fucsia atrás-derecha (rim)
+  panel(3.5, 18, "#8db8ff", 4, -18, 2, -8);     // relleno frío atrás-izquierda
+  panel(22, 10, "#ffeedd", 4.5, 0, 3, 19);      // relleno suave detrás de cámara (es lo que ve una placa dorada de frente)
+  const pm = new THREE.PMREMGenerator(gl);
+  const rt = pm.fromScene(env, 0.05);
+  pm.dispose();
+  env.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); } });
+  return rt.texture;
 }
-function ReflectiveSurfaces({ scene, shadows }) {
-  const items = useMemo(() => findReflectorMeshes(scene), [scene]);
-  /* MeshReflectorMaterial toma como normal del espejo el +Z local; el piso
-     viene acostado (normal +Y), así que se gira la geometría y se compensa. */
-  const geos = useMemo(() => items.map(({ mesh }) => mesh.geometry.clone().rotateX(Math.PI / 2)), [items]);
-  const refs = useRef([]);
-  const rot = useMemo(() => new THREE.Matrix4().makeRotationX(-Math.PI / 2), []);
-  const inv = useMemo(() => new THREE.Matrix4(), []);
-  useEffect(() => {
-    items.forEach(({ mesh, mat }) => { mat.visible = false; mesh.castShadow = false; });
-    return () => items.forEach(({ mat }) => { mat.visible = true; });
-  }, [items]);
-  /* El espejo NO va dentro del modelo (un portal de R3F le cambiaría la
-     "escena" que ve y solo se reflejaría a sí mismo): va en el árbol
-     normal y copia cada frame la posición/escala/visibilidad del piso
-     original. Prioridad -1 = corre antes de que el espejo calcule el reflejo. */
-  useFrame(() => {
-    items.forEach(({ mesh }, i) => {
-      const r = refs.current[i];
-      if (!r) return;
-      mesh.updateWorldMatrix(true, false);
-      r.matrixWorld.multiplyMatrices(mesh.matrixWorld, rot);
-      if (r.parent) { r.parent.updateWorldMatrix(true, false); inv.copy(r.parent.matrixWorld).invert(); r.matrix.multiplyMatrices(inv, r.matrixWorld); }
-      else r.matrix.copy(r.matrixWorld);
-      let v = true; for (let o = mesh; o; o = o.parent) if (!o.visible) { v = false; break; }
-      r.visible = v;
+const __studioEnvCache = new WeakMap();
+function getStudioEnv(gl) {
+  let t = __studioEnvCache.get(gl);
+  if (!t) { t = buildStudioEnvTexture(gl); __studioEnvCache.set(gl, t); }
+  return t;
+}
+function useStudioEnv() {
+  const gl = useThree((s) => s.gl);
+  return useMemo(() => { try { return getStudioEnv(gl); } catch (e) { console.warn("No se pudo crear el entorno de reflejos:", e && e.message); return null; } }, [gl]);
+}
+/* Aplica (o saca) el entorno a los materiales PBR de un modelo. Si el material del .glb ya trae su propio envMap, lo respeta. */
+function applyStudioEnv(root, tex, enabled, intensity) {
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !m.isMeshStandardMaterial) return;
+      if (!m.userData.__env0) m.userData.__env0 = { map: m.envMap, i: m.envMapIntensity };
+      const o = m.userData.__env0;
+      const nextMap = enabled && tex ? (o.map || tex) : o.map;
+      if (m.envMap !== nextMap) { m.envMap = nextMap; m.needsUpdate = true; }
+      m.envMapIntensity = enabled && tex && !o.map ? intensity : o.i;
     });
-  }, -1);
-  return items.map(({ mesh, mat, cfg }, i) => (
-    <mesh
-      key={i}
-      ref={(el) => { refs.current[i] = el; }}
-      geometry={geos[i]}
-      matrixAutoUpdate={false}
-      frustumCulled={false}
-      receiveShadow={shadows !== false}
-      userData={{ isReflector: true, excludeFromReflection: true }}
-    >
-      <MeshReflectorMaterial
-        color={mat.color}
-        map={mat.map || null}
-        vertexColors={!!mesh.geometry.attributes.color}
-        roughness={cfg.roughness}
-        metalness={cfg.metalness}
-        mirror={cfg.mirror}
-        mixStrength={cfg.mixStrength}
-        mixBlur={cfg.mixBlur}
-        mixContrast={cfg.mixContrast}
-        blur={cfg.blur}
-        resolution={cfg.resolution}
-        depthScale={cfg.depthScale}
-        minDepthThreshold={cfg.minDepthThreshold}
-        maxDepthThreshold={cfg.maxDepthThreshold}
-      />
-    </mesh>
-  ));
+  });
 }
+/* Vidrio sobre la pantalla: los materiales cuyo nombre (o el de su malla) coincide con "match" reciben una capa
+   transparente brillante (clearcoat) que refleja el entorno. Se pasa a MeshPhysicalMaterial una sola vez. */
+const SCREEN_GLASS_DEFAULT = "pantalla|screen|display|foto|photo|vidrio|glass";
+function applyScreenGlass(root, amount, match, onSwap) {
+  let re;
+  try { re = new RegExp((match && String(match).trim()) || SCREEN_GLASS_DEFAULT, "i"); } catch (e) { re = new RegExp(SCREEN_GLASS_DEFAULT, "i"); }
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    const isArr = Array.isArray(child.material);
+    const mats = isArr ? child.material : [child.material];
+    const next = mats.map((m) => {
+      if (!m || !m.isMeshStandardMaterial) return m;
+      if (!re.test((m.name || "") + " " + (child.name || ""))) return m;
+      let p = m;
+      if (!m.isMeshPhysicalMaterial) {
+        if (amount <= 0) return m;
+        p = new THREE.MeshPhysicalMaterial();
+        const ud0 = m.userData; m.userData = {};   // (Material.copy clona userData con JSON: con texturas adentro sería lentísimo)
+        THREE.MeshStandardMaterial.prototype.copy.call(p, m);
+        m.userData = ud0;
+        p.defines = { STANDARD: "", PHYSICAL: "" };
+        p.userData = { __wasBlend: m.userData.__wasBlend, _glow0: m.userData._glow0, __env0: m.userData.__env0 };
+        p.name = m.name;
+        m.dispose();
+        if (onSwap) onSwap(p);
+      }
+      p.clearcoat = Math.max(0, amount);
+      p.clearcoatRoughness = 0.035;
+      return p;
+    });
+    if (next.some((m, i) => m !== mats[i])) child.material = isArr ? next : next[0];
+  });
+}
+const EnvSettingsCtx = React.createContext({ enabled: ENV_ENABLED, intensity: ENV_INTENSITY });
 function applyGlow(scene, glow) {
   scene.traverse((child) => {
     if (!child.isMesh) return;
@@ -2342,7 +2349,7 @@ function SceneObjectModel({ data }) {
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false);
   useEffect(() => {
     scene.traverse((child) => {
-      if (child.isMesh && !(child.userData && child.userData.isReflector)) {
+      if (child.isMesh) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
         // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
@@ -2355,11 +2362,16 @@ function SceneObjectModel({ data }) {
       }
     });
   }, [scene, hasFade, fade, data.shadows]);
-  useEffect(() => { applyGlow(scene, data.glow || 0); }, [scene, data.glow]);
+  const envTex = useStudioEnv();
+  const envCfg = React.useContext(EnvSettingsCtx);
+  useEffect(() => {
+    applyScreenGlass(scene, data.glass || 0, data.glassMatch, (p) => { if (hasFade) patchFadeMaterial(p, fade); });
+    applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
+    applyGlow(scene, data.glow || 0);   // despues del cambio de material: conserva el emisivo (neon) del .glb
+  }, [scene, envTex, envCfg.enabled, envCfg.intensity, data.glass, data.glassMatch, data.glow, hasFade, fade]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
-      <ReflectiveSurfaces scene={scene} shadows={data.shadows} />
     </group>
   );
 }
@@ -2577,9 +2589,10 @@ function Experience({ device }) {
         getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
       />
   
-      {BLOOM_ENABLED && (
+      {(BLOOM_ENABLED || TONEMAP_ENABLED) && (
         <EffectComposer multisampling={0}>
-          <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
+          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+          {TONEMAP_ENABLED && <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />}
         </EffectComposer>
       )}
     </>
@@ -3188,7 +3201,8 @@ createRoot(document.getElementById("root")).render(<App />);
     "three": "https://esm.sh/three@0.160.0",
     "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
     "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
-    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber"
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber,postprocessing",
+    "postprocessing": "https://esm.sh/postprocessing@6.36.4?external=three"
   }
 }
 </script>
@@ -3200,8 +3214,9 @@ import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, OrbitControls, Grid, useTexture, Billboard, Html, useProgress, MeshReflectorMaterial } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { useGLTF, OrbitControls, Grid, useTexture, Billboard, Html, useProgress } from "@react-three/drei";
+import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
+import { ToneMappingMode } from "postprocessing";
 
 const DEFAULT_MODEL_URL = "";
 
@@ -3683,81 +3698,92 @@ function FadeGroup({ obj, fade, children }) {
   return <group ref={ref}>{children}</group>;
 }
 
-/* Pisos espejo: un .glb no puede reflejar otros objetos por sí solo (el
-   reflejo se calcula en vivo). Si un material del .glb trae en sus
-   "extras" un bloque { reflector: {...} } o su nombre contiene
-   "Reflejo"/"Reflect", se le pone encima un espejo plano real
-   (MeshReflectorMaterial) que refleja al personaje y a los demás
-   objetos, con desenfoque y desvanecido según la distancia al piso. */
-const REFLECTOR_DEFAULTS = { mirror: 0, mixStrength: 3, blur: [300, 80], mixBlur: 0.6, mixContrast: 1, resolution: 1024, depthScale: 0, minDepthThreshold: 0.4, maxDepthThreshold: 1.4, roughness: 0.35, metalness: 0.1 };
-function findReflectorMeshes(scene) {
-  const out = [];
-  scene.traverse((c) => {
-    if (!c.isMesh || (c.userData && c.userData.isReflector)) return;
-    const m = Array.isArray(c.material) ? c.material[0] : c.material;
-    if (!m) return;
-    const cfg = (m.userData && m.userData.reflector) || (/reflej|reflect/i.test(m.name || "") ? {} : null);
-    if (cfg) out.push({ mesh: c, mat: m, cfg: { ...REFLECTOR_DEFAULTS, ...cfg } });
-  });
-  return out;
+/* ---- Entorno de estudio (reflejos para metales y vidrio) ----
+   Los materiales metálicos (metalness alto) no tienen "color" propio: solo muestran lo que reflejan.
+   Sin entorno reflejan negro salvo cuando una luz les pega justo de frente. Acá se arma un estudio
+   procedural (paredes oscuras + softboxes) y se pasa por PMREM; se aplica a los materiales de los
+   objetos .glb SIN tocar scene.background (el fondo violeta queda igual). Sin descargas de HDRI. */
+function buildStudioEnvTexture(gl) {
+  const env = new THREE.Scene();
+  const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
+  // +x, -x, +y, -y, +z, -z
+  const room = new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#3a3150", 0.5), wall("#3a3150", 0.5), wall("#2a2236", 0.4), wall("#241a30", 0.35), wall("#3d3550", 0.45), wall("#3d3550", 0.45)]);
+  env.add(room);
+  const panel = (w, h, hex, k, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
+  };
+  // Softboxes chicas y brillantes: dan reflejos nítidos al metal sin "inundar" de luz difusa a los materiales mates
+  panel(9, 9, "#fff1dc", 7, 0, 19, 0);          // arriba (cálido)
+  panel(2.6, 20, "#ffffff", 10, -17, 3, 9);     // tira alta adelante-izquierda: dibuja el brillo largo en bordes y placas
+  panel(2.6, 20, "#ffe6c8", 7, 17, 3, 9);       // tira alta adelante-derecha (cálida)
+  panel(3.5, 18, "#ff5fd2", 8, 18, 2, -8);      // acento fucsia atrás-derecha (rim)
+  panel(3.5, 18, "#8db8ff", 4, -18, 2, -8);     // relleno frío atrás-izquierda
+  panel(22, 10, "#ffeedd", 4.5, 0, 3, 19);      // relleno suave detrás de cámara (es lo que ve una placa dorada de frente)
+  const pm = new THREE.PMREMGenerator(gl);
+  const rt = pm.fromScene(env, 0.05);
+  pm.dispose();
+  env.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); } });
+  return rt.texture;
 }
-function ReflectiveSurfaces({ scene, shadows }) {
-  const items = useMemo(() => findReflectorMeshes(scene), [scene]);
-  /* MeshReflectorMaterial toma como normal del espejo el +Z local; el piso
-     viene acostado (normal +Y), así que se gira la geometría y se compensa. */
-  const geos = useMemo(() => items.map(({ mesh }) => mesh.geometry.clone().rotateX(Math.PI / 2)), [items]);
-  const refs = useRef([]);
-  const rot = useMemo(() => new THREE.Matrix4().makeRotationX(-Math.PI / 2), []);
-  const inv = useMemo(() => new THREE.Matrix4(), []);
-  useEffect(() => {
-    items.forEach(({ mesh, mat }) => { mat.visible = false; mesh.castShadow = false; });
-    return () => items.forEach(({ mat }) => { mat.visible = true; });
-  }, [items]);
-  /* El espejo NO va dentro del modelo (un portal de R3F le cambiaría la
-     "escena" que ve y solo se reflejaría a sí mismo): va en el árbol
-     normal y copia cada frame la posición/escala/visibilidad del piso
-     original. Prioridad -1 = corre antes de que el espejo calcule el reflejo. */
-  useFrame(() => {
-    items.forEach(({ mesh }, i) => {
-      const r = refs.current[i];
-      if (!r) return;
-      mesh.updateWorldMatrix(true, false);
-      r.matrixWorld.multiplyMatrices(mesh.matrixWorld, rot);
-      if (r.parent) { r.parent.updateWorldMatrix(true, false); inv.copy(r.parent.matrixWorld).invert(); r.matrix.multiplyMatrices(inv, r.matrixWorld); }
-      else r.matrix.copy(r.matrixWorld);
-      let v = true; for (let o = mesh; o; o = o.parent) if (!o.visible) { v = false; break; }
-      r.visible = v;
+const __studioEnvCache = new WeakMap();
+function getStudioEnv(gl) {
+  let t = __studioEnvCache.get(gl);
+  if (!t) { t = buildStudioEnvTexture(gl); __studioEnvCache.set(gl, t); }
+  return t;
+}
+function useStudioEnv() {
+  const gl = useThree((s) => s.gl);
+  return useMemo(() => { try { return getStudioEnv(gl); } catch (e) { console.warn("No se pudo crear el entorno de reflejos:", e && e.message); return null; } }, [gl]);
+}
+/* Aplica (o saca) el entorno a los materiales PBR de un modelo. Si el material del .glb ya trae su propio envMap, lo respeta. */
+function applyStudioEnv(root, tex, enabled, intensity) {
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !m.isMeshStandardMaterial) return;
+      if (!m.userData.__env0) m.userData.__env0 = { map: m.envMap, i: m.envMapIntensity };
+      const o = m.userData.__env0;
+      const nextMap = enabled && tex ? (o.map || tex) : o.map;
+      if (m.envMap !== nextMap) { m.envMap = nextMap; m.needsUpdate = true; }
+      m.envMapIntensity = enabled && tex && !o.map ? intensity : o.i;
     });
-  }, -1);
-  return items.map(({ mesh, mat, cfg }, i) => (
-    <mesh
-      key={i}
-      ref={(el) => { refs.current[i] = el; }}
-      geometry={geos[i]}
-      matrixAutoUpdate={false}
-      frustumCulled={false}
-      receiveShadow={shadows !== false}
-      userData={{ isReflector: true, excludeFromReflection: true }}
-    >
-      <MeshReflectorMaterial
-        color={mat.color}
-        map={mat.map || null}
-        vertexColors={!!mesh.geometry.attributes.color}
-        roughness={cfg.roughness}
-        metalness={cfg.metalness}
-        mirror={cfg.mirror}
-        mixStrength={cfg.mixStrength}
-        mixBlur={cfg.mixBlur}
-        mixContrast={cfg.mixContrast}
-        blur={cfg.blur}
-        resolution={cfg.resolution}
-        depthScale={cfg.depthScale}
-        minDepthThreshold={cfg.minDepthThreshold}
-        maxDepthThreshold={cfg.maxDepthThreshold}
-      />
-    </mesh>
-  ));
+  });
 }
+/* Vidrio sobre la pantalla: los materiales cuyo nombre (o el de su malla) coincide con "match" reciben una capa
+   transparente brillante (clearcoat) que refleja el entorno. Se pasa a MeshPhysicalMaterial una sola vez. */
+const SCREEN_GLASS_DEFAULT = "pantalla|screen|display|foto|photo|vidrio|glass";
+function applyScreenGlass(root, amount, match, onSwap) {
+  let re;
+  try { re = new RegExp((match && String(match).trim()) || SCREEN_GLASS_DEFAULT, "i"); } catch (e) { re = new RegExp(SCREEN_GLASS_DEFAULT, "i"); }
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    const isArr = Array.isArray(child.material);
+    const mats = isArr ? child.material : [child.material];
+    const next = mats.map((m) => {
+      if (!m || !m.isMeshStandardMaterial) return m;
+      if (!re.test((m.name || "") + " " + (child.name || ""))) return m;
+      let p = m;
+      if (!m.isMeshPhysicalMaterial) {
+        if (amount <= 0) return m;
+        p = new THREE.MeshPhysicalMaterial();
+        const ud0 = m.userData; m.userData = {};   // (Material.copy clona userData con JSON: con texturas adentro sería lentísimo)
+        THREE.MeshStandardMaterial.prototype.copy.call(p, m);
+        m.userData = ud0;
+        p.defines = { STANDARD: "", PHYSICAL: "" };
+        p.userData = { __wasBlend: m.userData.__wasBlend, _glow0: m.userData._glow0, __env0: m.userData.__env0 };
+        p.name = m.name;
+        m.dispose();
+        if (onSwap) onSwap(p);
+      }
+      p.clearcoat = Math.max(0, amount);
+      p.clearcoatRoughness = 0.035;
+      return p;
+    });
+    if (next.some((m, i) => m !== mats[i])) child.material = isArr ? next : next[0];
+  });
+}
+const EnvSettingsCtx = React.createContext({ enabled: false, intensity: 1 });   // el editor lo provee desde Scene (postFx)
 function applyGlow(scene, glow) {
   scene.traverse((child) => {
     if (!child.isMesh) return;
@@ -3777,7 +3803,7 @@ function ObjectPreviewModel({ obj, fade }) {
   const { scene } = useGLTF(obj.previewUrl || obj.url);
   useEffect(() => {
     scene.traverse((child) => {
-      if (child.isMesh && !(child.userData && child.userData.isReflector)) {
+      if (child.isMesh) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
         child.castShadow = obj.shadows !== false && !mats0.some((m) => m && m.userData.__wasBlend);
@@ -3789,17 +3815,20 @@ function ObjectPreviewModel({ obj, fade }) {
       }
     });
   }, [scene, fade, obj.shadows]);
-  useEffect(() => { applyGlow(scene, obj.glow || 0); }, [scene, obj.glow]);
+  const envTex = useStudioEnv();
+  const envCfg = React.useContext(EnvSettingsCtx);
+  useEffect(() => {
+    applyScreenGlass(scene, obj.glass || 0, obj.glassMatch, (p) => patchFadeMaterial(p, fade));
+    applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
+    applyGlow(scene, obj.glow || 0);
+  }, [scene, envTex, envCfg.enabled, envCfg.intensity, obj.glass, obj.glassMatch, obj.glow, fade]);
   return (
-    <>
-      <primitive
-        object={scene}
-        scale={obj.scale}
-        position={obj.position}
-        rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}
-      />
-      <ReflectiveSurfaces scene={scene} shadows={obj.shadows} />
-    </>
+    <primitive
+      object={scene}
+      scale={obj.scale}
+      position={obj.position}
+      rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}
+    />
   );
 }
 /* Los navegadores rasterizan un SVG a un tamaño chico por defecto (a
@@ -4245,8 +4274,11 @@ function BlenderGrid() {
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
 function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection, markers, selectedObjectId, onSelectObject }) {
+  const envOn = !!showFx && !(postFx && postFx.envEnabled === false);
+  const envInt = postFx && postFx.envIntensity != null ? postFx.envIntensity : 0.8;
+  const envCtx = useMemo(() => ({ enabled: envOn, intensity: envInt }), [envOn, envInt]);
   return (
-    <>
+    <EnvSettingsCtx.Provider value={envCtx}>
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
       <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={showFx ? (fx.light.ambient ?? 0.28) * 1.25 : 0.35} />
       <ambientLight intensity={showFx ? (fx.light.ambient ?? 0.28) : 0.28} />
@@ -4346,12 +4378,13 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           <LiveCameraTracker orbitRef={orbitRef} liveCameraRef={liveCameraRef} active={true} />
         </>
       )}
-      {postFx && postFx.bloomEnabled && (
+      {postFx && (postFx.bloomEnabled || postFx.toneMap) && (
         <EffectComposer multisampling={0}>
-          <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
+          {postFx.bloomEnabled && <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+          {postFx.toneMap && <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />}
         </EffectComposer>
       )}
-    </>
+    </EnvSettingsCtx.Provider>
   );
 }
 
@@ -4736,14 +4769,11 @@ const BEAM_BODY_FRAG = `
   uniform float uOpacity;
   uniform float uSoftFrac;
   uniform float uFacing;
-  uniform float uTaper;
   varying vec2 vUv;
   void main() {
-    float v = vUv.y;
-    // Cono: abajo (destino) usa todo el ancho; arriba (la luz) se angosta hasta uTaper.
-    float w = mix(1.0, uTaper, v);
-    float x = (vUv.x - 0.5) * 2.0 / max(w, 0.001);
+    float x = (vUv.x - 0.5) * 2.0;
     float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
+    float v = vUv.y;
     float tip = smoothstep(0.0, uSoftFrac, v);
     float src = 1.0 - smoothstep(0.78, 1.0, v);
     float a = side * tip * src * uOpacity * uFacing;
@@ -4776,15 +4806,12 @@ function makeBeamMaterial(frag, uniforms) {
 }
 /* Antes se sumaban 3 planos; ahora hay 1. Esta ganancia mantiene el mismo brillo que ya tenías ajustado. */
 const BEAM_GAIN = 2.4;
-/* Ancho del rayo en la punta de arriba (junto a la luz), como fracción del ancho de abajo.
-   1 = columna recta; 0.12 = haz cónico que nace en punta y se abre hacia abajo. */
-const BEAM_TOP_WIDTH = 0.12;
 function LightBeamCore({ enabled, opacity, width, height, soft, glow, target, getLight }) {
   const groupRef = useRef(null);
   const bodyRef = useRef(null);
   const glowRef = useRef(null);
   const bodyMat = useMemo(() => makeBeamMaterial(BEAM_BODY_FRAG, {
-    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 }, uTaper: { value: BEAM_TOP_WIDTH },
+    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 },
   }), []);
   const glowMat = useMemo(() => makeBeamMaterial(BEAM_GLOW_FRAG, {
     uColor: { value: new THREE.Color("#ffffff") }, uAlpha: { value: 0 },
@@ -5327,7 +5354,10 @@ const PART_OPACITY = ${postFx.partOpacity ?? 0.65};
 const PART_SPEED = ${postFx.partSpeed ?? 1};
 const PART_BLUR = ${postFx.partBlur ?? 0.6};
 const PART_RANGE = ${postFx.partRange ?? 16};
-const PART_BEAM = ${postFx.partBeam ?? 0.6};`;
+const PART_BEAM = ${postFx.partBeam ?? 0.6};
+const ENV_ENABLED = ${postFx.envEnabled ?? true ? "true" : "false"};
+const ENV_INTENSITY = ${postFx.envIntensity ?? 0.8};
+const TONEMAP_ENABLED = ${postFx.toneMap ? "true" : "false"};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -5428,6 +5458,8 @@ ${kfLines}
     scrollTo: ${fmtNum((o.scrubTo ?? 100) / 100)},
     loop: ${o.loop === false ? "false" : "true"},
     glow: ${fmtNum(o.glow || 0)},
+    glass: ${fmtNum(o.glass || 0)},
+    glassMatch: ${JSON.stringify(o.glassMatch || "")},
     shadows: ${o.shadows === false ? "false" : "true"},
     billboard: ${o.billboard ? "true" : "false"},
     keyframes: [
@@ -5979,6 +6011,9 @@ function App() {
     partBlur: 0.6,
     partRange: 16,
     partBeam: 0.6,
+    envEnabled: true,
+    envIntensity: 0.8,
+    toneMap: false,
   });
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
   /* Estela de brillo (sparkle trail) que deja el personaje (bowl1.glb) a
@@ -6734,7 +6769,7 @@ function App() {
     if (!window.confirm("¿Vaciar todo y empezar un proyecto nuevo?")) return;
     const st = makeDefaultStages();
     setModelUrl(""); setCharScale(1); setCharCenterY(0);
-    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0, partEnabled: false, partCount: 650, partSize: 1, partOpacity: 0.65, partSpeed: 1, partBlur: 0.6, partRange: 16, partBeam: 0.6 });
+    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0, partEnabled: false, partCount: 650, partSize: 1, partOpacity: 0.65, partSpeed: 1, partBlur: 0.6, partRange: 16, partBeam: 0.6, envEnabled: true, envIntensity: 0.8, toneMap: false });
     setTrail({ enabled: false, color: "#ffd873", size: 0.05, life: 0.9, rate: 40 });
     setReflection({ enabled: false, resolution: 256, updateEvery: 2, intensity: 1 });
     setDock(DEFAULT_DOCK); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR);
@@ -6813,6 +6848,16 @@ function App() {
         {isVideo && o.videoMode === "play" && <Switch checked={o.loop !== false} onChange={(v) => updateObject(o.id, { loop: v })} label="Repetir en loop" />}
         {isVideo && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Va siempre sin sonido. Copiá el archivo a assets/models/ junto al index.html. Para que avance fluido, exportalo con un keyframe cada 2 cuadros (ffmpeg -g 2).</div>}
         {isModel && <Slider label="Brillo" min={0} max={3} step={0.05} value={o.glow || 0} onChange={(v) => updateObject(o.id, { glow: v })} />}
+        {isModel && <Slider label="Vidrio (pantalla)" min={0} max={1} step={0.01} value={o.glass || 0} onChange={(v) => updateObject(o.id, { glass: v })} />}
+        {isModel && (o.glass || 0) > 0 && (
+          <>
+            <div className="row">
+              <span className="lbl">Material</span>
+              <input type="text" style={{ flex: 1 }} value={o.glassMatch || ""} placeholder={SCREEN_GLASS_DEFAULT} spellCheck={false} onChange={(e) => updateObject(o.id, { glassMatch: e.target.value })} />
+            </div>
+            <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Agrega un reflejo suave tipo vidrio a los materiales cuyo nombre (en Blender) contenga alguna de esas palabras (separadas por |). Necesita el Entorno de reflejos prendido.</div>
+          </>
+        )}
         {isModel && <Switch checked={o.shadows !== false} onChange={(v) => updateObject(o.id, { shadows: v })} label="Sombras (proyecta / recibe)" />}
         {!isModel && <Switch checked={!!o.billboard} onChange={(v) => updateObject(o.id, { billboard: v })} label="Billboard (mira a cámara)" />}
         <div className="grp-t" style={{ marginTop: 4 }}>Transformación · {currentStageLabel}</div>
@@ -6953,6 +6998,13 @@ function App() {
                 </Group>
                 <Group id="bloom" title="Bloom" toggle={{ checked: postFx.bloomEnabled, onChange: (v) => setPostFxField("bloomEnabled", v) }}>
                   <Slider label="Intens." min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(v) => setPostFxField("bloomIntensity", v)} />
+                </Group>
+                <Group id="env" title="Entorno de reflejos (metal / vidrio)" toggle={{ checked: postFx.envEnabled ?? true, onChange: (v) => setPostFxField("envEnabled", v) }}>
+                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Un "estudio" invisible (softboxes) que los materiales metálicos reflejan desde cualquier ángulo. No se ve de fondo: el fondo no cambia. Se aplica a los modelos .glb de la pestaña Objetos. Sale igual en el index.html y en el MP4.</div>
+                  <Slider label="Intensidad" min={0} max={3} step={0.05} value={postFx.envIntensity ?? 0.8} onChange={(v) => setPostFxField("envIntensity", v)} />
+                </Group>
+                <Group id="tone" title="Tone mapping (cine)" toggle={{ checked: !!postFx.toneMap, onChange: (v) => setPostFxField("toneMap", v) }}>
+                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Con el Bloom activado la escena se dibuja sin tone mapping (los brillos se "queman" a blanco y los colores saturados quedan duros). Prendiendo esto se aplica el tone mapping ACES (curva de cine): las luces fuertes se comprimen sin quemarse y el dorado y el fucsia conservan su tono. Cambia el aspecto general: probalo y comparalo.</div>
                 </Group>
                 <Group id="beam" title="Rayo de luz" toggle={{ checked: postFx.beamEnabled, onChange: (v) => setPostFxField("beamEnabled", v) }}>
                   <Slider label="Opacidad" min={0} max={1} step={0.01} value={postFx.beamOpacity} onChange={(v) => setPostFxField("beamOpacity", v)} />
