@@ -335,7 +335,8 @@
     "zustand": "https://esm.sh/zustand@4.5.5?external=react",
     "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
     "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
-    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber"
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber,postprocessing",
+    "postprocessing": "https://esm.sh/postprocessing@6.36.4?external=three"
   }
 }
 </script>
@@ -348,9 +349,10 @@ import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { Canvas, useFrame, useThree, createPortal } from "@react-three/fiber";
+import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows } from "@react-three/drei";
+import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
+import { ToneMappingMode } from "postprocessing";
 
 /* ============================================================
    CONFIG: client.config
@@ -396,23 +398,20 @@ const OBJECTS = [
     scrollTo: 1,
     loop: true,
     glow: 0,
+    glass: 0,
+    glassMatch: "",
     shadows: true,
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.111, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.218, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.267, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.316, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.37, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.43, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.491, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.679, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.732, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.786, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.839, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.893, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.946, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.151, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.298, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.365, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.432, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.505, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.588, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.671, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.927, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, 0.44, -0.26], scale: 28.6, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
@@ -424,24 +423,21 @@ const OBJECTS = [
     scrollTo: 1,
     loop: true,
     glow: 0,
+    glass: 0,
+    glassMatch: "",
     shadows: true,
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, -0.32, -0.52], scale: 5.2, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.111, easing: "smooth", position: [0, 5.44, 0.56], scale: 9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
-      { progress: 0.218, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
-      { progress: 0.267, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
-      { progress: 0.316, easing: "smooth", position: [0, 3.4, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
-      { progress: 0.37, easing: "smooth", position: [0, 3.4, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
-      { progress: 0.43, easing: "smooth", position: [0, 3.4, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
-      { progress: 0.491, easing: "smooth", position: [-2.96, 1.41, 0.12], scale: 2.13, rotationY: 41.1, hidden: false, fadeDir: "fade" },
-      { progress: 0.679, easing: "smooth", position: [-2.96, 1.41, 0.12], scale: 2.13, rotationY: 41.1, hidden: false, fadeDir: "fade" },
-      { progress: 0.732, easing: "smooth", position: [-2.96, 1.41, 0.12], scale: 2.13, rotationY: 41.1, hidden: false, fadeDir: "fade" },
-      { progress: 0.786, easing: "smooth", position: [-2.96, 1.41, 0.12], scale: 2.13, rotationY: 41.1, hidden: false, fadeDir: "fade" },
-      { progress: 0.839, easing: "smooth", position: [-2.96, 1.41, 0.12], scale: 2.13, rotationY: 41.1, hidden: false, fadeDir: "fade" },
-      { progress: 0.893, easing: "smooth", position: [-2.96, 1.41, 0.12], scale: 2.13, rotationY: 41.1, hidden: false, fadeDir: "fade" },
-      { progress: 0.946, easing: "smooth", position: [3.88, 1.41, -2.2], scale: 2.13, rotationY: -57, hidden: false, fadeDir: "fade" },
-      { progress: 1, easing: "smooth", position: [3.88, 1.41, -2.2], scale: 2.13, rotationY: -57, hidden: false, fadeDir: "fade" },
+      { progress: 0.151, easing: "smooth", position: [0, 5.44, 0.56], scale: 9, rotationY: -63.9, hidden: false, fadeDir: "fade" },
+      { progress: 0.298, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
+      { progress: 0.365, easing: "smooth", position: [0, 4.92, 0.56], scale: 9, rotationY: -180, hidden: false, fadeDir: "fade" },
+      { progress: 0.432, easing: "smooth", position: [0, 3.4, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.505, easing: "smooth", position: [0, 3.4, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.588, easing: "smooth", position: [0, 3.4, 0.12], scale: 5.03, rotationY: -360, hidden: false, fadeDir: "fade" },
+      { progress: 0.671, easing: "smooth", position: [-2.96, 1.41, 0.12], scale: 2.13, rotationY: 41.1, hidden: false, fadeDir: "fade" },
+      { progress: 0.927, easing: "smooth", position: [-2.96, 1.41, 0.12], scale: 2.13, rotationY: 41.1, hidden: false, fadeDir: "fade" },
+      { progress: 1, easing: "smooth", position: [2.24, 1.45, -1.8], scale: 2.13, rotationY: -99.8, hidden: false, fadeDir: "fade" },
     ],
   },
   {
@@ -452,23 +448,20 @@ const OBJECTS = [
     scrollTo: 1,
     loop: true,
     glow: 0,
+    glass: 0,
+    glassMatch: "",
     shadows: true,
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [-0.24, 2.02, -0.09], scale: 8.32, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.111, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.218, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.267, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.316, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.37, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.43, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.491, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.679, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.732, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.786, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.839, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.893, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.946, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.151, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.298, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.365, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.432, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.505, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.588, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.671, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.927, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, 0.82, -0.09], scale: 0.8, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
@@ -488,19 +481,14 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 8.31, 0], scale: 2.2, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.111, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.218, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.267, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.316, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.37, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.43, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.491, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.679, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.732, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.786, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.839, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.893, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.946, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.151, easing: "smooth", position: [0, 1.21, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.298, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.365, easing: "smooth", position: [0, -2.83, 0], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.432, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.505, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.588, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.671, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.927, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, -0.75, 0], scale: 1.9, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
@@ -520,19 +508,14 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [-1.2, -4.3, 11], scale: 0.9, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.111, easing: "smooth", position: [-0.08, -4.3, 11], scale: 0.75, rotationY: 0, hidden: true, fadeDir: "rtl" },
-      { progress: 0.218, easing: "smooth", position: [-1.36, -4.3, 11], scale: 1.21, rotationY: 0, hidden: false, fadeDir: "rtl" },
-      { progress: 0.267, easing: "smooth", position: [-1.36, -4.3, 11], scale: 1.21, rotationY: 0, hidden: false, fadeDir: "rtl" },
-      { progress: 0.316, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.37, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.43, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.491, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.679, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.732, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.786, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.839, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.893, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.946, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.151, easing: "smooth", position: [-0.08, -4.3, 11], scale: 0.75, rotationY: 0, hidden: true, fadeDir: "rtl" },
+      { progress: 0.298, easing: "smooth", position: [-1.36, -4.3, 11], scale: 1.21, rotationY: 0, hidden: false, fadeDir: "rtl" },
+      { progress: 0.365, easing: "smooth", position: [-1.36, -4.3, 11], scale: 1.21, rotationY: 0, hidden: false, fadeDir: "rtl" },
+      { progress: 0.432, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.505, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.588, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.671, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
+      { progress: 0.927, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
       { progress: 1, easing: "smooth", position: [-3.32, 0.54, 11], scale: 0.05, rotationY: 0, hidden: true, fadeDir: "ltr" },
     ],
   },
@@ -552,19 +535,14 @@ const OBJECTS = [
     billboard: true,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, -1, 0.24], scale: 0.2, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.111, easing: "smooth", position: [0, 9.36, 5.72], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.218, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.267, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.316, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.37, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.43, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.491, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.679, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.732, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.786, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.839, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.893, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.946, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.151, easing: "smooth", position: [0, 9.36, 5.72], scale: 0.2, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.298, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.365, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.432, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.505, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.588, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.671, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.927, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, -1, 0.24], scale: 0.21, rotationY: 0, hidden: true, fadeDir: "fade" },
     ],
   },
@@ -576,23 +554,20 @@ const OBJECTS = [
     scrollTo: 1,
     loop: true,
     glow: 0,
+    glass: 0,
+    glassMatch: "",
     shadows: true,
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.111, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.218, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.267, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.316, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.37, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.43, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.491, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.679, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.732, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.786, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.839, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.893, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
-      { progress: 0.946, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.151, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.298, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.365, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.432, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.505, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.588, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.671, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
+      { progress: 0.927, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
     ],
   },
@@ -604,23 +579,20 @@ const OBJECTS = [
     scrollTo: 1,
     loop: true,
     glow: 0,
+    glass: 0,
+    glassMatch: "",
     shadows: true,
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.111, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.218, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.267, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.316, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.37, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.43, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.491, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "fade" },
-      { progress: 0.679, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.732, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.786, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.839, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.893, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.946, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: false, fadeDir: "fade" },
+      { progress: 0.151, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.298, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.365, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.432, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.505, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.588, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.671, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: true, fadeDir: "fade" },
+      { progress: 0.927, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: false, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0.84, 6.56, -5], scale: 11.77, rotationY: -18.3, hidden: false, fadeDir: "fade" },
     ],
   },
@@ -632,23 +604,20 @@ const OBJECTS = [
     scrollTo: 1,
     loop: true,
     glow: 0.45,
+    glass: 0,
+    glassMatch: "",
     shadows: true,
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.111, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.218, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.267, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.316, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.37, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.43, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
-      { progress: 0.491, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.679, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.732, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.786, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.839, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.893, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
-      { progress: 0.946, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
+      { progress: 0.151, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.298, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.365, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.432, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.505, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.588, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: true, fadeDir: "ltr" },
+      { progress: 0.671, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
+      { progress: 0.927, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0.88, 7.16, -5], scale: 100, rotationY: -18.3, hidden: false, fadeDir: "fade" },
     ],
   },
@@ -701,7 +670,7 @@ const scenes = [
   },
   {
     id: "pose-1791039970322",
-    progress: 0.111,
+    progress: 0.151,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 79, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -710,16 +679,16 @@ const scenes = [
   },
   {
     id: "pose-1791040034357",
-    progress: 0.218,
+    progress: 0.298,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 79, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    light: { color: "#eae7c8", intensity: 2.75, azimuth: 305, elevation: 49, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
     fog: { enabled: false, color: "#05070a", far: 68 },
     background: { from: "#041333", to: "#041333", angle: 90, alpha: 1, mid: "#7621a1", midPos: 50 },
   },
   {
     id: "pose-1791590641535",
-    progress: 0.267,
+    progress: 0.365,
     easing: "smooth",
     camera: { position: [-0.227, -14.897, 31.434], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 79, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -728,7 +697,7 @@ const scenes = [
   },
   {
     id: "pose-1791301215862",
-    progress: 0.316,
+    progress: 0.432,
     easing: "smooth",
     camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 49, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -737,7 +706,7 @@ const scenes = [
   },
   {
     id: "pose-1791583652284",
-    progress: 0.37,
+    progress: 0.505,
     easing: "smooth",
     camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 49, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -746,7 +715,7 @@ const scenes = [
   },
   {
     id: "pose-1791592267367",
-    progress: 0.43,
+    progress: 0.588,
     easing: "smooth",
     camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 360, elevation: 49, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -755,7 +724,7 @@ const scenes = [
   },
   {
     id: "pose-1791583697850",
-    progress: 0.491,
+    progress: 0.671,
     easing: "smooth",
     camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 4.7, 0], fov: 30, roll: 0 },
     light: { color: "#eae7c8", intensity: 2.75, azimuth: 105, elevation: 45, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
@@ -764,64 +733,19 @@ const scenes = [
   },
   {
     id: "pose-1791586521436",
-    progress: 0.679,
+    progress: 0.927,
     easing: "smooth",
-    camera: { position: [-0.251, 5.05, 34.705], lookAt: [0, 3.22, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 35, elevation: 64, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    camera: { position: [6.954, 4.599, 39.84], lookAt: [0, 5.34, -5.56], fov: 30, roll: 0 },
+    light: { color: "#eae7c8", intensity: 2.6, azimuth: 124, elevation: 47, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.73 },
     fog: { enabled: true, color: "#22032b", far: 56.5 },
     background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
   },
   {
-    id: "pose-1791602806515",
-    progress: 0.732,
-    easing: "smooth",
-    camera: { position: [-0.398, 6.124, 55.066], lookAt: [0, 3.22, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 37, elevation: 27, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
-    fog: { enabled: true, color: "#22032b", far: 56.5 },
-    background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
-  },
-  {
-    id: "pose-1791602848594",
-    progress: 0.786,
-    easing: "smooth",
-    camera: { position: [46.571, 21.743, -22.998], lookAt: [0, 3.22, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 37, elevation: 27, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
-    fog: { enabled: true, color: "#22032b", far: 56.5 },
-    background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
-  },
-  {
-    id: "pose-1791602867585",
-    progress: 0.839,
-    easing: "smooth",
-    camera: { position: [-27.933, 6.92, -47.401], lookAt: [0, 3.22, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 37, elevation: 27, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
-    fog: { enabled: true, color: "#22032b", far: 56.5 },
-    background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
-  },
-  {
-    id: "pose-1791602878618",
-    progress: 0.893,
-    easing: "smooth",
-    camera: { position: [-27.933, 6.92, -47.401], lookAt: [0, 3.22, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 37, elevation: 27, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
-    fog: { enabled: true, color: "#22032b", far: 56.5 },
-    background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
-  },
-  {
-    id: "pose-1791602884105",
-    progress: 0.946,
-    easing: "smooth",
-    camera: { position: [-44.195, 17.911, 29.527], lookAt: [0, 3.22, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 37, elevation: 27, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
-    fog: { enabled: true, color: "#22032b", far: 56.5 },
-    background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
-  },
-  {
-    id: "pose-1791602937999",
+    id: "pose-1791668250184",
     progress: 1,
     easing: "smooth",
-    camera: { position: [-7.786, 1.545, 39.746], lookAt: [0, 3.22, 0], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.75, azimuth: 37, elevation: 27, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.46 },
+    camera: { position: [-31.048, 13.069, 12.475], lookAt: [0, 5.34, -4.72], fov: 30, roll: 1.5 },
+    light: { color: "#eae7c8", intensity: 5, azimuth: 280, elevation: 69, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.73 },
     fog: { enabled: true, color: "#22032b", far: 56.5 },
     background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
   },
@@ -835,20 +759,15 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1791039574302", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791039970322", progress: 0.111, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791040034357", progress: 0.218, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791590641535", progress: 0.267, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791301215862", progress: 0.316, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791583652284", progress: 0.37, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791592267367", progress: 0.43, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791583697850", progress: 0.491, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791586521436", progress: 0.679, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791602806515", progress: 0.732, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791602848594", progress: 0.786, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791602867585", progress: 0.839, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791602878618", progress: 0.893, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791602884105", progress: 0.946, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791602937999", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791039970322", progress: 0.151, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791040034357", progress: 0.298, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791590641535", progress: 0.365, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791301215862", progress: 0.432, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791583652284", progress: 0.505, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791592267367", progress: 0.588, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791583697850", progress: 0.671, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791586521436", progress: 0.927, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791668250184", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -882,7 +801,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791039970322",
-    progress: 0.111,
+    progress: 0.151,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -890,7 +809,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791040034357",
-    progress: 0.218,
+    progress: 0.298,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -898,7 +817,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791590641535",
-    progress: 0.267,
+    progress: 0.365,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -906,7 +825,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791301215862",
-    progress: 0.316,
+    progress: 0.432,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -914,7 +833,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791583652284",
-    progress: 0.37,
+    progress: 0.505,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -922,7 +841,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791592267367",
-    progress: 0.43,
+    progress: 0.588,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -930,7 +849,7 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791583697850",
-    progress: 0.491,
+    progress: 0.671,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
@@ -938,54 +857,14 @@ const BONE_POSE_KEYFRAMES = [
   },
   {
     id: "pose-1791586521436",
-    progress: 0.679,
+    progress: 0.927,
     easing: "smooth",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1791602806515",
-    progress: 0.732,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1791602848594",
-    progress: 0.786,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1791602867585",
-    progress: 0.839,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1791602878618",
-    progress: 0.893,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1791602884105",
-    progress: 0.946,
-    easing: "smooth",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1791602937999",
+    id: "pose-1791668250184",
     progress: 1,
     easing: "smooth",
     bones: {
@@ -1018,7 +897,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 2800;
+const SCROLL_LENGTH_VH = 2050;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
@@ -1042,6 +921,20 @@ const PART_SPEED = 0.85;
 const PART_BLUR = 0.1;
 const PART_RANGE = 40;
 const PART_BEAM = 0.79;
+const ENV_ENABLED = true;
+const ENV_INTENSITY = 1;
+const TONEMAP_ENABLED = true;
+const NATURAL_LIGHT = 0;
+const EXPOSURE = 1;
+const LIGHT_RIG = "studio";
+const BLOOM_THRESHOLD = 0.85;
+const FLOOR_REFLECT = true;
+const FLOOR_REFLECT_STRENGTH = 0.35;
+const CONTACT_SHADOW = true;
+const CONTACT_SHADOW_OPACITY = 0.75;
+const AO_ENABLED = true;
+const AO_INTENSITY = 2.2;
+const AO_RADIUS = 0.35;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -1747,14 +1640,11 @@ const BEAM_BODY_FRAG = `
   uniform float uOpacity;
   uniform float uSoftFrac;
   uniform float uFacing;
-  uniform float uTaper;
   varying vec2 vUv;
   void main() {
-    float v = vUv.y;
-    // Cono: abajo (destino) usa todo el ancho; arriba (la luz) se angosta hasta uTaper.
-    float w = mix(1.0, uTaper, v);
-    float x = (vUv.x - 0.5) * 2.0 / max(w, 0.001);
+    float x = (vUv.x - 0.5) * 2.0;
     float side = max(0.0, (exp(-x * x * 3.4) - 0.033) / 0.967);
+    float v = vUv.y;
     float tip = smoothstep(0.0, uSoftFrac, v);
     float src = 1.0 - smoothstep(0.78, 1.0, v);
     float a = side * tip * src * uOpacity * uFacing;
@@ -1787,15 +1677,12 @@ function makeBeamMaterial(frag, uniforms) {
 }
 /* Antes se sumaban 3 planos; ahora hay 1. Esta ganancia mantiene el mismo brillo que ya tenías ajustado. */
 const BEAM_GAIN = 2.4;
-/* Ancho del rayo en la punta de arriba (junto a la luz), como fracción del ancho de abajo.
-   1 = columna recta; 0.12 = haz cónico que nace en punta y se abre hacia abajo. */
-const BEAM_TOP_WIDTH = 0.12;
 function LightBeamCore({ enabled, opacity, width, height, soft, glow, target, getLight }) {
   const groupRef = useRef(null);
   const bodyRef = useRef(null);
   const glowRef = useRef(null);
   const bodyMat = useMemo(() => makeBeamMaterial(BEAM_BODY_FRAG, {
-    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 }, uTaper: { value: BEAM_TOP_WIDTH },
+    uColor: { value: new THREE.Color("#ffffff") }, uOpacity: { value: 0.5 }, uSoftFrac: { value: 0.4 }, uFacing: { value: 1 },
   }), []);
   const glowMat = useMemo(() => makeBeamMaterial(BEAM_GLOW_FRAG, {
     uColor: { value: new THREE.Color("#ffffff") }, uAlpha: { value: 0 },
@@ -2481,81 +2368,261 @@ function SceneObjectText({ data }) {
   );
 }
 
-/* Pisos espejo: un .glb no puede reflejar otros objetos por sí solo (el
-   reflejo se calcula en vivo). Si un material del .glb trae en sus
-   "extras" un bloque { reflector: {...} } o su nombre contiene
-   "Reflejo"/"Reflect", se le pone encima un espejo plano real
-   (MeshReflectorMaterial) que refleja al personaje y a los demás
-   objetos, con desenfoque y desvanecido según la distancia al piso. */
-const REFLECTOR_DEFAULTS = { mirror: 0, mixStrength: 3, blur: [300, 80], mixBlur: 0.6, mixContrast: 1, resolution: 1024, depthScale: 0, minDepthThreshold: 0.4, maxDepthThreshold: 1.4, roughness: 0.35, metalness: 0.1 };
-function findReflectorMeshes(scene) {
-  const out = [];
-  scene.traverse((c) => {
-    if (!c.isMesh || (c.userData && c.userData.isReflector)) return;
-    const m = Array.isArray(c.material) ? c.material[0] : c.material;
-    if (!m) return;
-    const cfg = (m.userData && m.userData.reflector) || (/reflej|reflect/i.test(m.name || "") ? {} : null);
-    if (cfg) out.push({ mesh: c, mat: m, cfg: { ...REFLECTOR_DEFAULTS, ...cfg } });
+/* ---- Look: "Luz natural" y "Exposición" (globales) ----
+   Se mezclan con la luz de cada pose SIN tocar los valores de las poses: la composición manual queda intacta
+   y subir la luz natural solo rellena las sombras para que la imagen no quede oscura (web y MP4). */
+function lookLight(light, natural, exposure) {
+  const n = natural || 0, e = exposure == null ? 1 : exposure;
+  const amb0 = light.ambient == null ? 0.28 : light.ambient;
+  return {
+    amb: (amb0 + n * 0.42) * e,
+    hemi: (amb0 * 1.25 + n * 0.75) * e,
+    key: light.intensity * e,
+    rim: light.rimIntensity * e,
+    fill: n * 0.85 * e,
+  };
+}
+/* Relleno suave y cálido que acompaña a la cámara (siempre desde arriba): ilumina las caras que miran al espectador. */
+function NaturalFill({ intensity }) {
+  const ref = useRef(null);
+  useFrame(({ camera }) => {
+    if (!ref.current) return;
+    ref.current.position.copy(camera.position).normalize().multiplyScalar(5);
+    if (ref.current.position.y < 2.5) ref.current.position.y = 2.5;
   });
-  return out;
+  if (!(intensity > 0.001)) return null;
+  return <directionalLight ref={ref} color="#fff3e2" intensity={intensity} />;
 }
-function ReflectiveSurfaces({ scene, shadows }) {
-  const items = useMemo(() => findReflectorMeshes(scene), [scene]);
-  /* MeshReflectorMaterial toma como normal del espejo el +Z local; el piso
-     viene acostado (normal +Y), así que se gira la geometría y se compensa. */
-  const geos = useMemo(() => items.map(({ mesh }) => mesh.geometry.clone().rotateX(Math.PI / 2)), [items]);
-  const refs = useRef([]);
-  const rot = useMemo(() => new THREE.Matrix4().makeRotationX(-Math.PI / 2), []);
-  const inv = useMemo(() => new THREE.Matrix4(), []);
-  useEffect(() => {
-    items.forEach(({ mesh, mat }) => { mat.visible = false; mesh.castShadow = false; });
-    return () => items.forEach(({ mat }) => { mat.visible = true; });
-  }, [items]);
-  /* El espejo NO va dentro del modelo (un portal de R3F le cambiaría la
-     "escena" que ve y solo se reflejaría a sí mismo): va en el árbol
-     normal y copia cada frame la posición/escala/visibilidad del piso
-     original. Prioridad -1 = corre antes de que el espejo calcule el reflejo. */
-  useFrame(() => {
-    items.forEach(({ mesh }, i) => {
-      const r = refs.current[i];
-      if (!r) return;
-      mesh.updateWorldMatrix(true, false);
-      r.matrixWorld.multiplyMatrices(mesh.matrixWorld, rot);
-      if (r.parent) { r.parent.updateWorldMatrix(true, false); inv.copy(r.parent.matrixWorld).invert(); r.matrix.multiplyMatrices(inv, r.matrixWorld); }
-      else r.matrix.copy(r.matrixWorld);
-      let v = true; for (let o = mesh; o; o = o.parent) if (!o.visible) { v = false; break; }
-      r.visible = v;
+/* ---- Entorno de estudio (reflejos para metales y vidrio) ----
+   Los materiales metálicos (metalness alto) no tienen "color" propio: solo muestran lo que reflejan.
+   Sin entorno reflejan negro salvo cuando una luz les pega justo de frente. Acá se arma un estudio
+   procedural (paredes oscuras + softboxes) y se pasa por PMREM; se aplica a los materiales de los
+   objetos .glb SIN tocar scene.background (el fondo violeta queda igual). Sin descargas de HDRI. */
+function buildStudioEnvTexture(gl) {
+  const env = new THREE.Scene();
+  const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
+  // +x, -x, +y, -y, +z, -z
+  const room = new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#3a3150", 0.5), wall("#3a3150", 0.5), wall("#2a2236", 0.4), wall("#241a30", 0.35), wall("#3d3550", 0.45), wall("#3d3550", 0.45)]);
+  env.add(room);
+  const panel = (w, h, hex, k, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
+  };
+  // Softboxes chicas y brillantes: dan reflejos nítidos al metal sin "inundar" de luz difusa a los materiales mates
+  panel(9, 9, "#fff1dc", 7, 0, 19, 0);          // arriba (cálido)
+  panel(2.6, 20, "#ffffff", 10, -17, 3, 9);     // tira alta adelante-izquierda: dibuja el brillo largo en bordes y placas
+  panel(2.6, 20, "#ffe6c8", 7, 17, 3, 9);       // tira alta adelante-derecha (cálida)
+  panel(3.5, 18, "#ff5fd2", 8, 18, 2, -8);      // acento fucsia atrás-derecha (rim)
+  panel(3.5, 18, "#8db8ff", 4, -18, 2, -8);     // relleno frío atrás-izquierda
+  panel(22, 10, "#ffeedd", 4.5, 0, 3, 19);      // relleno suave detrás de cámara (es lo que ve una placa dorada de frente)
+  const pm = new THREE.PMREMGenerator(gl);
+  const rt = pm.fromScene(env, 0.05);
+  pm.dispose();
+  env.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); } });
+  return rt.texture;
+}
+const __studioEnvCache = new WeakMap();
+function getStudioEnv(gl) {
+  let t = __studioEnvCache.get(gl);
+  if (!t) { t = buildStudioEnvTexture(gl); __studioEnvCache.set(gl, t); }
+  return t;
+}
+function useStudioEnv() {
+  const gl = useThree((s) => s.gl);
+  const rig = React.useContext(EnvSettingsCtx).rig;
+  return useMemo(() => {
+    try { return rig === "studio" ? getStudioEnvV2(gl) : getStudioEnv(gl); }
+    catch (e) { console.warn("No se pudo crear el entorno de reflejos:", e && e.message); return null; }
+  }, [gl, rig]);
+}
+/* Aplica (o saca) el entorno a los materiales PBR de un modelo. Si el material del .glb ya trae su propio envMap, lo respeta. */
+function applyStudioEnv(root, tex, enabled, intensity) {
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !m.isMeshStandardMaterial) return;
+      if (!m.userData.__env0) m.userData.__env0 = { map: m.envMap, i: m.envMapIntensity };
+      const o = m.userData.__env0;
+      const nextMap = enabled && tex ? (o.map || tex) : o.map;
+      if (m.envMap !== nextMap) { m.envMap = nextMap; m.needsUpdate = true; }
+      m.envMapIntensity = enabled && tex && !o.map ? intensity : o.i;
     });
-  }, -1);
-  return items.map(({ mesh, mat, cfg }, i) => (
-    <mesh
-      key={i}
-      ref={(el) => { refs.current[i] = el; }}
-      geometry={geos[i]}
-      matrixAutoUpdate={false}
-      frustumCulled={false}
-      receiveShadow={shadows !== false}
-      userData={{ isReflector: true, excludeFromReflection: true }}
-    >
-      <MeshReflectorMaterial
-        color={mat.color}
-        map={mat.map || null}
-        vertexColors={!!mesh.geometry.attributes.color}
-        roughness={cfg.roughness}
-        metalness={cfg.metalness}
-        mirror={cfg.mirror}
-        mixStrength={cfg.mixStrength}
-        mixBlur={cfg.mixBlur}
-        mixContrast={cfg.mixContrast}
-        blur={cfg.blur}
-        resolution={cfg.resolution}
-        depthScale={cfg.depthScale}
-        minDepthThreshold={cfg.minDepthThreshold}
-        maxDepthThreshold={cfg.maxDepthThreshold}
-      />
-    </mesh>
-  ));
+  });
 }
+/* ---- Rig "Estudio producto" ----
+   Entorno v2: cuarto casi negro + softboxes altas y finas. Lo que da el look de producto
+   no es "más luz" sino brillos largos y nítidos en cantos y metales sobre un fondo oscuro.
+   Se usa cuando postFx.lightRig === "studio" (el rig clásico queda igual que antes). */
+function buildStudioEnvTextureV2(gl) {
+  const env = new THREE.Scene();
+  const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
+  // +x, -x, +y, -y, +z, -z
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#140a1c", 1), wall("#140a1c", 1), wall("#1a0f22", 1), wall("#2a0f3d", 0.9), wall("#140a1c", 1), wall("#140a1c", 1)]));
+  const panel = (w, h, hex, k, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
+  };
+  panel(18, 18, "#fff0e0", 1.2, 0, 19, 0);      // techo cálido
+  panel(3.4, 30, "#ffffff", 5, -15, 4, 9);      // tira alta adelante-izquierda: brillo largo en cantos
+  panel(3.4, 30, "#ffd9b0", 3.5, 15, 4, 9);     // tira alta adelante-derecha (cálida)
+  panel(6, 26, "#ff3fbf", 4, 12, 5, -15);       // acento fucsia atrás
+    panel(40, 40, "#5a1a8a", 0.6, 0, -19.5, 0);   // rebote violeta del piso
+  const pm = new THREE.PMREMGenerator(gl);
+  const rt = pm.fromScene(env, 0.02);
+  pm.dispose();
+  env.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); } });
+  return rt.texture;
+}
+const __studioEnvV2Cache = new WeakMap();
+function getStudioEnvV2(gl) {
+  let t = __studioEnvV2Cache.get(gl);
+  if (!t) { t = buildStudioEnvTextureV2(gl); __studioEnvV2Cache.set(gl, t); }
+  return t;
+}
+/* Luces del rig Estudio: un spot (key) con sombra suave + un rim de color atrás.
+   Sigue la dirección/color/intensidad de la luz de cada pose (Escena → Luz). */
+const STUDIO_KEY = 70;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
+const STUDIO_RIM = 50;
+const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
+function StudioRigLights({ getLight, getLookAt, exposure }) {
+  const spot = useRef(null);
+  const rim = useRef(null);
+  const { scene } = useThree();
+  const tgt = useMemo(() => new THREE.Object3D(), []);
+  const pos = useRef(null);
+  const tmp = useMemo(() => new THREE.Vector3(), []);
+  useEffect(() => { scene.add(tgt); return () => { scene.remove(tgt); }; }, [scene, tgt]);
+  useFrame((_, delta) => {
+    const L = getLight() || {};
+    const la = getLookAt() || [0, 0.5, 0];
+    const e = exposure == null ? 1 : exposure;
+    tgt.position.set(la[0], la[1], la[2]);
+    const p = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, 9);
+    tmp.set(la[0] + p[0], la[1] + p[1], la[2] + p[2]);
+    if (!pos.current) pos.current = tmp.clone(); else pos.current.lerp(tmp, 1 - Math.exp(-5 * delta));
+    if (spot.current) {
+      spot.current.position.copy(pos.current);
+      spot.current.target = tgt;
+      spot.current.color.set(L.color || "#ffffff");
+      spot.current.intensity = rigDamp(spot.current.intensity, (L.intensity ?? 0.7) * STUDIO_KEY * e, 4, delta);
+    }
+    if (rim.current) {
+      const q = lightDirFromAngles((L.azimuth ?? 45) + 160, 25, 7);
+      rim.current.position.set(la[0] + q[0], la[1] + q[1], la[2] + q[2]);
+      rim.current.color.set(L.rimColor || "#ff9ad8");
+      rim.current.intensity = rigDamp(rim.current.intensity, (L.rimIntensity ?? 1.4) * STUDIO_RIM * e, 4, delta);
+    }
+  });
+  return (
+    <>
+      <spotLight ref={spot} angle={0.55} penumbra={0.85} decay={2} intensity={0} castShadow
+        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
+      <pointLight ref={rim} decay={2} intensity={0} />
+      <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
+    </>
+  );
+}
+/* ---- Piso reflectante ----
+   Si un material del .glb trae extras.reflector (Blender → Custom Properties del material),
+   esa malla se reemplaza por un MeshReflectorMaterial con esos parámetros.
+   OJO: MeshReflectorMaterial toma como normal del plano el +Z LOCAL de su malla (pensado para
+   un planeGeometry rotado -90° en X). Un piso exportado de Blender ya viene acostado (normal +Y),
+   así que la geometría se gira +90° y la malla -90°: si no, refleja contra una pared vertical. */
+function ReflectorFloor({ mesh, strength, mobile, contact, contactOpacity }) {
+  const r = (mesh.material && mesh.material.userData && mesh.material.userData.reflector) || {};
+  const geo = useMemo(() => mesh.geometry.clone().rotateX(Math.PI / 2), [mesh]);
+  const box = useMemo(() => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone(); }, [mesh]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  const m0 = mesh.material;
+  // El piso también toma el entorno de reflejos: sin él, MeshReflectorMaterial multiplica el reflejo
+  // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
+  const envTex = useStudioEnv();
+  const envCfg = React.useContext(EnvSettingsCtx);
+  const res = Math.min(r.resolution || 1024, mobile ? 512 : 1024);
+  const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
+  const size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 10;
+  return (
+    <group position={mesh.position} quaternion={mesh.quaternion} scale={mesh.scale}>
+      <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
+        <MeshReflectorMaterial
+          color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
+          blur={r.blur || [300, 80]} resolution={res}
+          mixBlur={r.mixBlur ?? 0.6} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
+          mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
+          depthScale={r.depthScale ?? 0} minDepthThreshold={0.4} maxDepthThreshold={1.4}
+          envMap={envCfg.enabled ? envTex : null} envMapIntensity={envCfg.intensity}
+        />
+      </mesh>
+      {contact && (
+        <ContactShadows position={[cx, box.max.y + 0.005, cz]} scale={size} far={2.5} blur={2.4}
+          opacity={contactOpacity} resolution={mobile ? 512 : 1024} color="#12001a" />
+      )}
+    </group>
+  );
+}
+function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity }) {
+  // createPortal le da a sus hijos un "scene" propio (el contenedor). El reflejo y la sombra de contacto
+  // necesitan dibujar la escena COMPLETA, así que se les pasa la escena raíz.
+  const rootScene = useThree((st) => st.scene);
+  const portalState = useMemo(() => ({ scene: rootScene }), [rootScene]);
+  const floors = useMemo(() => {
+    const out = [];
+    scene.traverse((o) => {
+      const m = o.isMesh && !Array.isArray(o.material) ? o.material : null;
+      if (m && m.userData && m.userData.reflector && o.parent) out.push(o);
+    });
+    return out;
+  }, [scene]);
+  useEffect(() => {
+    floors.forEach((m) => { m.visible = !enabled; });
+    return () => floors.forEach((m) => { m.visible = true; });
+  }, [floors, enabled]);
+  if (!enabled || !floors.length) return null;
+  return (
+    <>
+      {floors.map((m) => (
+        <React.Fragment key={m.uuid}>
+          {createPortal(<ReflectorFloor mesh={m} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} />, m.parent, portalState)}
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
+/* Vidrio sobre la pantalla: los materiales cuyo nombre (o el de su malla) coincide con "match" reciben una capa
+   transparente brillante (clearcoat) que refleja el entorno. Se pasa a MeshPhysicalMaterial una sola vez. */
+const SCREEN_GLASS_DEFAULT = "pantalla|screen|display|foto|photo|vidrio|glass";
+function applyScreenGlass(root, amount, match, onSwap) {
+  let re;
+  try { re = new RegExp((match && String(match).trim()) || SCREEN_GLASS_DEFAULT, "i"); } catch (e) { re = new RegExp(SCREEN_GLASS_DEFAULT, "i"); }
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    const isArr = Array.isArray(child.material);
+    const mats = isArr ? child.material : [child.material];
+    const next = mats.map((m) => {
+      if (!m || !m.isMeshStandardMaterial) return m;
+      if (!re.test((m.name || "") + " " + (child.name || ""))) return m;
+      let p = m;
+      if (!m.isMeshPhysicalMaterial) {
+        if (amount <= 0) return m;
+        p = new THREE.MeshPhysicalMaterial();
+        const ud0 = m.userData; m.userData = {};   // (Material.copy clona userData con JSON: con texturas adentro sería lentísimo)
+        THREE.MeshStandardMaterial.prototype.copy.call(p, m);
+        m.userData = ud0;
+        p.defines = { STANDARD: "", PHYSICAL: "" };
+        p.userData = { __wasBlend: m.userData.__wasBlend, _glow0: m.userData._glow0, __env0: m.userData.__env0 };
+        p.name = m.name;
+        m.dispose();
+        if (onSwap) onSwap(p);
+      }
+      p.clearcoat = Math.max(0, amount);
+      p.clearcoatRoughness = 0.035;
+      return p;
+    });
+    if (next.some((m, i) => m !== mats[i])) child.material = isArr ? next : next[0];
+  });
+}
+const EnvSettingsCtx = React.createContext({ enabled: ENV_ENABLED, intensity: ENV_INTENSITY * EXPOSURE * (1 + 0.35 * NATURAL_LIGHT), rig: LIGHT_RIG });
 function applyGlow(scene, glow) {
   scene.traverse((child) => {
     if (!child.isMesh) return;
@@ -2576,7 +2643,7 @@ function SceneObjectModel({ data }) {
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false);
   useEffect(() => {
     scene.traverse((child) => {
-      if (child.isMesh && !(child.userData && child.userData.isReflector)) {
+      if (child.isMesh) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
         // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
@@ -2589,11 +2656,18 @@ function SceneObjectModel({ data }) {
       }
     });
   }, [scene, hasFade, fade, data.shadows]);
-  useEffect(() => { applyGlow(scene, data.glow || 0); }, [scene, data.glow]);
+  const envTex = useStudioEnv();
+  const envCfg = React.useContext(EnvSettingsCtx);
+  useEffect(() => {
+    applyScreenGlass(scene, data.glass || 0, data.glassMatch, (p) => { if (hasFade) patchFadeMaterial(p, fade); });
+    applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
+    applyGlow(scene, data.glow || 0);   // despues del cambio de material: conserva el emisivo (neon) del .glb
+  }, [scene, envTex, envCfg.enabled, envCfg.intensity, data.glass, data.glassMatch, data.glow, hasFade, fade]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
-      <ReflectiveSurfaces scene={scene} shadows={data.shadows} />
+      <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT} strength={FLOOR_REFLECT_STRENGTH}
+        mobile={IS_MOBILE_VIEW} contact={CONTACT_SHADOW} contactOpacity={CONTACT_SHADOW_OPACITY} />
     </group>
   );
 }
@@ -2693,7 +2767,15 @@ OBJECTS.forEach((obj) => {
   else useGLTF.preload(obj.url);
 });
 
+const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
 function Lighting() {
+  return LIGHT_RIG === "studio" ? <StudioLighting /> : <ClassicLighting />;
+}
+function StudioLighting() {
+  const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} exposure={EXPOSURE} />;
+}
+function ClassicLighting() {
   const keyRef = useRef(null);
   const rimRef = useRef(null);
   const dampedPos = useRef(new THREE.Vector3(...lightDirFromAngles(45, 35, 6)));
@@ -2703,9 +2785,10 @@ function Lighting() {
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
+    const LL = lookLight(state.light, NATURAL_LIGHT, EXPOSURE);
     if (keyRef.current) {
       keyRef.current.color.set(state.light.color);
-      keyRef.current.intensity = damp(keyRef.current.intensity, state.light.intensity, 4, delta);
+      keyRef.current.intensity = damp(keyRef.current.intensity, LL.key, 4, delta);
       const target = lightDirFromAngles(state.light.azimuth, state.light.elevation, 6);
       dampedPos.current.x = damp(dampedPos.current.x, target[0], 5, delta);
       dampedPos.current.y = damp(dampedPos.current.y, target[1], 5, delta);
@@ -2714,11 +2797,10 @@ function Lighting() {
     }
     if (rimRef.current) {
       rimRef.current.color.set(state.light.rimColor);
-      rimRef.current.intensity = damp(rimRef.current.intensity, state.light.rimIntensity, 4, delta);
+      rimRef.current.intensity = damp(rimRef.current.intensity, LL.rim, 4, delta);
     }
-    const amb = state.light.ambient ?? 0.28;
-    if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, amb, 4, delta);
-    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, amb * 1.25, 4, delta);
+    if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, LL.amb, 4, delta);
+    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, LL.hemi, 4, delta);
   });
 
   return (
@@ -2741,6 +2823,7 @@ function Lighting() {
       />
       <directionalLight position={[-3, 2, -2]} intensity={0.5} />
       <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
+      <NaturalFill intensity={NATURAL_LIGHT * 0.85 * EXPOSURE} />
     </>
   );
 }
@@ -2811,11 +2894,13 @@ function Experience({ device }) {
         getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
       />
   
-      {BLOOM_ENABLED && (
-        <EffectComposer multisampling={0}>
-          <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />
-        </EffectComposer>
-      )}
+      {/* Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
+          a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
+      <EffectComposer multisampling={device.isMobile ? 2 : 4}>
+        {AO_ENABLED && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes={!!device.isMobile} quality={device.isMobile ? "medium" : "high"} />}
+        {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      </EffectComposer>
     </>
   );
 }
