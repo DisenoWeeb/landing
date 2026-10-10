@@ -349,7 +349,7 @@ import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
-import { Canvas, useFrame, useThree, createPortal } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
@@ -559,13 +559,13 @@ const OBJECTS = [
     shadows: true,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.151, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.298, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.365, easing: "smooth", position: [0, -1.32, 0], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.432, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.505, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.588, easing: "smooth", position: [0, -30.8, 0], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.151, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.298, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.365, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.432, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.505, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
+      { progress: 0.588, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: true, fadeDir: "fade" },
       { progress: 0.671, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
       { progress: 0.927, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
       { progress: 1, easing: "smooth", position: [0, 0, -6.96], scale: 5.64, rotationY: 0, hidden: false, fadeDir: "fade" },
@@ -603,7 +603,7 @@ const OBJECTS = [
     scrollFrom: 0,
     scrollTo: 1,
     loop: true,
-    glow: 0.45,
+    glow: 0.4,
     glass: 0,
     glassMatch: "",
     shadows: true,
@@ -736,7 +736,7 @@ const scenes = [
     progress: 0.927,
     easing: "smooth",
     camera: { position: [6.954, 4.599, 39.84], lookAt: [0, 5.34, -5.56], fov: 30, roll: 0 },
-    light: { color: "#eae7c8", intensity: 2.6, azimuth: 124, elevation: 47, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.73 },
+    light: { color: "#eae7c8", intensity: 2.6, azimuth: 29, elevation: 90, rimColor: "#f1b1f1", rimIntensity: 1.55, ambient: 0.73 },
     fog: { enabled: true, color: "#22032b", far: 56.5 },
     background: { from: "#010a1e", to: "#010409", angle: 90, alpha: 1, mid: "#300a43", midPos: 50 },
   },
@@ -902,10 +902,10 @@ const SCROLL_LENGTH_VH = 2050;
 
 /*@GEN:POSTFX_START*/
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.54;
-const VIGNETTE_OFFSET = 0.68;
+const VIGNETTE_DARKNESS = 0.72;
+const VIGNETTE_OFFSET = 0.5;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.13;
+const BLOOM_INTENSITY = 0.45;
 const BEAM_ENABLED = false;
 const BEAM_OPACITY = 0.26;
 const BEAM_WIDTH = 5.2;
@@ -913,7 +913,7 @@ const BEAM_HEIGHT = 40;
 const BEAM_SOFT = 0.78;
 const BEAM_GLOW = 0.5;
 const BEAM_TARGET = [0.1, 2.7, -1.5];
-const PART_ENABLED = true;
+const PART_ENABLED = false;
 const PART_COUNT = 2190;
 const PART_SIZE = 0.3;
 const PART_OPACITY = 0.02;
@@ -2484,7 +2484,7 @@ function getStudioEnvV2(gl) {
 const STUDIO_KEY = 70;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
 const STUDIO_RIM = 50;
 const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
-function StudioRigLights({ getLight, getLookAt, exposure }) {
+function StudioRigLights({ getLight, getLookAt, getCamPos, exposure }) {
   const spot = useRef(null);
   const rim = useRef(null);
   const { scene } = useThree();
@@ -2495,32 +2495,53 @@ function StudioRigLights({ getLight, getLookAt, exposure }) {
   useFrame((_, delta) => {
     const L = getLight() || {};
     const la = getLookAt() || [0, 0.5, 0];
+    const cp = (getCamPos && getCamPos()) || [0, 0, 9];
     const e = exposure == null ? 1 : exposure;
+    // La escala de cada proyecto cambia mucho (un objeto de 3 u o uno de 15 u). La luz se ubica a una
+    // distancia proporcional a la de la cámara y la intensidad se compensa (1/d²), así ilumina igual.
+    const camDist = Math.hypot(cp[0] - la[0], cp[1] - la[1], cp[2] - la[2]);
+    const d = Math.min(300, Math.max(9, camDist * 0.8));
+    const k = (d / 9) * (d / 9);
     tgt.position.set(la[0], la[1], la[2]);
-    const p = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, 9);
+    const p = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, d);
     tmp.set(la[0] + p[0], la[1] + p[1], la[2] + p[2]);
     if (!pos.current) pos.current = tmp.clone(); else pos.current.lerp(tmp, 1 - Math.exp(-5 * delta));
     if (spot.current) {
       spot.current.position.copy(pos.current);
       spot.current.target = tgt;
       spot.current.color.set(L.color || "#ffffff");
-      spot.current.intensity = rigDamp(spot.current.intensity, (L.intensity ?? 0.7) * STUDIO_KEY * e, 4, delta);
+      spot.current.intensity = rigDamp(spot.current.intensity, (L.intensity ?? 0.7) * STUDIO_KEY * e * k, 4, delta);
+      spot.current.shadow.normalBias = 0.02 * (d / 9);
     }
     if (rim.current) {
-      const q = lightDirFromAngles((L.azimuth ?? 45) + 160, 25, 7);
+      const q = lightDirFromAngles((L.azimuth ?? 45) + 160, 25, d * 0.78);
       rim.current.position.set(la[0] + q[0], la[1] + q[1], la[2] + q[2]);
       rim.current.color.set(L.rimColor || "#ff9ad8");
-      rim.current.intensity = rigDamp(rim.current.intensity, (L.rimIntensity ?? 1.4) * STUDIO_RIM * e, 4, delta);
+      rim.current.intensity = rigDamp(rim.current.intensity, (L.rimIntensity ?? 1.4) * STUDIO_RIM * e * k, 4, delta);
     }
   });
   return (
     <>
-      <spotLight ref={spot} angle={0.55} penumbra={0.85} decay={2} intensity={0} castShadow
+      <spotLight ref={spot} angle={0.6} penumbra={0.85} decay={2} intensity={0} castShadow
         shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
       <pointLight ref={rim} decay={2} intensity={0} />
       <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
     </>
   );
+}
+/* ContactShadows dibuja en su propio buffer sin limpiarlo antes: confía en que el renderer tenga
+   autoClear=true. Con EffectComposer activo autoClear queda en false y las sombras se acumulan
+   ("quedan dibujadas" en el piso). Estos dos componentes rodean a ContactShadows: R3F ejecuta los
+   useFrame en el orden en que se montan, así que lo prenden justo antes y lo restauran justo después. */
+function AutoClearOn() {
+  const gl = useThree((st) => st.gl);
+  useFrame(() => { gl.__acPrev = gl.autoClear; gl.autoClear = true; });
+  return null;
+}
+function AutoClearRestore() {
+  const gl = useThree((st) => st.gl);
+  useFrame(() => { if (gl.__acPrev !== undefined) gl.autoClear = gl.__acPrev; });
+  return null;
 }
 /* ---- Piso reflectante ----
    Si un material del .glb trae extras.reflector (Blender → Custom Properties del material),
@@ -2528,10 +2549,22 @@ function StudioRigLights({ getLight, getLookAt, exposure }) {
    OJO: MeshReflectorMaterial toma como normal del plano el +Z LOCAL de su malla (pensado para
    un planeGeometry rotado -90° en X). Un piso exportado de Blender ya viene acostado (normal +Y),
    así que la geometría se gira +90° y la malla -90°: si no, refleja contra una pared vertical. */
-function ReflectorFloor({ mesh, strength, mobile, contact, contactOpacity }) {
+/* Matriz del piso relativa a la raíz del .glb (el piso se dibuja como hermano del modelo dentro del
+   mismo grupo del objeto: así hereda posición, escala y giro que le pongas en la herramienta). */
+function relativeMatrix(obj, root) {
+  const m = new THREE.Matrix4();
+  for (let o = obj; o && o !== root; o = o.parent) { o.updateMatrix(); m.premultiply(o.matrix); }
+  return m;
+}
+function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity }) {
   const r = (mesh.material && mesh.material.userData && mesh.material.userData.reflector) || {};
   const geo = useMemo(() => mesh.geometry.clone().rotateX(Math.PI / 2), [mesh]);
   const box = useMemo(() => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone(); }, [mesh]);
+  const xf = useMemo(() => {
+    const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+    relativeMatrix(mesh, root).decompose(p, q, sc);
+    return { p, q, sc };
+  }, [mesh, root]);
   useEffect(() => () => geo.dispose(), [geo]);
   const m0 = mesh.material;
   // El piso también toma el entorno de reflejos: sin él, MeshReflectorMaterial multiplica el reflejo
@@ -2542,7 +2575,7 @@ function ReflectorFloor({ mesh, strength, mobile, contact, contactOpacity }) {
   const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
   const size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 10;
   return (
-    <group position={mesh.position} quaternion={mesh.quaternion} scale={mesh.scale}>
+    <group position={xf.p} quaternion={xf.q} scale={xf.sc}>
       <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
         <MeshReflectorMaterial
           color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
@@ -2553,23 +2586,22 @@ function ReflectorFloor({ mesh, strength, mobile, contact, contactOpacity }) {
           envMap={envCfg.enabled ? envTex : null} envMapIntensity={envCfg.intensity}
         />
       </mesh>
+      {contact && <AutoClearOn />}
       {contact && (
         <ContactShadows position={[cx, box.max.y + 0.005, cz]} scale={size} far={2.5} blur={2.4}
           opacity={contactOpacity} resolution={mobile ? 512 : 1024} color="#12001a" />
       )}
+      {contact && <AutoClearRestore />}
     </group>
   );
 }
+/* Va DENTRO del mismo grupo que tiene la posición/escala/giro del objeto, como hermano del <primitive>. */
 function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity }) {
-  // createPortal le da a sus hijos un "scene" propio (el contenedor). El reflejo y la sombra de contacto
-  // necesitan dibujar la escena COMPLETA, así que se les pasa la escena raíz.
-  const rootScene = useThree((st) => st.scene);
-  const portalState = useMemo(() => ({ scene: rootScene }), [rootScene]);
   const floors = useMemo(() => {
     const out = [];
     scene.traverse((o) => {
       const m = o.isMesh && !Array.isArray(o.material) ? o.material : null;
-      if (m && m.userData && m.userData.reflector && o.parent) out.push(o);
+      if (m && m.userData && m.userData.reflector) out.push(o);
     });
     return out;
   }, [scene]);
@@ -2581,9 +2613,7 @@ function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpa
   return (
     <>
       {floors.map((m) => (
-        <React.Fragment key={m.uuid}>
-          {createPortal(<ReflectorFloor mesh={m} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} />, m.parent, portalState)}
-        </React.Fragment>
+        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} />
       ))}
     </>
   );
@@ -2773,7 +2803,7 @@ function Lighting() {
 }
 function StudioLighting() {
   const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
-  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} exposure={EXPOSURE} />;
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} />;
 }
 function ClassicLighting() {
   const keyRef = useRef(null);
