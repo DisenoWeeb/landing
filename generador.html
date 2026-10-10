@@ -81,6 +81,26 @@
   .stage-row { display:flex; align-items:center; gap:4px; }
   .chips { flex:1; display:flex; gap:3px; overflow-x:auto; scrollbar-width:none; padding:1px; }
   .chips::-webkit-scrollbar { display:none; }
+  .stage-cur { min-width:74px; padding:0 8px; }
+  .stage-track { position:relative; flex:1; height:26px; background:var(--bg2); border:1px solid var(--line2); border-radius:5px; margin:0 3px; }
+  .stage-track i { position:absolute; top:4px; width:6px; height:16px; margin-left:-3px; border-radius:2px; background:var(--tx2); cursor:pointer; opacity:.7; }
+  .stage-track i:hover { opacity:1; background:var(--tx); }
+  .stage-track i.on { background:var(--acc); opacity:1; top:2px; height:20px; width:8px; margin-left:-4px; }
+  .stagelist { border:1px solid var(--line2); border-radius:8px; background:var(--bg2); display:flex; flex-direction:column; gap:4px; padding:6px; }
+  .stagelist input { width:100%; box-sizing:border-box; }
+  .stagelist-body { max-height:230px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+  .srow { display:flex; align-items:center; gap:7px; padding:3px 4px 3px 6px; border-radius:5px; cursor:pointer; border:1px solid transparent; font-size:11.5px; }
+  .srow:hover { border-color:var(--line2); }
+  .srow.on { background:color-mix(in srgb, var(--acc) 16%, var(--bg2)); border-color:var(--acc); }
+  .srow .sn { flex:none; width:22px; color:var(--tx2); font:600 10.5px ui-monospace, Menlo, monospace; text-align:right; }
+  .srow .sname { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .srow .sp { flex:none; color:var(--tx2); font:10.5px ui-monospace, Menlo, monospace; }
+  .lookgrid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .lookcard { text-align:left; padding:8px 9px; border-radius:8px; cursor:pointer; background:var(--bg2); border:1px solid var(--line2); color:var(--tx); display:flex; flex-direction:column; gap:3px; font:inherit; }
+  .lookcard:hover { border-color:var(--acc); }
+  .lookcard.on { border-color:var(--acc); background:color-mix(in srgb, var(--acc) 14%, var(--bg2)); }
+  .lookcard b { font-size:11.5px; }
+  .lookcard span { font-size:10px; color:var(--tx2); line-height:1.3; }
   .chip { flex:none; min-width:26px; height:26px; padding:0 6px; border-radius:5px; cursor:pointer; background:var(--bg2); border:1px solid var(--line2); color:var(--tx2); font:600 11px ui-monospace, Menlo, monospace; }
   .chip:hover { color:var(--tx); }
   .chip.on { background:var(--acc); color:#04212b; border-color:var(--acc); }
@@ -541,8 +561,8 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Stars, useTexture, Billboard, useProgress } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
+import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows } from "@react-three/drei";
+import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
 /* ============================================================
@@ -836,6 +856,15 @@ const VIGNETTE_DARKNESS = 0.5;
 const VIGNETTE_OFFSET = 0.15;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.5;
+const LIGHT_RIG = "classic";
+const BLOOM_THRESHOLD = 0.25;
+const FLOOR_REFLECT = true;
+const FLOOR_REFLECT_STRENGTH = 0.5;
+const CONTACT_SHADOW = false;
+const CONTACT_SHADOW_OPACITY = 0.75;
+const AO_ENABLED = false;
+const AO_INTENSITY = 2;
+const AO_RADIUS = 0.35;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -2243,6 +2272,31 @@ function SceneObjectText({ data }) {
   );
 }
 
+/* ---- Look: "Luz natural" y "Exposición" (globales) ----
+   Se mezclan con la luz de cada pose SIN tocar los valores de las poses: la composición manual queda intacta
+   y subir la luz natural solo rellena las sombras para que la imagen no quede oscura (web y MP4). */
+function lookLight(light, natural, exposure) {
+  const n = natural || 0, e = exposure == null ? 1 : exposure;
+  const amb0 = light.ambient == null ? 0.28 : light.ambient;
+  return {
+    amb: (amb0 + n * 0.42) * e,
+    hemi: (amb0 * 1.25 + n * 0.75) * e,
+    key: light.intensity * e,
+    rim: light.rimIntensity * e,
+    fill: n * 0.85 * e,
+  };
+}
+/* Relleno suave y cálido que acompaña a la cámara (siempre desde arriba): ilumina las caras que miran al espectador. */
+function NaturalFill({ intensity }) {
+  const ref = useRef(null);
+  useFrame(({ camera }) => {
+    if (!ref.current) return;
+    ref.current.position.copy(camera.position).normalize().multiplyScalar(5);
+    if (ref.current.position.y < 2.5) ref.current.position.y = 2.5;
+  });
+  if (!(intensity > 0.001)) return null;
+  return <directionalLight ref={ref} color="#fff3e2" intensity={intensity} />;
+}
 /* ---- Entorno de estudio (reflejos para metales y vidrio) ----
    Los materiales metálicos (metalness alto) no tienen "color" propio: solo muestran lo que reflejan.
    Sin entorno reflejan negro salvo cuando una luz les pega justo de frente. Acá se arma un estudio
@@ -2279,7 +2333,11 @@ function getStudioEnv(gl) {
 }
 function useStudioEnv() {
   const gl = useThree((s) => s.gl);
-  return useMemo(() => { try { return getStudioEnv(gl); } catch (e) { console.warn("No se pudo crear el entorno de reflejos:", e && e.message); return null; } }, [gl]);
+  const rig = React.useContext(EnvSettingsCtx).rig;
+  return useMemo(() => {
+    try { return rig === "studio" ? getStudioEnvV2(gl) : getStudioEnv(gl); }
+    catch (e) { console.warn("No se pudo crear el entorno de reflejos:", e && e.message); return null; }
+  }, [gl, rig]);
 }
 /* Aplica (o saca) el entorno a los materiales PBR de un modelo. Si el material del .glb ya trae su propio envMap, lo respeta. */
 function applyStudioEnv(root, tex, enabled, intensity) {
@@ -2295,6 +2353,176 @@ function applyStudioEnv(root, tex, enabled, intensity) {
     });
   });
 }
+/* ---- Rig "Estudio producto" ----
+   Entorno v2: cuarto casi negro + softboxes altas y finas. Lo que da el look de producto
+   no es "más luz" sino brillos largos y nítidos en cantos y metales sobre un fondo oscuro.
+   Se usa cuando postFx.lightRig === "studio" (el rig clásico queda igual que antes). */
+function buildStudioEnvTextureV2(gl) {
+  const env = new THREE.Scene();
+  const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
+  // +x, -x, +y, -y, +z, -z
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#140a1c", 1), wall("#140a1c", 1), wall("#1a0f22", 1), wall("#2a0f3d", 0.9), wall("#140a1c", 1), wall("#140a1c", 1)]));
+  const panel = (w, h, hex, k, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
+  };
+  panel(18, 18, "#fff0e0", 1.2, 0, 19, 0);      // techo cálido
+  panel(3.4, 30, "#ffffff", 5, -15, 4, 9);      // tira alta adelante-izquierda: brillo largo en cantos
+  panel(3.4, 30, "#ffd9b0", 3.5, 15, 4, 9);     // tira alta adelante-derecha (cálida)
+  panel(6, 26, "#ff3fbf", 4, 12, 5, -15);       // acento fucsia atrás
+    panel(40, 40, "#5a1a8a", 0.6, 0, -19.5, 0);   // rebote violeta del piso
+  const pm = new THREE.PMREMGenerator(gl);
+  const rt = pm.fromScene(env, 0.02);
+  pm.dispose();
+  env.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); } });
+  return rt.texture;
+}
+const __studioEnvV2Cache = new WeakMap();
+function getStudioEnvV2(gl) {
+  let t = __studioEnvV2Cache.get(gl);
+  if (!t) { t = buildStudioEnvTextureV2(gl); __studioEnvV2Cache.set(gl, t); }
+  return t;
+}
+/* Luces del rig Estudio: un spot (key) con sombra suave + un rim de color atrás.
+   Sigue la dirección/color/intensidad de la luz de cada pose (Escena → Luz). */
+const STUDIO_KEY = 70;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
+const STUDIO_RIM = 50;
+const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
+function StudioRigLights({ getLight, getLookAt, getCamPos, exposure }) {
+  const spot = useRef(null);
+  const rim = useRef(null);
+  const { scene } = useThree();
+  const tgt = useMemo(() => new THREE.Object3D(), []);
+  const pos = useRef(null);
+  const tmp = useMemo(() => new THREE.Vector3(), []);
+  useEffect(() => { scene.add(tgt); return () => { scene.remove(tgt); }; }, [scene, tgt]);
+  useFrame((_, delta) => {
+    const L = getLight() || {};
+    const la = getLookAt() || [0, 0.5, 0];
+    const cp = (getCamPos && getCamPos()) || [0, 0, 9];
+    const e = exposure == null ? 1 : exposure;
+    // La escala de cada proyecto cambia mucho (un objeto de 3 u o uno de 15 u). La luz se ubica a una
+    // distancia proporcional a la de la cámara y la intensidad se compensa (1/d²), así ilumina igual.
+    const camDist = Math.hypot(cp[0] - la[0], cp[1] - la[1], cp[2] - la[2]);
+    const d = Math.min(300, Math.max(9, camDist * 0.8));
+    const k = (d / 9) * (d / 9);
+    tgt.position.set(la[0], la[1], la[2]);
+    const p = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, d);
+    tmp.set(la[0] + p[0], la[1] + p[1], la[2] + p[2]);
+    if (!pos.current) pos.current = tmp.clone(); else pos.current.lerp(tmp, 1 - Math.exp(-5 * delta));
+    if (spot.current) {
+      spot.current.position.copy(pos.current);
+      spot.current.target = tgt;
+      spot.current.color.set(L.color || "#ffffff");
+      spot.current.intensity = rigDamp(spot.current.intensity, (L.intensity ?? 0.7) * STUDIO_KEY * e * k, 4, delta);
+      spot.current.shadow.normalBias = 0.02 * (d / 9);
+    }
+    if (rim.current) {
+      const q = lightDirFromAngles((L.azimuth ?? 45) + 160, 25, d * 0.78);
+      rim.current.position.set(la[0] + q[0], la[1] + q[1], la[2] + q[2]);
+      rim.current.color.set(L.rimColor || "#ff9ad8");
+      rim.current.intensity = rigDamp(rim.current.intensity, (L.rimIntensity ?? 1.4) * STUDIO_RIM * e * k, 4, delta);
+    }
+  });
+  return (
+    <>
+      <spotLight ref={spot} angle={0.6} penumbra={0.85} decay={2} intensity={0} castShadow
+        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
+      <pointLight ref={rim} decay={2} intensity={0} />
+      <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
+    </>
+  );
+}
+/* ContactShadows dibuja en su propio buffer sin limpiarlo antes: confía en que el renderer tenga
+   autoClear=true. Con EffectComposer activo autoClear queda en false y las sombras se acumulan
+   ("quedan dibujadas" en el piso). Estos dos componentes rodean a ContactShadows: R3F ejecuta los
+   useFrame en el orden en que se montan, así que lo prenden justo antes y lo restauran justo después. */
+function AutoClearOn() {
+  const gl = useThree((st) => st.gl);
+  useFrame(() => { gl.__acPrev = gl.autoClear; gl.autoClear = true; });
+  return null;
+}
+function AutoClearRestore() {
+  const gl = useThree((st) => st.gl);
+  useFrame(() => { if (gl.__acPrev !== undefined) gl.autoClear = gl.__acPrev; });
+  return null;
+}
+/* ---- Piso reflectante ----
+   Si un material del .glb trae extras.reflector (Blender → Custom Properties del material),
+   esa malla se reemplaza por un MeshReflectorMaterial con esos parámetros.
+   OJO: MeshReflectorMaterial toma como normal del plano el +Z LOCAL de su malla (pensado para
+   un planeGeometry rotado -90° en X). Un piso exportado de Blender ya viene acostado (normal +Y),
+   así que la geometría se gira +90° y la malla -90°: si no, refleja contra una pared vertical. */
+/* Matriz del piso relativa a la raíz del .glb (el piso se dibuja como hermano del modelo dentro del
+   mismo grupo del objeto: así hereda posición, escala y giro que le pongas en la herramienta). */
+function relativeMatrix(obj, root) {
+  const m = new THREE.Matrix4();
+  for (let o = obj; o && o !== root; o = o.parent) { o.updateMatrix(); m.premultiply(o.matrix); }
+  return m;
+}
+function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity }) {
+  const r = (mesh.material && mesh.material.userData && mesh.material.userData.reflector) || {};
+  const geo = useMemo(() => mesh.geometry.clone().rotateX(Math.PI / 2), [mesh]);
+  const box = useMemo(() => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone(); }, [mesh]);
+  const xf = useMemo(() => {
+    const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+    relativeMatrix(mesh, root).decompose(p, q, sc);
+    return { p, q, sc };
+  }, [mesh, root]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  const m0 = mesh.material;
+  // El piso también toma el entorno de reflejos: sin él, MeshReflectorMaterial multiplica el reflejo
+  // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
+  const envTex = useStudioEnv();
+  const envCfg = React.useContext(EnvSettingsCtx);
+  const res = Math.min(r.resolution || 1024, mobile ? 512 : 1024);
+  const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
+  const size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 10;
+  return (
+    <group position={xf.p} quaternion={xf.q} scale={xf.sc}>
+      <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
+        <MeshReflectorMaterial
+          color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
+          blur={r.blur || [300, 80]} resolution={res}
+          mixBlur={r.mixBlur ?? 0.6} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
+          mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
+          depthScale={r.depthScale ?? 0} minDepthThreshold={0.4} maxDepthThreshold={1.4}
+          envMap={envCfg.enabled ? envTex : null} envMapIntensity={envCfg.intensity}
+        />
+      </mesh>
+      {contact && <AutoClearOn />}
+      {contact && (
+        <ContactShadows position={[cx, box.max.y + 0.005, cz]} scale={size} far={2.5} blur={2.4}
+          opacity={contactOpacity} resolution={mobile ? 512 : 1024} color="#12001a" />
+      )}
+      {contact && <AutoClearRestore />}
+    </group>
+  );
+}
+/* Va DENTRO del mismo grupo que tiene la posición/escala/giro del objeto, como hermano del <primitive>. */
+function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity }) {
+  const floors = useMemo(() => {
+    const out = [];
+    scene.traverse((o) => {
+      const m = o.isMesh && !Array.isArray(o.material) ? o.material : null;
+      if (m && m.userData && m.userData.reflector) out.push(o);
+    });
+    return out;
+  }, [scene]);
+  useEffect(() => {
+    floors.forEach((m) => { m.visible = !enabled; });
+    return () => floors.forEach((m) => { m.visible = true; });
+  }, [floors, enabled]);
+  if (!enabled || !floors.length) return null;
+  return (
+    <>
+      {floors.map((m) => (
+        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} />
+      ))}
+    </>
+  );
+}
+
 /* Vidrio sobre la pantalla: los materiales cuyo nombre (o el de su malla) coincide con "match" reciben una capa
    transparente brillante (clearcoat) que refleja el entorno. Se pasa a MeshPhysicalMaterial una sola vez. */
 const SCREEN_GLASS_DEFAULT = "pantalla|screen|display|foto|photo|vidrio|glass";
@@ -2328,7 +2556,7 @@ function applyScreenGlass(root, amount, match, onSwap) {
     if (next.some((m, i) => m !== mats[i])) child.material = isArr ? next : next[0];
   });
 }
-const EnvSettingsCtx = React.createContext({ enabled: ENV_ENABLED, intensity: ENV_INTENSITY });
+const EnvSettingsCtx = React.createContext({ enabled: ENV_ENABLED, intensity: ENV_INTENSITY * EXPOSURE * (1 + 0.35 * NATURAL_LIGHT), rig: LIGHT_RIG });
 function applyGlow(scene, glow) {
   scene.traverse((child) => {
     if (!child.isMesh) return;
@@ -2372,6 +2600,8 @@ function SceneObjectModel({ data }) {
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
+      <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT} strength={FLOOR_REFLECT_STRENGTH}
+        mobile={IS_MOBILE_VIEW} contact={CONTACT_SHADOW} contactOpacity={CONTACT_SHADOW_OPACITY} />
     </group>
   );
 }
@@ -2471,7 +2701,15 @@ OBJECTS.forEach((obj) => {
   else useGLTF.preload(obj.url);
 });
 
+const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
 function Lighting() {
+  return LIGHT_RIG === "studio" ? <StudioLighting /> : <ClassicLighting />;
+}
+function StudioLighting() {
+  const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} />;
+}
+function ClassicLighting() {
   const keyRef = useRef(null);
   const rimRef = useRef(null);
   const dampedPos = useRef(new THREE.Vector3(...lightDirFromAngles(45, 35, 6)));
@@ -2481,9 +2719,10 @@ function Lighting() {
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
+    const LL = lookLight(state.light, NATURAL_LIGHT, EXPOSURE);
     if (keyRef.current) {
       keyRef.current.color.set(state.light.color);
-      keyRef.current.intensity = damp(keyRef.current.intensity, state.light.intensity, 4, delta);
+      keyRef.current.intensity = damp(keyRef.current.intensity, LL.key, 4, delta);
       const target = lightDirFromAngles(state.light.azimuth, state.light.elevation, 6);
       dampedPos.current.x = damp(dampedPos.current.x, target[0], 5, delta);
       dampedPos.current.y = damp(dampedPos.current.y, target[1], 5, delta);
@@ -2492,11 +2731,10 @@ function Lighting() {
     }
     if (rimRef.current) {
       rimRef.current.color.set(state.light.rimColor);
-      rimRef.current.intensity = damp(rimRef.current.intensity, state.light.rimIntensity, 4, delta);
+      rimRef.current.intensity = damp(rimRef.current.intensity, LL.rim, 4, delta);
     }
-    const amb = state.light.ambient ?? 0.28;
-    if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, amb, 4, delta);
-    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, amb * 1.25, 4, delta);
+    if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, LL.amb, 4, delta);
+    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, LL.hemi, 4, delta);
   });
 
   return (
@@ -2519,6 +2757,7 @@ function Lighting() {
       />
       <directionalLight position={[-3, 2, -2]} intensity={0.5} />
       <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
+      <NaturalFill intensity={NATURAL_LIGHT * 0.85 * EXPOSURE} />
     </>
   );
 }
@@ -2589,12 +2828,13 @@ function Experience({ device }) {
         getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
       />
   
-      {(BLOOM_ENABLED || TONEMAP_ENABLED) && (
-        <EffectComposer multisampling={0}>
-          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
-          {TONEMAP_ENABLED && <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />}
-        </EffectComposer>
-      )}
+      {/* Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
+          a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
+      <EffectComposer multisampling={device.isMobile ? 2 : 4}>
+        {AO_ENABLED && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes={!!device.isMobile} quality={device.isMobile ? "medium" : "high"} />}
+        {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      </EffectComposer>
     </>
   );
 }
@@ -3214,8 +3454,8 @@ import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, OrbitControls, Grid, useTexture, Billboard, Html, useProgress } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
+import { useGLTF, OrbitControls, Grid, useTexture, Billboard, Html, useProgress, MeshReflectorMaterial, ContactShadows } from "@react-three/drei";
+import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
 const DEFAULT_MODEL_URL = "";
@@ -3698,6 +3938,31 @@ function FadeGroup({ obj, fade, children }) {
   return <group ref={ref}>{children}</group>;
 }
 
+/* ---- Look: "Luz natural" y "Exposición" (globales) ----
+   Se mezclan con la luz de cada pose SIN tocar los valores de las poses: la composición manual queda intacta
+   y subir la luz natural solo rellena las sombras para que la imagen no quede oscura (web y MP4). */
+function lookLight(light, natural, exposure) {
+  const n = natural || 0, e = exposure == null ? 1 : exposure;
+  const amb0 = light.ambient == null ? 0.28 : light.ambient;
+  return {
+    amb: (amb0 + n * 0.42) * e,
+    hemi: (amb0 * 1.25 + n * 0.75) * e,
+    key: light.intensity * e,
+    rim: light.rimIntensity * e,
+    fill: n * 0.85 * e,
+  };
+}
+/* Relleno suave y cálido que acompaña a la cámara (siempre desde arriba): ilumina las caras que miran al espectador. */
+function NaturalFill({ intensity }) {
+  const ref = useRef(null);
+  useFrame(({ camera }) => {
+    if (!ref.current) return;
+    ref.current.position.copy(camera.position).normalize().multiplyScalar(5);
+    if (ref.current.position.y < 2.5) ref.current.position.y = 2.5;
+  });
+  if (!(intensity > 0.001)) return null;
+  return <directionalLight ref={ref} color="#fff3e2" intensity={intensity} />;
+}
 /* ---- Entorno de estudio (reflejos para metales y vidrio) ----
    Los materiales metálicos (metalness alto) no tienen "color" propio: solo muestran lo que reflejan.
    Sin entorno reflejan negro salvo cuando una luz les pega justo de frente. Acá se arma un estudio
@@ -3734,7 +3999,11 @@ function getStudioEnv(gl) {
 }
 function useStudioEnv() {
   const gl = useThree((s) => s.gl);
-  return useMemo(() => { try { return getStudioEnv(gl); } catch (e) { console.warn("No se pudo crear el entorno de reflejos:", e && e.message); return null; } }, [gl]);
+  const rig = React.useContext(EnvSettingsCtx).rig;
+  return useMemo(() => {
+    try { return rig === "studio" ? getStudioEnvV2(gl) : getStudioEnv(gl); }
+    catch (e) { console.warn("No se pudo crear el entorno de reflejos:", e && e.message); return null; }
+  }, [gl, rig]);
 }
 /* Aplica (o saca) el entorno a los materiales PBR de un modelo. Si el material del .glb ya trae su propio envMap, lo respeta. */
 function applyStudioEnv(root, tex, enabled, intensity) {
@@ -3750,6 +4019,176 @@ function applyStudioEnv(root, tex, enabled, intensity) {
     });
   });
 }
+/* ---- Rig "Estudio producto" ----
+   Entorno v2: cuarto casi negro + softboxes altas y finas. Lo que da el look de producto
+   no es "más luz" sino brillos largos y nítidos en cantos y metales sobre un fondo oscuro.
+   Se usa cuando postFx.lightRig === "studio" (el rig clásico queda igual que antes). */
+function buildStudioEnvTextureV2(gl) {
+  const env = new THREE.Scene();
+  const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
+  // +x, -x, +y, -y, +z, -z
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#140a1c", 1), wall("#140a1c", 1), wall("#1a0f22", 1), wall("#2a0f3d", 0.9), wall("#140a1c", 1), wall("#140a1c", 1)]));
+  const panel = (w, h, hex, k, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
+  };
+  panel(18, 18, "#fff0e0", 1.2, 0, 19, 0);      // techo cálido
+  panel(3.4, 30, "#ffffff", 5, -15, 4, 9);      // tira alta adelante-izquierda: brillo largo en cantos
+  panel(3.4, 30, "#ffd9b0", 3.5, 15, 4, 9);     // tira alta adelante-derecha (cálida)
+  panel(6, 26, "#ff3fbf", 4, 12, 5, -15);       // acento fucsia atrás
+    panel(40, 40, "#5a1a8a", 0.6, 0, -19.5, 0);   // rebote violeta del piso
+  const pm = new THREE.PMREMGenerator(gl);
+  const rt = pm.fromScene(env, 0.02);
+  pm.dispose();
+  env.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); } });
+  return rt.texture;
+}
+const __studioEnvV2Cache = new WeakMap();
+function getStudioEnvV2(gl) {
+  let t = __studioEnvV2Cache.get(gl);
+  if (!t) { t = buildStudioEnvTextureV2(gl); __studioEnvV2Cache.set(gl, t); }
+  return t;
+}
+/* Luces del rig Estudio: un spot (key) con sombra suave + un rim de color atrás.
+   Sigue la dirección/color/intensidad de la luz de cada pose (Escena → Luz). */
+const STUDIO_KEY = 70;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
+const STUDIO_RIM = 50;
+const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
+function StudioRigLights({ getLight, getLookAt, getCamPos, exposure }) {
+  const spot = useRef(null);
+  const rim = useRef(null);
+  const { scene } = useThree();
+  const tgt = useMemo(() => new THREE.Object3D(), []);
+  const pos = useRef(null);
+  const tmp = useMemo(() => new THREE.Vector3(), []);
+  useEffect(() => { scene.add(tgt); return () => { scene.remove(tgt); }; }, [scene, tgt]);
+  useFrame((_, delta) => {
+    const L = getLight() || {};
+    const la = getLookAt() || [0, 0.5, 0];
+    const cp = (getCamPos && getCamPos()) || [0, 0, 9];
+    const e = exposure == null ? 1 : exposure;
+    // La escala de cada proyecto cambia mucho (un objeto de 3 u o uno de 15 u). La luz se ubica a una
+    // distancia proporcional a la de la cámara y la intensidad se compensa (1/d²), así ilumina igual.
+    const camDist = Math.hypot(cp[0] - la[0], cp[1] - la[1], cp[2] - la[2]);
+    const d = Math.min(300, Math.max(9, camDist * 0.8));
+    const k = (d / 9) * (d / 9);
+    tgt.position.set(la[0], la[1], la[2]);
+    const p = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, d);
+    tmp.set(la[0] + p[0], la[1] + p[1], la[2] + p[2]);
+    if (!pos.current) pos.current = tmp.clone(); else pos.current.lerp(tmp, 1 - Math.exp(-5 * delta));
+    if (spot.current) {
+      spot.current.position.copy(pos.current);
+      spot.current.target = tgt;
+      spot.current.color.set(L.color || "#ffffff");
+      spot.current.intensity = rigDamp(spot.current.intensity, (L.intensity ?? 0.7) * STUDIO_KEY * e * k, 4, delta);
+      spot.current.shadow.normalBias = 0.02 * (d / 9);
+    }
+    if (rim.current) {
+      const q = lightDirFromAngles((L.azimuth ?? 45) + 160, 25, d * 0.78);
+      rim.current.position.set(la[0] + q[0], la[1] + q[1], la[2] + q[2]);
+      rim.current.color.set(L.rimColor || "#ff9ad8");
+      rim.current.intensity = rigDamp(rim.current.intensity, (L.rimIntensity ?? 1.4) * STUDIO_RIM * e * k, 4, delta);
+    }
+  });
+  return (
+    <>
+      <spotLight ref={spot} angle={0.6} penumbra={0.85} decay={2} intensity={0} castShadow
+        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
+      <pointLight ref={rim} decay={2} intensity={0} />
+      <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
+    </>
+  );
+}
+/* ContactShadows dibuja en su propio buffer sin limpiarlo antes: confía en que el renderer tenga
+   autoClear=true. Con EffectComposer activo autoClear queda en false y las sombras se acumulan
+   ("quedan dibujadas" en el piso). Estos dos componentes rodean a ContactShadows: R3F ejecuta los
+   useFrame en el orden en que se montan, así que lo prenden justo antes y lo restauran justo después. */
+function AutoClearOn() {
+  const gl = useThree((st) => st.gl);
+  useFrame(() => { gl.__acPrev = gl.autoClear; gl.autoClear = true; });
+  return null;
+}
+function AutoClearRestore() {
+  const gl = useThree((st) => st.gl);
+  useFrame(() => { if (gl.__acPrev !== undefined) gl.autoClear = gl.__acPrev; });
+  return null;
+}
+/* ---- Piso reflectante ----
+   Si un material del .glb trae extras.reflector (Blender → Custom Properties del material),
+   esa malla se reemplaza por un MeshReflectorMaterial con esos parámetros.
+   OJO: MeshReflectorMaterial toma como normal del plano el +Z LOCAL de su malla (pensado para
+   un planeGeometry rotado -90° en X). Un piso exportado de Blender ya viene acostado (normal +Y),
+   así que la geometría se gira +90° y la malla -90°: si no, refleja contra una pared vertical. */
+/* Matriz del piso relativa a la raíz del .glb (el piso se dibuja como hermano del modelo dentro del
+   mismo grupo del objeto: así hereda posición, escala y giro que le pongas en la herramienta). */
+function relativeMatrix(obj, root) {
+  const m = new THREE.Matrix4();
+  for (let o = obj; o && o !== root; o = o.parent) { o.updateMatrix(); m.premultiply(o.matrix); }
+  return m;
+}
+function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity }) {
+  const r = (mesh.material && mesh.material.userData && mesh.material.userData.reflector) || {};
+  const geo = useMemo(() => mesh.geometry.clone().rotateX(Math.PI / 2), [mesh]);
+  const box = useMemo(() => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone(); }, [mesh]);
+  const xf = useMemo(() => {
+    const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+    relativeMatrix(mesh, root).decompose(p, q, sc);
+    return { p, q, sc };
+  }, [mesh, root]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  const m0 = mesh.material;
+  // El piso también toma el entorno de reflejos: sin él, MeshReflectorMaterial multiplica el reflejo
+  // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
+  const envTex = useStudioEnv();
+  const envCfg = React.useContext(EnvSettingsCtx);
+  const res = Math.min(r.resolution || 1024, mobile ? 512 : 1024);
+  const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
+  const size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 10;
+  return (
+    <group position={xf.p} quaternion={xf.q} scale={xf.sc}>
+      <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
+        <MeshReflectorMaterial
+          color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
+          blur={r.blur || [300, 80]} resolution={res}
+          mixBlur={r.mixBlur ?? 0.6} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
+          mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
+          depthScale={r.depthScale ?? 0} minDepthThreshold={0.4} maxDepthThreshold={1.4}
+          envMap={envCfg.enabled ? envTex : null} envMapIntensity={envCfg.intensity}
+        />
+      </mesh>
+      {contact && <AutoClearOn />}
+      {contact && (
+        <ContactShadows position={[cx, box.max.y + 0.005, cz]} scale={size} far={2.5} blur={2.4}
+          opacity={contactOpacity} resolution={mobile ? 512 : 1024} color="#12001a" />
+      )}
+      {contact && <AutoClearRestore />}
+    </group>
+  );
+}
+/* Va DENTRO del mismo grupo que tiene la posición/escala/giro del objeto, como hermano del <primitive>. */
+function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity }) {
+  const floors = useMemo(() => {
+    const out = [];
+    scene.traverse((o) => {
+      const m = o.isMesh && !Array.isArray(o.material) ? o.material : null;
+      if (m && m.userData && m.userData.reflector) out.push(o);
+    });
+    return out;
+  }, [scene]);
+  useEffect(() => {
+    floors.forEach((m) => { m.visible = !enabled; });
+    return () => floors.forEach((m) => { m.visible = true; });
+  }, [floors, enabled]);
+  if (!enabled || !floors.length) return null;
+  return (
+    <>
+      {floors.map((m) => (
+        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} />
+      ))}
+    </>
+  );
+}
+
 /* Vidrio sobre la pantalla: los materiales cuyo nombre (o el de su malla) coincide con "match" reciben una capa
    transparente brillante (clearcoat) que refleja el entorno. Se pasa a MeshPhysicalMaterial una sola vez. */
 const SCREEN_GLASS_DEFAULT = "pantalla|screen|display|foto|photo|vidrio|glass";
@@ -3783,7 +4222,7 @@ function applyScreenGlass(root, amount, match, onSwap) {
     if (next.some((m, i) => m !== mats[i])) child.material = isArr ? next : next[0];
   });
 }
-const EnvSettingsCtx = React.createContext({ enabled: false, intensity: 1 });   // el editor lo provee desde Scene (postFx)
+const EnvSettingsCtx = React.createContext({ enabled: false, intensity: 1, rig: "classic", floor: { enabled: true, strength: 0.5, contact: false, contactOpacity: 0.75 } });   // el editor lo provee desde Scene (postFx)
 function applyGlow(scene, glow) {
   scene.traverse((child) => {
     if (!child.isMesh) return;
@@ -3822,13 +4261,15 @@ function ObjectPreviewModel({ obj, fade }) {
     applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
     applyGlow(scene, obj.glow || 0);
   }, [scene, envTex, envCfg.enabled, envCfg.intensity, obj.glass, obj.glassMatch, obj.glow, fade]);
+  const fl = envCfg.floor || {};
+  // La posición/escala/giro van en un grupo (no en el modelo) para que el piso reflectante, que se
+  // dibuja como hermano del modelo, los herede igual.
   return (
-    <primitive
-      object={scene}
-      scale={obj.scale}
-      position={obj.position}
-      rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}
-    />
+    <group scale={obj.scale} position={obj.position} rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}>
+      <primitive object={scene} />
+      <ReflectorFloors scene={scene} enabled={fl.enabled !== false} strength={fl.strength ?? 0.5}
+        mobile={false} contact={!!fl.contact} contactOpacity={fl.contactOpacity ?? 0.75} />
+    </group>
   );
 }
 /* Los navegadores rasterizan un SVG a un tamaño chico por defecto (a
@@ -4275,17 +4716,31 @@ function BlenderGrid() {
    forma entre pestañas, así React nunca desmonta el personaje. */
 function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection, markers, selectedObjectId, onSelectObject }) {
   const envOn = !!showFx && !(postFx && postFx.envEnabled === false);
-  const envInt = postFx && postFx.envIntensity != null ? postFx.envIntensity : 0.8;
-  const envCtx = useMemo(() => ({ enabled: envOn, intensity: envInt }), [envOn, envInt]);
+  const envInt = (postFx && postFx.envIntensity != null ? postFx.envIntensity : 0.8) * (postFx && postFx.exposure != null ? postFx.exposure : 1) * (1 + 0.35 * ((postFx && postFx.naturalLight) || 0));
+  const LL = showFx ? lookLight(fx.light, postFx && postFx.naturalLight, postFx && postFx.exposure) : null;
+  const rig = showFx && postFx && postFx.lightRig === "studio" ? "studio" : "classic";
+  const floorCfg = {
+    enabled: !(postFx && postFx.floorReflect === false),
+    strength: (postFx && postFx.floorReflectStrength) ?? 0.5,
+    contact: !!(showFx && postFx && postFx.contactShadow),
+    contactOpacity: (postFx && postFx.contactShadowOpacity) ?? 0.75,
+  };
+  const envCtx = useMemo(() => ({ enabled: envOn, intensity: envInt, rig, floor: floorCfg }),
+    [envOn, envInt, rig, floorCfg.enabled, floorCfg.strength, floorCfg.contact, floorCfg.contactOpacity]);
   return (
     <EnvSettingsCtx.Provider value={envCtx}>
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
-      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={showFx ? (fx.light.ambient ?? 0.28) * 1.25 : 0.35} />
-      <ambientLight intensity={showFx ? (fx.light.ambient ?? 0.28) : 0.28} />
+      {rig === "studio" ? (
+        <StudioRigLights getLight={() => fx.light} getLookAt={() => (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0]}
+          getCamPos={() => (cameraTarget && cameraTarget.position) || [0, 0, 9]}
+          exposure={postFx && postFx.exposure != null ? postFx.exposure : 1} />
+      ) : (<>
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={LL ? LL.hemi : 0.35} />
+      <ambientLight intensity={LL ? LL.amb : 0.28} />
       <directionalLight
         color={showFx ? fx.light.color : "#ffffff"}
         position={showFx ? lightDirFromAngles(fx.light.azimuth ?? 45, fx.light.elevation ?? 35, 6) : [3, 4, 5]}
-        intensity={showFx ? fx.light.intensity : 0.9}
+        intensity={LL ? LL.key : 0.9}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0003}
@@ -4298,7 +4753,9 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
         shadow-camera-far={20}
       />
       <directionalLight position={[-3, 2, -2]} intensity={0.4} />
-      <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={showFx ? fx.light.rimIntensity : 0} distance={12} />
+      <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={LL ? LL.rim : 0} distance={12} />
+      <NaturalFill intensity={LL ? LL.fill : 0} />
+      </>)}
       {showGrid && <BlenderGrid />}
       {showObjects &&
         objects.filter((o) => o.visible).map((o) => (
@@ -4378,10 +4835,12 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
           <LiveCameraTracker orbitRef={orbitRef} liveCameraRef={liveCameraRef} active={true} />
         </>
       )}
-      {postFx && (postFx.bloomEnabled || postFx.toneMap) && (
-        <EffectComposer multisampling={0}>
-          {postFx.bloomEnabled && <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
-          {postFx.toneMap && <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />}
+      {/* Igual que en el sitio exportado: el ToneMapping va siempre (con EffectComposer three.js no lo aplica solo). */}
+      {postFx && (
+        <EffectComposer multisampling={4}>
+          {showFx && postFx.aoEnabled && <N8AO aoRadius={postFx.aoRadius ?? 0.35} intensity={postFx.aoIntensity ?? 2} distanceFalloff={0.6} halfRes={false} quality="high" />}
+          {postFx.bloomEnabled && <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={postFx.bloomThreshold ?? 0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
       )}
     </EnvSettingsCtx.Provider>
@@ -5357,7 +5816,18 @@ const PART_RANGE = ${postFx.partRange ?? 16};
 const PART_BEAM = ${postFx.partBeam ?? 0.6};
 const ENV_ENABLED = ${postFx.envEnabled ?? true ? "true" : "false"};
 const ENV_INTENSITY = ${postFx.envIntensity ?? 0.8};
-const TONEMAP_ENABLED = ${postFx.toneMap ? "true" : "false"};`;
+const TONEMAP_ENABLED = ${postFx.toneMap ? "true" : "false"};
+const NATURAL_LIGHT = ${postFx.naturalLight ?? 0};
+const EXPOSURE = ${postFx.exposure ?? 1};
+const LIGHT_RIG = "${postFx.lightRig === "studio" ? "studio" : "classic"}";
+const BLOOM_THRESHOLD = ${postFx.bloomThreshold ?? 0.25};
+const FLOOR_REFLECT = ${postFx.floorReflect === false ? "false" : "true"};
+const FLOOR_REFLECT_STRENGTH = ${postFx.floorReflectStrength ?? 0.5};
+const CONTACT_SHADOW = ${postFx.contactShadow ? "true" : "false"};
+const CONTACT_SHADOW_OPACITY = ${postFx.contactShadowOpacity ?? 0.75};
+const AO_ENABLED = ${postFx.aoEnabled ? "true" : "false"};
+const AO_INTENSITY = ${postFx.aoIntensity ?? 2};
+const AO_RADIUS = ${postFx.aoRadius ?? 0.35};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -5506,6 +5976,8 @@ const groupOpenState = {};
 const roundTo = (v, d = 3) => { const m = Math.pow(10, d); return Math.round(v * m) / m; };
 
 const ICONS = {
+  list: <path d="M5 7h14M5 12h14M5 17h14" />,
+  look: <><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /><path d="M18 16l.8 2.2L21 19l-2.2.8L18 22l-.8-2.2L15 19l2.2-.8z" /></>,
   cfg: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
   pose: <><circle cx="12" cy="5" r="2" /><path d="M12 7v6M7 10l5-1 5 1M12 13l-4 7M12 13l4 7" /></>,
   cam: <><rect x="3" y="7" width="13" height="10" rx="2" /><path d="M16 11l5-3v8l-5-3z" /></>,
@@ -5834,6 +6306,30 @@ function Btn({ icon, kind, children, ...rest }) {
 function IBtn({ icon, kind, ...rest }) {
   return <button className={`ibtn ${kind || ""}`} {...rest}><Icon name={icon} size={16} /></button>;
 }
+/* Looks listos: cada uno es un punto de partida (escribe valores reales en los efectos); después se corrige en Manual. */
+const LOOK_PRESETS = [
+  { id: "studio", name: "Estudio producto", desc: "Fondo oscuro, spot con sombra suave, brillos largos en cantos y metal, piso reflectante y oclusión.",
+    values: { lightRig: "studio", vignetteEnabled: true, vignetteDarkness: 0.72, vignetteOffset: 0.5, bloomEnabled: true, bloomIntensity: 0.45, bloomThreshold: 0.85,
+      beamEnabled: false, partEnabled: false, envEnabled: true, envIntensity: 1, toneMap: true, naturalLight: 0, exposure: 1,
+      floorReflect: true, floorReflectStrength: 0.35, contactShadow: true, contactShadowOpacity: 0.75, aoEnabled: true, aoIntensity: 2.2, aoRadius: 0.35 } },
+  { id: "cine", name: "Cinematográfico", desc: "Polvo en el aire, rayo de luz, viñeta y bloom suave. Contraste de film.",
+    values: { lightRig: "classic", bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.6, vignetteOffset: 0.55, bloomEnabled: true, bloomIntensity: 0.45,
+      beamEnabled: true, beamOpacity: 0.06, beamWidth: 6, beamHeight: 40, beamSoft: 0.55, beamGlow: 0.12,
+      partEnabled: true, partCount: 1500, partSize: 0.9, partOpacity: 0.35, partSpeed: 1.1, partBlur: 0.35, partRange: 24, partBeam: 0.8,
+      envEnabled: true, envIntensity: 0.9, toneMap: false, naturalLight: 0.25, exposure: 1.05 } },
+  { id: "natural", name: "Natural / claro", desc: "Luminoso y limpio: mucha luz de relleno, bloom mínimo. Ideal si la escena queda oscura.",
+    values: { lightRig: "classic", bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.3, vignetteOffset: 0.5, bloomEnabled: true, bloomIntensity: 0.15,
+      beamEnabled: false, partEnabled: true, partCount: 500, partSize: 0.8, partOpacity: 0.22, partSpeed: 0.8, partBlur: 0.3, partRange: 20, partBeam: 0,
+      envEnabled: true, envIntensity: 0.9, toneMap: true, naturalLight: 0.5, exposure: 1.0 } },
+  { id: "neon", name: "Neón nocturno", desc: "Oscuro con brillos fuertes: bloom alto, rayo marcado, poca luz de relleno.",
+    values: { lightRig: "classic", bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.7, vignetteOffset: 0.6, bloomEnabled: true, bloomIntensity: 0.9,
+      beamEnabled: true, beamOpacity: 0.08, beamWidth: 4, beamHeight: 40, beamSoft: 0.5, beamGlow: 0.2,
+      partEnabled: true, partCount: 900, partSize: 0.8, partOpacity: 0.3, partSpeed: 1, partBlur: 0.4, partRange: 22, partBeam: 0.9,
+      envEnabled: true, envIntensity: 0.6, toneMap: false, naturalLight: 0.08, exposure: 0.95 } },
+  { id: "clean", name: "Limpio / producto", desc: "Sin efectos: solo luz pareja y reflejos para mostrar el objeto tal cual.",
+    values: { lightRig: "classic", bloomThreshold: 0.25, vignetteEnabled: false, bloomEnabled: false, beamEnabled: false, partEnabled: false,
+      envEnabled: true, envIntensity: 1.2, toneMap: true, naturalLight: 0.85, exposure: 1.1 } },
+];
 function Group({ id, title, defaultOpen = true, toggle, children }) {
   const [open, setOpen] = useState(() => groupOpenState[id] ?? defaultOpen);
   const set = (v) => { groupOpenState[id] = v; setOpen(v); };
@@ -6014,8 +6510,29 @@ function App() {
     envEnabled: true,
     envIntensity: 0.8,
     toneMap: false,
+    naturalLight: 0,
+    exposure: 1,
+    lookPreset: "",
+    lightRig: "classic",
+    bloomThreshold: 0.25,
+    floorReflect: true,
+    floorReflectStrength: 0.5,
+    contactShadow: false,
+    contactShadowOpacity: 0.75,
+    aoEnabled: false,
+    aoIntensity: 2,
+    aoRadius: 0.35,
   });
-  const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value }));
+  /* Tocar cualquier valor "fino" marca el look como Personalizado (los dos controles maestros no). */
+  const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value, ...(field === "naturalLight" || field === "exposure" || field === "lookPreset" ? {} : { lookPreset: "custom" }) }));
+  const [stageListOpen, setStageListOpen] = useState(false);
+  const [stageFilter, setStageFilter] = useState("");
+  const [objOnlyVisible, setObjOnlyVisible] = useState(false);
+  const [lookMode, setLookMode] = useState("auto");   // auto = looks listos + 2 controles · manual = todos los controles finos
+  const applyLook = (id) => {
+    const p = LOOK_PRESETS.find((x) => x.id === id);
+    if (p) setPostFx((prev) => ({ ...prev, ...p.values, lookPreset: id }));
+  };
   /* Estela de brillo (sparkle trail) que deja el personaje (bowl1.glb) a
      su paso, y se va desvaneciendo. A diferencia de postFx, esta SÍ se
      ve en vivo en el visor de este editor (misma implementación que
@@ -6475,6 +6992,62 @@ function App() {
   const applyYawPreset = (deg_) => setMoveField("yaw", null, deg_);
   const applyPitchPreset = (deg_) => setMoveField("pitch", null, deg_);
 
+  /* Subir/bajar una pose en la lista: cambia solo el orden (cada pose conserva sus datos); los tiempos entre poses quedan por posición. */
+  const moveStage = (id, dir) => setStages((prev) => {
+    const i = prev.findIndex((x) => x.id === id), j = i + dir;
+    if (i < 0 || j < 0 || j >= prev.length) return prev;
+    const next = [...prev]; [next[i], next[j]] = [next[j], next[i]]; return next;
+  });
+  /* Todo (huesos, movimiento, cámara, luz, fondo y objetos) de la pose anterior en un click. */
+  const copyAllFromPrev = () => { copyPoseFromPrev(); copyCamFromPrev(); copyMoveFromPrev(); copyAllObjectTransformsFromPrev(); };
+  const copyCharFromPrev = () => { copyPoseFromPrev(); copyMoveFromPrev(); };
+  /* Espeja huesos de un lado al otro: X igual, Y y Z invertidos (convención de la mayoría de los rigs; si el tuyo difiere, ajustá a mano). */
+  const mirrorBones = (from) => setPosesByKf((prev) => {
+    const pose = { ...(prev[activeStage] || zeroPose()) };
+    BONE_DEFS.forEach(([key]) => {
+      if (key[0] !== from || !/^[lr][A-Z]/.test(key)) return;
+      const other = (from === "l" ? "r" : "l") + key.slice(1);
+      const v = pose[key] || { x: 0, y: 0, z: 0 };
+      pose[other] = { x: v.x, y: -v.y || 0, z: -v.z || 0 };
+    });
+    return { ...prev, [activeStage]: pose };
+  });
+  const isVisibleHere = (o) => o.visible && !(objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage] && objectTransformsByKf[o.id][activeStage].hidden);
+  /* Visibilidad de un objeto en TODAS las poses de una vez (con 40 poses, entrar una por una no se banca). */
+  const setObjectHiddenMode = (id, mode) => {
+    const idx = stageIndex;
+    setObjectTransformsByKf((prev) => {
+      const forObj = { ...(prev[id] || {}) };
+      stagesComputed.forEach((st, i) => {
+        const cur = forObj[st.id] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" };
+        let hidden = cur.hidden;
+        if (mode === "all") hidden = false;
+        else if (mode === "only") hidden = i !== idx;
+        else if (mode === "showFrom") hidden = i < idx;
+        else if (mode === "hideFrom") hidden = i >= idx;
+        forObj[st.id] = { ...cur, hidden };
+      });
+      return { ...prev, [id]: forObj };
+    });
+  };
+  const BONE_GROUPS = [
+    ["torso", "Torso y cabeza", ["spine1", "spine2", "neck", "head"]],
+    ["arms", "Brazos", ["lClavicle", "rClavicle", "lForearm", "rForearm", "lHand", "rHand"]],
+    ["legs", "Piernas", ["lThigh", "rThigh", "lCalf", "rCalf", "lFoot", "rFoot"]],
+  ];
+  const boneName = (key) => (BONE_DEFS.find((b) => b[0] === key) || [key, key])[1];
+  const boneVal = (key) => (posesByKf[activeStage] && posesByKf[activeStage][key]) || { x: 0, y: 0, z: 0 };
+  const renderBoneRow = (key) => {
+    const v = boneVal(key);
+    const side = /^l[A-Z]/.test(key) ? "l" : /^r[A-Z]/.test(key) ? "r" : "c";
+    return (
+      <div key={key} className={`bone ${side} ${v.x || v.y || v.z ? "dirty" : ""} ${foundMap[key] === false ? "missing" : ""}`}>
+        <span className="bone-n" title={boneName(key)}>{boneName(key)}</span>
+        {["x", "y", "z"].map((a, i) => <Num key={a} label={a.toUpperCase()} color={AXIS_COLORS[i]} step={0.5} value={v[a]} onChange={(n) => setBoneAxis(key, a, n)} />)}
+        <button className="mini" title="Reset" onClick={() => resetBone(key)}><Icon name="reset" size={12} /></button>
+      </div>
+    );
+  };
   const isPreview = section === "preview";
   const sampled = isPreview || exporting;
   const scrubV = exporting ? exportT : scrub;
@@ -6769,7 +7342,7 @@ function App() {
     if (!window.confirm("¿Vaciar todo y empezar un proyecto nuevo?")) return;
     const st = makeDefaultStages();
     setModelUrl(""); setCharScale(1); setCharCenterY(0);
-    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0, partEnabled: false, partCount: 650, partSize: 1, partOpacity: 0.65, partSpeed: 1, partBlur: 0.6, partRange: 16, partBeam: 0.6, envEnabled: true, envIntensity: 0.8, toneMap: false });
+    setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0, partEnabled: false, partCount: 650, partSize: 1, partOpacity: 0.65, partSpeed: 1, partBlur: 0.6, partRange: 16, partBeam: 0.6, envEnabled: true, envIntensity: 0.8, toneMap: false, naturalLight: 0, exposure: 1, lookPreset: "" });
     setTrail({ enabled: false, color: "#ffd873", size: 0.05, life: 0.9, rate: 40 });
     setReflection({ enabled: false, resolution: 256, updateEvery: 2, intensity: 1 });
     setDock(DEFAULT_DOCK); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR);
@@ -6779,10 +7352,10 @@ function App() {
     setActiveStage(st[0].id); setScrub(0); setIsPlaying(false);
   };
   const TABS = [
-    ["cfg", "cfg", "Config"], ["pose", "pose", "Pose"], ["camera", "cam", "Cámara"], ["movement", "move", "Mov."],
+    ["cfg", "cfg", "Escena"], ["look", "look", "Look"], ["pose", "pose", "Personaje"], ["camera", "cam", "Cámara"],
     ["timing", "time", "Tiempo"], ["objects", "cube", "Objetos"], ["preview", "play", "Preview"], ["file", "file", "Archivo"],
   ];
-  const showStageBar = ["pose", "camera", "movement", "objects"].includes(section);
+  const showStageBar = ["pose", "camera", "objects"].includes(section);
   const currentStageLabel = stages.find((s) => s.id === activeStage)?.label || "";
   const noBonesFound = Object.keys(foundMap).length > 0 && !Object.values(foundMap).some(Boolean);
   const cam = camsByKf[activeStage] || defaultCamera();
@@ -6866,6 +7439,12 @@ function App() {
         {!(!isModel && o.billboard) && <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />}
         <div className="grp-t" style={{ marginTop: 6 }}>Visibilidad · {currentStageLabel}</div>
         <Switch checked={!!t.hidden} onChange={(v) => setObjectTransform(o.id, "hidden", null, v)} label="Invisible en esta pose" />
+        <div className="tools">
+          <Btn title="Visible en todas las poses" onClick={() => setObjectHiddenMode(o.id, "all")}>En todas</Btn>
+          <Btn title="Visible solo en la pose actual; oculto en las demás" onClick={() => setObjectHiddenMode(o.id, "only")}>Solo aquí</Btn>
+          <Btn title="Oculto antes de la pose actual, visible desde aquí hasta el final" onClick={() => setObjectHiddenMode(o.id, "showFrom")}>Desde aquí ▶</Btn>
+          <Btn title="Visible hasta antes de la pose actual, oculto desde aquí hasta el final" onClick={() => setObjectHiddenMode(o.id, "hideFrom")}>Hasta aquí ◀</Btn>
+        </div>
         <Seg value={t.fadeDir || "ltr"} onChange={(v) => setObjectTransform(o.id, "fadeDir", null, v)} options={[["ltr", "Izq → Der"], ["rtl", "Der → Izq"], ["fade", "Simple"]]} />
         <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Dirección del fade de transparencia al llegar a esta pose (aparece o desaparece según la pose anterior). Probalo en Preview.</div>
         <div className="tools">
@@ -6926,18 +7505,45 @@ function App() {
             <div className="stagebar">
               <div className="stage-row">
                 <IBtn icon="prev" title="Pose anterior (←)" disabled={stageIndex <= 0} onClick={() => goStage(-1)} />
-                <div className="chips">
-                  {stagesComputed.map((kf, i) => <button key={kf.id} className={`chip ${activeStage === kf.id ? "on" : ""}`} title={`${kf.label} · ${kf.progress.toFixed(3)}`} onClick={() => setActiveStage(kf.id)}>{i + 1}</button>)}
-                </div>
+                {nStages <= 12 ? (
+                  <div className="chips">
+                    {stagesComputed.map((kf, i) => <button key={kf.id} className={`chip ${activeStage === kf.id ? "on" : ""}`} title={`${kf.label} · ${kf.progress.toFixed(3)}`} onClick={() => setActiveStage(kf.id)}>{i + 1}</button>)}
+                  </div>
+                ) : (
+                  <>
+                    <button className="chip stage-cur on" title="Pose actual · click para ver la lista" onClick={() => setStageListOpen((o) => !o)}>{stageIndex + 1} / {nStages}</button>
+                    <div className="stage-track" title="Línea de tiempo: cada marca es una pose (posición = lugar en el scroll)">
+                      {stagesComputed.map((kf, i) => <i key={kf.id} className={activeStage === kf.id ? "on" : ""} style={{ left: `calc(${kf.progress} * (100% - 8px) + 4px)` }} title={`${i + 1} · ${kf.label}`} onClick={() => setActiveStage(kf.id)} />)}
+                    </div>
+                  </>
+                )}
                 <IBtn icon="next" title="Pose siguiente (→)" disabled={stageIndex >= nStages - 1} onClick={() => goStage(1)} />
+                <IBtn icon="list" title="Lista de poses" onClick={() => setStageListOpen((o) => !o)} />
                 <IBtn icon="plus" kind="acc" title="Agregar pose al final" onClick={() => addStage()} />
               </div>
               <div className="stage-row">
                 <input type="text" className="stage-name" value={currentStageLabel} onChange={(e) => renameStage(activeStage, e.target.value)} />
                 <span className="stage-meta">{stagesComputed[stageIndex] ? stagesComputed[stageIndex].progress.toFixed(2) : "0.00"}</span>
-                <Btn icon="insert" kind="acc" title="Insertar una pose nueva justo despues de esta (las siguientes se corren un lugar)" onClick={() => addStage(activeStage)}>Insertar</Btn>
+                <Btn icon="insert" kind="acc" title="Insertar una pose nueva justo despues de esta, copiada de esta (las siguientes se corren un lugar)" onClick={() => addStage(activeStage)}>Insertar</Btn>
                 <IBtn icon="trash" kind="danger" title="Eliminar pose" disabled={stages.length <= 1} onClick={() => removeStage(activeStage)} />
               </div>
+              <div className="stage-row">
+                <Btn icon="copy" title="Copia huesos, movimiento, cámara, luz, fondo y objetos de la pose anterior" disabled={stageIndex <= 0} onClick={copyAllFromPrev}>Todo desde anterior</Btn>
+              </div>
+              {stageListOpen && (
+                <div className="stagelist">
+                  <input type="text" placeholder={`Buscar entre ${nStages} poses...`} value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} />
+                  <div className="stagelist-body">
+                    {stagesComputed.map((kf, i) => ({ kf, i })).filter(({ kf, i }) => !stageFilter.trim() || (kf.label + " " + (i + 1)).toLowerCase().includes(stageFilter.trim().toLowerCase())).map(({ kf, i }) => (
+                      <div key={kf.id} className={`srow ${activeStage === kf.id ? "on" : ""}`} onClick={() => setActiveStage(kf.id)} ref={(el) => { if (el && activeStage === kf.id) el.scrollIntoView({ block: "nearest" }); }}>
+                        <span className="sn">{i + 1}</span><span className="sname">{kf.label}</span><span className="sp">{Math.round(kf.progress * 100)}%</span>
+                        <button className="mini" title="Subir (cambia el orden)" disabled={i === 0} onClick={(e) => { e.stopPropagation(); moveStage(kf.id, -1); }}>↑</button>
+                        <button className="mini" title="Bajar (cambia el orden)" disabled={i === nStages - 1} onClick={(e) => { e.stopPropagation(); moveStage(kf.id, 1); }}>↓</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {isPreview && (
@@ -6992,63 +7598,108 @@ function App() {
                   <Slider label="Vida" min={0.1} max={3} step={0.05} value={trail.life} onChange={(v) => setTrailField("life", v)} />
                   <Slider label="Densidad" min={2} max={120} step={1} value={trail.rate} onChange={(v) => setTrailField("rate", v)} />
                 </Group>
-                <Group id="vig" title="Viñeta" toggle={{ checked: postFx.vignetteEnabled, onChange: (v) => setPostFxField("vignetteEnabled", v) }}>
-                  <Slider label="Oscuridad" min={0} max={1} step={0.01} value={postFx.vignetteDarkness} onChange={(v) => setPostFxField("vignetteDarkness", v)} />
-                  <Slider label="Alcance" min={0} max={1} step={0.01} value={postFx.vignetteOffset} onChange={(v) => setPostFxField("vignetteOffset", v)} />
+              </>
+            )}
+
+            {section === "look" && (
+              <>
+                <Seg value={lookMode} onChange={setLookMode} options={[["auto", "Automático"], ["manual", "Manual"]]} />
+                <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>
+                  {lookMode === "auto"
+                    ? "Elegí un look y ajustá la luz con los dos controles de abajo. No toca la luz que armaste en cada pose: la completa. Si querés corregir algo puntual, pasá a Manual."
+                    : "Todos los controles finos. Lo que cambies acá queda como \"Personalizado\"; podés volver a Automático cuando quieras sin perder nada."}
+                </div>
+                {lookMode === "auto" && (
+                  <div className="lookgrid">
+                    {LOOK_PRESETS.map((p) => (
+                      <button key={p.id} className={`lookcard ${postFx.lookPreset === p.id ? "on" : ""}`} onClick={() => applyLook(p.id)}>
+                        <b>{p.name}</b><span>{p.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {lookMode === "auto" && postFx.lookPreset === "custom" && <div style={{ fontSize: 10.5, color: "var(--acc)" }}>Look personalizado (modificado en Manual).</div>}
+                <Group id="lookmaster" title="Luz y exposición">
+                  <Slider label="Luz natural" min={0} max={1} step={0.01} value={postFx.naturalLight ?? 0} onChange={(v) => setPostFxField("naturalLight", v)} />
+                  <Slider label="Exposición" min={0.5} max={2} step={0.01} value={postFx.exposure ?? 1} onChange={(v) => setPostFxField("exposure", v)} />
+                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Luz natural: relleno suave y cálido desde arriba que aclara las sombras (no cambia el fondo ni el neón). Exposición: multiplica todas las luces a la vez. Salen igual en el index.html y en el MP4.</div>
                 </Group>
-                <Group id="bloom" title="Bloom" toggle={{ checked: postFx.bloomEnabled, onChange: (v) => setPostFxField("bloomEnabled", v) }}>
-                  <Slider label="Intens." min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(v) => setPostFxField("bloomIntensity", v)} />
-                </Group>
-                <Group id="env" title="Entorno de reflejos (metal / vidrio)" toggle={{ checked: postFx.envEnabled ?? true, onChange: (v) => setPostFxField("envEnabled", v) }}>
-                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Un "estudio" invisible (softboxes) que los materiales metálicos reflejan desde cualquier ángulo. No se ve de fondo: el fondo no cambia. Se aplica a los modelos .glb de la pestaña Objetos. Sale igual en el index.html y en el MP4.</div>
-                  <Slider label="Intensidad" min={0} max={3} step={0.05} value={postFx.envIntensity ?? 0.8} onChange={(v) => setPostFxField("envIntensity", v)} />
-                </Group>
-                <Group id="tone" title="Tone mapping (cine)" toggle={{ checked: !!postFx.toneMap, onChange: (v) => setPostFxField("toneMap", v) }}>
-                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Con el Bloom activado la escena se dibuja sin tone mapping (los brillos se "queman" a blanco y los colores saturados quedan duros). Prendiendo esto se aplica el tone mapping ACES (curva de cine): las luces fuertes se comprimen sin quemarse y el dorado y el fucsia conservan su tono. Cambia el aspecto general: probalo y comparalo.</div>
-                </Group>
-                <Group id="beam" title="Rayo de luz" toggle={{ checked: postFx.beamEnabled, onChange: (v) => setPostFxField("beamEnabled", v) }}>
-                  <Slider label="Opacidad" min={0} max={1} step={0.01} value={postFx.beamOpacity} onChange={(v) => setPostFxField("beamOpacity", v)} />
-                  <Slider label="Ancho" min={0.2} max={10} step={0.1} value={postFx.beamWidth} onChange={(v) => setPostFxField("beamWidth", v)} />
-                  <Slider label="Largo" min={2} max={40} step={0.5} value={postFx.beamHeight} onChange={(v) => setPostFxField("beamHeight", v)} />
-                  <Slider label="Difuminado final" min={0} max={1} step={0.01} value={postFx.beamSoft ?? 0.5} onChange={(v) => setPostFxField("beamSoft", v)} />
-                  <Slider label="Halo del final" min={0} max={1} step={0.01} value={postFx.beamGlow ?? 0.35} onChange={(v) => setPostFxField("beamGlow", v)} />
-                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Dónde termina el rayo (donde "cae"). Altura: subila para que termine en el aire, bajala para que atraviese la grilla.</div>
-                  <Slider label="Final · X" min={-10} max={10} step={0.1} value={postFx.beamTx ?? 0} onChange={(v) => setPostFxField("beamTx", v)} />
-                  <Slider label="Final · Altura" min={-10} max={10} step={0.1} value={postFx.beamTy ?? 0} onChange={(v) => setPostFxField("beamTy", v)} />
-                  <Slider label="Final · Z" min={-10} max={10} step={0.1} value={postFx.beamTz ?? 0} onChange={(v) => setPostFxField("beamTz", v)} />
-                </Group>
-                <Group id="particles" title="Partículas (polvo / bokeh)" toggle={{ checked: !!postFx.partEnabled, onChange: (v) => setPostFxField("partEnabled", v) }}>
-                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Polvo en suspensión como en el cine: flota en el espacio 3D (tiene parallax con el scroll) y se desenfoca según la distancia al punto que mira la cámara. Sale igual en el index.html y en el MP4.</div>
-                  <Slider label="Cantidad" min={50} max={2500} step={10} value={postFx.partCount ?? 650} onChange={(v) => setPostFxField("partCount", v)} />
-                  <Slider label="Intensidad" min={0} max={1} step={0.01} value={postFx.partOpacity ?? 0.65} onChange={(v) => setPostFxField("partOpacity", v)} />
-                  <Slider label="Tamaño" min={0.3} max={3} step={0.05} value={postFx.partSize ?? 1} onChange={(v) => setPostFxField("partSize", v)} />
-                  <Slider label="Desenfoque (bokeh)" min={0} max={1} step={0.01} value={postFx.partBlur ?? 0.6} onChange={(v) => setPostFxField("partBlur", v)} />
-                  <Slider label="Velocidad" min={0} max={3} step={0.05} value={postFx.partSpeed ?? 1} onChange={(v) => setPostFxField("partSpeed", v)} />
-                  <Slider label="Alcance" min={6} max={40} step={0.5} value={postFx.partRange ?? 16} onChange={(v) => setPostFxField("partRange", v)} />
-                  <Slider label="Brillo en el rayo" min={0} max={1} step={0.01} value={postFx.partBeam ?? 0.6} onChange={(v) => setPostFxField("partBeam", v)} />
-                </Group>
+                {lookMode === "manual" && (
+                  <>
+                  <Group id="vig" title="Viñeta" toggle={{ checked: postFx.vignetteEnabled, onChange: (v) => setPostFxField("vignetteEnabled", v) }}>
+                    <Slider label="Oscuridad" min={0} max={1} step={0.01} value={postFx.vignetteDarkness} onChange={(v) => setPostFxField("vignetteDarkness", v)} />
+                    <Slider label="Alcance" min={0} max={1} step={0.01} value={postFx.vignetteOffset} onChange={(v) => setPostFxField("vignetteOffset", v)} />
+                  </Group>
+                  <Group id="bloom" title="Bloom" toggle={{ checked: postFx.bloomEnabled, onChange: (v) => setPostFxField("bloomEnabled", v) }}>
+                    <Slider label="Intens." min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(v) => setPostFxField("bloomIntensity", v)} />
+                  </Group>
+                  <Group id="env" title="Entorno de reflejos (metal / vidrio)" toggle={{ checked: postFx.envEnabled ?? true, onChange: (v) => setPostFxField("envEnabled", v) }}>
+                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Un "estudio" invisible (softboxes) que los materiales metálicos reflejan desde cualquier ángulo. No se ve de fondo: el fondo no cambia. Se aplica a los modelos .glb de la pestaña Objetos. Sale igual en el index.html y en el MP4.</div>
+                    <Slider label="Intensidad" min={0} max={3} step={0.05} value={postFx.envIntensity ?? 0.8} onChange={(v) => setPostFxField("envIntensity", v)} />
+                  </Group>
+                  <Group id="rig" title="Luz de estudio y piso">
+                    <Seg value={postFx.lightRig === "studio" ? "studio" : "classic"} onChange={(v) => setPostFxField("lightRig", v)} options={[["classic", "Clásica"], ["studio", "Estudio"]]} />
+                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Estudio: un spot con sombra suave + rim de color atrás + softboxes para los reflejos, casi sin luz ambiente. Usa la dirección, color e intensidad de la luz de cada pose. El tone mapping ahora va siempre (antes con Bloom los colores se quemaban).</div>
+                    <Slider label="Umbral bloom" min={0} max={1.5} step={0.01} value={postFx.bloomThreshold ?? 0.25} onChange={(v) => setPostFxField("bloomThreshold", v)} />
+                    <Switch label="Piso reflectante (extras.reflector del .glb)" checked={postFx.floorReflect !== false} onChange={(v) => setPostFxField("floorReflect", v)} />
+                    {postFx.floorReflect !== false && <Slider label="Reflejo" min={0} max={1.5} step={0.01} value={postFx.floorReflectStrength ?? 0.5} onChange={(v) => setPostFxField("floorReflectStrength", v)} />}
+                    <Switch label="Sombra de contacto (sobre el piso reflectante)" checked={!!postFx.contactShadow} onChange={(v) => setPostFxField("contactShadow", v)} />
+                    {postFx.contactShadow && <Slider label="Opacidad" min={0} max={1} step={0.01} value={postFx.contactShadowOpacity ?? 0.75} onChange={(v) => setPostFxField("contactShadowOpacity", v)} />}
+                    <Switch label="Oclusión ambiental (huecos y encastres)" checked={!!postFx.aoEnabled} onChange={(v) => setPostFxField("aoEnabled", v)} />
+                    {postFx.aoEnabled && <Slider label="Intensidad AO" min={0} max={5} step={0.05} value={postFx.aoIntensity ?? 2} onChange={(v) => setPostFxField("aoIntensity", v)} />}
+                    {postFx.aoEnabled && <Slider label="Radio AO" min={0.05} max={2} step={0.01} value={postFx.aoRadius ?? 0.35} onChange={(v) => setPostFxField("aoRadius", v)} />}
+                  </Group>
+                  <Group id="beam" title="Rayo de luz" toggle={{ checked: postFx.beamEnabled, onChange: (v) => setPostFxField("beamEnabled", v) }}>
+                    <Slider label="Opacidad" min={0} max={1} step={0.01} value={postFx.beamOpacity} onChange={(v) => setPostFxField("beamOpacity", v)} />
+                    <Slider label="Ancho" min={0.2} max={10} step={0.1} value={postFx.beamWidth} onChange={(v) => setPostFxField("beamWidth", v)} />
+                    <Slider label="Largo" min={2} max={40} step={0.5} value={postFx.beamHeight} onChange={(v) => setPostFxField("beamHeight", v)} />
+                    <Slider label="Difuminado final" min={0} max={1} step={0.01} value={postFx.beamSoft ?? 0.5} onChange={(v) => setPostFxField("beamSoft", v)} />
+                    <Slider label="Halo del final" min={0} max={1} step={0.01} value={postFx.beamGlow ?? 0.35} onChange={(v) => setPostFxField("beamGlow", v)} />
+                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Dónde termina el rayo (donde "cae"). Altura: subila para que termine en el aire, bajala para que atraviese la grilla.</div>
+                    <Slider label="Final · X" min={-10} max={10} step={0.1} value={postFx.beamTx ?? 0} onChange={(v) => setPostFxField("beamTx", v)} />
+                    <Slider label="Final · Altura" min={-10} max={10} step={0.1} value={postFx.beamTy ?? 0} onChange={(v) => setPostFxField("beamTy", v)} />
+                    <Slider label="Final · Z" min={-10} max={10} step={0.1} value={postFx.beamTz ?? 0} onChange={(v) => setPostFxField("beamTz", v)} />
+                  </Group>
+                  <Group id="particles" title="Partículas (polvo / bokeh)" toggle={{ checked: !!postFx.partEnabled, onChange: (v) => setPostFxField("partEnabled", v) }}>
+                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Polvo en suspensión como en el cine: flota en el espacio 3D (tiene parallax con el scroll) y se desenfoca según la distancia al punto que mira la cámara. Sale igual en el index.html y en el MP4.</div>
+                    <Slider label="Cantidad" min={50} max={2500} step={10} value={postFx.partCount ?? 650} onChange={(v) => setPostFxField("partCount", v)} />
+                    <Slider label="Intensidad" min={0} max={1} step={0.01} value={postFx.partOpacity ?? 0.65} onChange={(v) => setPostFxField("partOpacity", v)} />
+                    <Slider label="Tamaño" min={0.3} max={3} step={0.05} value={postFx.partSize ?? 1} onChange={(v) => setPostFxField("partSize", v)} />
+                    <Slider label="Desenfoque (bokeh)" min={0} max={1} step={0.01} value={postFx.partBlur ?? 0.6} onChange={(v) => setPostFxField("partBlur", v)} />
+                    <Slider label="Velocidad" min={0} max={3} step={0.05} value={postFx.partSpeed ?? 1} onChange={(v) => setPostFxField("partSpeed", v)} />
+                    <Slider label="Alcance" min={6} max={40} step={0.5} value={postFx.partRange ?? 16} onChange={(v) => setPostFxField("partRange", v)} />
+                    <Slider label="Brillo en el rayo" min={0} max={1} step={0.01} value={postFx.partBeam ?? 0.6} onChange={(v) => setPostFxField("partBeam", v)} />
+                  </Group>
+                  </>
+                )}
               </>
             )}
 
             {section === "pose" && (
               <>
                 <div className="tools">
-                  <Btn icon="copy" onClick={copyPoseFromPrev} disabled={stageIndex <= 0}>Desde anterior</Btn>
-                  <Btn icon="reset" onClick={resetAllBones}>Reset pose</Btn>
+                  <Btn icon="copy" onClick={copyCharFromPrev} disabled={stageIndex <= 0}>Desde anterior</Btn>
+                  <Btn icon="reset" onClick={resetAllBones}>Reset huesos</Btn>
                   {noBonesFound && <span className="warn">Modelo sin huesos</span>}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  {BONE_DEFS.map(([key, name]) => {
-                    const v = (posesByKf[activeStage] && posesByKf[activeStage][key]) || { x: 0, y: 0, z: 0 };
-                    const side = /^l[A-Z]/.test(key) ? "l" : /^r[A-Z]/.test(key) ? "r" : "c";
-                    return (
-                      <div key={key} className={`bone ${side} ${v.x || v.y || v.z ? "dirty" : ""} ${foundMap[key] === false ? "missing" : ""}`}>
-                        <span className="bone-n" title={name}>{name}</span>
-                        {["x", "y", "z"].map((a, i) => <Num key={a} label={a.toUpperCase()} color={AXIS_COLORS[i]} step={0.5} value={v[a]} onChange={(n) => setBoneAxis(key, a, n)} />)}
-                        <button className="mini" title="Reset" onClick={() => resetBone(key)}><Icon name="reset" size={12} /></button>
-                      </div>
-                    );
-                  })}
+                <Group id="mv" title="Posición y giro del personaje">
+                  <Vec3 label="Posición" value={mv.pos} onChange={(a, v) => setMoveField("pos", a, v)} />
+                  <Slider label="Giro (yaw)" min={-180} max={180} step={0.1} value={mv.yaw} onChange={(v) => setMoveField("yaw", null, v)} />
+                  <Presets items={[["Frente", 0], ["Der. 90°", -90], ["Izq. 90°", 90], ["Espalda", 180]]} onPick={applyYawPreset} />
+                  <Slider label="Pitch" min={-90} max={90} step={0.1} value={mv.pitch} onChange={(v) => setMoveField("pitch", null, v)} />
+                  <Presets items={[["Neutro", 0], ["Adelante", 60], ["Atrás", -60]]} onPick={applyPitchPreset} />
+                </Group>
+                {BONE_GROUPS.map(([gid, title, keys]) => {
+                  const n = keys.filter((k) => { const v = boneVal(k); return v.x || v.y || v.z; }).length;
+                  return (
+                    <Group key={gid} id={"bones-" + gid} title={title + (n ? " · " + n + " con giro" : "")} defaultOpen={gid === "torso"}>
+                      {keys.map(renderBoneRow)}
+                    </Group>
+                  );
+                })}
+                <div className="tools">
+                  <Btn icon="copy" title="Copia los giros del lado izquierdo al derecho (espejo)" onClick={() => mirrorBones("l")}>Espejar izq → der</Btn>
+                  <Btn icon="copy" title="Copia los giros del lado derecho al izquierdo (espejo)" onClick={() => mirrorBones("r")}>Espejar der → izq</Btn>
                 </div>
               </>
             )}
@@ -7100,19 +7751,6 @@ function App() {
               </>
             )}
 
-            {section === "movement" && (
-              <>
-                <div className="tools"><Btn icon="copy" onClick={copyMoveFromPrev} disabled={stageIndex <= 0}>Desde anterior</Btn></div>
-                <Group id="mv" title="Transformación">
-                  <Vec3 label="Posición" value={mv.pos} onChange={(a, v) => setMoveField("pos", a, v)} />
-                  <Slider label="Giro (yaw)" min={-180} max={180} step={0.1} value={mv.yaw} onChange={(v) => setMoveField("yaw", null, v)} />
-                  <Presets items={[["Frente", 0], ["Der. 90°", -90], ["Izq. 90°", 90], ["Espalda", 180]]} onPick={applyYawPreset} />
-                  <Slider label="Pitch" min={-90} max={90} step={0.1} value={mv.pitch} onChange={(v) => setMoveField("pitch", null, v)} />
-                  <Presets items={[["Neutro", 0], ["Adelante", 60], ["Atrás", -60]]} onPick={applyPitchPreset} />
-                </Group>
-              </>
-            )}
-
             {section === "timing" && (
               nStages < 2 ? <div className="empty">Agregá una 2ª pose</div> : (
                 <>
@@ -7143,8 +7781,9 @@ function App() {
                   <IBtn icon="copy" title="Todos desde la pose anterior" disabled={stageIndex <= 0 || !objects.length} onClick={copyAllObjectTransformsFromPrev} />
                   <IBtn icon="pin" title="Fijar todos en todas las poses" disabled={!objects.length} onClick={applyAllObjectTransformsToAllStages} />
                 </div>
+                {objects.length > 3 && <Switch checked={objOnlyVisible} onChange={setObjOnlyVisible} label={`Solo los visibles en esta pose (${objects.filter(isVisibleHere).length} de ${objects.length})`} />}
                 <div className="outliner">
-                  {objects.map((o, i) => (
+                  {objects.map((o, i) => (objOnlyVisible && !isVisibleHere(o) && !(selObj && selObj.id === o.id)) ? null : (
                     <div key={o.id} className={`orow ${selObj && selObj.id === o.id ? "sel" : ""} ${o.visible && !(objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage] && objectTransformsByKf[o.id][activeStage].hidden) ? "" : "off"}`} style={{ "--oc": colorOf(o, i) }} onClick={() => setSelectedObj(o.id)}>
                       <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
                       <span className="oname">{o.label}</span>
