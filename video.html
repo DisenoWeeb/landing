@@ -464,6 +464,9 @@
     font-family: var(--font-body); color: #fff; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; --dock-accent: var(--brand-accent); }
   .dock__btn, .dock__day, .dock__arrow { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); color: inherit;
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-family: inherit; }
+  @media (max-width: 768px), (hover: none) {
+    .dock__btn, .dock__day, .dock__arrow { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(44,18,78,.46); }
+  }
   .dock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .dock__btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 16px; text-decoration: none; min-width: 0; height: 50px; box-sizing: border-box; }
   .dock__ico { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); display: grid; place-items: center; }
@@ -561,7 +564,7 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows } from "@react-three/drei";
+import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows, PerformanceMonitor } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
@@ -851,6 +854,7 @@ const SCROLL_LENGTH_VH = 950;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
+const HALO = 0;
 const VIGNETTE_ENABLED = false;
 const VIGNETTE_DARKNESS = 0.5;
 const VIGNETTE_OFFSET = 0.15;
@@ -2361,22 +2365,20 @@ function buildStudioEnvTextureV2(gl) {
   const env = new THREE.Scene();
   const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
   // +x, -x, +y, -y, +z, -z
-  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#140a1c", 1), wall("#140a1c", 1), wall("#1a0f22", 1), wall("#2a0f3d", 0.9), wall("#140a1c", 1), wall("#140a1c", 1)]));
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#2a1440", 1), wall("#2a1440", 1), wall("#2a1440", 1), wall("#4a1778", 1), wall("#2a1440", 1), wall("#2a1440", 1)]));
   const panel = (w, h, hex, k, x, y, z) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
     m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
   };
-  panel(18, 18, "#fff0e0", 1.2, 0, 19, 0);      // techo cálido
-  panel(3.4, 30, "#ffffff", 5, -15, 4, 9);      // tira alta adelante-izquierda: brillo largo en cantos
-  panel(3.4, 30, "#ffd9b0", 3.5, 15, 4, 9);     // tira alta adelante-derecha (cálida)
-  panel(6, 26, "#ff3fbf", 4, 12, 5, -15);       // acento fucsia atrás
-    panel(40, 40, "#5a1a8a", 0.6, 0, -19.5, 0);   // rebote violeta del piso
-  // Paneles cálidos grandes adelante y atrás: es lo que reflejan las caras planas (placa de oro, frentes metálicos)
-  // cuando la cámara las mira de frente. Sin ellos el oro refleja el cuarto oscuro y se ve marrón/negro.
-  // Paneles cálidos grandes adelante y atrás: es lo que reflejan las caras planas (placa de oro, frentes metálicos)
-  // cuando la cámara las mira de frente. Sin ellos el oro refleja el cuarto oscuro y se ve marrón/negro.
-  panel(30, 16, "#ffe2b0", 1.1, 0, 4, 19);
-  panel(30, 16, "#ffe2b0", 0.7, 0, 4, -19);
+  // Look "producto premium": cuarto violeta medio (así el metal nunca se ve negro), UNA softbox grande arriba-izquierda,
+  // filos largos de contraluz (el brillo fino en cantos y dorado) y un panel cálido a la derecha para que el oro lea como oro.
+  panel(28, 24, "#fff4ee", 2.6, -13, 11, 13);   // key: softbox grande arriba-izquierda-adelante
+  panel(4, 34, "#ffe6f7", 7, 16, 6, -5);        // filo derecho (contraluz)
+  panel(4, 34, "#ffffff", 3.5, -17, 6, -8);     // filo izquierdo, más tenue
+  panel(24, 16, "#ffdca0", 1.6, 15, 3, 12);     // cálido adelante-derecha (oro)
+  panel(20, 20, "#fff0e0", 1.2, 0, 19, 0);      // techo
+  panel(30, 14, "#ffe9c8", 1.2, 0, 3, 19);      // frente cálido
+  panel(16, 10, "#b27cf0", 0.9, -14, -2, 10);   // relleno violeta
   const pm = new THREE.PMREMGenerator(gl);
   const rt = pm.fromScene(env, 0.02);
   pm.dispose();
@@ -2391,7 +2393,7 @@ function getStudioEnvV2(gl) {
 }
 /* Luces del rig Estudio: un spot (key) con sombra suave + un rim de color atrás.
    Sigue la dirección/color/intensidad de la luz de cada pose (Escena → Luz). */
-const STUDIO_KEY = 70;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
+const STUDIO_KEY = 200;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
 const STUDIO_RIM = 50;
 const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
 function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
@@ -2410,10 +2412,13 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
     // La escala de cada proyecto cambia mucho (un objeto de 3 u o uno de 15 u). La luz se ubica a una
     // distancia proporcional a la de la cámara y la intensidad se compensa (1/d²), así ilumina igual.
     const camDist = Math.hypot(cp[0] - la[0], cp[1] - la[1], cp[2] - la[2]);
-    const d = Math.min(300, Math.max(9, camDist * 0.8));
+    const d = Math.min(300, Math.max(9, camDist * 1.6));
     const k = (d / 9) * (d / 9);
-    tgt.position.set(la[0], la[1], la[2]);
     const p = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, d);
+    // El haz es angosto y apunta un poco hacia el lado de la luz y hacia arriba: queda un "charco" de luz que se apaga hacia el otro
+    // borde (degradé en las caras planas, como en una foto de producto) en vez de una luz pareja y chata.
+    tgt.position.set(la[0] + Math.sign(p[0] || 1) * 0.065 * camDist, la[1] + 0.095 * camDist, la[2]);
+    if (spot.current) { const ang = Math.min(0.6, Math.max(0.15, Math.atan((0.38 * camDist) / d))); if (Math.abs(spot.current.angle - ang) > 0.002) spot.current.angle = ang; }
     tmp.set(la[0] + p[0], la[1] + p[1], la[2] + p[2]);
     if (!pos.current) pos.current = tmp.clone(); else pos.current.lerp(tmp, 1 - Math.exp(-5 * delta));
     if (spot.current) {
@@ -2432,7 +2437,7 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
   });
   return (
     <>
-      <spotLight ref={spot} angle={0.6} penumbra={0.85} decay={2} intensity={0} castShadow
+      <spotLight ref={spot} angle={0.25} penumbra={1} decay={2} intensity={0} castShadow
         shadow-mapSize={mobile ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
       <pointLight ref={rim} decay={2} intensity={0} />
       <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
@@ -2489,8 +2494,8 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
       <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
         <MeshReflectorMaterial
           color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
-          blur={r.blur || [300, 80]} resolution={res}
-          mixBlur={r.mixBlur ?? 0.6} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
+          blur={mobile ? [0, 0] : (r.blur || [300, 80])} resolution={res}
+          mixBlur={mobile ? 0 : (r.mixBlur ?? 0.6)} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
           mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
           depthScale={r.depthScale ?? 0} minDepthThreshold={0.4} maxDepthThreshold={1.4}
           envMap={envCfg.enabled ? envTex : null} envMapIntensity={envCfg.intensity}
@@ -2598,6 +2603,7 @@ function SceneObjectModel({ data }) {
   }, [scene, hasFade, fade, data.shadows]);
   const envTex = useStudioEnv();
   const envCfg = React.useContext(EnvSettingsCtx);
+  const perf = React.useContext(PerfCtx);
   useEffect(() => {
     applyScreenGlass(scene, data.glass || 0, data.glassMatch, (p) => { if (hasFade) patchFadeMaterial(p, fade); });
     applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
@@ -2606,8 +2612,8 @@ function SceneObjectModel({ data }) {
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
-      <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT} strength={FLOOR_REFLECT_STRENGTH}
-        mobile={IS_MOBILE_VIEW} contact={CONTACT_SHADOW} contactOpacity={CONTACT_SHADOW_OPACITY} />
+      <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT && perf.tier >= 1} strength={FLOOR_REFLECT_STRENGTH}
+        mobile={IS_MOBILE_VIEW || perf.tier < 2} contact={CONTACT_SHADOW && !IS_MOBILE_VIEW && perf.tier >= 2} contactOpacity={CONTACT_SHADOW_OPACITY} />
     </group>
   );
 }
@@ -2708,6 +2714,10 @@ OBJECTS.forEach((obj) => {
 });
 
 const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+/* Nivel de rendimiento (se ajusta solo): 2 = completo (escritorio) · 1 = celular/medio (sin AO, sin sombras ni sombra de contacto,
+   reflejo del piso chico, sin cámara de reflejo) · 0 = mínimo (sin postproceso, sin piso espejo, sin partículas).
+   Arranca en 1 en celular y en 2 en escritorio; si los cuadros por segundo caen, baja de a un nivel (nunca vuelve a subir, para no parpadear). */
+const PerfCtx = React.createContext({ tier: IS_MOBILE_VIEW ? 1 : 2 });
 function Lighting() {
   return LIGHT_RIG === "studio" ? <StudioLighting /> : <ClassicLighting />;
 }
@@ -2794,8 +2804,18 @@ function SceneEnvironment() {
 function Experience({ device }) {
   const mouse = useMouseParallax();
   const charAnchorRef = useRef(null);
+  // ?q=0|1|2 en la URL fuerza el nivel de calidad (útil para probar); sin eso arranca solo y baja si hace falta.
+  const forcedQ = useMemo(() => { try { const q = new URLSearchParams(window.location.search).get("q"); return q === "0" || q === "1" || q === "2" ? Number(q) : null; } catch (e) { return null; } }, []);
+  const [tier, setTier] = useState(forcedQ != null ? forcedQ : IS_MOBILE_VIEW ? 1 : 2);
+  const setDpr = useThree((st) => st.setDpr);
+  useEffect(() => {
+    const cap = tier >= 2 ? 1.5 : tier === 1 ? (IS_MOBILE_VIEW ? 1.5 : 1.25) : 1.25;
+    setDpr(Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, cap));
+  }, [tier, setDpr]);
+  const perfValue = useMemo(() => ({ tier }), [tier]);
   return (
-    <>
+    <PerfCtx.Provider value={perfValue}>
+      <PerformanceMonitor ms={300} iterations={6} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} />
       <ScrollSmoother />
       <SceneEnvironment />
       <CameraRig mouse={mouse} />
@@ -2820,7 +2840,7 @@ function Experience({ device }) {
 
         <ReflectionProbe
         anchorRef={charAnchorRef}
-        enabled={REFLECTION_ENABLED}
+        enabled={REFLECTION_ENABLED && tier >= 2}
         resolution={REFLECTION_RESOLUTION}
         updateEvery={REFLECTION_UPDATE_EVERY}
         intensity={REFLECTION_INTENSITY}
@@ -2828,7 +2848,7 @@ function Experience({ device }) {
 
       <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
       <AmbientParticles
-        enabled={PART_ENABLED} count={PART_COUNT} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
+        enabled={PART_ENABLED && tier >= 1} count={IS_MOBILE_VIEW ? Math.min(PART_COUNT, 450) : PART_COUNT} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
         beam={BEAM_ENABLED ? PART_BEAM : 0} beamWidth={BEAM_WIDTH} beamHeight={BEAM_HEIGHT} beamTarget={BEAM_TARGET}
         getLight={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).light}
         getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
@@ -2837,12 +2857,14 @@ function Experience({ device }) {
       {/* En celular (<=768 px): sin MSAA, AO en calidad baja, reflejo/sombras a menor resolución y
           dpr máx. 1.5 — se ve casi igual y no se traba. Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
           a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
-      <EffectComposer multisampling={IS_MOBILE_VIEW ? 0 : 4}>
-        {AO_ENABLED && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "low" : "high"} />}
-        {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
-        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-      </EffectComposer>
-    </>
+      {tier >= 1 && (
+        <EffectComposer multisampling={IS_MOBILE_VIEW ? 2 : tier >= 2 ? 4 : 0}>
+          {AO_ENABLED && tier >= 2 && !IS_MOBILE_VIEW && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality="high" />}
+          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={IS_MOBILE_VIEW ? 180 : 240} />}
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        </EffectComposer>
+      )}
+    </PerfCtx.Provider>
   );
 }
 
@@ -3395,14 +3417,15 @@ function App() {
         <div className="scene-canvas">
           <Canvas
             dpr={device.dpr}
-            shadows="soft"
-            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+            shadows={IS_MOBILE_VIEW ? false : "soft"}
+            gl={{ antialias: !IS_MOBILE_VIEW, alpha: true, powerPreference: "high-performance" }}
             camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
           >
             <Experience device={device} />
           </Canvas>
         </div>
         <BackgroundGradient stageRef={stageRef} />
+        {HALO > 0 && <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", background: `radial-gradient(ellipse 75% 48% at 20% 0%, rgba(255,232,255,${0.34 * HALO}) 0%, rgba(196,140,255,${0.12 * HALO}) 42%, rgba(0,0,0,0) 74%)` }} />}
         {VIGNETTE_ENABLED && (
           <div
             aria-hidden="true"
@@ -4034,22 +4057,20 @@ function buildStudioEnvTextureV2(gl) {
   const env = new THREE.Scene();
   const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
   // +x, -x, +y, -y, +z, -z
-  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#140a1c", 1), wall("#140a1c", 1), wall("#1a0f22", 1), wall("#2a0f3d", 0.9), wall("#140a1c", 1), wall("#140a1c", 1)]));
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#2a1440", 1), wall("#2a1440", 1), wall("#2a1440", 1), wall("#4a1778", 1), wall("#2a1440", 1), wall("#2a1440", 1)]));
   const panel = (w, h, hex, k, x, y, z) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
     m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
   };
-  panel(18, 18, "#fff0e0", 1.2, 0, 19, 0);      // techo cálido
-  panel(3.4, 30, "#ffffff", 5, -15, 4, 9);      // tira alta adelante-izquierda: brillo largo en cantos
-  panel(3.4, 30, "#ffd9b0", 3.5, 15, 4, 9);     // tira alta adelante-derecha (cálida)
-  panel(6, 26, "#ff3fbf", 4, 12, 5, -15);       // acento fucsia atrás
-    panel(40, 40, "#5a1a8a", 0.6, 0, -19.5, 0);   // rebote violeta del piso
-  // Paneles cálidos grandes adelante y atrás: es lo que reflejan las caras planas (placa de oro, frentes metálicos)
-  // cuando la cámara las mira de frente. Sin ellos el oro refleja el cuarto oscuro y se ve marrón/negro.
-  // Paneles cálidos grandes adelante y atrás: es lo que reflejan las caras planas (placa de oro, frentes metálicos)
-  // cuando la cámara las mira de frente. Sin ellos el oro refleja el cuarto oscuro y se ve marrón/negro.
-  panel(30, 16, "#ffe2b0", 1.1, 0, 4, 19);
-  panel(30, 16, "#ffe2b0", 0.7, 0, 4, -19);
+  // Look "producto premium": cuarto violeta medio (así el metal nunca se ve negro), UNA softbox grande arriba-izquierda,
+  // filos largos de contraluz (el brillo fino en cantos y dorado) y un panel cálido a la derecha para que el oro lea como oro.
+  panel(28, 24, "#fff4ee", 2.6, -13, 11, 13);   // key: softbox grande arriba-izquierda-adelante
+  panel(4, 34, "#ffe6f7", 7, 16, 6, -5);        // filo derecho (contraluz)
+  panel(4, 34, "#ffffff", 3.5, -17, 6, -8);     // filo izquierdo, más tenue
+  panel(24, 16, "#ffdca0", 1.6, 15, 3, 12);     // cálido adelante-derecha (oro)
+  panel(20, 20, "#fff0e0", 1.2, 0, 19, 0);      // techo
+  panel(30, 14, "#ffe9c8", 1.2, 0, 3, 19);      // frente cálido
+  panel(16, 10, "#b27cf0", 0.9, -14, -2, 10);   // relleno violeta
   const pm = new THREE.PMREMGenerator(gl);
   const rt = pm.fromScene(env, 0.02);
   pm.dispose();
@@ -4064,7 +4085,7 @@ function getStudioEnvV2(gl) {
 }
 /* Luces del rig Estudio: un spot (key) con sombra suave + un rim de color atrás.
    Sigue la dirección/color/intensidad de la luz de cada pose (Escena → Luz). */
-const STUDIO_KEY = 70;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
+const STUDIO_KEY = 200;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
 const STUDIO_RIM = 50;
 const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
 function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
@@ -4083,10 +4104,13 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
     // La escala de cada proyecto cambia mucho (un objeto de 3 u o uno de 15 u). La luz se ubica a una
     // distancia proporcional a la de la cámara y la intensidad se compensa (1/d²), así ilumina igual.
     const camDist = Math.hypot(cp[0] - la[0], cp[1] - la[1], cp[2] - la[2]);
-    const d = Math.min(300, Math.max(9, camDist * 0.8));
+    const d = Math.min(300, Math.max(9, camDist * 1.6));
     const k = (d / 9) * (d / 9);
-    tgt.position.set(la[0], la[1], la[2]);
     const p = lightDirFromAngles(L.azimuth ?? 45, L.elevation ?? 35, d);
+    // El haz es angosto y apunta un poco hacia el lado de la luz y hacia arriba: queda un "charco" de luz que se apaga hacia el otro
+    // borde (degradé en las caras planas, como en una foto de producto) en vez de una luz pareja y chata.
+    tgt.position.set(la[0] + Math.sign(p[0] || 1) * 0.065 * camDist, la[1] + 0.095 * camDist, la[2]);
+    if (spot.current) { const ang = Math.min(0.6, Math.max(0.15, Math.atan((0.38 * camDist) / d))); if (Math.abs(spot.current.angle - ang) > 0.002) spot.current.angle = ang; }
     tmp.set(la[0] + p[0], la[1] + p[1], la[2] + p[2]);
     if (!pos.current) pos.current = tmp.clone(); else pos.current.lerp(tmp, 1 - Math.exp(-5 * delta));
     if (spot.current) {
@@ -4105,7 +4129,7 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
   });
   return (
     <>
-      <spotLight ref={spot} angle={0.6} penumbra={0.85} decay={2} intensity={0} castShadow
+      <spotLight ref={spot} angle={0.25} penumbra={1} decay={2} intensity={0} castShadow
         shadow-mapSize={mobile ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
       <pointLight ref={rim} decay={2} intensity={0} />
       <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
@@ -4162,8 +4186,8 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
       <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
         <MeshReflectorMaterial
           color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
-          blur={r.blur || [300, 80]} resolution={res}
-          mixBlur={r.mixBlur ?? 0.6} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
+          blur={mobile ? [0, 0] : (r.blur || [300, 80])} resolution={res}
+          mixBlur={mobile ? 0 : (r.mixBlur ?? 0.6)} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
           mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
           depthScale={r.depthScale ?? 0} minDepthThreshold={0.4} maxDepthThreshold={1.4}
           envMap={envCfg.enabled ? envTex : null} envMapIntensity={envCfg.intensity}
@@ -5807,7 +5831,8 @@ const CHAR_SCALE = ${fmtNum(scale)};`;
 }
 
 function generatePostFxCode(postFx) {
-  return `const VIGNETTE_ENABLED = ${postFx.vignetteEnabled ? "true" : "false"};
+  return `const HALO = ${postFx.halo ?? 0};
+const VIGNETTE_ENABLED = ${postFx.vignetteEnabled ? "true" : "false"};
 const VIGNETTE_DARKNESS = ${postFx.vignetteDarkness};
 const VIGNETTE_OFFSET = ${postFx.vignetteOffset};
 const BLOOM_ENABLED = ${postFx.bloomEnabled ? "true" : "false"};
@@ -6321,26 +6346,27 @@ function IBtn({ icon, kind, ...rest }) {
 }
 /* Looks listos: cada uno es un punto de partida (escribe valores reales en los efectos); después se corrige en Manual. */
 const LOOK_PRESETS = [
-  { id: "studio", name: "Estudio producto", desc: "Fondo oscuro, spot con sombra suave, brillos largos en cantos y metal, piso reflectante y oclusión.",
-    values: { lightRig: "studio", vignetteEnabled: true, vignetteDarkness: 0.72, vignetteOffset: 0.5, bloomEnabled: true, bloomIntensity: 0.45, bloomThreshold: 0.85,
-      beamEnabled: false, partEnabled: false, envEnabled: true, envIntensity: 1, toneMap: true, naturalLight: 0, exposure: 1,
-      floorReflect: true, floorReflectStrength: 0.35, contactShadow: true, contactShadowOpacity: 0.75, aoEnabled: true, aoIntensity: 2.2, aoRadius: 0.35 } },
+  { id: "studio", name: "Premium producto", desc: "Luz de estudio suave: degradé en el marco, filos finos de contraluz, piso con reflejo sutil. Se adapta solo en celulares.",
+    values: { lightRig: "studio", halo: 0.55, vignetteEnabled: true, vignetteDarkness: 0.62, vignetteOffset: 0.5, bloomEnabled: true, bloomIntensity: 0.32, bloomThreshold: 0.9,
+      beamEnabled: false, partEnabled: true, partCount: 260, partSize: 0.7, partOpacity: 0.2, partSpeed: 0.6, partBlur: 0.3, partRange: 18, partBeam: 0,
+      envEnabled: true, envIntensity: 0.55, toneMap: true, naturalLight: 0, exposure: 1,
+      floorReflect: true, floorReflectStrength: 0.35, contactShadow: true, contactShadowOpacity: 0.55, aoEnabled: true, aoIntensity: 1.6, aoRadius: 0.35 } },
   { id: "cine", name: "Cinematográfico", desc: "Polvo en el aire, rayo de luz, viñeta y bloom suave. Contraste de film.",
-    values: { lightRig: "classic", bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.6, vignetteOffset: 0.55, bloomEnabled: true, bloomIntensity: 0.45,
+    values: { lightRig: "classic", halo: 0, bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.6, vignetteOffset: 0.55, bloomEnabled: true, bloomIntensity: 0.45,
       beamEnabled: true, beamOpacity: 0.06, beamWidth: 6, beamHeight: 40, beamSoft: 0.55, beamGlow: 0.12,
       partEnabled: true, partCount: 1500, partSize: 0.9, partOpacity: 0.35, partSpeed: 1.1, partBlur: 0.35, partRange: 24, partBeam: 0.8,
       envEnabled: true, envIntensity: 0.9, toneMap: false, naturalLight: 0.25, exposure: 1.05 } },
   { id: "natural", name: "Natural / claro", desc: "Luminoso y limpio: mucha luz de relleno, bloom mínimo. Ideal si la escena queda oscura.",
-    values: { lightRig: "classic", bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.3, vignetteOffset: 0.5, bloomEnabled: true, bloomIntensity: 0.15,
+    values: { lightRig: "classic", halo: 0, bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.3, vignetteOffset: 0.5, bloomEnabled: true, bloomIntensity: 0.15,
       beamEnabled: false, partEnabled: true, partCount: 500, partSize: 0.8, partOpacity: 0.22, partSpeed: 0.8, partBlur: 0.3, partRange: 20, partBeam: 0,
       envEnabled: true, envIntensity: 0.9, toneMap: true, naturalLight: 0.5, exposure: 1.0 } },
   { id: "neon", name: "Neón nocturno", desc: "Oscuro con brillos fuertes: bloom alto, rayo marcado, poca luz de relleno.",
-    values: { lightRig: "classic", bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.7, vignetteOffset: 0.6, bloomEnabled: true, bloomIntensity: 0.9,
+    values: { lightRig: "classic", halo: 0, bloomThreshold: 0.25, vignetteEnabled: true, vignetteDarkness: 0.7, vignetteOffset: 0.6, bloomEnabled: true, bloomIntensity: 0.9,
       beamEnabled: true, beamOpacity: 0.08, beamWidth: 4, beamHeight: 40, beamSoft: 0.5, beamGlow: 0.2,
       partEnabled: true, partCount: 900, partSize: 0.8, partOpacity: 0.3, partSpeed: 1, partBlur: 0.4, partRange: 22, partBeam: 0.9,
       envEnabled: true, envIntensity: 0.6, toneMap: false, naturalLight: 0.08, exposure: 0.95 } },
   { id: "clean", name: "Limpio / producto", desc: "Sin efectos: solo luz pareja y reflejos para mostrar el objeto tal cual.",
-    values: { lightRig: "classic", bloomThreshold: 0.25, vignetteEnabled: false, bloomEnabled: false, beamEnabled: false, partEnabled: false,
+    values: { lightRig: "classic", halo: 0, bloomThreshold: 0.25, vignetteEnabled: false, bloomEnabled: false, beamEnabled: false, partEnabled: false,
       envEnabled: true, envIntensity: 1.2, toneMap: true, naturalLight: 0.85, exposure: 1.1 } },
 ];
 function Group({ id, title, defaultOpen = true, toggle, children }) {
@@ -6417,6 +6443,19 @@ function paintVideoBackground(ctx, w, h, bg) {
   g.addColorStop(1, hexToRgba(bg.to, a));
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
+}
+function paintVideoHalo(ctx, w, h, halo) {
+  ctx.save();
+  ctx.translate(w * 0.2, 0);
+  ctx.scale(w * 0.75, h * 0.48);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  g.addColorStop(0, `rgba(255,232,255,${0.34 * halo})`);
+  g.addColorStop(0.42, `rgba(196,140,255,${0.12 * halo})`);
+  g.addColorStop(0.74, "rgba(0,0,0,0)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(-1.5, -1.5, 3, 3);
+  ctx.restore();
 }
 function paintVideoVignette(ctx, w, h, offset, darkness) {
   ctx.save();
@@ -7300,6 +7339,7 @@ function App() {
         const bg = sampleFx(fxByKf, t, stagesComputed, easings).background;
         paintVideoBackground(ctx, rw, rh, bg);
         ctx.drawImage(b.canvas, 0, 0, rw, rh);
+        if ((postFx.halo || 0) > 0) paintVideoHalo(ctx, rw, rh, postFx.halo);
         if (postFx.vignetteEnabled) paintVideoVignette(ctx, rw, rh, postFx.vignetteOffset == null ? 0.15 : postFx.vignetteOffset, postFx.vignetteDarkness == null ? 0.5 : postFx.vignetteDarkness);
         if (full !== out) octx.drawImage(full, 0, cropSy, w, h, 0, 0, w, h);   // 4:5 = recorte del 9:16
 
@@ -7484,6 +7524,7 @@ function App() {
           <VideoExportBridge tag={exportT} bridgeRef={vidBridge} />
         </Canvas>
         </div>
+        {showFx && (postFx.halo || 0) > 0 && <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", background: `radial-gradient(ellipse 75% 48% at 20% 0%, rgba(255,232,255,${0.34 * postFx.halo}) 0%, rgba(196,140,255,${0.12 * postFx.halo}) 42%, rgba(0,0,0,0) 74%)` }} />}
         {showFx && postFx.vignetteEnabled && (
           <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none", background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)` }} />
         )}
@@ -7639,6 +7680,10 @@ function App() {
                 </Group>
                 {lookMode === "manual" && (
                   <>
+                  <Group id="halo" title="Foco de luz (fondo)">
+                    <Slider label="Intensidad" min={0} max={1.5} step={0.01} value={postFx.halo || 0} onChange={(v) => setPostFxField("halo", v)} />
+                    <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Un resplandor suave arriba a la izquierda, como la luz de un estudio. Es solo un degradé: no pesa nada en el celular.</div>
+                  </Group>
                   <Group id="vig" title="Viñeta" toggle={{ checked: postFx.vignetteEnabled, onChange: (v) => setPostFxField("vignetteEnabled", v) }}>
                     <Slider label="Oscuridad" min={0} max={1} step={0.01} value={postFx.vignetteDarkness} onChange={(v) => setPostFxField("vignetteDarkness", v)} />
                     <Slider label="Alcance" min={0} max={1} step={0.01} value={postFx.vignetteOffset} onChange={(v) => setPostFxField("vignetteOffset", v)} />
