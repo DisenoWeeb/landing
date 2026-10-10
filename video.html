@@ -939,7 +939,7 @@ function getDeviceProfile() {
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   return {
     isMobile,
-    dpr: isMobile ? [1, 2] : [1, 1.5],
+    dpr: [1, 1.5],
     enablePostProcessing: !isMobile,
   };
 }
@@ -2371,6 +2371,12 @@ function buildStudioEnvTextureV2(gl) {
   panel(3.4, 30, "#ffd9b0", 3.5, 15, 4, 9);     // tira alta adelante-derecha (cálida)
   panel(6, 26, "#ff3fbf", 4, 12, 5, -15);       // acento fucsia atrás
     panel(40, 40, "#5a1a8a", 0.6, 0, -19.5, 0);   // rebote violeta del piso
+  // Paneles cálidos grandes adelante y atrás: es lo que reflejan las caras planas (placa de oro, frentes metálicos)
+  // cuando la cámara las mira de frente. Sin ellos el oro refleja el cuarto oscuro y se ve marrón/negro.
+  // Paneles cálidos grandes adelante y atrás: es lo que reflejan las caras planas (placa de oro, frentes metálicos)
+  // cuando la cámara las mira de frente. Sin ellos el oro refleja el cuarto oscuro y se ve marrón/negro.
+  panel(30, 16, "#ffe2b0", 1.1, 0, 4, 19);
+  panel(30, 16, "#ffe2b0", 0.7, 0, 4, -19);
   const pm = new THREE.PMREMGenerator(gl);
   const rt = pm.fromScene(env, 0.02);
   pm.dispose();
@@ -2388,7 +2394,7 @@ function getStudioEnvV2(gl) {
 const STUDIO_KEY = 70;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
 const STUDIO_RIM = 50;
 const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
-function StudioRigLights({ getLight, getLookAt, getCamPos, exposure }) {
+function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
   const spot = useRef(null);
   const rim = useRef(null);
   const { scene } = useThree();
@@ -2427,7 +2433,7 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure }) {
   return (
     <>
       <spotLight ref={spot} angle={0.6} penumbra={0.85} decay={2} intensity={0} castShadow
-        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
+        shadow-mapSize={mobile ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
       <pointLight ref={rim} decay={2} intensity={0} />
       <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
     </>
@@ -2475,7 +2481,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
   const envTex = useStudioEnv();
   const envCfg = React.useContext(EnvSettingsCtx);
-  const res = Math.min(r.resolution || 1024, mobile ? 512 : 1024);
+  const res = Math.min(r.resolution || 1024, mobile ? 256 : 1024);
   const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
   const size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 10;
   return (
@@ -2493,7 +2499,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
       {contact && <AutoClearOn />}
       {contact && (
         <ContactShadows position={[cx, box.max.y + 0.005, cz]} scale={size} far={2.5} blur={2.4}
-          opacity={contactOpacity} resolution={mobile ? 512 : 1024} color="#12001a" />
+          opacity={contactOpacity} resolution={mobile ? 256 : 1024} color="#12001a" />
       )}
       {contact && <AutoClearRestore />}
     </group>
@@ -2707,7 +2713,7 @@ function Lighting() {
 }
 function StudioLighting() {
   const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
-  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} />;
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={IS_MOBILE_VIEW} />;
 }
 function ClassicLighting() {
   const keyRef = useRef(null);
@@ -2828,10 +2834,11 @@ function Experience({ device }) {
         getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
       />
   
-      {/* Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
+      {/* En celular (<=768 px): sin MSAA, AO en calidad baja, reflejo/sombras a menor resolución y
+          dpr máx. 1.5 — se ve casi igual y no se traba. Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
           a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
-      <EffectComposer multisampling={device.isMobile ? 2 : 4}>
-        {AO_ENABLED && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes={!!device.isMobile} quality={device.isMobile ? "medium" : "high"} />}
+      <EffectComposer multisampling={IS_MOBILE_VIEW ? 0 : 4}>
+        {AO_ENABLED && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "low" : "high"} />}
         {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       </EffectComposer>
@@ -4037,6 +4044,12 @@ function buildStudioEnvTextureV2(gl) {
   panel(3.4, 30, "#ffd9b0", 3.5, 15, 4, 9);     // tira alta adelante-derecha (cálida)
   panel(6, 26, "#ff3fbf", 4, 12, 5, -15);       // acento fucsia atrás
     panel(40, 40, "#5a1a8a", 0.6, 0, -19.5, 0);   // rebote violeta del piso
+  // Paneles cálidos grandes adelante y atrás: es lo que reflejan las caras planas (placa de oro, frentes metálicos)
+  // cuando la cámara las mira de frente. Sin ellos el oro refleja el cuarto oscuro y se ve marrón/negro.
+  // Paneles cálidos grandes adelante y atrás: es lo que reflejan las caras planas (placa de oro, frentes metálicos)
+  // cuando la cámara las mira de frente. Sin ellos el oro refleja el cuarto oscuro y se ve marrón/negro.
+  panel(30, 16, "#ffe2b0", 1.1, 0, 4, 19);
+  panel(30, 16, "#ffe2b0", 0.7, 0, 4, -19);
   const pm = new THREE.PMREMGenerator(gl);
   const rt = pm.fromScene(env, 0.02);
   pm.dispose();
@@ -4054,7 +4067,7 @@ function getStudioEnvV2(gl) {
 const STUDIO_KEY = 70;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
 const STUDIO_RIM = 50;
 const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
-function StudioRigLights({ getLight, getLookAt, getCamPos, exposure }) {
+function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
   const spot = useRef(null);
   const rim = useRef(null);
   const { scene } = useThree();
@@ -4093,7 +4106,7 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure }) {
   return (
     <>
       <spotLight ref={spot} angle={0.6} penumbra={0.85} decay={2} intensity={0} castShadow
-        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
+        shadow-mapSize={mobile ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
       <pointLight ref={rim} decay={2} intensity={0} />
       <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
     </>
@@ -4141,7 +4154,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
   const envTex = useStudioEnv();
   const envCfg = React.useContext(EnvSettingsCtx);
-  const res = Math.min(r.resolution || 1024, mobile ? 512 : 1024);
+  const res = Math.min(r.resolution || 1024, mobile ? 256 : 1024);
   const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
   const size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 10;
   return (
@@ -4159,7 +4172,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
       {contact && <AutoClearOn />}
       {contact && (
         <ContactShadows position={[cx, box.max.y + 0.005, cz]} scale={size} far={2.5} blur={2.4}
-          opacity={contactOpacity} resolution={mobile ? 512 : 1024} color="#12001a" />
+          opacity={contactOpacity} resolution={mobile ? 256 : 1024} color="#12001a" />
       )}
       {contact && <AutoClearRestore />}
     </group>
@@ -4838,7 +4851,7 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       {/* Igual que en el sitio exportado: el ToneMapping va siempre (con EffectComposer three.js no lo aplica solo). */}
       {postFx && (
         <EffectComposer multisampling={4}>
-          {showFx && postFx.aoEnabled && <N8AO aoRadius={postFx.aoRadius ?? 0.35} intensity={postFx.aoIntensity ?? 2} distanceFalloff={0.6} halfRes={false} quality="high" />}
+          {showFx && postFx.aoEnabled && <N8AO aoRadius={postFx.aoRadius ?? 0.35} intensity={postFx.aoIntensity ?? 2} distanceFalloff={0.6} halfRes quality="high" />}
           {postFx.bloomEnabled && <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={postFx.bloomThreshold ?? 0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
