@@ -474,9 +474,6 @@
     font-family: var(--font-body); color: #fff; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; --dock-accent: var(--brand-accent); }
   .dock__btn, .dock__day, .dock__arrow { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); color: inherit;
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-family: inherit; }
-  @media (max-width: 768px), (hover: none) {
-    .dock__btn, .dock__day, .dock__arrow { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(44,18,78,.46); }
-  }
   .dock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .dock__btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 16px; text-decoration: none; min-width: 0; height: 50px; box-sizing: border-box; }
   .dock__ico { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); display: grid; place-items: center; }
@@ -575,7 +572,7 @@ import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows, PerformanceMonitor } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, ToneMapping, N8AO, SMAA } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
 /* ============================================================
@@ -865,7 +862,7 @@ const SCROLL_LENGTH_VH = 950;
 
 /*@GEN:POSTFX_START*/
 const HALO = 0;
-const PHONE_COLUMN = true;
+const PHONE_COLUMN = false;
 const VIGNETTE_ENABLED = false;
 const VIGNETTE_DARKNESS = 0.5;
 const VIGNETTE_OFFSET = 0.15;
@@ -2629,8 +2626,8 @@ function SceneObjectModel({ data }) {
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
-      <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT && perf.tier >= 1} strength={FLOOR_REFLECT_STRENGTH}
-        mobile={IS_MOBILE_VIEW || perf.tier < 2} contact={CONTACT_SHADOW && !IS_MOBILE_VIEW && perf.tier >= 2} contactOpacity={CONTACT_SHADOW_OPACITY} />
+      <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT && perf.tier >= 1 && perf.safe < 3} strength={FLOOR_REFLECT_STRENGTH}
+        mobile={perf.tier < 2} contact={CONTACT_SHADOW && perf.tier >= 2 && perf.safe < 3} contactOpacity={CONTACT_SHADOW_OPACITY} />
     </group>
   );
 }
@@ -2734,13 +2731,44 @@ const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && win
 /* Nivel de rendimiento (se ajusta solo): 2 = completo (escritorio) · 1 = celular/medio (sin AO, sin sombras ni sombra de contacto,
    reflejo del piso chico, sin cámara de reflejo) · 0 = mínimo (sin postproceso, sin piso espejo, sin partículas).
    Arranca en 1 en celular y en 2 en escritorio; si los cuadros por segundo caen, baja de a un nivel (nunca vuelve a subir, para no parpadear). */
-const PerfCtx = React.createContext({ tier: IS_MOBILE_VIEW ? 1 : 2 });
+const PerfCtx = React.createContext({ tier: 2, safe: 0 });
+/* Guardia de "pantalla negra": en algunas GPU de celular un efecto (oclusión ambiental, MSAA con postproceso, etc.) deja TODO lo 3D negro.
+   Después de cargar, mira unos píxeles del canvas: si lo que se dibujó es casi negro, apaga de a un efecto por vez (primero la oclusión,
+   después el postproceso entero, después el piso espejo) hasta que se ve bien. Si la imagen sale bien, no toca nada. */
+function BlackFrameGuard({ active, renderDirect, onBlack, onOk }) {
+  const gl = useThree((st) => st.gl);
+  const st = useRef({ n: 0, bad: 0, ok: 0, wait: 0, done: false });
+  const buf = useMemo(() => new Uint8Array(4), []);
+  useFrame(({ gl: g, scene, camera }) => {
+    // OJO: cualquier useFrame con prioridad > 0 le saca a R3F el dibujado automático. Si no hay postproceso (EffectComposer) que dibuje,
+    // se dibuja acá, igual que lo haría R3F.
+    if (renderDirect) g.render(scene, camera);
+    const s2 = st.current;
+    if (!active || s2.done) return;
+    s2.n++;
+    if (s2.wait > 0) { s2.wait--; return; }
+    if (s2.n % 10 !== 0) return;
+    try {
+      const ctx = gl.getContext(); const cv = gl.domElement; const W = cv.width, H = cv.height;
+      let covered = 0, dark = 0;
+      for (let i = 1; i <= 5; i++) for (let j = 1; j <= 5; j++) {
+        ctx.readPixels(Math.floor((W * i) / 6), Math.floor((H * j) / 6), 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, buf);
+        if (buf[3] > 200) { covered++; if (buf[0] + buf[1] + buf[2] < 24) dark++; }
+      }
+      const black = covered >= 4 && dark / covered >= 0.85;
+      if (black) { s2.bad++; s2.ok = 0; } else { s2.ok++; s2.bad = 0; }
+      if (s2.bad >= 3) { s2.bad = 0; s2.wait = 40; onBlack(); }
+      else if (s2.ok >= 6) { s2.done = true; if (onOk) onOk(); }
+    } catch (e) { s2.done = true; }
+  }, 3);
+  return null;
+}
 function Lighting() {
   return LIGHT_RIG === "studio" ? <StudioLighting /> : <ClassicLighting />;
 }
 function StudioLighting() {
   const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
-  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={IS_MOBILE_VIEW} />;
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={false} />;
 }
 function ClassicLighting() {
   const keyRef = useRef(null);
@@ -2823,13 +2851,17 @@ function Experience({ device }) {
   const charAnchorRef = useRef(null);
   // ?q=0|1|2 en la URL fuerza el nivel de calidad (útil para probar); sin eso arranca solo y baja si hace falta.
   const forcedQ = useMemo(() => { try { const q = new URLSearchParams(window.location.search).get("q"); return q === "0" || q === "1" || q === "2" ? Number(q) : null; } catch (e) { return null; } }, []);
-  const [tier, setTier] = useState(forcedQ != null ? forcedQ : IS_MOBILE_VIEW ? 1 : 2);
+  const [tier, setTier] = useState(forcedQ != null ? forcedQ : 2);
+  // ?safe=0..3 fuerza un nivel de seguridad (0 = todo; 1 = sin oclusión; 2 = sin postproceso; 3 = además sin piso espejo). Sirve para diagnosticar.
+  const forcedSafe = useMemo(() => { try { const q = new URLSearchParams(window.location.search).get("safe"); return q != null && /^[0-3]$/.test(q) ? Number(q) : null; } catch (e) { return null; } }, []);
+  const [safe, setSafe] = useState(forcedSafe != null ? forcedSafe : 0);
+  const autoOn = useMemo(() => { try { return new URLSearchParams(window.location.search).has("auto"); } catch (e) { return false; } }, []);
   const setDpr = useThree((st) => st.setDpr);
   useEffect(() => {
-    const cap = tier >= 2 ? 1.5 : tier === 1 ? (IS_MOBILE_VIEW ? 1.5 : 1.25) : 1.25;
+    const cap = tier >= 2 ? 1.5 : 1.25;
     setDpr(Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, cap));
   }, [tier, setDpr]);
-  const perfValue = useMemo(() => ({ tier }), [tier]);
+  const perfValue = useMemo(() => ({ tier, safe }), [tier, safe]);
   // El nivel automático NO empieza a medir hasta que terminó de cargar todo + 3,5 s (mientras se bajan los modelos y se compilan los shaders
   // los cuadros por segundo caen siempre y antes eso bajaba la calidad para siempre). Solo baja si los fps quedan por debajo de ~22 durante ~3 s seguidos.
   const { active: assetsLoading } = useProgress();
@@ -2850,15 +2882,16 @@ function Experience({ device }) {
     document.body.appendChild(d); dbgRef.current = d;
     return () => { d.remove(); dbgRef.current = null; };
   }, [debugOn]);
-  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + " · " + (fpsNow || "--") + " fps"; }, [tier, fpsNow, forcedQ]);
+  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + " · " + (fpsNow || "--") + " fps"; }, [tier, fpsNow, forcedQ, safe]);
   return (
     <PerfCtx.Provider value={perfValue}>
-      {monitorOn && <PerformanceMonitor ms={800} iterations={4} bounds={() => [22, 144]} onChange={({ fps }) => { if (debugOn) setFpsNow(Math.round(fps)); }} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} />}
+      <BlackFrameGuard renderDirect={!(tier >= 1 && safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
+      {autoOn && monitorOn && forcedQ == null && <PerformanceMonitor ms={800} iterations={4} bounds={() => [22, 144]} onChange={({ fps }) => { if (debugOn) setFpsNow(Math.round(fps)); }} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} />}
       <ScrollSmoother />
       <SceneEnvironment />
       <CameraRig mouse={mouse} />
       <Lighting />
-      <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
+      <Stars radius={140} depth={70} count={1800} factor={4} saturation={0} fade speed={0.3} />
       <Suspense fallback={null}>
         <SceneObjects />
         <ObjectBoundary>
@@ -2886,7 +2919,7 @@ function Experience({ device }) {
 
       <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
       <AmbientParticles
-        enabled={PART_ENABLED} count={tier >= 2 && !IS_MOBILE_VIEW ? PART_COUNT : tier >= 1 ? Math.min(PART_COUNT, 450) : Math.min(PART_COUNT, 120)} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
+        enabled={PART_ENABLED} count={tier >= 2 ? PART_COUNT : tier >= 1 ? Math.min(PART_COUNT, 450) : Math.min(PART_COUNT, 120)} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
         beam={BEAM_ENABLED ? PART_BEAM : 0} beamWidth={BEAM_WIDTH} beamHeight={BEAM_HEIGHT} beamTarget={BEAM_TARGET}
         getLight={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).light}
         getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
@@ -2895,11 +2928,12 @@ function Experience({ device }) {
       {/* En celular (<=768 px): sin MSAA, AO en calidad baja, reflejo/sombras a menor resolución y
           dpr máx. 1.5 — se ve casi igual y no se traba. Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
           a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
-      {tier >= 1 && (
-        <EffectComposer multisampling={IS_MOBILE_VIEW ? 2 : tier >= 2 ? 4 : 0}>
-          {AO_ENABLED && tier >= 2 && !IS_MOBILE_VIEW && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality="high" />}
-          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={IS_MOBILE_VIEW ? 180 : 240} />}
+      {tier >= 1 && safe < 2 && (
+        <EffectComposer multisampling={tier >= 2 && !IS_MOBILE_VIEW ? 4 : 0}>
+          {AO_ENABLED && tier >= 2 && safe < 1 && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
+          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+          {IS_MOBILE_VIEW && <SMAA />}
         </EffectComposer>
       )}
     </PerfCtx.Provider>
@@ -3455,8 +3489,8 @@ function App() {
         <div className="scene-canvas">
           <Canvas
             dpr={device.dpr}
-            shadows={IS_MOBILE_VIEW ? false : "soft"}
-            gl={{ antialias: !IS_MOBILE_VIEW, alpha: true, powerPreference: "high-performance" }}
+            shadows="soft"
+            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
             camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
           >
             <Experience device={device} />
@@ -5870,7 +5904,7 @@ const CHAR_SCALE = ${fmtNum(scale)};`;
 
 function generatePostFxCode(postFx) {
   return `const HALO = ${postFx.halo ?? 0};
-const PHONE_COLUMN = ${postFx.phoneColumn === false ? "false" : "true"};
+const PHONE_COLUMN = ${postFx.phoneColumn === true ? "true" : "false"};
 const VIGNETTE_ENABLED = ${postFx.vignetteEnabled ? "true" : "false"};
 const VIGNETTE_DARKNESS = ${postFx.vignetteDarkness};
 const VIGNETTE_OFFSET = ${postFx.vignetteOffset};
@@ -7720,8 +7754,8 @@ function App() {
                 {lookMode === "manual" && (
                   <>
                   <Group id="screen" title="Pantalla (PC y celular)">
-                    <Switch label="Columna 9:16 también en PC" checked={postFx.phoneColumn !== false} onChange={(v) => setPostFxField("phoneColumn", v)} />
-                    <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Prendido: en la compu el sitio se ve igual que en el visor 9:16 (una columna centrada), como en el celular. Apagado: ocupa toda la ventana. En celulares más altos que 9:16 el sitio abre un poco el encuadre vertical para no cortar los costados.</div>
+                    <Switch label="Columna 9:16 también en PC" checked={postFx.phoneColumn === true} onChange={(v) => setPostFxField("phoneColumn", v)} />
+                    <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Apagado (lo normal): en la compu el sitio ocupa toda la ventana. Prendido: se ve como en el visor 9:16 (una columna centrada). En celulares más altos que 9:16 el sitio abre un poco el encuadre vertical para no cortar los costados.</div>
                   </Group>
                   <Group id="halo" title="Foco de luz (fondo)">
                     <Slider label="Intensidad" min={0} max={1.5} step={0.01} value={postFx.halo || 0} onChange={(v) => setPostFxField("halo", v)} />
