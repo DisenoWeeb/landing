@@ -242,6 +242,16 @@
      Todo en px: el tamaño es el mismo en PC y en celulares. La escena sigue a pantalla completa. */
   .scene-canvas { position: absolute; inset: 0; }
   .app-root--phone .scroll-hint { bottom: calc(190px + env(safe-area-inset-bottom)); }
+  /* Columna 9:16: la escena se ve SIEMPRE con la composición del visor 9:16 del editor. En celular (más angosto o igual a 9:16)
+     ocupa todo el ancho; en PC / tablet queda una columna centrada del alto de la ventana y el resto es fondo liso. */
+  .app-root--col { --col-w: min(100vw, calc(100vh * 9 / 16)); --col-w: min(100vw, calc(100lvh * 9 / 16)); background: var(--color-bg, #05070a); min-height: 100vh; }
+  .app-root--col .canvas-stage { right: auto; left: calc(50% - var(--col-w) / 2); width: var(--col-w); }
+  .app-root--col .dock { width: min(440px, var(--col-w)); }
+  .app-root--col .progress-rail, .app-root--col .scroll-hint, .app-root--col .brand-mark { position: absolute; }
+  .app-root--col .brand-mark { left: 14px; }
+  .app-root--col .progress-rail { right: 14px; }
+  .app-root--col .scroll-hint { left: 14px; }
+  .app-root--col .dock-shade { right: auto; left: calc(50% - var(--col-w) / 2); width: var(--col-w); }
   .app-root--phone .cta-layer { display: none; }
   .dock-shade { position: fixed; z-index: 7; left: 0; right: 0; bottom: 0; pointer-events: none;
     height: calc(var(--shade-pct) * 1vh); height: calc(var(--shade-pct) * 1lvh); opacity: var(--shade-opacity);
@@ -251,9 +261,6 @@
     font-family: var(--font-body); color: #fff; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; --dock-accent: var(--brand-accent); }
   .dock__btn, .dock__day, .dock__arrow { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); color: inherit;
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-family: inherit; }
-  @media (max-width: 768px), (hover: none) {
-    .dock__btn, .dock__day, .dock__arrow { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(44,18,78,.46); }
-  }
   .dock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .dock__btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 16px; text-decoration: none; min-width: 0; height: 50px; box-sizing: border-box; }
   .dock__ico { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); display: grid; place-items: center; }
@@ -666,6 +673,7 @@ const SCROLL_LENGTH_VH = 865;
 
 /*@GEN:POSTFX_START*/
 const HALO = 1.01;
+const PHONE_COLUMN = true;
 const VIGNETTE_ENABLED = true;
 const VIGNETTE_DARKNESS = 0.62;
 const VIGNETTE_OFFSET = 0.5;
@@ -977,6 +985,7 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
   const lookAtTarget = useRef(new THREE.Vector3());
   const currentLookAt = useRef(new THREE.Vector3());
   const dampedRoll = useRef(0);
+  const dampedFov = useRef(null);
 
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
@@ -999,7 +1008,12 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
     if (dampedRoll.current) camera.rotateZ((dampedRoll.current * Math.PI) / 180);
 
     if ("fov" in camera) {
-      camera.fov = damp(camera.fov, state.camera.fov, 5, delta);
+      if (dampedFov.current == null) dampedFov.current = state.camera.fov;
+      dampedFov.current = damp(dampedFov.current, state.camera.fov, 5, delta);
+      // El FOV del editor es para el visor 9:16. En un celular más alto que 9:16 (p. ej. 9:20) se abre el campo vertical lo justo
+      // para que el ANCHO que se ve sea el mismo: así no se corta el modelo a los costados.
+      const k = Math.max(1, 9 / 16 / (camera.aspect || 9 / 16));
+      camera.fov = (Math.atan(Math.tan((dampedFov.current * Math.PI) / 360) * k) * 360) / Math.PI;
       camera.updateProjectionMatrix();
     }
   });
@@ -2470,7 +2484,7 @@ function SceneObjectModel({ data }) {
     <group ref={groupRef}>
       <primitive object={scene} />
       <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT && perf.tier >= 1} strength={FLOOR_REFLECT_STRENGTH}
-        mobile={IS_MOBILE_VIEW || perf.tier < 2} contact={CONTACT_SHADOW && !IS_MOBILE_VIEW && perf.tier >= 2} contactOpacity={CONTACT_SHADOW_OPACITY} />
+        mobile={perf.tier < 2} contact={CONTACT_SHADOW && perf.tier >= 2} contactOpacity={CONTACT_SHADOW_OPACITY} />
     </group>
   );
 }
@@ -2574,13 +2588,13 @@ const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && win
 /* Nivel de rendimiento (se ajusta solo): 2 = completo (escritorio) · 1 = celular/medio (sin AO, sin sombras ni sombra de contacto,
    reflejo del piso chico, sin cámara de reflejo) · 0 = mínimo (sin postproceso, sin piso espejo, sin partículas).
    Arranca en 1 en celular y en 2 en escritorio; si los cuadros por segundo caen, baja de a un nivel (nunca vuelve a subir, para no parpadear). */
-const PerfCtx = React.createContext({ tier: IS_MOBILE_VIEW ? 1 : 2 });
+const PerfCtx = React.createContext({ tier: 2 });
 function Lighting() {
   return LIGHT_RIG === "studio" ? <StudioLighting /> : <ClassicLighting />;
 }
 function StudioLighting() {
   const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
-  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={IS_MOBILE_VIEW} />;
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={false} />;
 }
 function ClassicLighting() {
   const keyRef = useRef(null);
@@ -2663,21 +2677,43 @@ function Experience({ device }) {
   const charAnchorRef = useRef(null);
   // ?q=0|1|2 en la URL fuerza el nivel de calidad (útil para probar); sin eso arranca solo y baja si hace falta.
   const forcedQ = useMemo(() => { try { const q = new URLSearchParams(window.location.search).get("q"); return q === "0" || q === "1" || q === "2" ? Number(q) : null; } catch (e) { return null; } }, []);
-  const [tier, setTier] = useState(forcedQ != null ? forcedQ : IS_MOBILE_VIEW ? 1 : 2);
+  const [tier, setTier] = useState(forcedQ != null ? forcedQ : 2);
+  const autoOn = useMemo(() => { try { return new URLSearchParams(window.location.search).has("auto"); } catch (e) { return false; } }, []);
   const setDpr = useThree((st) => st.setDpr);
   useEffect(() => {
-    const cap = tier >= 2 ? 1.5 : tier === 1 ? (IS_MOBILE_VIEW ? 1.5 : 1.25) : 1.25;
+    const cap = tier >= 2 ? 1.5 : 1.25;
     setDpr(Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, cap));
   }, [tier, setDpr]);
   const perfValue = useMemo(() => ({ tier }), [tier]);
+  // El nivel automático NO empieza a medir hasta que terminó de cargar todo + 3,5 s (mientras se bajan los modelos y se compilan los shaders
+  // los cuadros por segundo caen siempre y antes eso bajaba la calidad para siempre). Solo baja si los fps quedan por debajo de ~22 durante ~3 s seguidos.
+  const { active: assetsLoading } = useProgress();
+  const [monitorOn, setMonitorOn] = useState(false);
+  useEffect(() => {
+    if (assetsLoading) { setMonitorOn(false); return undefined; }
+    const t = setTimeout(() => setMonitorOn(true), 3500);
+    return () => clearTimeout(t);
+  }, [assetsLoading]);
+  // ?debug en la URL muestra en una esquina el nivel y los fps (para saber qué nivel le tocó a cada celular).
+  const debugOn = useMemo(() => { try { return new URLSearchParams(window.location.search).has("debug"); } catch (e) { return false; } }, []);
+  const dbgRef = useRef(null);
+  const [fpsNow, setFpsNow] = useState(0);
+  useEffect(() => {
+    if (!debugOn) return undefined;
+    const d = document.createElement("div");
+    d.style.cssText = "position:fixed;top:6px;right:6px;z-index:9999;padding:3px 7px;border-radius:6px;background:rgba(0,0,0,.65);color:#9ff;font:11px ui-monospace,monospace;pointer-events:none";
+    document.body.appendChild(d); dbgRef.current = d;
+    return () => { d.remove(); dbgRef.current = null; };
+  }, [debugOn]);
+  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + " · " + (fpsNow || "--") + " fps"; }, [tier, fpsNow, forcedQ]);
   return (
     <PerfCtx.Provider value={perfValue}>
-      <PerformanceMonitor ms={300} iterations={6} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} />
+      {autoOn && monitorOn && forcedQ == null && <PerformanceMonitor ms={800} iterations={4} bounds={() => [22, 144]} onChange={({ fps }) => { if (debugOn) setFpsNow(Math.round(fps)); }} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} />}
       <ScrollSmoother />
       <SceneEnvironment />
       <CameraRig mouse={mouse} />
       <Lighting />
-      <Stars radius={140} depth={70} count={device.isMobile ? 800 : 1800} factor={4} saturation={0} fade speed={0.3} />
+      <Stars radius={140} depth={70} count={1800} factor={4} saturation={0} fade speed={0.3} />
       <Suspense fallback={null}>
         <SceneObjects />
         <ObjectBoundary>
@@ -2705,7 +2741,7 @@ function Experience({ device }) {
 
       <LightBeam enabled={BEAM_ENABLED} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
       <AmbientParticles
-        enabled={PART_ENABLED && tier >= 1} count={IS_MOBILE_VIEW ? Math.min(PART_COUNT, 450) : PART_COUNT} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
+        enabled={PART_ENABLED} count={tier >= 2 ? PART_COUNT : tier >= 1 ? Math.min(PART_COUNT, 450) : Math.min(PART_COUNT, 120)} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
         beam={BEAM_ENABLED ? PART_BEAM : 0} beamWidth={BEAM_WIDTH} beamHeight={BEAM_HEIGHT} beamTarget={BEAM_TARGET}
         getLight={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).light}
         getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
@@ -2715,9 +2751,9 @@ function Experience({ device }) {
           dpr máx. 1.5 — se ve casi igual y no se traba. Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
           a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
       {tier >= 1 && (
-        <EffectComposer multisampling={IS_MOBILE_VIEW ? 2 : tier >= 2 ? 4 : 0}>
-          {AO_ENABLED && tier >= 2 && !IS_MOBILE_VIEW && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality="high" />}
-          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={IS_MOBILE_VIEW ? 180 : 240} />}
+        <EffectComposer multisampling={tier >= 2 ? 4 : 0}>
+          {AO_ENABLED && tier >= 2 && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality="high" />}
+          {BLOOM_ENABLED && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
       )}
@@ -3256,7 +3292,7 @@ function App() {
 
   return (
     <div
-      className={"app-root" + (DOCK.enabled ? " app-root--phone" : "")}
+      className={"app-root" + (DOCK.enabled ? " app-root--phone" : "") + (PHONE_COLUMN ? " app-root--col" : "")}
       style={{
         "--shade-pct": 100 - (DOCK.splitPct || 67),
         "--shade-opacity": DOCK.shadeStrength ?? 0.7,
@@ -3274,8 +3310,8 @@ function App() {
         <div className="scene-canvas">
           <Canvas
             dpr={device.dpr}
-            shadows={IS_MOBILE_VIEW ? false : "soft"}
-            gl={{ antialias: !IS_MOBILE_VIEW, alpha: true, powerPreference: "high-performance" }}
+            shadows="soft"
+            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
             camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
           >
             <Experience device={device} />
