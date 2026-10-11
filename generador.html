@@ -1865,6 +1865,18 @@ const FADE_FRAG_BODY = `
   gl_FragColor.a *= fa;
 }
 `;
+/* Los carteles/imágenes planas descartan solo los píxeles 100 % transparentes: así el rectángulo de la imagen no tapa (ni recorta) lo que tiene detrás,
+   sin cambiar el borde suave de las letras (no se usa alphaTest: el fade lo pasaría a opaco y dejaría un contorno oscuro). */
+function discardClearPixels(mat) {
+  if (!mat || mat.userData.__discardClear) return;
+  mat.userData.__discardClear = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev.call(mat, shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace("#include <alphatest_fragment>", "#include <alphatest_fragment>\n if (diffuseColor.a < 0.02) discard;");
+  };
+  mat.needsUpdate = true;
+}
 function patchFadeMaterial(mat, uniforms) {
   if (!mat || !uniforms) return;
   if (Array.isArray(mat)) { mat.forEach((m) => patchFadeMaterial(m, uniforms)); return; }
@@ -2280,7 +2292,7 @@ function SceneObjectText({ data }) {
   const mesh = (
     <mesh scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return (
@@ -2640,7 +2652,7 @@ function SceneObjectImageRaster({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return (
@@ -2657,7 +2669,7 @@ function SceneObjectImageSvg({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return (
@@ -2678,7 +2690,7 @@ function SceneObjectVideo({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return (
@@ -3973,6 +3985,18 @@ const FADE_FRAG_BODY = `
   gl_FragColor.a *= fa;
 }
 `;
+/* Los carteles/imágenes planas descartan solo los píxeles 100 % transparentes: así el rectángulo de la imagen no tapa (ni recorta) lo que tiene detrás,
+   sin cambiar el borde suave de las letras (no se usa alphaTest: el fade lo pasaría a opaco y dejaría un contorno oscuro). */
+function discardClearPixels(mat) {
+  if (!mat || mat.userData.__discardClear) return;
+  mat.userData.__discardClear = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev.call(mat, shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace("#include <alphatest_fragment>", "#include <alphatest_fragment>\n if (diffuseColor.a < 0.02) discard;");
+  };
+  mat.needsUpdate = true;
+}
 function patchFadeMaterial(mat, uniforms) {
   if (!mat || !uniforms) return;
   if (Array.isArray(mat)) { mat.forEach((m) => patchFadeMaterial(m, uniforms)); return; }
@@ -4705,7 +4729,7 @@ function ObjectPreviewText({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4721,7 +4745,7 @@ function ObjectPreviewImageRaster({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4737,7 +4761,7 @@ function ObjectPreviewImageSvg({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4757,7 +4781,7 @@ function ObjectPreviewVideo({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
