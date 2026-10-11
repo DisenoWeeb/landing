@@ -414,6 +414,24 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0.72, 0], scale: 8.71, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 0.72, 0], scale: 8.71, rotationY: 0, hidden: false, fadeDir: "ltr" },
+    ],
+  },
+  {
+    type: "model",
+    url: "./assets/models/piso-violeta2.glb",
+    videoMode: "scroll",
+    scrollFrom: 0,
+    scrollTo: 1,
+    loop: true,
+    glow: 0,
+    glass: 0,
+    glassMatch: "",
+    shadows: true,
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, -0.08, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, -0.08, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
 ];
@@ -458,7 +476,16 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [0, 0, 3.5], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    camera: { position: [-5.441, 0.962, 5.331], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4, ambient: 0.28 },
+    fog: { enabled: true, color: "#05070a", far: 20 },
+    background: { from: "#3c0647", to: "#3c0647", angle: 180, alpha: 1 },
+  },
+  {
+    id: "pose-1791751369373",
+    progress: 1,
+    easing: "smooth",
+    camera: { position: [2.712, 2.116, 1.146], lookAt: [0, 0.5, 0], fov: 30, roll: 0 },
     light: { color: "#dfeeff", intensity: 0.7, azimuth: 45, elevation: 35, rimColor: "#49d3ff", rimIntensity: 1.4, ambient: 0.28 },
     fog: { enabled: true, color: "#05070a", far: 20 },
     background: { from: "#3c0647", to: "#3c0647", angle: 180, alpha: 1 },
@@ -473,6 +500,7 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791751369373", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -504,6 +532,14 @@ const BONE_POSE_KEYFRAMES = [
       // (sin cambios respecto al rest pose)
     },
   },
+  {
+    id: "pose-1791751369373",
+    progress: 1,
+    easing: "smooth",
+    bones: {
+      // (sin cambios respecto al rest pose)
+    },
+  },
 ];
 /*@GEN:BONES_END*/
 
@@ -530,7 +566,7 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 100;
+const SCROLL_LENGTH_VH = 150;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
