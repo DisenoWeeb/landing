@@ -2280,7 +2280,7 @@ function SceneObjectText({ data }) {
   const mesh = (
     <mesh scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -2640,7 +2640,7 @@ function SceneObjectImageRaster({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -2657,7 +2657,7 @@ function SceneObjectImageSvg({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -2678,7 +2678,7 @@ function SceneObjectVideo({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -4705,7 +4705,7 @@ function ObjectPreviewText({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4721,7 +4721,7 @@ function ObjectPreviewImageRaster({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4737,7 +4737,7 @@ function ObjectPreviewImageSvg({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4757,7 +4757,7 @@ function ObjectPreviewVideo({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent alphaTest={0.02} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
