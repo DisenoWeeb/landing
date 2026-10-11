@@ -2280,7 +2280,7 @@ function SceneObjectText({ data }) {
   const mesh = (
     <mesh scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -2500,7 +2500,9 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
   const envTex = useStudioEnv();
   const envCfg = React.useContext(EnvSettingsCtx);
-  const res = Math.min(r.resolution || 1024, mobile ? 256 : 1024);
+  const res = Math.min(r.resolution || 1024, mobile ? 256 : IS_MOBILE_VIEW ? 512 : 1024);
+  const bk = res / Math.min(r.resolution || 1024, 1024); // en celular el reflejo se renderiza a menor resolución: el desenfoque se escala igual para que se vea parecido
+  const blurV = (r.blur || [300, 80]).map((v) => Math.round(v * bk));
   const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
   const size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 10;
   return (
@@ -2508,7 +2510,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
       <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
         <MeshReflectorMaterial
           color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
-          blur={mobile ? [0, 0] : (r.blur || [300, 80])} resolution={res}
+          blur={mobile ? [0, 0] : blurV} resolution={res}
           mixBlur={mobile ? 0 : (r.mixBlur ?? 0.6)} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
           mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
           depthScale={r.depthScale ?? 0} minDepthThreshold={0.4} maxDepthThreshold={1.4}
@@ -2518,7 +2520,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
       {contact && <AutoClearOn />}
       {contact && (
         <ContactShadows position={[cx, box.max.y + 0.005, cz]} scale={size} far={2.5} blur={2.4}
-          opacity={contactOpacity} resolution={mobile ? 256 : 1024} color="#12001a" />
+          opacity={contactOpacity} resolution={mobile ? 256 : IS_MOBILE_VIEW ? 512 : 1024} color="#12001a" />
       )}
       {contact && <AutoClearRestore />}
     </group>
@@ -2638,7 +2640,7 @@ function SceneObjectImageRaster({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -2655,7 +2657,7 @@ function SceneObjectImageSvg({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -2676,7 +2678,7 @@ function SceneObjectVideo({ data }) {
   const mesh = (
     <mesh scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
     </mesh>
   );
   return (
@@ -4703,7 +4705,7 @@ function ObjectPreviewText({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4719,7 +4721,7 @@ function ObjectPreviewImageRaster({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4735,7 +4737,7 @@ function ObjectPreviewImageSvg({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4755,7 +4757,7 @@ function ObjectPreviewVideo({ obj, fade }) {
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} ref={(m) => patchFadeMaterial(m, fade)} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
