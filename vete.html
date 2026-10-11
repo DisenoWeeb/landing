@@ -706,8 +706,8 @@ const FLOOR_REFLECT_STRENGTH = 0.46;
 const CONTACT_SHADOW = true;
 const CONTACT_SHADOW_OPACITY = 0.5;
 const AO_ENABLED = true;
-const AO_INTENSITY = 1.8;
-const AO_RADIUS = 0.39;
+const AO_INTENSITY = 1.75;
+const AO_RADIUS = 0.37;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -2357,7 +2357,9 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
   const envTex = useStudioEnv();
   const envCfg = React.useContext(EnvSettingsCtx);
-  const res = Math.min(r.resolution || 1024, mobile ? 256 : 1024);
+  const res = Math.min(r.resolution || 1024, mobile ? 256 : IS_MOBILE_VIEW ? 512 : 1024);
+  const bk = res / Math.min(r.resolution || 1024, 1024); // en celular el reflejo se renderiza a menor resolución: el desenfoque se escala igual para que se vea parecido
+  const blurV = (r.blur || [300, 80]).map((v) => Math.round(v * bk));
   const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
   const size = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 10;
   return (
@@ -2365,7 +2367,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
       <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
         <MeshReflectorMaterial
           color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
-          blur={mobile ? [0, 0] : (r.blur || [300, 80])} resolution={res}
+          blur={mobile ? [0, 0] : blurV} resolution={res}
           mixBlur={mobile ? 0 : (r.mixBlur ?? 0.6)} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
           mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
           depthScale={r.depthScale ?? 0} minDepthThreshold={0.4} maxDepthThreshold={1.4}
@@ -2375,7 +2377,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
       {contact && <AutoClearOn />}
       {contact && (
         <ContactShadows position={[cx, box.max.y + 0.005, cz]} scale={size} far={2.5} blur={2.4}
-          opacity={contactOpacity} resolution={mobile ? 256 : 1024} color="#12001a" />
+          opacity={contactOpacity} resolution={mobile ? 256 : IS_MOBILE_VIEW ? 512 : 1024} color="#12001a" />
       )}
       {contact && <AutoClearRestore />}
     </group>
