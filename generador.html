@@ -2290,7 +2290,7 @@ function SceneObjectText({ data }) {
   if (!texture) return <group ref={groupRef} />;
   const refH = texture.userData.refH || texture.image.height;
   const mesh = (
-    <mesh scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
+    <mesh renderOrder={10} scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
@@ -2650,7 +2650,7 @@ function SceneObjectImageRaster({ data }) {
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   const mesh = (
-    <mesh scale={[aspect, 1, 1]}>
+    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
@@ -2667,7 +2667,7 @@ function SceneObjectImageSvg({ data }) {
   if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
-    <mesh scale={[aspect, 1, 1]}>
+    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
@@ -2688,7 +2688,7 @@ function SceneObjectVideo({ data }) {
   });
   if (!texture) return <group ref={groupRef} />;
   const mesh = (
-    <mesh scale={[aspect, 1, 1]}>
+    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
@@ -4723,7 +4723,7 @@ function ObjectPreviewText({ obj, fade }) {
   if (!texture) return null;
   const refH = texture.userData.refH || texture.image.height;
   const mesh = (
-    <mesh
+    <mesh renderOrder={10}
       scale={[(obj.scale * texture.image.width) / refH, (obj.scale * texture.image.height) / refH, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
@@ -4739,7 +4739,7 @@ function ObjectPreviewImageRaster({ obj, fade }) {
   const texture = useTexture(obj.previewUrl || obj.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const mesh = (
-    <mesh
+    <mesh renderOrder={10}
       scale={[obj.scale * aspect, obj.scale, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
@@ -4755,7 +4755,7 @@ function ObjectPreviewImageSvg({ obj, fade }) {
   if (!texture) return null;
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
-    <mesh
+    <mesh renderOrder={10}
       scale={[obj.scale * aspect, obj.scale, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
@@ -4775,7 +4775,7 @@ function ObjectPreviewVideo({ obj, fade }) {
   });
   if (!texture) return null;
   const mesh = (
-    <mesh
+    <mesh renderOrder={10}
       scale={[obj.scale * aspect, obj.scale, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
