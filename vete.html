@@ -414,10 +414,8 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.173, easing: "easeIn", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.347, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.52, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "easeOut", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
@@ -433,11 +431,9 @@ const OBJECTS = [
     shadows: true,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 3.16, 0.12], scale: 1.51, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.173, easing: "easeIn", position: [0, 0.96, 3.08], scale: 1.51, rotationY: 70.1, hidden: false, fadeDir: "ltr" },
-      { progress: 0.347, easing: "linear", position: [0, 0.96, 3.08], scale: 1.51, rotationY: 180, hidden: false, fadeDir: "ltr" },
-      { progress: 0.52, easing: "linear", position: [0, 0.96, 3.08], scale: 1.51, rotationY: 270, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 0.97, 3.08], scale: 1.51, rotationY: 360, hidden: false, fadeDir: "ltr" },
+      { progress: 0, easing: "smooth", position: [0, 3.16, -0.08], scale: 1.51, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "easeOut", position: [-0.8, 0.96, 3.12], scale: 1.51, rotationY: 70.1, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "linear", position: [-0.8, 0.96, 4.88], scale: 1.51, rotationY: -79, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
@@ -447,17 +443,15 @@ const OBJECTS = [
     scrollFrom: 0,
     scrollTo: 1,
     loop: true,
-    glow: 0.2,
+    glow: 0,
     glass: 0,
-    glassMatch: "",
+    glassMatch: "pantalla",
     shadows: true,
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.173, easing: "easeIn", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.347, easing: "linear", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.52, easing: "linear", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "easeOut", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "linear", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
@@ -476,10 +470,28 @@ const OBJECTS = [
     billboard: false,
     keyframes: [
       { progress: 0, easing: "smooth", position: [0, 0.6, 0.28], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.173, easing: "easeIn", position: [0, 0.6, 0.28], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.347, easing: "linear", position: [0, 0.6, 0.28], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.52, easing: "linear", position: [0, 0.6, 0.28], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 0.6, 0.28], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "easeOut", position: [0, 0.6, 0.28], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "linear", position: [0, 0.6, 0.28], scale: 0.44, rotationY: 0, hidden: false, fadeDir: "ltr" },
+    ],
+  },
+  {
+    type: "text",
+    text: "@DraBruzera",
+    textColor: "#601566",
+    textGradient: null,
+    fontFamily: "'Montserrat', sans-serif",
+    letterSpacing: 0.02,
+    lineHeight: 1.2,
+    wordStyles: {},
+    fontWeight: 600,
+    textAlign: "center",
+    textOutline: false,
+    textOutlineColor: "#000000",
+    billboard: false,
+    keyframes: [
+      { progress: 0, easing: "smooth", position: [0, 0.88, -0.87], scale: 0.37, rotationY: 180, hidden: false, fadeDir: "ltr" },
+      { progress: 0.5, easing: "easeOut", position: [0, 0.88, -0.87], scale: 0.37, rotationY: 180, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "linear", position: [0, 0.88, -0.87], scale: 0.37, rotationY: 180, hidden: false, fadeDir: "ltr" },
     ],
   },
 ];
@@ -524,46 +536,28 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [14.927, 1.725, 15.33], lookAt: [0, 1.7, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 2.25, azimuth: 0, elevation: 83, rimColor: "#e4eaec", rimIntensity: 1.4, ambient: 0.32 },
+    camera: { position: [10.19, 6.179, 16.634], lookAt: [0, 1.94, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 2.4, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.27 },
     fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 45 },
+    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 34 },
   },
   {
-    id: "pose-1791747366299",
-    progress: 0.173,
-    easing: "easeIn",
-    camera: { position: [8.04, 1.191, 16.482], lookAt: [0, 1.7, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 2.25, azimuth: 0, elevation: 83, rimColor: "#e4eaec", rimIntensity: 1.4, ambient: 0.32 },
+    id: "pose-1791765330649",
+    progress: 0.5,
+    easing: "easeOut",
+    camera: { position: [10.23, 6.179, 16.634], lookAt: [-3.92, -0.62, 0], fov: 30, roll: 0 },
+    light: { color: "#dfeeff", intensity: 2.4, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.27 },
     fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 45 },
+    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 16 },
   },
   {
-    id: "pose-1791747481663",
-    progress: 0.347,
-    easing: "linear",
-    camera: { position: [8.04, 1.191, 16.482], lookAt: [0, 1.7, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 2.25, azimuth: 0, elevation: 83, rimColor: "#e4eaec", rimIntensity: 1.4, ambient: 0.32 },
-    fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 45 },
-  },
-  {
-    id: "pose-1791747499785",
-    progress: 0.52,
-    easing: "linear",
-    camera: { position: [8.04, 1.191, 16.482], lookAt: [0, 1.7, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 2.25, azimuth: 0, elevation: 83, rimColor: "#e4eaec", rimIntensity: 1.4, ambient: 0.32 },
-    fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 45 },
-  },
-  {
-    id: "pose-1791747520359",
+    id: "pose-1791765528254",
     progress: 1,
-    easing: "smooth",
-    camera: { position: [-5.067, 1.84, 7.372], lookAt: [0, 0.58, 0], fov: 30, roll: 0 },
-    light: { color: "#dfeeff", intensity: 2.25, azimuth: 0, elevation: 83, rimColor: "#e4eaec", rimIntensity: 1.4, ambient: 0.32 },
+    easing: "linear",
+    camera: { position: [-6.963, 3.816, 16.194], lookAt: [0.16, 1.1, 0], fov: 30.3, roll: 0 },
+    light: { color: "#dfeeff", intensity: 2.4, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.27 },
     fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 45 },
+    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 35 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -575,10 +569,8 @@ const scenes = [
 /*@GEN:MOVEMENT_DEFS_START*/
 const MOVEMENT_KEYFRAMES = [
   { id: "pose-1", progress: 0, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791747366299", progress: 0.173, easing: "easeIn", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791747481663", progress: 0.347, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791747499785", progress: 0.52, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
-  { id: "pose-1791747520359", progress: 1, easing: "smooth", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791765330649", progress: 0.5, easing: "easeOut", pos: [0, 0, 0], yaw: 0, pitch: 0 },
+  { id: "pose-1791765528254", progress: 1, easing: "linear", pos: [0, 0, 0], yaw: 0, pitch: 0 },
 ];
 
 function sampleMovement(progress) {
@@ -611,33 +603,17 @@ const BONE_POSE_KEYFRAMES = [
     },
   },
   {
-    id: "pose-1791747366299",
-    progress: 0.173,
-    easing: "easeIn",
+    id: "pose-1791765330649",
+    progress: 0.5,
+    easing: "easeOut",
     bones: {
       // (sin cambios respecto al rest pose)
     },
   },
   {
-    id: "pose-1791747481663",
-    progress: 0.347,
-    easing: "linear",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1791747499785",
-    progress: 0.52,
-    easing: "linear",
-    bones: {
-      // (sin cambios respecto al rest pose)
-    },
-  },
-  {
-    id: "pose-1791747520359",
+    id: "pose-1791765528254",
     progress: 1,
-    easing: "smooth",
+    easing: "linear",
     bones: {
       // (sin cambios respecto al rest pose)
     },
@@ -668,24 +644,24 @@ function sampleBonePose(progress) {
 }
 
 /*@GEN:SCROLL_LENGTH_START*/
-const SCROLL_LENGTH_VH = 865;
+const SCROLL_LENGTH_VH = 300;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
-const HALO = 1.01;
+const HALO = 1.19;
 const PHONE_COLUMN = false;
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.62;
-const VIGNETTE_OFFSET = 0.5;
+const VIGNETTE_DARKNESS = 0.35;
+const VIGNETTE_OFFSET = 0.34;
 const BLOOM_ENABLED = true;
-const BLOOM_INTENSITY = 0.31;
+const BLOOM_INTENSITY = 0.38;
 const BEAM_ENABLED = true;
-const BEAM_OPACITY = 0.79;
+const BEAM_OPACITY = 0.06;
 const BEAM_WIDTH = 5;
-const BEAM_HEIGHT = 40;
-const BEAM_SOFT = 0.35;
-const BEAM_GLOW = 0.15;
-const BEAM_TARGET = [0, 7.3, -0.1];
+const BEAM_HEIGHT = 30.5;
+const BEAM_SOFT = 0.3;
+const BEAM_GLOW = 0;
+const BEAM_TARGET = [0, 5.1, -0.1];
 const PART_ENABLED = false;
 const PART_COUNT = 150;
 const PART_SIZE = 1.6;
@@ -695,10 +671,10 @@ const PART_BLUR = 1;
 const PART_RANGE = 35.5;
 const PART_BEAM = 0.52;
 const ENV_ENABLED = true;
-const ENV_INTENSITY = 1.15;
+const ENV_INTENSITY = 0.85;
 const TONEMAP_ENABLED = true;
-const NATURAL_LIGHT = 0.77;
-const EXPOSURE = 0.74;
+const NATURAL_LIGHT = 0.54;
+const EXPOSURE = 0.98;
 const LIGHT_RIG = "studio";
 const BLOOM_THRESHOLD = 0.28;
 const FLOOR_REFLECT = true;
@@ -1722,6 +1698,18 @@ const FADE_FRAG_BODY = `
   gl_FragColor.a *= fa;
 }
 `;
+/* Los carteles/imágenes planas descartan solo los píxeles 100 % transparentes: así el rectángulo de la imagen no tapa (ni recorta) lo que tiene detrás,
+   sin cambiar el borde suave de las letras (no se usa alphaTest: el fade lo pasaría a opaco y dejaría un contorno oscuro). */
+function discardClearPixels(mat) {
+  if (!mat || mat.userData.__discardClear) return;
+  mat.userData.__discardClear = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev.call(mat, shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace("#include <alphatest_fragment>", "#include <alphatest_fragment>\n if (diffuseColor.a < 0.02) discard;");
+  };
+  mat.needsUpdate = true;
+}
 function patchFadeMaterial(mat, uniforms) {
   if (!mat || !uniforms) return;
   if (Array.isArray(mat)) { mat.forEach((m) => patchFadeMaterial(m, uniforms)); return; }
@@ -2135,9 +2123,9 @@ function SceneObjectText({ data }) {
   if (!texture) return <group ref={groupRef} />;
   const refH = texture.userData.refH || texture.image.height;
   const mesh = (
-    <mesh scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
+    <mesh renderOrder={10} scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return (
@@ -2270,6 +2258,7 @@ const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
 function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
   const spot = useRef(null);
   const rim = useRef(null);
+  const amb = useRef(null);
   const { scene } = useThree();
   const tgt = useMemo(() => new THREE.Object3D(), []);
   const pos = useRef(null);
@@ -2299,6 +2288,8 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
       spot.current.intensity = rigDamp(spot.current.intensity, (L.intensity ?? 0.7) * STUDIO_KEY * e * k, 4, delta);
       spot.current.shadow.normalBias = 0.02 * (d / 9);
     }
+    // Perilla "Ambiente" de la luz principal: en este rig es un relleno parejo muy bajo (0.28 = el valor de siempre = 0.03); sube de forma progresiva.
+    if (amb.current) amb.current.intensity = rigDamp(amb.current.intensity, 0.03 * Math.pow(Math.max(0, L.ambient ?? 0.28) / 0.28, 1.3) * e, 4, delta);
     if (rim.current) {
       const q = lightDirFromAngles((L.azimuth ?? 45) + 160, 25, d * 0.78);
       rim.current.position.set(la[0] + q[0], la[1] + q[1], la[2] + q[2]);
@@ -2311,7 +2302,7 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
       <spotLight ref={spot} angle={0.25} penumbra={1} decay={2} intensity={0} castShadow
         shadow-mapSize={mobile ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
       <pointLight ref={rim} decay={2} intensity={0} />
-      <ambientLight intensity={0.03 * (exposure == null ? 1 : exposure)} />
+      <ambientLight ref={amb} intensity={0.03 * (exposure == null ? 1 : exposure)} />
     </>
   );
 }
@@ -2495,9 +2486,9 @@ function SceneObjectImageRaster({ data }) {
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   const mesh = (
-    <mesh scale={[aspect, 1, 1]}>
+    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return (
@@ -2512,9 +2503,9 @@ function SceneObjectImageSvg({ data }) {
   if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
-    <mesh scale={[aspect, 1, 1]}>
+    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return (
@@ -2533,9 +2524,9 @@ function SceneObjectVideo({ data }) {
   });
   if (!texture) return <group ref={groupRef} />;
   const mesh = (
-    <mesh scale={[aspect, 1, 1]}>
+    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={hasFade ? (m) => patchFadeMaterial(m, fade) : undefined} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
     </mesh>
   );
   return (
