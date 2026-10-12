@@ -418,7 +418,7 @@ const OBJECTS = [
       { progress: 0.4, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
       { progress: 0.6, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
       { progress: 0.8, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
@@ -439,7 +439,7 @@ const OBJECTS = [
       { progress: 0.4, easing: "smooth", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
       { progress: 0.6, easing: "smooth", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
       { progress: 0.8, easing: "smooth", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "smooth", position: [0, 2.84, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "smooth", position: [0, 2.85, 0], scale: 40, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
@@ -569,7 +569,7 @@ const scenes = [
     camera: { position: [5.865, 1.302, 12.889], lookAt: [-9.6, 0.58, 0], fov: 14.9, roll: 0 },
     light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 34 },
+    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 48 },
   },
   {
     id: "pose-1791768635639",
@@ -578,7 +578,7 @@ const scenes = [
     camera: { position: [8.105, 1.302, 12.889], lookAt: [0.16, 2.02, 0], fov: 29.4, roll: 0 },
     light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#05070a", far: 20 },
-    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 34 },
+    background: { from: "#a12ed6", to: "#2b0434", angle: 180, alpha: 1, mid: "#280330", midPos: 62 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -696,11 +696,11 @@ const SCROLL_LENGTH_VH = 750;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
-const HALO = 1.19;
+const HALO = 0.28;
 const PHONE_COLUMN = false;
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.35;
-const VIGNETTE_OFFSET = 0.34;
+const VIGNETTE_DARKNESS = 0.69;
+const VIGNETTE_OFFSET = 0.29;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.38;
 const BEAM_ENABLED = true;
@@ -719,19 +719,19 @@ const PART_BLUR = 1;
 const PART_RANGE = 35.5;
 const PART_BEAM = 0.52;
 const ENV_ENABLED = true;
-const ENV_INTENSITY = 0.85;
+const ENV_INTENSITY = 0.6;
 const TONEMAP_ENABLED = true;
 const NATURAL_LIGHT = 0.54;
 const EXPOSURE = 0.58;
 const LIGHT_RIG = "studio";
-const BLOOM_THRESHOLD = 0.28;
+const BLOOM_THRESHOLD = 0.59;
 const FLOOR_REFLECT = true;
-const FLOOR_REFLECT_STRENGTH = 0.46;
+const FLOOR_REFLECT_STRENGTH = 0.73;
 const CONTACT_SHADOW = true;
-const CONTACT_SHADOW_OPACITY = 0.5;
+const CONTACT_SHADOW_OPACITY = 0.43;
 const AO_ENABLED = true;
-const AO_INTENSITY = 1.75;
-const AO_RADIUS = 0.37;
+const AO_INTENSITY = 2;
+const AO_RADIUS = 0.92;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -3459,5 +3459,4 @@ createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
 </html>
-
 
