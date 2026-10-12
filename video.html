@@ -3543,7 +3543,7 @@ function App() {
             dpr={device.dpr}
             shadows="soft"
             gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-            camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
+            camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 1000 }}
           >
             <Experience device={device} />
           </Canvas>
