@@ -2708,7 +2708,7 @@ function SceneObjectModel({ data }) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
         // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
-        child.castShadow = data.shadows !== false && !mats0.some((m) => m && m.userData.__wasBlend);
+        child.castShadow = data.shadows !== false && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
         child.receiveShadow = data.shadows !== false;
         (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
           if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
