@@ -216,7 +216,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!--@GEN:SEO_HEAD_START-->
 <title>Scroll Experience</title>
+<!--@GEN:SEO_HEAD_END-->
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -520,6 +522,7 @@
 <body>
 <div id="pre-ldr"><span>000</span></div>
 <div id="root"></div>
+<!--@GEN:SEO_BODY_START--><!--@GEN:SEO_BODY_END-->
 
 <script>
   /* Scroll con inercia (Lenis). No requiere tocar el resto del código:
@@ -6137,7 +6140,181 @@ ${kfLines}
   return `const OBJECTS = [\n${objLines || "  // (sin objetos)"}\n];`;
 }
 
-function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode, loaderCode, loaderCss, extrasCode) {
+/* ---- SEO / indexación ----
+   La página es un <canvas>: sin esto Google (y WhatsApp, redes, lectores de pantalla) no ven ningún texto.
+   Se escribe HTML real en el index.html: <head> (título, descripción, Open Graph, datos estructurados del negocio)
+   y un bloque de texto semántico (h1/h2/p) fuera de la vista pero accesible y legible por buscadores. */
+const DEFAULT_SEO = {
+  title: "", description: "", siteName: "", lang: "es-AR", url: "", image: "", index: true, themeColor: "",
+  jsonld: true, businessType: "LocalBusiness", businessName: "", instagram: "", facebook: "",
+  includeScene: true, content: "",
+};
+const SCHEMA_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const ES_DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const seoEsc = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const seoRanges = (slot) => (!slot ? [] : Array.isArray(slot[0]) ? slot : [slot]);
+/* Texto simple -> HTML: "# Título" (h1), "## Subtítulo" (h2), "### " (h3), "- item" (lista), línea en blanco separa párrafos. */
+function seoMarkdown(text) {
+  const out = []; let para = [], list = [];
+  const flush = () => {
+    if (para.length) { out.push("<p>" + seoEsc(para.join(" ")) + "</p>"); para = []; }
+    if (list.length) { out.push("<ul>" + list.map((x) => "<li>" + seoEsc(x) + "</li>").join("") + "</ul>"); list = []; }
+  };
+  String(text || "").split(/\r?\n/).forEach((raw) => {
+    const l = raw.trim();
+    if (!l) { flush(); return; }
+    const h = /^(#{1,3})\s+(.*)$/.exec(l);
+    if (h) { flush(); out.push("<h" + h[1].length + ">" + seoEsc(h[2]) + "</h" + h[1].length + ">"); return; }
+    const li = /^[-*]\s+(.*)$/.exec(l);
+    if (li) { if (para.length) flush(); list.push(li[1]); return; }
+    if (list.length) flush();
+    para.push(l);
+  });
+  flush();
+  return out;
+}
+function generateSeoPack(seoIn, dockIn, objects) {
+  const s = { ...DEFAULT_SEO, ...(seoIn || {}) }, d = { ...DEFAULT_DOCK, ...(dockIn || {}) };
+  const title = String(s.title || s.siteName || "").trim();
+  const desc = String(s.description || "").trim();
+  const url = String(s.url || "").trim();
+  const image = String(s.image || "").trim();
+  const phone = String(d.whatsappPhone || "").replace(/\D/g, "");
+  const head = [];
+  head.push("<title>" + seoEsc(title || "Sitio web") + "</title>");
+  if (desc) head.push('<meta name="description" content="' + seoEsc(desc) + '" />');
+  head.push('<meta name="robots" content="' + (s.index === false ? "noindex, nofollow" : "index, follow, max-image-preview:large") + '" />');
+  if (url) head.push('<link rel="canonical" href="' + seoEsc(url) + '" />');
+  if (s.themeColor) head.push('<meta name="theme-color" content="' + seoEsc(s.themeColor) + '" />');
+  head.push('<meta property="og:type" content="website" />');
+  head.push('<meta property="og:locale" content="' + seoEsc(String(s.lang || "es").replace("-", "_")) + '" />');
+  if (title) head.push('<meta property="og:title" content="' + seoEsc(title) + '" />');
+  if (desc) head.push('<meta property="og:description" content="' + seoEsc(desc) + '" />');
+  if (url) head.push('<meta property="og:url" content="' + seoEsc(url) + '" />');
+  if (s.siteName) head.push('<meta property="og:site_name" content="' + seoEsc(s.siteName) + '" />');
+  if (image) head.push('<meta property="og:image" content="' + seoEsc(image) + '" />');
+  head.push('<meta name="twitter:card" content="' + (image ? "summary_large_image" : "summary") + '" />');
+  if (title) head.push('<meta name="twitter:title" content="' + seoEsc(title) + '" />');
+  if (desc) head.push('<meta name="twitter:description" content="' + seoEsc(desc) + '" />');
+  if (image) head.push('<meta name="twitter:image" content="' + seoEsc(image) + '" />');
+  const bizName = String(s.businessName || s.siteName || "").trim();
+  if (s.jsonld && bizName) {
+    const ld = { "@context": "https://schema.org", "@type": String(s.businessType || "LocalBusiness").trim() || "LocalBusiness", name: bizName };
+    if (url) ld.url = url;
+    if (desc) ld.description = desc;
+    if (image) ld.image = image;
+    if (phone) ld.telephone = "+" + phone;
+    if (d.address) ld.address = { "@type": "PostalAddress", streetAddress: d.address };
+    const spec = [];
+    ORDER_DAYS.forEach((dow) => seoRanges(d.schedule && d.schedule[dow]).forEach((r) => spec.push({ "@type": "OpeningHoursSpecification", dayOfWeek: SCHEMA_DAYS[dow], opens: r[0], closes: r[1] })));
+    if (spec.length) ld.openingHoursSpecification = spec;
+    const same = [s.instagram, s.facebook].map((x) => String(x || "").trim()).filter(Boolean);
+    if (same.length) ld.sameAs = same;
+    head.push("<" + 'script type="application/ld+json">' + JSON.stringify(ld).replace(/</g, "\\u003c") + "</" + "script>");
+  }
+  // ---- contenido visible para buscadores
+  const body = seoMarkdown(s.content);
+  if (title && !body.some((x) => x.startsWith("<h1>"))) body.unshift("<h1>" + seoEsc(title) + "</h1>");
+  if (s.includeScene) {
+    (objects || []).filter((o) => o && o.type === "text" && String(o.text || "").trim()).forEach((o) => {
+      body.push("<p>" + seoEsc(String(o.text).trim().replace(/\s*\n\s*/g, " ")) + "</p>");
+    });
+    if (d.enabled !== false) {
+      if (phone) body.push('<p>WhatsApp: <a href="https://wa.me/' + phone + '">+' + phone + "</a></p>");
+      if (d.address) body.push("<address>" + (d.mapUrl ? '<a href="' + seoEsc(d.mapUrl) + '">' + seoEsc(d.address) + "</a>" : seoEsc(d.address)) + "</address>");
+      const rows = ORDER_DAYS.map((dow) => {
+        const rs = seoRanges(d.schedule && d.schedule[dow]);
+        return "<li>" + ES_DAYS[dow] + ": " + (rs.length ? rs.map((r) => r[0] + " a " + r[1]).join(" y ") : "cerrado") + "</li>";
+      });
+      body.push("<h2>Horarios de atención</h2><ul>" + rows.join("") + "</ul>");
+      if (d.turneroTitle && phone) body.push("<h2>" + seoEsc(d.turneroTitle) + "</h2><p>Pedí tu turno por WhatsApp.</p>");
+    }
+  }
+  const bodyHtml = body.length
+    ? '<main id="seo-content" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);pointer-events:none">\n' + body.join("\n") + "\n</main>"
+    : "";
+  return { head: head.join("\n"), body: bodyHtml, lang: String(s.lang || "es") };
+}
+const ORDER_DAYS = [1, 2, 3, 4, 5, 6, 0];
+function generateRobotsTxt(url) {
+  const u = String(url || "").trim().replace(/\/+$/, "");
+  return "User-agent: *\nAllow: /\n" + (u ? "\nSitemap: " + u + "/sitemap.xml\n" : "");
+}
+function generateSitemapXml(url) {
+  const u = String(url || "").trim();
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>' + seoEsc(u) + "</loc>\n    <lastmod>" + new Date().toISOString().slice(0, 10) + "</lastmod>\n  </url>\n</urlset>\n";
+}
+
+function SeoPanel({ seo, setSeoField, pack, dock }) {
+  const s = { ...DEFAULT_SEO, ...seo };
+  const txt = (label, field, placeholder) => (
+    <div className="row"><span className="lbl">{label}</span>
+      <input type="text" style={{ flex: 1 }} value={s[field] || ""} placeholder={placeholder} spellCheck={false} onChange={(e) => setSeoField(field, e.target.value)} />
+    </div>
+  );
+  const note = (t) => <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.4 }}>{t}</div>;
+  const count = (v, max) => { const n = String(v || "").length; return <span style={{ fontSize: 10.5, color: n > max ? "#ffb454" : "inherit", opacity: n > max ? 1 : 0.6 }}>{n} / {max}</span>; };
+  const download = (name, text, type) => {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+  const shownTitle = (s.title || s.siteName || "Título de tu sitio").slice(0, 60);
+  const shownDesc = (s.description || "Acá va la descripción que se ve en Google debajo del título.").slice(0, 160);
+  let host = s.url || "https://tusitio.com";
+  return (
+    <>
+      <Group id="seo-g" title="Cómo aparece en Google">
+        {txt("Título", "title", "Marca · qué hacés · ciudad")}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>{count(s.title, 60)}</div>
+        <div className="row" style={{ alignItems: "flex-start" }}><span className="lbl">Descripción</span>
+          <textarea rows={3} style={{ flex: 1 }} value={s.description || ""} placeholder="1 o 2 frases: qué ofrecés, dónde y cómo contactarte." onChange={(e) => setSeoField("description", e.target.value)} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>{count(s.description, 160)}</div>
+        {txt("URL del sitio", "url", "https://tusitio.com/")}
+        <div style={{ background: "#fff", color: "#202124", borderRadius: 8, padding: "10px 12px", fontFamily: "Arial, sans-serif" }}>
+          <div style={{ fontSize: 12, color: "#4d5156", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{host}</div>
+          <div style={{ fontSize: 17, color: "#1a0dab", lineHeight: 1.3 }}>{shownTitle}</div>
+          <div style={{ fontSize: 13, color: "#4d5156", lineHeight: 1.4 }}>{shownDesc}</div>
+        </div>
+        {note("Se muestran hasta ~60 caracteres del título y ~160 de la descripción. Google puede reescribirlos, pero parte de lo que escribas acá.")}
+        <SelectRow label="Idioma" value={s.lang} onChange={(v) => setSeoField("lang", v)} options={[["es-AR", "Español (Argentina)"], ["es", "Español"], ["es-MX", "Español (México)"], ["es-ES", "Español (España)"], ["pt-BR", "Português (Brasil)"], ["en", "English"]]} />
+        <Switch checked={s.index !== false} onChange={(v) => setSeoField("index", v)} label="Permitir que los buscadores indexen el sitio" />
+      </Group>
+      <Group id="seo-share" title="Al compartir (WhatsApp, Instagram, redes)">
+        {txt("Nombre del sitio", "siteName", "Ej: Dra. Bruzera")}
+        {txt("Imagen (URL)", "image", "https://tusitio.com/preview.jpg")}
+        {txt("Color del navegador", "themeColor", "#05070f (opcional)")}
+        {note("Imagen recomendada: 1200 × 630 px, en JPG o PNG, con la URL completa (https://…). Es la que aparece cuando alguien pega tu link en WhatsApp o redes.")}
+      </Group>
+      <Group id="seo-biz" title="Datos del negocio (Google Maps y resultados enriquecidos)" toggle={{ checked: s.jsonld !== false, onChange: (v) => setSeoField("jsonld", v) }}>
+        {txt("Nombre del negocio", "businessName", "Si queda vacío usa el nombre del sitio")}
+        {txt("Tipo", "businessType", "LocalBusiness (o Dentist, VeterinaryCare, Restaurant…)")}
+        {txt("Instagram", "instagram", "https://instagram.com/tu_usuario")}
+        {txt("Facebook", "facebook", "https://facebook.com/tu_pagina")}
+        {note("El teléfono (WhatsApp), la dirección y los horarios se toman solos de 'Pantalla de celular · zona fija' (pestaña Escena). Así no los cargás dos veces.")}
+      </Group>
+      <Group id="seo-text" title="Texto para buscadores">
+        <textarea rows={12} style={{ width: "100%", boxSizing: "border-box", fontFamily: "ui-monospace, monospace", fontSize: 12 }} value={s.content || ""} spellCheck={false}
+          placeholder={"# Veterinaria en Palermo\n\nAtención de lunes a sábados, urgencias y vacunación.\n\n## Servicios\n- Consultas y vacunas\n- Cirugía\n- Peluquería canina"} onChange={(e) => setSeoField("content", e.target.value)} />
+        {note("Formato: '# Título' (el principal, uno solo), '## Subtítulo', '- ' para listas; una línea en blanco separa párrafos. Si no ponés un '# ', se usa el título de arriba como título principal.")}
+        <Switch checked={s.includeScene !== false} onChange={(v) => setSeoField("includeScene", v)} label="Sumar automático: textos de la escena, WhatsApp, dirección y horarios" />
+        {note("Este texto no se ve en pantalla, pero está en el HTML para buscadores y lectores de pantalla. Escribí lo mismo que dice o muestra tu sitio: Google ignora (o penaliza) el texto oculto que no coincide con lo visible.")}
+      </Group>
+      <Group id="seo-files" title="Archivos para publicar" defaultOpen={false}>
+        <div className="tools">
+          <Btn icon="file" onClick={() => download("robots.txt", generateRobotsTxt(s.url), "text/plain")}>robots.txt</Btn>
+          <Btn icon="file" disabled={!String(s.url || "").trim()} onClick={() => download("sitemap.xml", generateSitemapXml(s.url), "application/xml")}>sitemap.xml</Btn>
+        </div>
+        {note("Subilos junto al index.html (misma carpeta raíz). El sitemap necesita la URL del sitio. Después podés enviar la URL en Google Search Console para pedir la indexación.")}
+      </Group>
+      <Group id="seo-pv" title="Lo que va a leer Google (vista previa)" defaultOpen={false}>
+        <textarea className="code" readOnly value={pack.head + "\n\n" + pack.body} onFocus={(e) => e.target.select()} style={{ minHeight: 220 }} />
+      </Group>
+    </>
+  );
+}
+
+function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode, loaderCode, loaderCss, extrasCode, seoPack) {
   const tplEl = document.getElementById("tpl-source");
   let tpl = tplEl.value;
   const swap = (src, startMark, endMark, code) => {
@@ -6162,6 +6339,12 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
   tpl = swap(tpl, "/*@GEN:EXTRAS_START*/", "/*@GEN:EXTRAS_END*/", extrasCode);
   tpl = swap(tpl, "/*@GEN:LOADER_CSS_START*/", "/*@GEN:LOADER_CSS_END*/", loaderCss);
   tpl = swap(tpl, "/*@GEN:CHAR_TRANSFORM_START*/", "/*@GEN:CHAR_TRANSFORM_END*/", charTransformCode);
+  if (seoPack) {
+    const mk = (n) => "<" + "!--@GEN:" + n + "-->";   // (se arma por partes: un comentario HTML literal dentro de este script podría romper el HTML)
+    tpl = swap(tpl, mk("SEO_HEAD_START"), mk("SEO_HEAD_END"), seoPack.head);
+    tpl = swap(tpl, mk("SEO_BODY_START"), mk("SEO_BODY_END"), seoPack.body);
+    tpl = tpl.replace('<html lang="es">', '<html lang="' + seoEsc(seoPack.lang) + '">');
+  }
   return tpl;
 }
 
@@ -6191,6 +6374,7 @@ const ICONS = {
   trash: <path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13" />,
   eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   eyeoff: <path d="M3 3l18 18M10.6 6.2A9.6 9.6 0 0112 6c6 0 10 6 10 6a17 17 0 01-3.2 3.7M6.5 6.9C3.8 8.6 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1" />,
+  search: <><circle cx="11" cy="11" r="6" /><path d="M20 20l-4.5-4.5" /></>,
   copy: <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" /></>,
   pin: <path d="M12 17v5M8 3h8l-1 6 3 4H6l3-4z" />,
   prev: <path d="M15 5l-7 7 7 7" />,
@@ -6771,6 +6955,8 @@ function App() {
   const [loaderPreview, setLoaderPreview] = useState(0);   // cuenta: cada click en "Ver loader" lo reinicia
   const [dock, setDock] = useState(DEFAULT_DOCK);
   const setDockField = (field, value) => setDock((prev) => ({ ...prev, [field]: value }));
+  const [seo, setSeo] = useState(DEFAULT_SEO);
+  const setSeoField = (field, value) => setSeo((prev) => ({ ...prev, [field]: value }));
   const [reflection, setReflection] = useState({
     enabled: false,
     resolution: 256,
@@ -7287,6 +7473,7 @@ function App() {
   const trailCode = useMemo(() => generateTrailCode(trail), [trail]);
   const reflectionCode = useMemo(() => generateReflectionCode(reflection), [reflection]);
   const dockCode = useMemo(() => generateDockCode(dock), [dock]);
+  const seoPack = useMemo(() => generateSeoPack(seo, dock, objects), [seo, dock, objects]);
   const loaderCode = useMemo(() => generateLoaderCode(loader), [loader]);
   const loaderCss = useMemo(() => generateLoaderCss(loader), [loader]);
   const extrasCode = useMemo(() => generateExtrasCode(cursor, progressBar), [cursor, progressBar]);
@@ -7318,6 +7505,7 @@ function App() {
     trail,
     reflection,
     dock,
+    seo,
     loader,
     cursor,
     progressBar,
@@ -7341,6 +7529,7 @@ function App() {
     if (p.trail) setTrail((prev) => ({ ...prev, ...p.trail }));
     if (p.reflection) setReflection((prev) => ({ ...prev, ...p.reflection }));
     setDock({ ...DEFAULT_DOCK, ...(p.dock || {}) });
+    setSeo({ ...DEFAULT_SEO, ...(p.seo || {}) });
     setLoader({ ...DEFAULT_LOADER, ...(p.loader || {}) });
     setCursor({ ...DEFAULT_CURSOR, ...(p.cursor || {}) });
     setProgressBar({ ...DEFAULT_PROGRESS_BAR, ...(p.progressBar || {}) });
@@ -7531,7 +7720,7 @@ function App() {
   };
 
   const downloadFullHtml = () => {
-        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode, loaderCode, loaderCss, extrasCode);
+        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode, loaderCode, loaderCss, extrasCode, seoPack);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -7545,7 +7734,7 @@ function App() {
   };
 
   const copyFullHtml = () => {
-        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode, loaderCode, loaderCss, extrasCode);
+        const html = buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, objectsCode, modelUrlCode, postFxCode, charTransformCode, trailCode, reflectionCode, dockCode, loaderCode, loaderCss, extrasCode, seoPack);
     copy(html, "full");
   };
 
@@ -7557,7 +7746,7 @@ function App() {
     setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0, partEnabled: false, partCount: 650, partSize: 1, partOpacity: 0.65, partSpeed: 1, partBlur: 0.6, partRange: 16, partBeam: 0.6, envEnabled: true, envIntensity: 0.8, toneMap: false, naturalLight: 0, exposure: 1, lookPreset: "" });
     setTrail({ enabled: false, color: "#ffd873", size: 0.05, life: 0.9, rate: 40 });
     setReflection({ enabled: false, resolution: 256, updateEvery: 2, intensity: 1 });
-    setDock(DEFAULT_DOCK); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR);
+    setDock(DEFAULT_DOCK); setSeo(DEFAULT_SEO); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR);
     setStages(st); setDurationsVh([]); setEasings([]);
     setPosesByKf(initialPoses(st)); setCamsByKf(initialCameras(st)); setMovesByKf(initialMovements(st)); setFxByKf(initialFx(st));
     setObjects([]); setObjectTransformsByKf({}); setSelectedObj(null);
@@ -7565,7 +7754,7 @@ function App() {
   };
   const TABS = [
     ["cfg", "cfg", "Escena"], ["look", "look", "Look"], ["pose", "pose", "Personaje"], ["camera", "cam", "Cámara"],
-    ["timing", "time", "Tiempo"], ["objects", "cube", "Objetos"], ["preview", "play", "Preview"], ["file", "file", "Archivo"],
+    ["timing", "time", "Tiempo"], ["objects", "cube", "Objetos"], ["seo", "search", "SEO"], ["preview", "play", "Preview"], ["file", "file", "Archivo"],
   ];
   const showStageBar = ["pose", "camera", "objects"].includes(section);
   const currentStageLabel = stages.find((s) => s.id === activeStage)?.label || "";
@@ -8022,6 +8211,7 @@ function App() {
               <Slider label="Velocidad" min={0.1} max={3} step={0.05} value={playSpeed} onChange={setPlaySpeed} />
             )}
 
+            {section === "seo" && <SeoPanel seo={seo} setSeoField={setSeoField} pack={seoPack} dock={dock} />}
             {section === "file" && (
               <>
                 <Group id="proj" title="Proyecto">
