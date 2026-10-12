@@ -308,7 +308,7 @@
     font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 </style>
 <style id="ldr-vars">/*@GEN:LOADER_CSS_START*/
-:root { --ldr-bg: #05070f; --ldr-line: #ffffff; --ldr-font: 'Space Grotesk', sans-serif; }
+:root { --ldr-bg: #b5029e; --ldr-line: #f6aee5; --ldr-font: 'Montserrat', sans-serif; }
 /*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
@@ -424,6 +424,11 @@ const OBJECTS = [
     loop: true,
     glow: 0,
     glass: 0,
+    hue: 0,
+    sat: 1,
+    light: 2,
+    tint: "#ffffff",
+    tintAmt: 0.12,
     glassMatch: "",
     shadows: true,
     billboard: false,
@@ -449,6 +454,11 @@ const OBJECTS = [
     loop: true,
     glow: 0,
     glass: 0,
+    hue: 0,
+    sat: 1,
+    light: 1,
+    tint: "#ffffff",
+    tintAmt: 0,
     glassMatch: "pantalla",
     shadows: true,
     billboard: false,
@@ -549,13 +559,13 @@ const OBJECTS = [
   {
     type: "text",
     text: "PELUQUERIA\n\nBaño\n___________________\n\nBaño + Corte\n___________________\n\nCorte Sanitario\n___________________\n\nUñas\n",
-    textColor: "#0c115a",
+    textColor: "#ffffff",
     textGradient: null,
     fontFamily: "'Montserrat', sans-serif",
     letterSpacing: 0,
     lineHeight: 0.6,
-    wordStyles: {"0":{"mode":"solid","color":"#4b0646"}},
-    fontWeight: 600,
+    wordStyles: {"0":{"mode":"solid","color":"#ca4ec0"}},
+    fontWeight: 400,
     textAlign: "center",
     textOutline: false,
     textOutlineColor: "#000000",
@@ -582,20 +592,25 @@ const OBJECTS = [
     loop: true,
     glow: 0,
     glass: 0,
+    hue: 0,
+    sat: 1,
+    light: 1,
+    tint: "#ffffff",
+    tintAmt: 0,
     glassMatch: "",
-    shadows: false,
+    shadows: true,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.111, easing: "linear", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.222, easing: "linear", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.333, easing: "easeOut", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.444, easing: "easeIn", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.556, easing: "linear", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.667, easing: "linear", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.778, easing: "linear", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.889, easing: "linear", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 900, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.111, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.222, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.333, easing: "easeOut", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.444, easing: "easeIn", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.556, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.667, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.778, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.889, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
 ];
@@ -881,11 +896,11 @@ const SCROLL_LENGTH_VH = 1800;
 const HALO = 0.28;
 const PHONE_COLUMN = false;
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.69;
-const VIGNETTE_OFFSET = 0.29;
+const VIGNETTE_DARKNESS = 0.13;
+const VIGNETTE_OFFSET = 0.25;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.38;
-const BEAM_ENABLED = true;
+const BEAM_ENABLED = false;
 const BEAM_OPACITY = 0.01;
 const BEAM_WIDTH = 9.7;
 const BEAM_HEIGHT = 24.5;
@@ -903,8 +918,8 @@ const PART_BEAM = 0.52;
 const ENV_ENABLED = true;
 const ENV_INTENSITY = 0.6;
 const TONEMAP_ENABLED = true;
-const NATURAL_LIGHT = 0.54;
-const EXPOSURE = 1.04;
+const NATURAL_LIGHT = 0;
+const EXPOSURE = 1.12;
 const LIGHT_RIG = "studio";
 const BLOOM_THRESHOLD = 0.59;
 const FLOOR_REFLECT = true;
@@ -925,7 +940,7 @@ const REFLECTION_INTENSITY = 1;
   
 /*@GEN:TRAIL_START*/
 const TRAIL_ENABLED = true;
-const TRAIL_COLOR = "#d237bd";
+const TRAIL_COLOR = "#e571d5";
 const TRAIL_SIZE = 0.5;
 const TRAIL_LIFE = 3;
 const TRAIL_RATE = 300;
@@ -934,8 +949,8 @@ const TRAIL_RATE = 300;
 /*@GEN:DOCK_START*/
 const DOCK = {
   "enabled": true,
-  "splitPct": 67,
-  "shadeStrength": 0.7,
+  "splitPct": 62,
+  "shadeStrength": 1,
   "whatsappPhone": "",
   "whatsappMessage": "Hola! Quisiera hacer una consulta.",
   "address": "",
@@ -971,7 +986,7 @@ const DOCK = {
   "turneroTitle": "Sacá tu turno",
   "turneroDays": 14,
   "turneroMessage": "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
-  "accent": ""
+  "accent": "#ec69a9"
 };
 /*@GEN:DOCK_END*/
 
@@ -979,9 +994,9 @@ const DOCK = {
 const LOADER = {
   "enabled": true,
   "svg": "",
-  "background": "#05070f",
-  "lineColor": "#ffffff",
-  "font": "'Space Grotesk', sans-serif",
+  "background": "#b5029e",
+  "lineColor": "#f6aee5",
+  "font": "'Montserrat', sans-serif",
   "lineWidth": 1.4,
   "minMs": 1800,
   "showNumber": true
@@ -991,7 +1006,7 @@ const LOADER = {
 /*@GEN:EXTRAS_START*/
 const CURSOR = {
   "enabled": true,
-  "color": "#ffffff",
+  "color": "#e684d9",
   "size": 56,
   "life": 0.7,
   "intensity": 0.6,
@@ -999,7 +1014,7 @@ const CURSOR = {
 };
 const PROGRESS_BAR = {
   "enabled": true,
-  "color": ""
+  "color": "#e366e5"
 };
 /*@GEN:EXTRAS_END*/
 
@@ -2585,7 +2600,28 @@ function relativeMatrix(obj, root) {
   for (let o = obj; o && o !== root; o = o.parent) { o.updateMatrix(); m.premultiply(o.matrix); }
   return m;
 }
-function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity }) {
+/* Color del objeto: matiz / saturación / luminosidad / tinte (se mezcla con el color original del material; con texturas el tinte multiplica la textura). */
+function gradeOf(o) { return { hue: (o && o.hue) || 0, sat: o && o.sat != null ? o.sat : 1, light: o && o.light != null ? o.light : 1, tint: (o && o.tint) || "#ffffff", tintAmt: (o && o.tintAmt) || 0 }; }
+function gradeColor(base, g) {
+  const c = base.clone();
+  if (!g || (!g.hue && g.sat === 1 && g.light === 1 && !g.tintAmt)) return c;
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  c.setHSL((hsl.h + (g.hue || 0) / 360 + 1) % 1, Math.min(1, Math.max(0, hsl.s * g.sat)), Math.min(1, Math.max(0, hsl.l * g.light)));
+  if (g.tintAmt > 0) c.lerp(new THREE.Color(g.tint || "#ffffff"), Math.min(1, g.tintAmt));
+  return c;
+}
+function applyColorGrade(root, g) {
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !m.color) return;
+      if (!m.userData.__col0) m.userData.__col0 = { color: m.color.clone() };
+      m.color.copy(gradeColor(m.userData.__col0.color, g));
+    });
+  });
+}
+function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity, grade, glow }) {
   const r = (mesh.material && mesh.material.userData && mesh.material.userData.reflector) || {};
   const geo = useMemo(() => mesh.geometry.clone().rotateX(Math.PI / 2), [mesh]);
   const box = useMemo(() => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone(); }, [mesh]);
@@ -2596,6 +2632,10 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   }, [mesh, root]);
   useEffect(() => () => geo.dispose(), [geo]);
   const m0 = mesh.material;
+  const gr = grade || gradeOf(null);
+  const baseCol = (m0.userData && m0.userData.__col0 && m0.userData.__col0.color) || m0.color;
+  const floorCol = useMemo(() => gradeColor(baseCol, gr), [baseCol, gr.hue, gr.sat, gr.light, gr.tint, gr.tintAmt]);
+  const glowAmt = glow || 0;
   // El piso también toma el entorno de reflejos: sin él, MeshReflectorMaterial multiplica el reflejo
   // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
   const envTex = useStudioEnv();
@@ -2609,7 +2649,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
     <group position={xf.p} quaternion={xf.q} scale={xf.sc}>
       <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
         <MeshReflectorMaterial
-          color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
+          color={floorCol} emissive={glowAmt > 0 ? floorCol : "#000000"} emissiveIntensity={glowAmt > 0 ? glowAmt : 0} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
           blur={mobile ? [0, 0] : blurV} resolution={res}
           mixBlur={mobile ? 0 : (r.mixBlur ?? 0.6)} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
           mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
@@ -2627,7 +2667,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   );
 }
 /* Va DENTRO del mismo grupo que tiene la posición/escala/giro del objeto, como hermano del <primitive>. */
-function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity }) {
+function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity, grade, glow }) {
   const floors = useMemo(() => {
     const out = [];
     scene.traverse((o) => {
@@ -2644,7 +2684,7 @@ function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpa
   return (
     <>
       {floors.map((m) => (
-        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} />
+        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} grade={grade} glow={glow} />
       ))}
     </>
   );
@@ -2723,13 +2763,14 @@ function SceneObjectModel({ data }) {
   useEffect(() => {
     applyScreenGlass(scene, data.glass || 0, data.glassMatch, (p) => { if (hasFade) patchFadeMaterial(p, fade); });
     applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
+    applyColorGrade(scene, gradeOf(data));
     applyGlow(scene, data.glow || 0);   // despues del cambio de material: conserva el emisivo (neon) del .glb
-  }, [scene, envTex, envCfg.enabled, envCfg.intensity, data.glass, data.glassMatch, data.glow, hasFade, fade]);
+  }, [scene, envTex, envCfg.enabled, envCfg.intensity, data.glass, data.glassMatch, data.glow, data.hue, data.sat, data.light, data.tint, data.tintAmt, hasFade, fade]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
       <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT && perf.tier >= 1 && perf.safe < 3 && !perf.off.ref} strength={FLOOR_REFLECT_STRENGTH}
-        mobile={perf.tier < 2} contact={CONTACT_SHADOW && perf.tier >= 2 && perf.safe < 3 && !perf.off.contact} contactOpacity={CONTACT_SHADOW_OPACITY} />
+        mobile={perf.tier < 2} contact={CONTACT_SHADOW && perf.tier >= 2 && perf.safe < 3 && !perf.off.contact} contactOpacity={CONTACT_SHADOW_OPACITY} grade={gradeOf(data)} glow={data.glow || 0} />
     </group>
   );
 }
