@@ -6526,7 +6526,7 @@ function GradientEditor({ colors, angle, onChange }) {
       <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
         {cols.map((c, i) => (
           <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-            <input type="color" value={c} onChange={(e) => set({ colors: cols.map((x, k) => (k === i ? e.target.value : x)) })} />
+            <HexColor value={c} width={64} onChange={(v) => set({ colors: cols.map((x, k) => (k === i ? v : x)) })} />
             {cols.length > 2 && <button className="chip" title="Quitar color" onClick={() => set({ colors: cols.filter((_, k) => k !== i) })}>×</button>}
           </span>
         ))}
@@ -6569,7 +6569,7 @@ function TextStyleEditor({ o, updateObject }) {
       <Slider label="Interlineado" min={0.5} max={2.5} step={0.05} value={o.lineHeight ?? 1.2} onChange={(v) => up({ lineHeight: v })} />
       <Seg value={o.textAlign || "center"} onChange={(v) => up({ textAlign: v })} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
       <div className="row"><Switch checked={!!o.textOutline} onChange={(v) => up({ textOutline: v })} label="Contorno" />
-        {o.textOutline && <input type="color" value={o.textOutlineColor || "#000000"} onChange={(e) => up({ textOutlineColor: e.target.value })} />}</div>
+        {o.textOutline && <HexColor value={o.textOutlineColor || "#000000"} width={64} onChange={(v) => up({ textOutlineColor: v })} />}</div>
       {words.length > 0 && (
         <>
           <span className="lbl" style={{ marginTop: 4 }}>Por palabra (tocá una para darle otro color, degradé o fuente)</span>
@@ -6693,7 +6693,7 @@ function DockFields({ dock, setDockField }) {
       <Slider label="Días" min={7} max={30} step={1} value={dock.turneroDays} onChange={(v) => setDockField("turneroDays", v)} />
       {txt("Mensaje", "turneroMessage", "Usá {dia} donde va el día elegido")}
       <div className="row"><span className="lbl">Color botón</span>
-        <input type="color" value={dock.accent || "#ff4fa3"} onChange={(e) => setDockField("accent", e.target.value)} />
+        <HexColor value={dock.accent || "#ff4fa3"} onChange={(v) => setDockField("accent", v)} />
         {dock.accent && <button className="mini" onClick={() => setDockField("accent", "")}>Usar el de la marca</button>}
       </div>
     </>
@@ -6719,8 +6719,36 @@ function Vec3({ label, value, onChange, step = 0.05 }) {
     </div>
   );
 }
+/* Selector de color con campo hex: se puede pegar un color (#ffffff, ffffff, #fff o rgb(255,255,255)) o escribirlo, además de usar el selector. */
+function parseColorText(t) {
+  let v = String(t || "").trim().replace(/[;,]+$/, "");
+  const rgb = /^rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})/i.exec(v);
+  if (rgb) return "#" + [rgb[1], rgb[2], rgb[3]].map((n) => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, "0")).join("");
+  v = v.replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(v)) v = v.split("").map((ch) => ch + ch).join("");
+  if (/^[0-9a-f]{8}$/i.test(v)) v = v.slice(0, 6);
+  return /^[0-9a-f]{6}$/i.test(v) ? "#" + v.toLowerCase() : null;
+}
+function HexColor({ value, onChange, width = 76 }) {
+  const cur = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#000000";
+  const [draft, setDraft] = useState(cur);
+  useEffect(() => { setDraft(cur); }, [cur]);
+  const commit = (txt) => { const p = parseColorText(txt); if (p) { if (p !== cur) onChange(p); setDraft(p); return true; } return false; };
+  return (
+    <>
+      <input type="color" value={cur} onChange={(e) => onChange(e.target.value)} />
+      <input type="text" className="hexin" value={draft} spellCheck={false} maxLength={24} title="Pegá o escribí un color: #ffffff"
+        style={{ width, font: "11px ui-monospace, Menlo, monospace", textTransform: "lowercase" }}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => { const t = e.target.value; setDraft(t); if (/^#?[0-9a-f]{6}$/i.test(t.trim())) { const p = parseColorText(t); if (p && p !== cur) onChange(p); } }}
+        onPaste={(e) => { const t = (e.clipboardData && e.clipboardData.getData("text")) || ""; const p = parseColorText(t); if (p) { e.preventDefault(); onChange(p); setDraft(p); } }}
+        onBlur={() => { if (!commit(draft)) setDraft(cur); }}
+        onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }} />
+    </>
+  );
+}
 function ColorRow({ label, value, onChange }) {
-  return <div className="row"><span className="lbl">{label}</span><input type="color" value={value} onChange={(e) => onChange(e.target.value)} /><span className="hex">{value}</span></div>;
+  return <div className="row"><span className="lbl">{label}</span><HexColor value={value} onChange={onChange} /></div>;
 }
 function SelectRow({ label, value, onChange, options }) {
   return (
@@ -8058,7 +8086,7 @@ function App() {
                 </Group>
                 <Group id="railbar" title="Barra de progreso lateral" toggle={{ checked: progressBar.enabled, onChange: (v) => setProgressField("enabled", v) }}>
                   <div className="row"><span className="lbl">Color</span>
-                    <input type="color" value={progressBar.color || "#49d3ff"} onChange={(e) => setProgressField("color", e.target.value)} />
+                    <HexColor value={progressBar.color || "#49d3ff"} onChange={(v) => setProgressField("color", v)} />
                     {progressBar.color && <button className="mini" onClick={() => setProgressField("color", "")}>Usar el de la marca</button>}
                   </div>
                 </Group>
