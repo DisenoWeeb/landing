@@ -3082,7 +3082,12 @@ function DepthFocus({ getTarget, follow, offset, distance, range, blur, back }) 
        Así el plano de foco pasa a ser el "fin de la zona nítida" y solo se desenfoca lo que queda detrás. */
     if (m.__back !== !!back) {
       m.__back = !!back;
-      if (!m.__src0) m.__src0 = m.fragmentShader;
+      if (!m.__src0) {
+        /* la profundidad no tiene antialias pero el color sí: en el borde de un objeto de adelante los píxeles "mezclados"
+           leían la profundidad del fondo y se desenfocaban (aro/línea alrededor). Se toma la profundidad MÁS CERCANA de
+           los vecinos (dilatación de 3 px) para que el objeto de adelante "tape" ese borde. */
+        m.__src0 = m.fragmentShader.replace("float depth=readDepth(vUv);", "float depth=readDepth(vUv);vec2 tx=3.0/vec2(textureSize(depthBuffer,0));depth=min(min(depth,readDepth(vUv+vec2(tx.x,0.0))),min(readDepth(vUv-vec2(tx.x,0.0)),min(readDepth(vUv+vec2(0.0,tx.y)),readDepth(vUv-vec2(0.0,tx.y)))));");
+      }
       m.fragmentShader = back ? m.__src0.replace("magnitude*vec2(step(signedDistance,0.0),step(0.0,signedDistance))", "magnitude*vec2(0.0,step(0.0,signedDistance))") : m.__src0;
       m.needsUpdate = true;
     }
@@ -5098,7 +5103,12 @@ function DepthFocus({ getTarget, follow, offset, distance, range, blur, back }) 
        Así el plano de foco pasa a ser el "fin de la zona nítida" y solo se desenfoca lo que queda detrás. */
     if (m.__back !== !!back) {
       m.__back = !!back;
-      if (!m.__src0) m.__src0 = m.fragmentShader;
+      if (!m.__src0) {
+        /* la profundidad no tiene antialias pero el color sí: en el borde de un objeto de adelante los píxeles "mezclados"
+           leían la profundidad del fondo y se desenfocaban (aro/línea alrededor). Se toma la profundidad MÁS CERCANA de
+           los vecinos (dilatación de 3 px) para que el objeto de adelante "tape" ese borde. */
+        m.__src0 = m.fragmentShader.replace("float depth=readDepth(vUv);", "float depth=readDepth(vUv);vec2 tx=3.0/vec2(textureSize(depthBuffer,0));depth=min(min(depth,readDepth(vUv+vec2(tx.x,0.0))),min(readDepth(vUv-vec2(tx.x,0.0)),min(readDepth(vUv+vec2(0.0,tx.y)),readDepth(vUv-vec2(0.0,tx.y)))));");
+      }
       m.fragmentShader = back ? m.__src0.replace("magnitude*vec2(step(signedDistance,0.0),step(0.0,signedDistance))", "magnitude*vec2(0.0,step(0.0,signedDistance))") : m.__src0;
       m.needsUpdate = true;
     }
@@ -8346,9 +8356,9 @@ function App() {
                     <Switch label="Solo desenfocar el fondo (lo de atrás)" checked={postFx.dofBack !== false} onChange={(v) => setPostFxField("dofBack", v)} />
                     <Switch label="Enfocar donde mira la cámara" checked={postFx.dofFollow !== false} onChange={(v) => setPostFxField("dofFollow", v)} />
                     {postFx.dofFollow !== false
-                      ? <Slider label="Profundidad nítida (detrás del objetivo)" min={-10} max={20} step={0.1} value={postFx.dofOffset ?? 1} onChange={(v) => setPostFxField("dofOffset", v)} />
-                      : <Slider label="Distancia de foco (desde la cámara)" min={0.5} max={60} step={0.1} value={postFx.dofDistance ?? 8} onChange={(v) => setPostFxField("dofDistance", v)} />}
-                    <Slider label="Transición (suavidad)" min={0.2} max={60} step={0.1} value={postFx.dofRange ?? 8} onChange={(v) => setPostFxField("dofRange", v)} />
+                      ? <Slider label="Profundidad nítida (detrás del objetivo)" min={-10} max={200} step={0.1} value={postFx.dofOffset ?? 1} onChange={(v) => setPostFxField("dofOffset", v)} />
+                      : <Slider label="Distancia de foco (desde la cámara)" min={0.5} max={300} step={0.1} value={postFx.dofDistance ?? 8} onChange={(v) => setPostFxField("dofDistance", v)} />}
+                    <Slider label="Transición (suavidad)" min={0.2} max={300} step={0.1} value={postFx.dofRange ?? 8} onChange={(v) => setPostFxField("dofRange", v)} />
                     <Slider label="Intensidad del desenfoque" min={0} max={10} step={0.1} value={postFx.dofBlur ?? 3} onChange={(v) => setPostFxField("dofBlur", v)} />
                   </Group>
                   <Group id="env" title="Entorno de reflejos (metal / vidrio)" toggle={{ checked: postFx.envEnabled ?? true, onChange: (v) => setPostFxField("envEnabled", v) }}>
