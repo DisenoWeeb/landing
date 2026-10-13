@@ -539,7 +539,7 @@
       smoothTouch: false, // en mobile el scroll táctil nativo se siente mejor
     });
     function raf(time) {
-      lenis.raf(time);
+      if (window.__lenis) window.__lenis.raf(time);
       requestAnimationFrame(raf);
     }
     requestAnimationFrame(raf);
@@ -575,7 +575,7 @@ import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows, PerformanceMonitor } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping, N8AO, SMAA } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, ToneMapping, N8AO, SMAA, DepthOfField } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
 /* ============================================================
@@ -643,11 +643,27 @@ function smoothstep(edge0, edge1, x) {
 /* Curva de velocidad ("easing") por tramo, elegible desde la pestaña
    Duración. Se aplica por igual a cámara, movimiento, pose y ambiente
    para que todos lleguen coordinados al mismo punto en el tiempo. */
+/* Curvas de tiempo de cada tramo entre poses. Las "cinematográficas" son más extremas que las clásicas: arrancan o frenan
+   muy lento, o pasan en cámara lenta por el centro, sin tener que agregar más vh. */
 function applyEasing(t, kind) {
   switch (kind) {
     case "linear": return t;
     case "easeIn": return t * t;
     case "easeOut": return 1 - (1 - t) * (1 - t);
+    case "inOutCubic": return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    case "inOutQuart": return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
+    case "inOutQuint": return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+    case "inOutExpo": return t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2;
+    case "inQuart": return t * t * t * t;
+    case "inExpo": return t <= 0 ? 0 : Math.pow(2, 10 * t - 10);
+    case "outQuart": return 1 - Math.pow(1 - t, 4);
+    case "outExpo": return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    case "slowMid": { const u = 2 * t - 1; return 0.5 + 0.5 * u * u * u; }                 // rápido en los extremos, lento en el centro
+    case "slowMidStrong": { const u = 2 * t - 1; return 0.5 + 0.5 * u * u * u * u * u; }   // el centro casi se detiene
+    case "slowMidHold": { const u = 2 * t - 1; return 0.5 + 0.5 * Math.sign(u) * Math.pow(Math.abs(u), 7); }
+    case "outBack": { const c1 = 1.4, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+    case "inOutBack": { const c1 = 1.2, c2 = c1 * 1.525; return t < 0.5 ? (Math.pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2 : (Math.pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2; }
+    case "outElastic": { if (t <= 0) return 0; if (t >= 1) return 1; const c4 = (2 * Math.PI) / 4.5; return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1; }
     case "smooth":
     default: return smoothstep(0, 1, t);
   }
@@ -880,6 +896,15 @@ const CONTACT_SHADOW_OPACITY = 0.75;
 const AO_ENABLED = false;
 const AO_INTENSITY = 2;
 const AO_RADIUS = 0.35;
+const DOF_ENABLED = false;
+const DOF_FOLLOW = true;
+const DOF_OFFSET = 1;
+const DOF_DISTANCE = 8;
+const DOF_RANGE = 8;
+const DOF_BLUR = 3;
+const DOF_BACK = true;
+const SCROLL_SPEED = 0;
+const SCROLL_MAX_PPS = 1.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -1063,6 +1088,40 @@ const useScrollStore = create((set) => ({
   setSmoothProgress: (p) => set({ smoothProgress: p }),
 }));
 
+/* Velocidad de scroll: cuánto "avanza" cada vuelta de rueda / cada deslizamiento del dedo. En un proyecto largo
+   (muchos vh por pose) el valor por defecto de 1 obliga a scrollear cientos de veces. SCROLL_SPEED = 0 es automático:
+   se ajusta al largo promedio de cada pose (~12 vueltas de rueda por pose). Si lo fijás a mano, manda el número. */
+function scrollSpeedEff() {
+  if (SCROLL_SPEED > 0) return SCROLL_SPEED;
+  const avgVh = SCROLL_LENGTH_VH / Math.max(1, scenes.length - 1);
+  return Math.max(1, Math.min(15, Math.round((avgVh / 132) * 2) / 2));
+}
+function useScrollTuning() {
+  useEffect(() => {
+    const speed = scrollSpeedEff();
+    if (typeof Lenis === "undefined" || !window.__lenis) return;
+    if (speed <= 1) return;   // proyecto corto: queda el comportamiento de siempre
+    try {
+      const y = window.scrollY;
+      const old = window.__lenis;
+      old.destroy();
+      /* syncTouch: en celular el deslizamiento pasa por Lenis (multiplicador + inercia suave) en vez del scroll nativo,
+         que no se puede escalar ni frenar. */
+      window.__lenis = new Lenis({
+        duration: 1.2,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        wheelMultiplier: speed,
+        touchMultiplier: speed,
+        syncTouch: true,
+        syncTouchLerp: 0.1,
+        touchInertiaMultiplier: 18,
+      });
+      window.scrollTo(0, y);
+    } catch (e) {}
+  }, []);
+}
+
 function useScrollProgress(spacerRef) {
   useEffect(() => {
     // Alto "grande" del viewport (100lvh): no cambia cuando el navegador del celular esconde su barra al primer scroll.
@@ -1105,9 +1164,19 @@ function useArrowKeyScroll(step = 140) {
 }
 
 function ScrollSmoother() {
+  const started = useRef(false);
   useFrame((_, delta) => {
     const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
-    setSmoothProgress(damp(smoothProgress, progress, 4, delta));
+    // al abrir la página ya scrolleada (recarga) se salta directo, sin "viajar" por todas las poses
+    if (!started.current) { started.current = true; if (progress > 0) { setSmoothProgress(progress); return; } }
+    let next = damp(smoothProgress, progress, 4, delta);
+    /* Límite de velocidad: una sacudida fuerte del dedo/rueda ya no hace pasar todo "volando". La imagen avanza como
+       mucho SCROLL_MAX_PPS poses por segundo y alcanza al scroll real apenas se frena. 0 = sin límite. */
+    if (SCROLL_MAX_PPS > 0) {
+      const maxStep = (SCROLL_MAX_PPS * Math.min(delta, 0.1)) / Math.max(1, scenes.length - 1);
+      next = smoothProgress + Math.max(-maxStep, Math.min(maxStep, next - smoothProgress));
+    }
+    setSmoothProgress(next);
   });
   return null;
 }
@@ -1245,7 +1314,7 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     // Solo emite si el scroll realmente se movió este frame — filtra el
     // "respirar" idle del personaje, que no cuenta como movimiento real.
     const progress = useScrollStore.getState().smoothProgress;
-    const SCROLL_EPS = 0.00025;
+    const SCROLL_EPS = 2.1 / Math.max(1, SCROLL_LENGTH_VH * 0.01 * window.innerHeight);   // ~2 px de scroll por cuadro, sea cual sea el largo de la página
     const isScrolling = prevProgress.current !== null && Math.abs(progress - prevProgress.current) > SCROLL_EPS;
     prevProgress.current = progress;
 
@@ -1859,6 +1928,10 @@ function makeFadeUniforms() {
     uFadeDir: { value: 1 },
     uFadeMin: { value: -1 },
     uFadeMax: { value: 1 },
+    uFadeAxis: { value: 0 },
+    uFadeMinY: { value: -1 },
+    uFadeMaxY: { value: 1 },
+    uFadeBlur: { value: 0 },
   };
 }
 /* Suavidad del barrido: 0.4 = borde marcado, 1.0 = el degradé ocupa todo
@@ -1866,6 +1939,11 @@ function makeFadeUniforms() {
 const FADE_SOFT = 1.0;
 const FADE_FRAG_DECL = `
 varying float vFadeX;
+varying float vFadeY;
+uniform float uFadeAxis;
+uniform float uFadeMinY;
+uniform float uFadeMaxY;
+uniform float uFadeBlur;
 uniform float uFadeAmt;
 uniform float uFadeMode;
 uniform float uFadeOut;
@@ -1877,7 +1955,10 @@ const FADE_FRAG_BODY = `
 {
   float fa = uFadeAmt;
   if (uFadeMode > 0.5) {
-    float u = (vFadeX - uFadeMin) / max(uFadeMax - uFadeMin, 0.0001);
+    float fc = uFadeAxis > 0.5 ? vFadeY : vFadeX;
+    float flo = uFadeAxis > 0.5 ? uFadeMinY : uFadeMin;
+    float fhi = uFadeAxis > 0.5 ? uFadeMaxY : uFadeMax;
+    float u = (fc - flo) / max(fhi - flo, 0.0001);
     if (uFadeDir < 0.0) u = 1.0 - u;
     float soft = ${FADE_SOFT.toFixed(2)};
     if (uFadeOut > 0.5) fa = clamp((u - (1.0 - uFadeAmt) * (1.0 + soft) + soft) / soft, 0.0, 1.0);
@@ -1919,16 +2000,18 @@ function patchFadeMaterial(mat, uniforms) {
     if (prev) prev.call(mat, shader, renderer);
     Object.assign(shader.uniforms, mat.userData.__fadeU);
     mat.userData.__fadeShader = shader;
-    shader.vertexShader = "varying float vFadeX;\n" + shader.vertexShader.replace(
+    shader.vertexShader = "varying float vFadeX;\nvarying float vFadeY;\n" + shader.vertexShader.replace(
       "#include <project_vertex>",
-      "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;"
+      "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;\n vFadeY = gl_Position.y / gl_Position.w;"
     );
+    /* desenfoque de entrada/salida: se muestrea la textura en un nivel de mipmap más bajo (uFadeBlur = niveles) */
+    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, vMapUv, uFadeBlur )"));
     shader.fragmentShader = FADE_FRAG_DECL + shader.fragmentShader.replace(
       "#include <dithering_fragment>",
       "#include <dithering_fragment>\n" + FADE_FRAG_BODY
     );
   };
-  mat.customProgramCacheKey = () => "weeb-fade-1";
+  mat.customProgramCacheKey = () => "weeb-fade-2";
   mat.needsUpdate = true;
 }
 /* Estado de fade entre dos poses (a → b), con t ya pasado por el easing.
@@ -1942,19 +2025,48 @@ function fadeStateFor(a, b, t) {
 }
 const _fadeBox = new THREE.Box3();
 const _fadeVec = new THREE.Vector3();
+/* Animaciones de entrada/salida (elegidas por pose en "fadeDir"). Devuelven un desplazamiento/escala/desenfoque en función de
+   cuánto se ve el objeto (amt: 0 = oculto, 1 = visible) y de si está entrando o saliendo. */
+const FADE_WIPES = { ltr: 1, rtl: 1, wipeUp: 1, wipeDown: 1 };
+const _ANIM_ID = { dx: 0, dy: 0, s: 1, sx: 1, sy: 1, blur: 0 };
+function animFor(dir, amt, out) {
+  if (dir === "ltr" || dir === "rtl" || dir === "fade" || !dir || amt >= 0.999) return _ANIM_ID;
+  const k = 1 - Math.max(0, Math.min(1, amt));          // 1 = oculto del todo
+  const e = 1 - Math.pow(1 - k, 2);                      // el movimiento arranca rápido y se asienta
+  const sg = out ? 1 : -1;                               // al entrar viene desde el lado opuesto al que sale
+  const a = { dx: 0, dy: 0, s: 1, sx: 1, sy: 1, blur: 0 };
+  switch (dir) {
+    case "up": a.dy = sg * 0.45 * e; break;
+    case "down": a.dy = -sg * 0.45 * e; break;
+    case "slideL": a.dx = sg * -0.6 * e; break;
+    case "slideR": a.dx = sg * 0.6 * e; break;
+    case "zoomIn": a.s = out ? 1 + 0.5 * e : 1 - 0.4 * e; break;
+    case "zoomOut": a.s = out ? 1 - 0.4 * e : 1 + 0.5 * e; break;
+    case "pop": { const q = 1 - k; a.s = out ? Math.max(0.001, 1 - e) : Math.max(0.001, 1 + 2.4 * Math.pow(q - 1, 3) + 1.4 * Math.pow(q - 1, 2)); break; }
+    case "blur": a.blur = 6 * k; break;
+    case "blurUp": a.blur = 6 * k; a.dy = sg * 0.35 * e; break;
+    case "blurZoom": a.blur = 6 * k; a.s = out ? 1 + 0.3 * e : 1 - 0.25 * e; break;
+    case "flipX": a.sx = Math.max(0.001, 1 - e); break;
+    case "flipY": a.sy = Math.max(0.001, 1 - e); break;
+    default: return _ANIM_ID;
+  }
+  return a;
+}
 function driveFade(group, camera, uniforms, st) {
   const amt = st.amt;
   group.visible = amt > 0.001;
   uniforms.uFadeAmt.value = amt;
-  const wipe = st.dir !== "fade" && amt > 0.001 && amt < 0.999;
+  const wipe = !!FADE_WIPES[st.dir] && amt > 0.001 && amt < 0.999;
   uniforms.uFadeMode.value = wipe ? 1 : 0;
   uniforms.uFadeOut.value = st.out ? 1 : 0;
-  uniforms.uFadeDir.value = st.dir === "rtl" ? -1 : 1;
+  uniforms.uFadeAxis.value = st.dir === "wipeUp" || st.dir === "wipeDown" ? 1 : 0;
+  uniforms.uFadeDir.value = st.dir === "rtl" || st.dir === "wipeDown" ? -1 : 1;
+  uniforms.uFadeBlur.value = animFor(st.dir, amt, st.out).blur;
   if (!wipe) return;
   group.updateWorldMatrix(true, true);
   _fadeBox.setFromObject(group);
   if (_fadeBox.isEmpty()) return;
-  let mn = Infinity, mx = -Infinity;
+  let mn = Infinity, mx = -Infinity, mny = Infinity, mxy = -Infinity;
   for (let i = 0; i < 8; i++) {
     _fadeVec.set(
       i & 1 ? _fadeBox.max.x : _fadeBox.min.x,
@@ -1963,10 +2075,14 @@ function driveFade(group, camera, uniforms, st) {
     ).project(camera);
     mn = Math.min(mn, _fadeVec.x);
     mx = Math.max(mx, _fadeVec.x);
+    mny = Math.min(mny, _fadeVec.y);
+    mxy = Math.max(mxy, _fadeVec.y);
   }
-  const pad = (mx - mn) * 0.02;
+  const pad = (mx - mn) * 0.02, padY = (mxy - mny) * 0.02;
   uniforms.uFadeMin.value = mn - pad;
   uniforms.uFadeMax.value = mx + pad;
+  uniforms.uFadeMinY.value = mny - padY;
+  uniforms.uFadeMaxY.value = mxy + padY;
 }
 
 function sampleObjectKeyframes(keyframes, progress) {
@@ -1992,16 +2108,20 @@ function useObjectTransformRef(keyframes, billboard) {
   const groupRef = useRef(null);
   const fade = useMemo(() => makeFadeUniforms(), []);
   const hasFade = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
+  const base = useRef({ x: 0, y: 0, z: 0, s: 1 });   // posición/escala "reales"; la animación de entrada/salida se suma encima
   useFrame((state, delta) => {
     const g = groupRef.current;
     if (!g) return;
     const progress = useScrollStore.getState().smoothProgress;
     const kf = sampleObjectKeyframes(keyframes, progress);
-    g.position.x = damp(g.position.x, kf.position[0], 4, delta);
-    g.position.y = damp(g.position.y, kf.position[1], 4, delta);
-    g.position.z = damp(g.position.z, kf.position[2], 2.2, delta);
-    const s = damp(g.scale.x, kf.scale, 4, delta);
-    g.scale.set(s, s, s);
+    const b = base.current;
+    b.x = damp(b.x, kf.position[0], 4, delta);
+    b.y = damp(b.y, kf.position[1], 4, delta);
+    b.z = damp(b.z, kf.position[2], 2.2, delta);
+    b.s = damp(b.s, kf.scale, 4, delta);
+    const an = hasFade ? animFor(kf.fade.dir, kf.fade.amt, kf.fade.out) : _ANIM_ID;
+    g.position.set(b.x + an.dx, b.y + an.dy, b.z);
+    g.scale.set(b.s * an.s * an.sx, b.s * an.s * an.sy, b.s * an.s);
     if (!billboard) {
       g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
     }
@@ -2525,7 +2645,28 @@ function relativeMatrix(obj, root) {
   for (let o = obj; o && o !== root; o = o.parent) { o.updateMatrix(); m.premultiply(o.matrix); }
   return m;
 }
-function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity }) {
+/* Color del objeto: matiz / saturación / luminosidad / tinte (se mezcla con el color original del material; con texturas el tinte multiplica la textura). */
+function gradeOf(o) { return { hue: (o && o.hue) || 0, sat: o && o.sat != null ? o.sat : 1, light: o && o.light != null ? o.light : 1, tint: (o && o.tint) || "#ffffff", tintAmt: (o && o.tintAmt) || 0 }; }
+function gradeColor(base, g) {
+  const c = base.clone();
+  if (!g || (!g.hue && g.sat === 1 && g.light === 1 && !g.tintAmt)) return c;
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  c.setHSL((hsl.h + (g.hue || 0) / 360 + 1) % 1, Math.min(1, Math.max(0, hsl.s * g.sat)), Math.min(1, Math.max(0, hsl.l * g.light)));
+  if (g.tintAmt > 0) c.lerp(new THREE.Color(g.tint || "#ffffff"), Math.min(1, g.tintAmt));
+  return c;
+}
+function applyColorGrade(root, g) {
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !m.color) return;
+      if (!m.userData.__col0) m.userData.__col0 = { color: m.color.clone() };
+      m.color.copy(gradeColor(m.userData.__col0.color, g));
+    });
+  });
+}
+function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity, grade, glow }) {
   const r = (mesh.material && mesh.material.userData && mesh.material.userData.reflector) || {};
   const geo = useMemo(() => mesh.geometry.clone().rotateX(Math.PI / 2), [mesh]);
   const box = useMemo(() => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone(); }, [mesh]);
@@ -2536,6 +2677,10 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   }, [mesh, root]);
   useEffect(() => () => geo.dispose(), [geo]);
   const m0 = mesh.material;
+  const gr = grade || gradeOf(null);
+  const baseCol = (m0.userData && m0.userData.__col0 && m0.userData.__col0.color) || m0.color;
+  const floorCol = useMemo(() => gradeColor(baseCol, gr), [baseCol, gr.hue, gr.sat, gr.light, gr.tint, gr.tintAmt]);
+  const glowAmt = glow || 0;
   // El piso también toma el entorno de reflejos: sin él, MeshReflectorMaterial multiplica el reflejo
   // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
   const envTex = useStudioEnv();
@@ -2549,7 +2694,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
     <group position={xf.p} quaternion={xf.q} scale={xf.sc}>
       <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
         <MeshReflectorMaterial
-          color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
+          color={floorCol} emissive={glowAmt > 0 ? floorCol : "#000000"} emissiveIntensity={glowAmt > 0 ? glowAmt : 0} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
           blur={mobile ? [0, 0] : blurV} resolution={res}
           mixBlur={mobile ? 0 : (r.mixBlur ?? 0.6)} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
           mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
@@ -2567,7 +2712,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   );
 }
 /* Va DENTRO del mismo grupo que tiene la posición/escala/giro del objeto, como hermano del <primitive>. */
-function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity }) {
+function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity, grade, glow }) {
   const floors = useMemo(() => {
     const out = [];
     scene.traverse((o) => {
@@ -2584,7 +2729,7 @@ function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpa
   return (
     <>
       {floors.map((m) => (
-        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} />
+        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} grade={grade} glow={glow} />
       ))}
     </>
   );
@@ -2639,8 +2784,31 @@ function applyGlow(scene, glow) {
     });
   });
 }
+/* Copia propia de un modelo cargado: useGLTF cachea una sola escena por URL y una escena no puede
+   montarse dos veces. Cada objeto usa su clon (con materiales propios) para poder repetir el mismo .glb. */
+function cloneModelScene(src) {
+  const clone = src.clone(true);
+  const a = [], b = [];
+  src.traverse((n) => a.push(n)); clone.traverse((n) => b.push(n));
+  const map = new Map(a.map((n, i) => [n, b[i]]));
+  a.forEach((n, i) => {
+    if (n.isSkinnedMesh && n.skeleton) {
+      const d = b[i];
+      d.skeleton = new THREE.Skeleton(n.skeleton.bones.map((bn) => map.get(bn) || bn), n.skeleton.boneInverses.map((m) => m.clone()));
+      d.bind(d.skeleton, n.bindMatrix);
+    }
+  });
+  clone.traverse((n) => { if (n.isMesh && n.material) n.material = Array.isArray(n.material) ? n.material.map((m) => m.clone()) : n.material.clone(); });
+  return clone;
+}
+function useClonedScene(src) {
+  const scene = useMemo(() => cloneModelScene(src), [src]);
+  useEffect(() => () => { scene.traverse((n) => { if (n.isMesh && n.material) (Array.isArray(n.material) ? n.material : [n.material]).forEach((m) => m.dispose()); }); }, [scene]);
+  return scene;
+}
 function SceneObjectModel({ data }) {
-  const { scene } = useGLTF(data.url);
+  const { scene: srcScene } = useGLTF(data.url);
+  const scene = useClonedScene(srcScene);
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false);
   useEffect(() => {
     scene.traverse((child) => {
@@ -2648,7 +2816,7 @@ function SceneObjectModel({ data }) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
         // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
-        child.castShadow = data.shadows !== false && !mats0.some((m) => m && m.userData.__wasBlend);
+        child.castShadow = data.shadows !== false && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
         child.receiveShadow = data.shadows !== false;
         (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
           if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
@@ -2663,13 +2831,14 @@ function SceneObjectModel({ data }) {
   useEffect(() => {
     applyScreenGlass(scene, data.glass || 0, data.glassMatch, (p) => { if (hasFade) patchFadeMaterial(p, fade); });
     applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
+    applyColorGrade(scene, gradeOf(data));
     applyGlow(scene, data.glow || 0);   // despues del cambio de material: conserva el emisivo (neon) del .glb
-  }, [scene, envTex, envCfg.enabled, envCfg.intensity, data.glass, data.glassMatch, data.glow, hasFade, fade]);
+  }, [scene, envTex, envCfg.enabled, envCfg.intensity, data.glass, data.glassMatch, data.glow, data.hue, data.sat, data.light, data.tint, data.tintAmt, hasFade, fade]);
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
       <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT && perf.tier >= 1 && perf.safe < 3 && !perf.off.ref} strength={FLOOR_REFLECT_STRENGTH}
-        mobile={perf.tier < 2} contact={CONTACT_SHADOW && perf.tier >= 2 && perf.safe < 3 && !perf.off.contact} contactOpacity={CONTACT_SHADOW_OPACITY} />
+        mobile={perf.tier < 2} contact={CONTACT_SHADOW && perf.tier >= 2 && perf.safe < 3 && !perf.off.contact} contactOpacity={CONTACT_SHADOW_OPACITY} grade={gradeOf(data)} glow={data.glow || 0} />
     </group>
   );
 }
@@ -2775,7 +2944,9 @@ const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && win
    Arranca en 1 en celular y en 2 en escritorio; si los cuadros por segundo caen, baja de a un nivel (nunca vuelve a subir, para no parpadear). */
 const PerfCtx = React.createContext({ tier: 2, safe: 0, off: {} });
 /* ?off=ref,bloom,ao,beam,part,contact,dpr  -> apaga SOLO esos efectos (para medir cuál pesa más en un celular). Sin eso no cambia nada. */
-const AA_MODE = (() => { try { const v = new URLSearchParams(window.location.search).get("aa"); if (v === "msaa" || v === "smaa" || v === "off") return v; } catch (e) {} return IS_MOBILE_VIEW ? "smaa" : "msaa"; })();
+/* near más alto = mucha más precisión de profundidad a distancia (evita parpadeos/manchas por z-fighting en bordes finos). ?near=0.1 vuelve al valor anterior. */
+const CAM_NEAR = (() => { try { const v = parseFloat(new URLSearchParams(window.location.search).get("near")); if (v > 0 && v < 5) return v; } catch (e) {} return 0.5; })();
+const AA_MODE = (() => { try { const v = new URLSearchParams(window.location.search).get("aa"); if (v === "msaa" || v === "smaa" || v === "both" || v === "off") return v; } catch (e) {} return IS_MOBILE_VIEW ? "smaa" : "msaa"; })();
 const OFF_FLAGS = (() => { try { const v = new URLSearchParams(window.location.search).get("off") || ""; const o = {}; v.split(",").forEach((k) => { if (k.trim()) o[k.trim()] = true; }); return o; } catch (e) { return {}; } })();
 /* Guardia de "pantalla negra": en algunas GPU de celular un efecto (oclusión ambiental, MSAA con postproceso, etc.) deja TODO lo 3D negro.
    Después de cargar, mira unos píxeles del canvas: si lo que se dibujó es casi negro, apaga de a un efecto por vez (primero la oclusión,
@@ -2934,7 +3105,7 @@ function Experience({ device }) {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [debugOn]);
-  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · aa " + AA_MODE; }, [tier, fpsNow, forcedQ, safe]);
+  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · near " + CAM_NEAR + " · aa " + (AA_MODE === "off" ? "apagado" : !(tier >= 1 && safe < 2) ? "apagado (sin postproceso)" : (AA_MODE === "msaa" || AA_MODE === "both") && tier < 2 && AA_MODE !== "both" ? "msaa NO activo (nivel " + tier + ")" : (AA_MODE === "msaa" || AA_MODE === "both" ? (tier >= 2 ? "MSAA 4x" : "") : "") + (AA_MODE === "both" ? " + " : "") + (AA_MODE === "smaa" || AA_MODE === "both" ? "SMAA" : "")); }, [tier, fpsNow, forcedQ, safe]);
   return (
     <PerfCtx.Provider value={perfValue}>
       <BlackFrameGuard renderDirect={!(tier >= 1 && safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
@@ -2981,15 +3152,81 @@ function Experience({ device }) {
           dpr máx. 1.5 — se ve casi igual y no se traba. Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
           a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
       {tier >= 1 && safe < 2 && (
-        <EffectComposer multisampling={tier >= 2 && AA_MODE === "msaa" ? 4 : 0}>
+        <EffectComposer multisampling={tier >= 2 && (AA_MODE === "msaa" || AA_MODE === "both") ? 4 : 0}>
           {AO_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.ao && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
+          {DOF_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} back={DOF_BACK} />}
           {BLOOM_ENABLED && !OFF_FLAGS.bloom && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-          {AA_MODE === "smaa" && <SMAA />}
+          {(AA_MODE === "smaa" || AA_MODE === "both") && <SMAA />}
         </EffectComposer>
       )}
     </PerfCtx.Provider>
   );
+}
+
+/* Desenfoque de profundidad (DOF cinematográfico): lo más lejano/cercano al plano de foco se desenfoca.
+   follow = el foco acompaña al punto al que mira la cámara (+ ajuste); si no, distancia fija desde la cámara. */
+function DepthFocus({ getTarget, follow, offset, distance, range, blur, back }) {
+  const ref = useRef(null);
+  const { camera, gl, scene } = useThree();
+  const tv = useMemo(() => new THREE.Vector3(), []);
+  const v2 = useMemo(() => new THREE.Vector2(), []);
+  const cc = useMemo(() => new THREE.Color(), []);
+  /* Profundidad propia: el depth del compositor llega vacío (todo "lejos") con esta combinación de versiones y el
+     desenfoque salía parejo en toda la imagen. Acá se dibuja la escena una vez más SOLO con profundidad, a casi
+     resolución completa (máx. 1600 px de ancho), sin lo que no escribe profundidad (partículas, rayo, brillos), y se la pasa al efecto. */
+  const depth = useMemo(() => ({
+    rt: new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, stencilBuffer: false }),
+    mat: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }),
+    hidden: [],
+  }), []);
+  useEffect(() => () => { depth.rt.dispose(); depth.mat.dispose(); }, [depth]);
+  const skipDepth = (o) => {
+    if (o.isPoints || o.isSprite || o.isLine) return true;
+    if (!o.isMesh) return false;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    return ms.some((m) => m && (m.depthWrite === false || m.blending === THREE.AdditiveBlending || (m.transparent && m.opacity < 0.02)));
+  };
+  useFrame(() => {
+    const e = ref.current;
+    if (!e || !e.circleOfConfusionMaterial) return;
+    let d = distance;
+    if (follow) { const t = getTarget() || [0, 0.5, 0]; tv.set(t[0], t[1], t[2]); d = camera.position.distanceTo(tv) + offset; }
+    const m = e.circleOfConfusionMaterial;
+    /* "Solo el fondo": se anula el desenfoque de lo que está MÁS CERCA del plano de foco (canal rojo del CoC).
+       Así el plano de foco pasa a ser el "fin de la zona nítida" y solo se desenfoca lo que queda detrás. */
+    if (m.__back !== !!back) {
+      m.__back = !!back;
+      if (!m.__src0) {
+        /* la profundidad no tiene antialias pero el color sí: en el borde de un objeto de adelante los píxeles "mezclados"
+           leían la profundidad del fondo y se desenfocaban (aro/línea alrededor). Se toma la profundidad MÁS CERCANA de
+           los vecinos (dilatación de 3 px) para que el objeto de adelante "tape" ese borde. */
+        m.__src0 = m.fragmentShader.replace("float depth=readDepth(vUv);", "float depth=readDepth(vUv);vec2 tx=3.0/vec2(textureSize(depthBuffer,0));depth=min(min(depth,readDepth(vUv+vec2(tx.x,0.0))),min(readDepth(vUv-vec2(tx.x,0.0)),min(readDepth(vUv+vec2(0.0,tx.y)),readDepth(vUv-vec2(0.0,tx.y)))));");
+      }
+      m.fragmentShader = back ? m.__src0.replace("magnitude*vec2(step(signedDistance,0.0),step(0.0,signedDistance))", "magnitude*vec2(0.0,step(0.0,signedDistance))") : m.__src0;
+      m.needsUpdate = true;
+    }
+    m.worldFocusDistance = Math.max(0.1, d);
+    m.worldFocusRange = Math.max(0.05, range);   // ancho de la transición (en unidades): de nítido a todo el desenfoque
+    e.bokehScale = blur;
+    // --- profundidad propia ---
+    gl.getDrawingBufferSize(v2);
+    const sc = Math.min(1, 1600 / Math.max(1, v2.x)), w = Math.max(2, Math.floor(v2.x * sc)), h = Math.max(2, Math.floor(v2.y * sc));
+    if (depth.rt.width !== w || depth.rt.height !== h) depth.rt.setSize(w, h);
+    const hid = depth.hidden; hid.length = 0;
+    scene.traverse((o) => { if (o.visible && skipDepth(o)) { o.visible = false; hid.push(o); } });
+    const prevRT = gl.getRenderTarget(), prevShadow = gl.shadowMap.autoUpdate, prevBg = scene.background, prevOver = scene.overrideMaterial, prevFog = scene.fog, prevA = gl.getClearAlpha();
+    gl.getClearColor(cc);
+    gl.shadowMap.autoUpdate = false; scene.background = null; scene.fog = null; scene.overrideMaterial = depth.mat;
+    gl.setRenderTarget(depth.rt); gl.setClearColor(0xffffff, 1); gl.clear(true, true, false);
+    gl.render(scene, camera);
+    gl.setRenderTarget(prevRT); gl.setClearColor(cc, prevA);
+    gl.shadowMap.autoUpdate = prevShadow; scene.background = prevBg; scene.fog = prevFog; scene.overrideMaterial = prevOver;
+    for (let k = 0; k < hid.length; k++) hid[k].visible = true;
+    if (m.uniforms.depthBuffer.value !== depth.rt.texture) e.setDepthTexture(depth.rt.texture, THREE.RGBADepthPacking);
+  });
+  /* props fijas a propósito: si cambian, la librería recrea el efecto entero. Todo lo variable se aplica arriba, cada cuadro. */
+  return <DepthOfField ref={ref} resolutionScale={0.5} />;
 }
 
 function textWeight(kf, progress, window_ = 0.14) {
@@ -3511,7 +3748,8 @@ function App() {
   const spacerRef = useRef(null);
   const stageRef = useRef(null);
   useScrollProgress(spacerRef);
-  useArrowKeyScroll();
+  useScrollTuning();
+  useArrowKeyScroll(140 * scrollSpeedEff());
   const device = useMemo(() => getDeviceProfile(), []);
   const [ready, setReady] = useState(false);
 
@@ -3543,7 +3781,7 @@ function App() {
             dpr={device.dpr}
             shadows="soft"
             gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-            camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 60 }}
+            camera={{ position: [0, 0.2, 6.5], fov: 35, near: CAM_NEAR, far: 1000 }}
           >
             <Experience device={device} />
           </Canvas>
@@ -3609,7 +3847,7 @@ import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Grid, useTexture, Billboard, Html, useProgress, MeshReflectorMaterial, ContactShadows } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, ToneMapping, N8AO, DepthOfField } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
 const DEFAULT_MODEL_URL = "";
@@ -3637,11 +3875,27 @@ function smoothstep(edge0, edge1, x) {
 /* Curva de velocidad ("easing") por tramo — usada por samplePose /
    sampleCamera / sampleMovement / sampleFx más abajo para que la
    pestaña Preview respete lo elegido en "Duración". */
+/* Curvas de tiempo de cada tramo entre poses. Las "cinematográficas" son más extremas que las clásicas: arrancan o frenan
+   muy lento, o pasan en cámara lenta por el centro, sin tener que agregar más vh. */
 function applyEasing(t, kind) {
   switch (kind) {
     case "linear": return t;
     case "easeIn": return t * t;
     case "easeOut": return 1 - (1 - t) * (1 - t);
+    case "inOutCubic": return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    case "inOutQuart": return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
+    case "inOutQuint": return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+    case "inOutExpo": return t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2;
+    case "inQuart": return t * t * t * t;
+    case "inExpo": return t <= 0 ? 0 : Math.pow(2, 10 * t - 10);
+    case "outQuart": return 1 - Math.pow(1 - t, 4);
+    case "outExpo": return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    case "slowMid": { const u = 2 * t - 1; return 0.5 + 0.5 * u * u * u; }                 // rápido en los extremos, lento en el centro
+    case "slowMidStrong": { const u = 2 * t - 1; return 0.5 + 0.5 * u * u * u * u * u; }   // el centro casi se detiene
+    case "slowMidHold": { const u = 2 * t - 1; return 0.5 + 0.5 * Math.sign(u) * Math.pow(Math.abs(u), 7); }
+    case "outBack": { const c1 = 1.4, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+    case "inOutBack": { const c1 = 1.2, c2 = c1 * 1.525; return t < 0.5 ? (Math.pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2 : (Math.pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2; }
+    case "outElastic": { if (t <= 0) return 0; if (t >= 1) return 1; const c4 = (2 * Math.PI) / 4.5; return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1; }
     case "smooth":
     default: return smoothstep(0, 1, t);
   }
@@ -3991,6 +4245,10 @@ function makeFadeUniforms() {
     uFadeDir: { value: 1 },
     uFadeMin: { value: -1 },
     uFadeMax: { value: 1 },
+    uFadeAxis: { value: 0 },
+    uFadeMinY: { value: -1 },
+    uFadeMaxY: { value: 1 },
+    uFadeBlur: { value: 0 },
   };
 }
 /* Suavidad del barrido: 0.4 = borde marcado, 1.0 = el degradé ocupa todo
@@ -3998,6 +4256,11 @@ function makeFadeUniforms() {
 const FADE_SOFT = 1.0;
 const FADE_FRAG_DECL = `
 varying float vFadeX;
+varying float vFadeY;
+uniform float uFadeAxis;
+uniform float uFadeMinY;
+uniform float uFadeMaxY;
+uniform float uFadeBlur;
 uniform float uFadeAmt;
 uniform float uFadeMode;
 uniform float uFadeOut;
@@ -4009,7 +4272,10 @@ const FADE_FRAG_BODY = `
 {
   float fa = uFadeAmt;
   if (uFadeMode > 0.5) {
-    float u = (vFadeX - uFadeMin) / max(uFadeMax - uFadeMin, 0.0001);
+    float fc = uFadeAxis > 0.5 ? vFadeY : vFadeX;
+    float flo = uFadeAxis > 0.5 ? uFadeMinY : uFadeMin;
+    float fhi = uFadeAxis > 0.5 ? uFadeMaxY : uFadeMax;
+    float u = (fc - flo) / max(fhi - flo, 0.0001);
     if (uFadeDir < 0.0) u = 1.0 - u;
     float soft = ${FADE_SOFT.toFixed(2)};
     if (uFadeOut > 0.5) fa = clamp((u - (1.0 - uFadeAmt) * (1.0 + soft) + soft) / soft, 0.0, 1.0);
@@ -4051,16 +4317,18 @@ function patchFadeMaterial(mat, uniforms) {
     if (prev) prev.call(mat, shader, renderer);
     Object.assign(shader.uniforms, mat.userData.__fadeU);
     mat.userData.__fadeShader = shader;
-    shader.vertexShader = "varying float vFadeX;\n" + shader.vertexShader.replace(
+    shader.vertexShader = "varying float vFadeX;\nvarying float vFadeY;\n" + shader.vertexShader.replace(
       "#include <project_vertex>",
-      "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;"
+      "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;\n vFadeY = gl_Position.y / gl_Position.w;"
     );
+    /* desenfoque de entrada/salida: se muestrea la textura en un nivel de mipmap más bajo (uFadeBlur = niveles) */
+    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, vMapUv, uFadeBlur )"));
     shader.fragmentShader = FADE_FRAG_DECL + shader.fragmentShader.replace(
       "#include <dithering_fragment>",
       "#include <dithering_fragment>\n" + FADE_FRAG_BODY
     );
   };
-  mat.customProgramCacheKey = () => "weeb-fade-1";
+  mat.customProgramCacheKey = () => "weeb-fade-2";
   mat.needsUpdate = true;
 }
 /* Estado de fade entre dos poses (a → b), con t ya pasado por el easing.
@@ -4074,19 +4342,48 @@ function fadeStateFor(a, b, t) {
 }
 const _fadeBox = new THREE.Box3();
 const _fadeVec = new THREE.Vector3();
+/* Animaciones de entrada/salida (elegidas por pose en "fadeDir"). Devuelven un desplazamiento/escala/desenfoque en función de
+   cuánto se ve el objeto (amt: 0 = oculto, 1 = visible) y de si está entrando o saliendo. */
+const FADE_WIPES = { ltr: 1, rtl: 1, wipeUp: 1, wipeDown: 1 };
+const _ANIM_ID = { dx: 0, dy: 0, s: 1, sx: 1, sy: 1, blur: 0 };
+function animFor(dir, amt, out) {
+  if (dir === "ltr" || dir === "rtl" || dir === "fade" || !dir || amt >= 0.999) return _ANIM_ID;
+  const k = 1 - Math.max(0, Math.min(1, amt));          // 1 = oculto del todo
+  const e = 1 - Math.pow(1 - k, 2);                      // el movimiento arranca rápido y se asienta
+  const sg = out ? 1 : -1;                               // al entrar viene desde el lado opuesto al que sale
+  const a = { dx: 0, dy: 0, s: 1, sx: 1, sy: 1, blur: 0 };
+  switch (dir) {
+    case "up": a.dy = sg * 0.45 * e; break;
+    case "down": a.dy = -sg * 0.45 * e; break;
+    case "slideL": a.dx = sg * -0.6 * e; break;
+    case "slideR": a.dx = sg * 0.6 * e; break;
+    case "zoomIn": a.s = out ? 1 + 0.5 * e : 1 - 0.4 * e; break;
+    case "zoomOut": a.s = out ? 1 - 0.4 * e : 1 + 0.5 * e; break;
+    case "pop": { const q = 1 - k; a.s = out ? Math.max(0.001, 1 - e) : Math.max(0.001, 1 + 2.4 * Math.pow(q - 1, 3) + 1.4 * Math.pow(q - 1, 2)); break; }
+    case "blur": a.blur = 6 * k; break;
+    case "blurUp": a.blur = 6 * k; a.dy = sg * 0.35 * e; break;
+    case "blurZoom": a.blur = 6 * k; a.s = out ? 1 + 0.3 * e : 1 - 0.25 * e; break;
+    case "flipX": a.sx = Math.max(0.001, 1 - e); break;
+    case "flipY": a.sy = Math.max(0.001, 1 - e); break;
+    default: return _ANIM_ID;
+  }
+  return a;
+}
 function driveFade(group, camera, uniforms, st) {
   const amt = st.amt;
   group.visible = amt > 0.001;
   uniforms.uFadeAmt.value = amt;
-  const wipe = st.dir !== "fade" && amt > 0.001 && amt < 0.999;
+  const wipe = !!FADE_WIPES[st.dir] && amt > 0.001 && amt < 0.999;
   uniforms.uFadeMode.value = wipe ? 1 : 0;
   uniforms.uFadeOut.value = st.out ? 1 : 0;
-  uniforms.uFadeDir.value = st.dir === "rtl" ? -1 : 1;
+  uniforms.uFadeAxis.value = st.dir === "wipeUp" || st.dir === "wipeDown" ? 1 : 0;
+  uniforms.uFadeDir.value = st.dir === "rtl" || st.dir === "wipeDown" ? -1 : 1;
+  uniforms.uFadeBlur.value = animFor(st.dir, amt, st.out).blur;
   if (!wipe) return;
   group.updateWorldMatrix(true, true);
   _fadeBox.setFromObject(group);
   if (_fadeBox.isEmpty()) return;
-  let mn = Infinity, mx = -Infinity;
+  let mn = Infinity, mx = -Infinity, mny = Infinity, mxy = -Infinity;
   for (let i = 0; i < 8; i++) {
     _fadeVec.set(
       i & 1 ? _fadeBox.max.x : _fadeBox.min.x,
@@ -4095,10 +4392,14 @@ function driveFade(group, camera, uniforms, st) {
     ).project(camera);
     mn = Math.min(mn, _fadeVec.x);
     mx = Math.max(mx, _fadeVec.x);
+    mny = Math.min(mny, _fadeVec.y);
+    mxy = Math.max(mxy, _fadeVec.y);
   }
-  const pad = (mx - mn) * 0.02;
+  const pad = (mx - mn) * 0.02, padY = (mxy - mny) * 0.02;
   uniforms.uFadeMin.value = mn - pad;
   uniforms.uFadeMax.value = mx + pad;
+  uniforms.uFadeMinY.value = mny - padY;
+  uniforms.uFadeMaxY.value = mxy + padY;
 }
 
 /* En edición, una pose marcada "invisible" se ve fantasma (10%) para
@@ -4108,7 +4409,13 @@ function FadeGroup({ obj, fade, children }) {
   const ref = useRef(null);
   useFrame((state) => {
     if (!ref.current) return;
-    driveFade(ref.current, state.camera, fade, { amt: obj.fadeAmt == null ? 1 : obj.fadeAmt, dir: obj.fadeMode || "fade", out: !!obj.fadeOut });
+    const amt = obj.fadeAmt == null ? 1 : obj.fadeAmt, dir = obj.fadeMode || "fade", out = !!obj.fadeOut;
+    /* animación de entrada/salida: el grupo escala/desplaza alrededor de la posición del objeto (no del origen del mundo) */
+    const an = animFor(dir, amt, out), p = obj.position || [0, 0, 0];
+    const sx = an.s * an.sx, sy = an.s * an.sy, sz = an.s;
+    ref.current.scale.set(sx, sy, sz);
+    ref.current.position.set(p[0] * (1 - sx) + an.dx, p[1] * (1 - sy) + an.dy, p[2] * (1 - sz));
+    driveFade(ref.current, state.camera, fade, { amt, dir, out });
   });
   return <group ref={ref}>{children}</group>;
 }
@@ -4311,7 +4618,28 @@ function relativeMatrix(obj, root) {
   for (let o = obj; o && o !== root; o = o.parent) { o.updateMatrix(); m.premultiply(o.matrix); }
   return m;
 }
-function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity }) {
+/* Color del objeto: matiz / saturación / luminosidad / tinte (se mezcla con el color original del material; con texturas el tinte multiplica la textura). */
+function gradeOf(o) { return { hue: (o && o.hue) || 0, sat: o && o.sat != null ? o.sat : 1, light: o && o.light != null ? o.light : 1, tint: (o && o.tint) || "#ffffff", tintAmt: (o && o.tintAmt) || 0 }; }
+function gradeColor(base, g) {
+  const c = base.clone();
+  if (!g || (!g.hue && g.sat === 1 && g.light === 1 && !g.tintAmt)) return c;
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  c.setHSL((hsl.h + (g.hue || 0) / 360 + 1) % 1, Math.min(1, Math.max(0, hsl.s * g.sat)), Math.min(1, Math.max(0, hsl.l * g.light)));
+  if (g.tintAmt > 0) c.lerp(new THREE.Color(g.tint || "#ffffff"), Math.min(1, g.tintAmt));
+  return c;
+}
+function applyColorGrade(root, g) {
+  root.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
+      if (!m || !m.color) return;
+      if (!m.userData.__col0) m.userData.__col0 = { color: m.color.clone() };
+      m.color.copy(gradeColor(m.userData.__col0.color, g));
+    });
+  });
+}
+function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity, grade, glow }) {
   const r = (mesh.material && mesh.material.userData && mesh.material.userData.reflector) || {};
   const geo = useMemo(() => mesh.geometry.clone().rotateX(Math.PI / 2), [mesh]);
   const box = useMemo(() => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone(); }, [mesh]);
@@ -4322,6 +4650,10 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   }, [mesh, root]);
   useEffect(() => () => geo.dispose(), [geo]);
   const m0 = mesh.material;
+  const gr = grade || gradeOf(null);
+  const baseCol = (m0.userData && m0.userData.__col0 && m0.userData.__col0.color) || m0.color;
+  const floorCol = useMemo(() => gradeColor(baseCol, gr), [baseCol, gr.hue, gr.sat, gr.light, gr.tint, gr.tintAmt]);
+  const glowAmt = glow || 0;
   // El piso también toma el entorno de reflejos: sin él, MeshReflectorMaterial multiplica el reflejo
   // por un difuso casi negro (solo lo ilumina el spot) y el reflejo no se ve.
   const envTex = useStudioEnv();
@@ -4333,7 +4665,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
     <group position={xf.p} quaternion={xf.q} scale={xf.sc}>
       <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
         <MeshReflectorMaterial
-          color={m0.color} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
+          color={floorCol} emissive={glowAmt > 0 ? floorCol : "#000000"} emissiveIntensity={glowAmt > 0 ? glowAmt : 0} map={m0.map || null} vertexColors={!!mesh.geometry.attributes.color}
           blur={mobile ? [0, 0] : (r.blur || [300, 80])} resolution={res}
           mixBlur={mobile ? 0 : (r.mixBlur ?? 0.6)} mixStrength={(r.mixStrength ?? 3) * strength} mixContrast={1}
           mirror={r.mirror ?? 0} roughness={r.roughness ?? m0.roughness} metalness={r.metalness ?? m0.metalness}
@@ -4351,7 +4683,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity 
   );
 }
 /* Va DENTRO del mismo grupo que tiene la posición/escala/giro del objeto, como hermano del <primitive>. */
-function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity }) {
+function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpacity, grade, glow }) {
   const floors = useMemo(() => {
     const out = [];
     scene.traverse((o) => {
@@ -4368,7 +4700,7 @@ function ReflectorFloors({ scene, enabled, strength, mobile, contact, contactOpa
   return (
     <>
       {floors.map((m) => (
-        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} />
+        <ReflectorFloor key={m.uuid} mesh={m} root={scene} strength={strength} mobile={mobile} contact={contact} contactOpacity={contactOpacity} grade={grade} glow={glow} />
       ))}
     </>
   );
@@ -4423,14 +4755,37 @@ function applyGlow(scene, glow) {
     });
   });
 }
+/* Copia propia de un modelo cargado: useGLTF cachea una sola escena por URL y una escena no puede
+   montarse dos veces. Cada objeto usa su clon (con materiales propios) para poder repetir el mismo .glb. */
+function cloneModelScene(src) {
+  const clone = src.clone(true);
+  const a = [], b = [];
+  src.traverse((n) => a.push(n)); clone.traverse((n) => b.push(n));
+  const map = new Map(a.map((n, i) => [n, b[i]]));
+  a.forEach((n, i) => {
+    if (n.isSkinnedMesh && n.skeleton) {
+      const d = b[i];
+      d.skeleton = new THREE.Skeleton(n.skeleton.bones.map((bn) => map.get(bn) || bn), n.skeleton.boneInverses.map((m) => m.clone()));
+      d.bind(d.skeleton, n.bindMatrix);
+    }
+  });
+  clone.traverse((n) => { if (n.isMesh && n.material) n.material = Array.isArray(n.material) ? n.material.map((m) => m.clone()) : n.material.clone(); });
+  return clone;
+}
+function useClonedScene(src) {
+  const scene = useMemo(() => cloneModelScene(src), [src]);
+  useEffect(() => () => { scene.traverse((n) => { if (n.isMesh && n.material) (Array.isArray(n.material) ? n.material : [n.material]).forEach((m) => m.dispose()); }); }, [scene]);
+  return scene;
+}
 function ObjectPreviewModel({ obj, fade }) {
-  const { scene } = useGLTF(obj.previewUrl || obj.url);
+  const { scene: srcScene } = useGLTF(obj.previewUrl || obj.url);
+  const scene = useClonedScene(srcScene);
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
-        child.castShadow = obj.shadows !== false && !mats0.some((m) => m && m.userData.__wasBlend);
+        child.castShadow = obj.shadows !== false && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
         child.receiveShadow = obj.shadows !== false;
         (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
           if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
@@ -4444,8 +4799,9 @@ function ObjectPreviewModel({ obj, fade }) {
   useEffect(() => {
     applyScreenGlass(scene, obj.glass || 0, obj.glassMatch, (p) => patchFadeMaterial(p, fade));
     applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
+    applyColorGrade(scene, gradeOf(obj));
     applyGlow(scene, obj.glow || 0);
-  }, [scene, envTex, envCfg.enabled, envCfg.intensity, obj.glass, obj.glassMatch, obj.glow, fade]);
+  }, [scene, envTex, envCfg.enabled, envCfg.intensity, obj.glass, obj.glassMatch, obj.glow, obj.hue, obj.sat, obj.light, obj.tint, obj.tintAmt, fade]);
   const fl = envCfg.floor || {};
   // La posición/escala/giro van en un grupo (no en el modelo) para que el piso reflectante, que se
   // dibuja como hermano del modelo, los herede igual.
@@ -4453,7 +4809,7 @@ function ObjectPreviewModel({ obj, fade }) {
     <group scale={obj.scale} position={obj.position} rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}>
       <primitive object={scene} />
       <ReflectorFloors scene={scene} enabled={fl.enabled !== false} strength={fl.strength ?? 0.5}
-        mobile={false} contact={!!fl.contact} contactOpacity={fl.contactOpacity ?? 0.75} />
+        mobile={false} contact={!!fl.contact} contactOpacity={fl.contactOpacity ?? 0.75} grade={gradeOf(obj)} glow={obj.glow || 0} />
     </group>
   );
 }
@@ -4899,6 +5255,71 @@ function BlenderGrid() {
 /* La estructura de la escena es SIEMPRE la misma (luces, grilla,
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
+/* Desenfoque de profundidad (DOF cinematográfico): lo más lejano/cercano al plano de foco se desenfoca.
+   follow = el foco acompaña al punto al que mira la cámara (+ ajuste); si no, distancia fija desde la cámara. */
+function DepthFocus({ getTarget, follow, offset, distance, range, blur, back }) {
+  const ref = useRef(null);
+  const { camera, gl, scene } = useThree();
+  const tv = useMemo(() => new THREE.Vector3(), []);
+  const v2 = useMemo(() => new THREE.Vector2(), []);
+  const cc = useMemo(() => new THREE.Color(), []);
+  /* Profundidad propia: el depth del compositor llega vacío (todo "lejos") con esta combinación de versiones y el
+     desenfoque salía parejo en toda la imagen. Acá se dibuja la escena una vez más SOLO con profundidad, a casi
+     resolución completa (máx. 1600 px de ancho), sin lo que no escribe profundidad (partículas, rayo, brillos), y se la pasa al efecto. */
+  const depth = useMemo(() => ({
+    rt: new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, stencilBuffer: false }),
+    mat: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }),
+    hidden: [],
+  }), []);
+  useEffect(() => () => { depth.rt.dispose(); depth.mat.dispose(); }, [depth]);
+  const skipDepth = (o) => {
+    if (o.isPoints || o.isSprite || o.isLine) return true;
+    if (!o.isMesh) return false;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    return ms.some((m) => m && (m.depthWrite === false || m.blending === THREE.AdditiveBlending || (m.transparent && m.opacity < 0.02)));
+  };
+  useFrame(() => {
+    const e = ref.current;
+    if (!e || !e.circleOfConfusionMaterial) return;
+    let d = distance;
+    if (follow) { const t = getTarget() || [0, 0.5, 0]; tv.set(t[0], t[1], t[2]); d = camera.position.distanceTo(tv) + offset; }
+    const m = e.circleOfConfusionMaterial;
+    /* "Solo el fondo": se anula el desenfoque de lo que está MÁS CERCA del plano de foco (canal rojo del CoC).
+       Así el plano de foco pasa a ser el "fin de la zona nítida" y solo se desenfoca lo que queda detrás. */
+    if (m.__back !== !!back) {
+      m.__back = !!back;
+      if (!m.__src0) {
+        /* la profundidad no tiene antialias pero el color sí: en el borde de un objeto de adelante los píxeles "mezclados"
+           leían la profundidad del fondo y se desenfocaban (aro/línea alrededor). Se toma la profundidad MÁS CERCANA de
+           los vecinos (dilatación de 3 px) para que el objeto de adelante "tape" ese borde. */
+        m.__src0 = m.fragmentShader.replace("float depth=readDepth(vUv);", "float depth=readDepth(vUv);vec2 tx=3.0/vec2(textureSize(depthBuffer,0));depth=min(min(depth,readDepth(vUv+vec2(tx.x,0.0))),min(readDepth(vUv-vec2(tx.x,0.0)),min(readDepth(vUv+vec2(0.0,tx.y)),readDepth(vUv-vec2(0.0,tx.y)))));");
+      }
+      m.fragmentShader = back ? m.__src0.replace("magnitude*vec2(step(signedDistance,0.0),step(0.0,signedDistance))", "magnitude*vec2(0.0,step(0.0,signedDistance))") : m.__src0;
+      m.needsUpdate = true;
+    }
+    m.worldFocusDistance = Math.max(0.1, d);
+    m.worldFocusRange = Math.max(0.05, range);   // ancho de la transición (en unidades): de nítido a todo el desenfoque
+    e.bokehScale = blur;
+    // --- profundidad propia ---
+    gl.getDrawingBufferSize(v2);
+    const sc = Math.min(1, 1600 / Math.max(1, v2.x)), w = Math.max(2, Math.floor(v2.x * sc)), h = Math.max(2, Math.floor(v2.y * sc));
+    if (depth.rt.width !== w || depth.rt.height !== h) depth.rt.setSize(w, h);
+    const hid = depth.hidden; hid.length = 0;
+    scene.traverse((o) => { if (o.visible && skipDepth(o)) { o.visible = false; hid.push(o); } });
+    const prevRT = gl.getRenderTarget(), prevShadow = gl.shadowMap.autoUpdate, prevBg = scene.background, prevOver = scene.overrideMaterial, prevFog = scene.fog, prevA = gl.getClearAlpha();
+    gl.getClearColor(cc);
+    gl.shadowMap.autoUpdate = false; scene.background = null; scene.fog = null; scene.overrideMaterial = depth.mat;
+    gl.setRenderTarget(depth.rt); gl.setClearColor(0xffffff, 1); gl.clear(true, true, false);
+    gl.render(scene, camera);
+    gl.setRenderTarget(prevRT); gl.setClearColor(cc, prevA);
+    gl.shadowMap.autoUpdate = prevShadow; scene.background = prevBg; scene.fog = prevFog; scene.overrideMaterial = prevOver;
+    for (let k = 0; k < hid.length; k++) hid[k].visible = true;
+    if (m.uniforms.depthBuffer.value !== depth.rt.texture) e.setDepthTexture(depth.rt.texture, THREE.RGBADepthPacking);
+  });
+  /* props fijas a propósito: si cambian, la librería recrea el efecto entero. Todo lo variable se aplica arriba, cada cuadro. */
+  return <DepthOfField ref={ref} resolutionScale={0.5} />;
+}
+
 function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection, markers, selectedObjectId, onSelectObject }) {
   const envOn = !!showFx && !(postFx && postFx.envEnabled === false);
   const envInt = (postFx && postFx.envIntensity != null ? postFx.envIntensity : 0.8) * (postFx && postFx.exposure != null ? postFx.exposure : 1) * (1 + 0.35 * ((postFx && postFx.naturalLight) || 0));
@@ -5024,6 +5445,7 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       {postFx && (
         <EffectComposer multisampling={4}>
           {showFx && postFx.aoEnabled && <N8AO aoRadius={postFx.aoRadius ?? 0.35} intensity={postFx.aoIntensity ?? 2} distanceFalloff={0.6} halfRes quality="high" />}
+          {showFx && postFx.dofEnabled && <DepthFocus getTarget={() => (orbitRef && orbitRef.current && orbitRef.current.target ? orbitRef.current.target.toArray() : (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0])} follow={postFx.dofFollow !== false} offset={postFx.dofOffset ?? 0} distance={postFx.dofDistance ?? 8} range={postFx.dofRange ?? 8} blur={postFx.dofBlur ?? 3} back={postFx.dofBack !== false} />}
           {postFx.bloomEnabled && <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={postFx.bloomThreshold ?? 0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
@@ -6027,7 +6449,16 @@ const CONTACT_SHADOW = ${postFx.contactShadow ? "true" : "false"};
 const CONTACT_SHADOW_OPACITY = ${postFx.contactShadowOpacity ?? 0.75};
 const AO_ENABLED = ${postFx.aoEnabled ? "true" : "false"};
 const AO_INTENSITY = ${postFx.aoIntensity ?? 2};
-const AO_RADIUS = ${postFx.aoRadius ?? 0.35};`;
+const AO_RADIUS = ${postFx.aoRadius ?? 0.35};
+const DOF_ENABLED = ${postFx.dofEnabled ? "true" : "false"};
+const DOF_FOLLOW = ${postFx.dofFollow === false ? "false" : "true"};
+const DOF_OFFSET = ${postFx.dofOffset ?? 1};
+const DOF_DISTANCE = ${postFx.dofDistance ?? 8};
+const DOF_RANGE = ${postFx.dofRange ?? 8};
+const DOF_BLUR = ${postFx.dofBlur ?? 3};
+const DOF_BACK = ${postFx.dofBack === false ? "false" : "true"};
+const SCROLL_SPEED = ${postFx.scrollSpeed ?? 0};
+const SCROLL_MAX_PPS = ${postFx.scrollMaxPps ?? 1.5};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -6129,6 +6560,11 @@ ${kfLines}
     loop: ${o.loop === false ? "false" : "true"},
     glow: ${fmtNum(o.glow || 0)},
     glass: ${fmtNum(o.glass || 0)},
+    hue: ${fmtNum(o.hue || 0)},
+    sat: ${fmtNum(o.sat ?? 1)},
+    light: ${fmtNum(o.light ?? 1)},
+    tint: ${JSON.stringify(o.tint || "#ffffff")},
+    tintAmt: ${fmtNum(o.tintAmt || 0)},
     glassMatch: ${JSON.stringify(o.glassMatch || "")},
     shadows: ${o.shadows === false ? "false" : "true"},
     billboard: ${o.billboard ? "true" : "false"},
@@ -6469,7 +6905,7 @@ function GradientEditor({ colors, angle, onChange }) {
       <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
         {cols.map((c, i) => (
           <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-            <input type="color" value={c} onChange={(e) => set({ colors: cols.map((x, k) => (k === i ? e.target.value : x)) })} />
+            <HexColor value={c} width={64} onChange={(v) => set({ colors: cols.map((x, k) => (k === i ? v : x)) })} />
             {cols.length > 2 && <button className="chip" title="Quitar color" onClick={() => set({ colors: cols.filter((_, k) => k !== i) })}>×</button>}
           </span>
         ))}
@@ -6512,7 +6948,7 @@ function TextStyleEditor({ o, updateObject }) {
       <Slider label="Interlineado" min={0.5} max={2.5} step={0.05} value={o.lineHeight ?? 1.2} onChange={(v) => up({ lineHeight: v })} />
       <Seg value={o.textAlign || "center"} onChange={(v) => up({ textAlign: v })} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
       <div className="row"><Switch checked={!!o.textOutline} onChange={(v) => up({ textOutline: v })} label="Contorno" />
-        {o.textOutline && <input type="color" value={o.textOutlineColor || "#000000"} onChange={(e) => up({ textOutlineColor: e.target.value })} />}</div>
+        {o.textOutline && <HexColor value={o.textOutlineColor || "#000000"} width={64} onChange={(v) => up({ textOutlineColor: v })} />}</div>
       {words.length > 0 && (
         <>
           <span className="lbl" style={{ marginTop: 4 }}>Por palabra (tocá una para darle otro color, degradé o fuente)</span>
@@ -6636,7 +7072,7 @@ function DockFields({ dock, setDockField }) {
       <Slider label="Días" min={7} max={30} step={1} value={dock.turneroDays} onChange={(v) => setDockField("turneroDays", v)} />
       {txt("Mensaje", "turneroMessage", "Usá {dia} donde va el día elegido")}
       <div className="row"><span className="lbl">Color botón</span>
-        <input type="color" value={dock.accent || "#ff4fa3"} onChange={(e) => setDockField("accent", e.target.value)} />
+        <HexColor value={dock.accent || "#ff4fa3"} onChange={(v) => setDockField("accent", v)} />
         {dock.accent && <button className="mini" onClick={() => setDockField("accent", "")}>Usar el de la marca</button>}
       </div>
     </>
@@ -6662,8 +7098,36 @@ function Vec3({ label, value, onChange, step = 0.05 }) {
     </div>
   );
 }
+/* Selector de color con campo hex: se puede pegar un color (#ffffff, ffffff, #fff o rgb(255,255,255)) o escribirlo, además de usar el selector. */
+function parseColorText(t) {
+  let v = String(t || "").trim().replace(/[;,]+$/, "");
+  const rgb = /^rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})/i.exec(v);
+  if (rgb) return "#" + [rgb[1], rgb[2], rgb[3]].map((n) => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, "0")).join("");
+  v = v.replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(v)) v = v.split("").map((ch) => ch + ch).join("");
+  if (/^[0-9a-f]{8}$/i.test(v)) v = v.slice(0, 6);
+  return /^[0-9a-f]{6}$/i.test(v) ? "#" + v.toLowerCase() : null;
+}
+function HexColor({ value, onChange, width = 76 }) {
+  const cur = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#000000";
+  const [draft, setDraft] = useState(cur);
+  useEffect(() => { setDraft(cur); }, [cur]);
+  const commit = (txt) => { const p = parseColorText(txt); if (p) { if (p !== cur) onChange(p); setDraft(p); return true; } return false; };
+  return (
+    <>
+      <input type="color" value={cur} onChange={(e) => onChange(e.target.value)} />
+      <input type="text" className="hexin" value={draft} spellCheck={false} maxLength={24} title="Pegá o escribí un color: #ffffff"
+        style={{ width, font: "11px ui-monospace, Menlo, monospace", textTransform: "lowercase" }}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => { const t = e.target.value; setDraft(t); if (/^#?[0-9a-f]{6}$/i.test(t.trim())) { const p = parseColorText(t); if (p && p !== cur) onChange(p); } }}
+        onPaste={(e) => { const t = (e.clipboardData && e.clipboardData.getData("text")) || ""; const p = parseColorText(t); if (p) { e.preventDefault(); onChange(p); setDraft(p); } }}
+        onBlur={() => { if (!commit(draft)) setDraft(cur); }}
+        onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }} />
+    </>
+  );
+}
 function ColorRow({ label, value, onChange }) {
-  return <div className="row"><span className="lbl">{label}</span><input type="color" value={value} onChange={(e) => onChange(e.target.value)} /><span className="hex">{value}</span></div>;
+  return <div className="row"><span className="lbl">{label}</span><HexColor value={value} onChange={onChange} /></div>;
 }
 function SelectRow({ label, value, onChange, options }) {
   return (
@@ -6917,6 +7381,14 @@ function App() {
     aoEnabled: false,
     aoIntensity: 2,
     aoRadius: 0.35,
+    dofEnabled: false,
+    dofFollow: true,
+    dofOffset: 1,
+    dofDistance: 8,
+    dofRange: 8,
+    dofBlur: 3,
+    scrollSpeed: 0,
+    scrollMaxPps: 1.5,
   });
   /* Tocar cualquier valor "fino" marca el look como Personalizado (los dos controles maestros no). */
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value, ...(field === "naturalLight" || field === "exposure" || field === "lookPreset" ? {} : { lookPreset: "custom" }) }));
@@ -7130,6 +7602,20 @@ function App() {
     if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000", textGradient: { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 }, letterSpacing: 0, lineHeight: 1.2, wordStyles: {} });
     setObjects((prev) => [...prev, base]);
     setObjectTransformsByKf((prev) => ({ ...prev, [newId]: Object.fromEntries(stagesComputed.map((st) => [st.id, defaultObjectTransform()])) }));
+    setSelectedObj(newId);
+  };
+  const duplicateObject = (id) => {
+    const src = objects.find((o) => o.id === id);
+    if (!src) return;
+    const newId = `obj-${Date.now()}`;
+    const copy = JSON.parse(JSON.stringify(src));
+    copy.id = newId; copy.label = `${src.label} (copia)`; copy.previewUrl = src.previewUrl;
+    const used = objects.map((o, k) => o.color || PALETTE[k % PALETTE.length]);
+    copy.color = PALETTE.find((c) => !used.includes(c)) || src.color;
+    const tr = JSON.parse(JSON.stringify(objectTransformsByKf[id] || {}));
+    Object.values(tr).forEach((t) => { if (t && Array.isArray(t.position)) t.position[0] += 0.6; });
+    setObjects((prev) => { const i = prev.findIndex((o) => o.id === id); const n = [...prev]; n.splice(i + 1, 0, copy); return n; });
+    setObjectTransformsByKf((prev) => ({ ...prev, [newId]: tr }));
     setSelectedObj(newId);
   };
   const removeObject = (id) => {
@@ -7823,6 +8309,17 @@ function App() {
         {isVideo && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Va siempre sin sonido. Copiá el archivo a assets/models/ junto al index.html. Para que avance fluido, exportalo con un keyframe cada 2 cuadros (ffmpeg -g 2).</div>}
         {isModel && <Slider label="Brillo" min={0} max={3} step={0.05} value={o.glow || 0} onChange={(v) => updateObject(o.id, { glow: v })} />}
         {isModel && <Slider label="Vidrio (pantalla)" min={0} max={1} step={0.01} value={o.glass || 0} onChange={(v) => updateObject(o.id, { glass: v })} />}
+        {isModel && (
+          <>
+            <span className="lbl" style={{ marginTop: 6 }}>Color del objeto</span>
+            <Slider label="Matiz" min={-180} max={180} step={1} value={o.hue || 0} onChange={(v) => updateObject(o.id, { hue: v })} />
+            <Slider label="Saturación" min={0} max={2} step={0.01} value={o.sat ?? 1} onChange={(v) => updateObject(o.id, { sat: v })} />
+            <Slider label="Luminosidad" min={0} max={2} step={0.01} value={o.light ?? 1} onChange={(v) => updateObject(o.id, { light: v })} />
+            <ColorRow label="Tinte" value={o.tint || "#ffffff"} onChange={(v) => updateObject(o.id, { tint: v })} />
+            <Slider label="Cantidad de tinte" min={0} max={1} step={0.01} value={o.tintAmt || 0} onChange={(v) => updateObject(o.id, { tintAmt: v })} />
+            {(o.hue || o.sat != null || o.light != null || o.tintAmt) && <div className="tools"><Btn onClick={() => updateObject(o.id, { hue: 0, sat: 1, light: 1, tint: "#ffffff", tintAmt: 0 })}>Restablecer color</Btn></div>}
+          </>
+        )}
         {isModel && (o.glass || 0) > 0 && (
           <>
             <div className="row">
@@ -7846,8 +8343,16 @@ function App() {
           <Btn title="Oculto antes de la pose actual, visible desde aquí hasta el final" onClick={() => setObjectHiddenMode(o.id, "showFrom")}>Desde aquí ▶</Btn>
           <Btn title="Visible hasta antes de la pose actual, oculto desde aquí hasta el final" onClick={() => setObjectHiddenMode(o.id, "hideFrom")}>Hasta aquí ◀</Btn>
         </div>
-        <Seg value={t.fadeDir || "ltr"} onChange={(v) => setObjectTransform(o.id, "fadeDir", null, v)} options={[["ltr", "Izq → Der"], ["rtl", "Der → Izq"], ["fade", "Simple"]]} />
-        <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Dirección del fade de transparencia al llegar a esta pose (aparece o desaparece según la pose anterior). Probalo en Preview.</div>
+        <div className="row">
+          <span className="lbl">Animación</span>
+          <select value={t.fadeDir || "ltr"} onChange={(e) => setObjectTransform(o.id, "fadeDir", null, e.target.value)}>
+            <optgroup label="Barrido de transparencia"><option value="ltr">Barrido Izq → Der</option><option value="rtl">Barrido Der → Izq</option><option value="wipeUp">Barrido hacia arriba</option><option value="wipeDown">Barrido hacia abajo</option><option value="fade">Fundido simple</option></optgroup>
+            <optgroup label="Movimiento"><option value="up">Subir</option><option value="down">Bajar</option><option value="slideL">Deslizar ←</option><option value="slideR">Deslizar →</option></optgroup>
+            <optgroup label="Escala"><option value="zoomIn">Zoom adentro</option><option value="zoomOut">Zoom afuera</option><option value="pop">Pop (rebote)</option><option value="flipX">Volteo horizontal</option><option value="flipY">Volteo vertical</option></optgroup>
+            <optgroup label="Desenfoque"><option value="blur">Desenfoque</option><option value="blurUp">Desenfoque + subir</option><option value="blurZoom">Desenfoque + zoom</option></optgroup>
+          </select>
+        </div>
+        <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Animación de entrada o salida al llegar a esta pose: el objeto aparece o desaparece según la pose anterior (necesita que alguna pose lo tenga invisible). Si entra, la animación va de afuera hacia su lugar; si sale, continúa hacia afuera. Probalo en Preview.</div>
         <div className="tools">
           <Btn icon="copy" onClick={() => copyObjectTransformFromPrev(o.id)} disabled={stageIndex <= 0}>Desde anterior</Btn>
           <Btn icon="pin" kind="acc" onClick={() => applyObjectTransformToAllStages(o.id)}>Fijar en todas</Btn>
@@ -7990,7 +8495,7 @@ function App() {
                 </Group>
                 <Group id="railbar" title="Barra de progreso lateral" toggle={{ checked: progressBar.enabled, onChange: (v) => setProgressField("enabled", v) }}>
                   <div className="row"><span className="lbl">Color</span>
-                    <input type="color" value={progressBar.color || "#49d3ff"} onChange={(e) => setProgressField("color", e.target.value)} />
+                    <HexColor value={progressBar.color || "#49d3ff"} onChange={(v) => setProgressField("color", v)} />
                     {progressBar.color && <button className="mini" onClick={() => setProgressField("color", "")}>Usar el de la marca</button>}
                   </div>
                 </Group>
@@ -8042,6 +8547,16 @@ function App() {
                   </Group>
                   <Group id="bloom" title="Bloom" toggle={{ checked: postFx.bloomEnabled, onChange: (v) => setPostFxField("bloomEnabled", v) }}>
                     <Slider label="Intens." min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(v) => setPostFxField("bloomIntensity", v)} />
+                  </Group>
+                  <Group id="dof" title="Desenfoque (profundidad de campo)" toggle={{ checked: !!postFx.dofEnabled, onChange: (v) => setPostFxField("dofEnabled", v) }}>
+                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Desenfoca según la distancia a la cámara. Con "Solo el fondo" queda nítido todo lo que está entre la cámara y el plano de foco, y se desenfoca lo que queda detrás. Solo en equipos con calidad alta (en celulares se apaga solo).</div>
+                    <Switch label="Solo desenfocar el fondo (lo de atrás)" checked={postFx.dofBack !== false} onChange={(v) => setPostFxField("dofBack", v)} />
+                    <Switch label="Enfocar donde mira la cámara" checked={postFx.dofFollow !== false} onChange={(v) => setPostFxField("dofFollow", v)} />
+                    {postFx.dofFollow !== false
+                      ? <Slider label="Profundidad nítida (detrás del objetivo)" min={-10} max={200} step={0.1} value={postFx.dofOffset ?? 1} onChange={(v) => setPostFxField("dofOffset", v)} />
+                      : <Slider label="Distancia de foco (desde la cámara)" min={0.5} max={300} step={0.1} value={postFx.dofDistance ?? 8} onChange={(v) => setPostFxField("dofDistance", v)} />}
+                    <Slider label="Transición (suavidad)" min={0.2} max={300} step={0.1} value={postFx.dofRange ?? 8} onChange={(v) => setPostFxField("dofRange", v)} />
+                    <Slider label="Intensidad del desenfoque" min={0} max={10} step={0.1} value={postFx.dofBlur ?? 3} onChange={(v) => setPostFxField("dofBlur", v)} />
                   </Group>
                   <Group id="env" title="Entorno de reflejos (metal / vidrio)" toggle={{ checked: postFx.envEnabled ?? true, onChange: (v) => setPostFxField("envEnabled", v) }}>
                     <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Un "estudio" invisible (softboxes) que los materiales metálicos reflejan desde cualquier ángulo. No se ve de fondo: el fondo no cambia. Se aplica a los modelos .glb de la pestaña Objetos. Sale igual en el index.html y en el MP4.</div>
@@ -8166,13 +8681,28 @@ function App() {
                 <>
                   <div className="tl">{durationsVh.map((d, i) => <div key={i} style={{ flexGrow: d }}>{i + 1}→{i + 2}</div>)}</div>
                   <div className="stat">Total {Math.round(totalVh)} vh</div>
+                  {(() => {
+                    const autoSpeed = Math.max(1, Math.min(15, Math.round((totalVh / Math.max(1, durationsVh.length) / 132) * 2) / 2));
+                    const setSc = (patch) => setPostFx((p) => ({ ...p, ...patch }));
+                    return (
+                      <Group id="scrollfeel" title="Velocidad del scroll (en el sitio)">
+                        <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Con proyectos largos hay que scrollear muchísimo. La velocidad hace que cada vuelta de rueda o deslizamiento de dedo avance más. El límite evita que una sacudida fuerte pase todas las poses volando.</div>
+                        <Switch label={`Velocidad automática (según el largo: ×${autoSpeed})`} checked={!(postFx.scrollSpeed > 0)} onChange={(v) => setSc({ scrollSpeed: v ? 0 : autoSpeed })} />
+                        {postFx.scrollSpeed > 0 && <Slider label="Velocidad (×)" min={1} max={20} step={0.5} value={postFx.scrollSpeed} onChange={(v) => setSc({ scrollSpeed: v })} />}
+                        <Slider label="Límite (poses por segundo, 0 = sin límite)" min={0} max={6} step={0.1} value={postFx.scrollMaxPps ?? 1.5} onChange={(v) => setSc({ scrollMaxPps: v })} />
+                      </Group>
+                    );
+                  })()}
                   {durationsVh.map((d, i) => (
                     <div className="row" key={stagesComputed[i + 1].id}>
                       <span className="tr-n">{i + 1}→{i + 2}</span>
                       <input type="range" min={20} max={800} step={5} value={clamp(d, 20, 800)} style={{ "--pct": ((clamp(d, 20, 800) - 20) / 780) * 100 + "%" }} onChange={(e) => setDurationAt(i, Number(e.target.value))} />
                       <Num value={d} step={5} onChange={(v) => setDurationAt(i, v)} />
-                      <select value={easings[i] || "smooth"} onChange={(e) => setEasingAt(i, e.target.value)} style={{ width: 82 }}>
-                        <option value="smooth">Suave</option><option value="linear">Lineal</option><option value="easeIn">Entrada</option><option value="easeOut">Salida</option>
+                      <select value={easings[i] || "smooth"} onChange={(e) => setEasingAt(i, e.target.value)} style={{ width: 120 }}>
+                        <optgroup label="Clásicas"><option value="smooth">Suave</option><option value="linear">Lineal</option><option value="easeIn">Entrada</option><option value="easeOut">Salida</option><option value="inOutCubic">Cúbica</option></optgroup>
+                        <optgroup label="Cinematográficas"><option value="inOutQuart">Cinemática</option><option value="inOutQuint">Cinemática fuerte</option><option value="inOutExpo">Cinemática extrema</option><option value="inQuart">Arranque lento</option><option value="inExpo">Arranque larguísimo</option><option value="outQuart">Frenada larga</option><option value="outExpo">Frenada larguísima</option></optgroup>
+                        <optgroup label="Cámara lenta al centro"><option value="slowMid">Cámara lenta</option><option value="slowMidStrong">Cámara lenta fuerte</option><option value="slowMidHold">Casi pausa en el centro</option></optgroup>
+                        <optgroup label="Con rebote"><option value="outBack">Rebote leve</option><option value="inOutBack">Rebote ida y vuelta</option><option value="outElastic">Elástico</option></optgroup>
                       </select>
                     </div>
                   ))}
@@ -8198,6 +8728,7 @@ function App() {
                       <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
                       <span className="oname">{o.label}</span>
                       <button className="mini" title="Visible" onClick={(e) => { e.stopPropagation(); updateObject(o.id, { visible: !o.visible }); }}><Icon name={o.visible ? "eye" : "eyeoff"} size={14} /></button>
+                      <button className="mini" title="Duplicar (usa el mismo archivo)" onClick={(e) => { e.stopPropagation(); duplicateObject(o.id); }}><Icon name="copy" size={14} /></button>
                       <button className="mini danger" title="Eliminar" onClick={(e) => { e.stopPropagation(); removeObject(o.id); }}><Icon name="trash" size={14} /></button>
                     </div>
                   ))}
