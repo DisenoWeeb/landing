@@ -2831,6 +2831,8 @@ const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && win
    Arranca en 1 en celular y en 2 en escritorio; si los cuadros por segundo caen, baja de a un nivel (nunca vuelve a subir, para no parpadear). */
 const PerfCtx = React.createContext({ tier: 2, safe: 0, off: {} });
 /* ?off=ref,bloom,ao,beam,part,contact,dpr  -> apaga SOLO esos efectos (para medir cuál pesa más en un celular). Sin eso no cambia nada. */
+/* near más alto = mucha más precisión de profundidad a distancia (evita parpadeos/manchas por z-fighting en bordes finos). ?near=0.1 vuelve al valor anterior. */
+const CAM_NEAR = (() => { try { const v = parseFloat(new URLSearchParams(window.location.search).get("near")); if (v > 0 && v < 5) return v; } catch (e) {} return 0.5; })();
 const AA_MODE = (() => { try { const v = new URLSearchParams(window.location.search).get("aa"); if (v === "msaa" || v === "smaa" || v === "both" || v === "off") return v; } catch (e) {} return IS_MOBILE_VIEW ? "smaa" : "msaa"; })();
 const OFF_FLAGS = (() => { try { const v = new URLSearchParams(window.location.search).get("off") || ""; const o = {}; v.split(",").forEach((k) => { if (k.trim()) o[k.trim()] = true; }); return o; } catch (e) { return {}; } })();
 /* Guardia de "pantalla negra": en algunas GPU de celular un efecto (oclusión ambiental, MSAA con postproceso, etc.) deja TODO lo 3D negro.
@@ -3665,7 +3667,7 @@ function App() {
             dpr={device.dpr}
             shadows="soft"
             gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-            camera={{ position: [0, 0.2, 6.5], fov: 35, near: 0.1, far: 1000 }}
+            camera={{ position: [0, 0.2, 6.5], fov: 35, near: CAM_NEAR, far: 1000 }}
           >
             <Experience device={device} />
           </Canvas>
