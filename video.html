@@ -575,7 +575,7 @@ import { create } from "zustand";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows, PerformanceMonitor } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping, N8AO, SMAA } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, ToneMapping, N8AO, SMAA, DepthOfField } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
 /* ============================================================
@@ -880,6 +880,12 @@ const CONTACT_SHADOW_OPACITY = 0.75;
 const AO_ENABLED = false;
 const AO_INTENSITY = 2;
 const AO_RADIUS = 0.35;
+const DOF_ENABLED = false;
+const DOF_FOLLOW = true;
+const DOF_OFFSET = 0;
+const DOF_DISTANCE = 8;
+const DOF_RANGE = 3;
+const DOF_BLUR = 3;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -3032,6 +3038,7 @@ function Experience({ device }) {
       {tier >= 1 && safe < 2 && (
         <EffectComposer multisampling={tier >= 2 && AA_MODE === "msaa" ? 4 : 0}>
           {AO_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.ao && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
+          {DOF_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} />}
           {BLOOM_ENABLED && !OFF_FLAGS.bloom && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
           {AA_MODE === "smaa" && <SMAA />}
@@ -3039,6 +3046,25 @@ function Experience({ device }) {
       )}
     </PerfCtx.Provider>
   );
+}
+
+/* Desenfoque de profundidad (DOF cinematográfico): lo más lejano/cercano al plano de foco se desenfoca.
+   follow = el foco acompaña al punto al que mira la cámara (+ ajuste); si no, distancia fija desde la cámara. */
+function DepthFocus({ getTarget, follow, offset, distance, range, blur }) {
+  const ref = useRef(null);
+  const camera = useThree((st) => st.camera);
+  const tv = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    const e = ref.current;
+    if (!e || !e.circleOfConfusionMaterial) return;
+    let d = distance;
+    if (follow) { const t = getTarget() || [0, 0.5, 0]; tv.set(t[0], t[1], t[2]); d = camera.position.distanceTo(tv) + offset; }
+    const m = e.circleOfConfusionMaterial;
+    m.worldFocusDistance = Math.max(0.1, d);
+    m.worldFocusRange = Math.max(0.05, range);
+    e.bokehScale = blur;
+  });
+  return <DepthOfField ref={ref} worldFocusDistance={distance} worldFocusRange={range} bokehScale={blur} resolutionScale={0.5} />;
 }
 
 function textWeight(kf, progress, window_ = 0.14) {
@@ -3658,7 +3684,7 @@ import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Grid, useTexture, Billboard, Html, useProgress, MeshReflectorMaterial, ContactShadows } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping, N8AO } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, ToneMapping, N8AO, DepthOfField } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
 const DEFAULT_MODEL_URL = "";
@@ -4997,6 +5023,25 @@ function BlenderGrid() {
 /* La estructura de la escena es SIEMPRE la misma (luces, grilla,
    MovedGroup > Character, objetos, cámara, controles). Nunca cambia de
    forma entre pestañas, así React nunca desmonta el personaje. */
+/* Desenfoque de profundidad (DOF cinematográfico): lo más lejano/cercano al plano de foco se desenfoca.
+   follow = el foco acompaña al punto al que mira la cámara (+ ajuste); si no, distancia fija desde la cámara. */
+function DepthFocus({ getTarget, follow, offset, distance, range, blur }) {
+  const ref = useRef(null);
+  const camera = useThree((st) => st.camera);
+  const tv = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    const e = ref.current;
+    if (!e || !e.circleOfConfusionMaterial) return;
+    let d = distance;
+    if (follow) { const t = getTarget() || [0, 0.5, 0]; tv.set(t[0], t[1], t[2]); d = camera.position.distanceTo(tv) + offset; }
+    const m = e.circleOfConfusionMaterial;
+    m.worldFocusDistance = Math.max(0.1, d);
+    m.worldFocusRange = Math.max(0.05, range);
+    e.bokehScale = blur;
+  });
+  return <DepthOfField ref={ref} worldFocusDistance={distance} worldFocusRange={range} bokehScale={blur} resolutionScale={0.5} />;
+}
+
 function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection, markers, selectedObjectId, onSelectObject }) {
   const envOn = !!showFx && !(postFx && postFx.envEnabled === false);
   const envInt = (postFx && postFx.envIntensity != null ? postFx.envIntensity : 0.8) * (postFx && postFx.exposure != null ? postFx.exposure : 1) * (1 + 0.35 * ((postFx && postFx.naturalLight) || 0));
@@ -5122,6 +5167,7 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       {postFx && (
         <EffectComposer multisampling={4}>
           {showFx && postFx.aoEnabled && <N8AO aoRadius={postFx.aoRadius ?? 0.35} intensity={postFx.aoIntensity ?? 2} distanceFalloff={0.6} halfRes quality="high" />}
+          {showFx && postFx.dofEnabled && <DepthFocus getTarget={() => (orbitRef && orbitRef.current && orbitRef.current.target ? orbitRef.current.target.toArray() : (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0])} follow={postFx.dofFollow !== false} offset={postFx.dofOffset ?? 0} distance={postFx.dofDistance ?? 8} range={postFx.dofRange ?? 3} blur={postFx.dofBlur ?? 3} />}
           {postFx.bloomEnabled && <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={postFx.bloomThreshold ?? 0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
@@ -6125,7 +6171,13 @@ const CONTACT_SHADOW = ${postFx.contactShadow ? "true" : "false"};
 const CONTACT_SHADOW_OPACITY = ${postFx.contactShadowOpacity ?? 0.75};
 const AO_ENABLED = ${postFx.aoEnabled ? "true" : "false"};
 const AO_INTENSITY = ${postFx.aoIntensity ?? 2};
-const AO_RADIUS = ${postFx.aoRadius ?? 0.35};`;
+const AO_RADIUS = ${postFx.aoRadius ?? 0.35};
+const DOF_ENABLED = ${postFx.dofEnabled ? "true" : "false"};
+const DOF_FOLLOW = ${postFx.dofFollow === false ? "false" : "true"};
+const DOF_OFFSET = ${postFx.dofOffset ?? 0};
+const DOF_DISTANCE = ${postFx.dofDistance ?? 8};
+const DOF_RANGE = ${postFx.dofRange ?? 3};
+const DOF_BLUR = ${postFx.dofBlur ?? 3};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -7048,6 +7100,12 @@ function App() {
     aoEnabled: false,
     aoIntensity: 2,
     aoRadius: 0.35,
+    dofEnabled: false,
+    dofFollow: true,
+    dofOffset: 0,
+    dofDistance: 8,
+    dofRange: 3,
+    dofBlur: 3,
   });
   /* Tocar cualquier valor "fino" marca el look como Personalizado (los dos controles maestros no). */
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value, ...(field === "naturalLight" || field === "exposure" || field === "lookPreset" ? {} : { lookPreset: "custom" }) }));
@@ -8198,6 +8256,15 @@ function App() {
                   </Group>
                   <Group id="bloom" title="Bloom" toggle={{ checked: postFx.bloomEnabled, onChange: (v) => setPostFxField("bloomEnabled", v) }}>
                     <Slider label="Intens." min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(v) => setPostFxField("bloomIntensity", v)} />
+                  </Group>
+                  <Group id="dof" title="Desenfoque (profundidad de campo)" toggle={{ checked: !!postFx.dofEnabled, onChange: (v) => setPostFxField("dofEnabled", v) }}>
+                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Efecto de lente: lo que está lejos o cerca del plano de foco se desenfoca. Solo en equipos con calidad alta (en celulares se apaga solo).</div>
+                    <Switch label="Enfocar donde mira la cámara" checked={postFx.dofFollow !== false} onChange={(v) => setPostFxField("dofFollow", v)} />
+                    {postFx.dofFollow !== false
+                      ? <Slider label="Ajuste de foco" min={-10} max={10} step={0.1} value={postFx.dofOffset ?? 0} onChange={(v) => setPostFxField("dofOffset", v)} />
+                      : <Slider label="Distancia de foco" min={0.5} max={60} step={0.1} value={postFx.dofDistance ?? 8} onChange={(v) => setPostFxField("dofDistance", v)} />}
+                    <Slider label="Zona nítida" min={0.2} max={30} step={0.1} value={postFx.dofRange ?? 3} onChange={(v) => setPostFxField("dofRange", v)} />
+                    <Slider label="Desenfoque" min={0} max={10} step={0.1} value={postFx.dofBlur ?? 3} onChange={(v) => setPostFxField("dofBlur", v)} />
                   </Group>
                   <Group id="env" title="Entorno de reflejos (metal / vidrio)" toggle={{ checked: postFx.envEnabled ?? true, onChange: (v) => setPostFxField("envEnabled", v) }}>
                     <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Un "estudio" invisible (softboxes) que los materiales metálicos reflejan desde cualquier ángulo. No se ve de fondo: el fondo no cambia. Se aplica a los modelos .glb de la pestaña Objetos. Sale igual en el index.html y en el MP4.</div>
