@@ -308,7 +308,7 @@
     font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 </style>
 <style id="ldr-vars">/*@GEN:LOADER_CSS_START*/
-:root { --ldr-bg: #b5029e; --ldr-line: #f6aee5; --ldr-font: 'Montserrat', sans-serif; }
+:root { --ldr-bg: #05070f; --ldr-line: #ffffff; --ldr-font: 'Space Grotesk', sans-serif; }
 /*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
 </head>
@@ -426,23 +426,23 @@ const OBJECTS = [
     glass: 0,
     hue: 0,
     sat: 1,
-    light: 2,
+    light: 1,
     tint: "#ffffff",
-    tintAmt: 0.12,
+    tintAmt: 0,
     glassMatch: "",
     shadows: true,
     billboard: false,
     keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.111, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.222, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.333, easing: "easeOut", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.444, easing: "easeIn", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.556, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.667, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.778, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.889, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 20, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.111, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.222, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.333, easing: "easeOut", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.444, easing: "easeIn", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.556, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.667, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.778, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 0.889, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
+      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 4.04, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
   {
@@ -583,36 +583,6 @@ const OBJECTS = [
       { progress: 1, easing: "linear", position: [22, 10.5, 0], scale: 4, rotationY: 0, hidden: false, fadeDir: "ltr" },
     ],
   },
-  {
-    type: "model",
-    url: "./assets/models/esferanube.glb",
-    videoMode: "scroll",
-    scrollFrom: 0,
-    scrollTo: 1,
-    loop: true,
-    glow: 0,
-    glass: 0,
-    hue: 0,
-    sat: 1,
-    light: 1,
-    tint: "#ffffff",
-    tintAmt: 0,
-    glassMatch: "",
-    shadows: true,
-    billboard: false,
-    keyframes: [
-      { progress: 0, easing: "smooth", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.111, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.222, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.333, easing: "easeOut", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.444, easing: "easeIn", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: false, fadeDir: "ltr" },
-      { progress: 0.556, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: true, fadeDir: "fade" },
-      { progress: 0.667, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.778, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 0.889, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: true, fadeDir: "ltr" },
-      { progress: 1, easing: "linear", position: [0, 0, 0], scale: 100, rotationY: 0, hidden: true, fadeDir: "ltr" },
-    ],
-  },
 ];
 /*@GEN:OBJECTS_END*/
 
@@ -655,10 +625,10 @@ const scenes = [
     id: "pose-1",
     progress: 0,
     easing: "smooth",
-    camera: { position: [11.23, 1.429, 10.147], lookAt: [0, 1.76, 0], fov: 32.7, roll: 0 },
+    camera: { position: [17.07, 3, 17.07], lookAt: [0, 2, 0], fov: 32.7, roll: 0 },
     light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#070209", midPos: 68 },
+    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#d0a49f", midPos: 48 },
   },
   {
     id: "pose-1791832390297",
@@ -667,7 +637,7 @@ const scenes = [
     camera: { position: [20, 3, 0], lookAt: [0, 2, 0], fov: 32.7, roll: 0 },
     light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#070209", midPos: 68 },
+    background: { from: "#a12ed6", to: "#dbb37b", angle: 180, alpha: 1, mid: "#fff29e", midPos: 68 },
   },
   {
     id: "pose-1791832411389",
@@ -676,7 +646,7 @@ const scenes = [
     camera: { position: [17.07, 3, -17.07], lookAt: [0, 2, 0], fov: 32.7, roll: 0 },
     light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#070209", midPos: 68 },
+    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#ecf4ae", midPos: 68 },
   },
   {
     id: "pose-1791832457193",
@@ -685,7 +655,7 @@ const scenes = [
     camera: { position: [0, 3, -10], lookAt: [0, 2, 0], fov: 32.7, roll: 0 },
     light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#070209", midPos: 68 },
+    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#ded67d", midPos: 68 },
   },
   {
     id: "pose-1791832533391",
@@ -694,52 +664,52 @@ const scenes = [
     camera: { position: [-10, 3, 0], lookAt: [0, 2, 0], fov: 32.7, roll: 0 },
     light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#070209", midPos: 68 },
+    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#e0eca2", midPos: 68 },
   },
   {
     id: "pose-1791830985582",
     progress: 0.556,
     easing: "linear",
     camera: { position: [-9.306, 4.488, 11.503], lookAt: [0.16, 2, 0], fov: 32.7, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.9, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
+    light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#070209", midPos: 68 },
+    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#dbdeff", midPos: 68 },
   },
   {
     id: "pose-1791830687191",
     progress: 0.667,
     easing: "linear",
-    camera: { position: [0, 10, 30], lookAt: [0, 0.2, 0], fov: 50, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.9, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
+    camera: { position: [0, 10, 30], lookAt: [0, 12, 0], fov: 50, roll: 0 },
+    light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#250d30", to: "#000000", angle: 180, alpha: 1, mid: "#a154b7", midPos: 100 },
+    background: { from: "#54186f", to: "#000000", angle: 180, alpha: 1, mid: "#1a0628", midPos: 100 },
   },
   {
     id: "pose-1791831106437",
     progress: 0.778,
     easing: "linear",
     camera: { position: [0, 10, 30], lookAt: [0, 12, 0], fov: 50, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.9, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
+    light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#300e3a", to: "#000000", angle: 180, alpha: 1, mid: "#8d52a3", midPos: 85 },
+    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#360a52", midPos: 70 },
   },
   {
     id: "pose-1791830063913",
     progress: 0.889,
     easing: "linear",
     camera: { position: [21.21, 10, 21.21], lookAt: [0, 12, 0], fov: 50, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.9, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
+    light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 16.5 },
-    background: { from: "#2b053d", to: "#000000", angle: 180, alpha: 1, mid: "#83409c", midPos: 100 },
+    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#370a55", midPos: 79 },
   },
   {
     id: "pose-1791829509050",
     progress: 1,
     easing: "linear",
     camera: { position: [30, 10, 0], lookAt: [0, 12, 0], fov: 50, roll: 0 },
-    light: { color: "#dfeeff", intensity: 0.9, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
+    light: { color: "#dfeeff", intensity: 2.35, azimuth: 0, elevation: 78, rimColor: "#cc97d3", rimIntensity: 1.4, ambient: 1.44 },
     fog: { enabled: false, color: "#000000", far: 22 },
-    background: { from: "#2e0740", to: "#000000", angle: 180, alpha: 1, mid: "#9d51b3", midPos: 74 },
+    background: { from: "#a12ed6", to: "#000000", angle: 180, alpha: 1, mid: "#490340", midPos: 74 },
   },
 ];
 /*@GEN:SCENES_END*/
@@ -896,11 +866,11 @@ const SCROLL_LENGTH_VH = 1800;
 const HALO = 0.28;
 const PHONE_COLUMN = false;
 const VIGNETTE_ENABLED = true;
-const VIGNETTE_DARKNESS = 0.13;
-const VIGNETTE_OFFSET = 0.25;
+const VIGNETTE_DARKNESS = 0.69;
+const VIGNETTE_OFFSET = 0.29;
 const BLOOM_ENABLED = true;
 const BLOOM_INTENSITY = 0.38;
-const BEAM_ENABLED = false;
+const BEAM_ENABLED = true;
 const BEAM_OPACITY = 0.01;
 const BEAM_WIDTH = 9.7;
 const BEAM_HEIGHT = 24.5;
@@ -918,8 +888,8 @@ const PART_BEAM = 0.52;
 const ENV_ENABLED = true;
 const ENV_INTENSITY = 0.6;
 const TONEMAP_ENABLED = true;
-const NATURAL_LIGHT = 0;
-const EXPOSURE = 1.12;
+const NATURAL_LIGHT = 0.54;
+const EXPOSURE = 1.04;
 const LIGHT_RIG = "studio";
 const BLOOM_THRESHOLD = 0.59;
 const FLOOR_REFLECT = true;
@@ -940,7 +910,7 @@ const REFLECTION_INTENSITY = 1;
   
 /*@GEN:TRAIL_START*/
 const TRAIL_ENABLED = true;
-const TRAIL_COLOR = "#e571d5";
+const TRAIL_COLOR = "#d237bd";
 const TRAIL_SIZE = 0.5;
 const TRAIL_LIFE = 3;
 const TRAIL_RATE = 300;
@@ -949,8 +919,8 @@ const TRAIL_RATE = 300;
 /*@GEN:DOCK_START*/
 const DOCK = {
   "enabled": true,
-  "splitPct": 62,
-  "shadeStrength": 1,
+  "splitPct": 67,
+  "shadeStrength": 0.7,
   "whatsappPhone": "",
   "whatsappMessage": "Hola! Quisiera hacer una consulta.",
   "address": "",
@@ -986,7 +956,7 @@ const DOCK = {
   "turneroTitle": "Sacá tu turno",
   "turneroDays": 14,
   "turneroMessage": "Hola! Quisiera sacar un turno para el {dia}. ¿Qué horarios tienen disponibles?",
-  "accent": "#ec69a9"
+  "accent": ""
 };
 /*@GEN:DOCK_END*/
 
@@ -994,9 +964,9 @@ const DOCK = {
 const LOADER = {
   "enabled": true,
   "svg": "",
-  "background": "#b5029e",
-  "lineColor": "#f6aee5",
-  "font": "'Montserrat', sans-serif",
+  "background": "#05070f",
+  "lineColor": "#ffffff",
+  "font": "'Space Grotesk', sans-serif",
   "lineWidth": 1.4,
   "minMs": 1800,
   "showNumber": true
@@ -1006,7 +976,7 @@ const LOADER = {
 /*@GEN:EXTRAS_START*/
 const CURSOR = {
   "enabled": true,
-  "color": "#e684d9",
+  "color": "#ffffff",
   "size": 56,
   "life": 0.7,
   "intensity": 0.6,
@@ -1014,7 +984,7 @@ const CURSOR = {
 };
 const PROGRESS_BAR = {
   "enabled": true,
-  "color": "#e366e5"
+  "color": ""
 };
 /*@GEN:EXTRAS_END*/
 
