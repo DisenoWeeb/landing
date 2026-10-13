@@ -346,7 +346,7 @@
       smoothTouch: false, // en mobile el scroll táctil nativo se siente mejor
     });
     function raf(time) {
-      lenis.raf(time);
+      if (window.__lenis) window.__lenis.raf(time);
       requestAnimationFrame(raf);
     }
     requestAnimationFrame(raf);
@@ -1772,6 +1772,8 @@ const DOF_DISTANCE = 8.7;
 const DOF_RANGE = 37.1;
 const DOF_BLUR = 1.1;
 const DOF_BACK = false;
+const SCROLL_SPEED = 0;
+const SCROLL_MAX_PPS = 1.5;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -1981,6 +1983,40 @@ const useScrollStore = create((set) => ({
   setSmoothProgress: (p) => set({ smoothProgress: p }),
 }));
 
+/* Velocidad de scroll: cuánto "avanza" cada vuelta de rueda / cada deslizamiento del dedo. En un proyecto largo
+   (muchos vh por pose) el valor por defecto de 1 obliga a scrollear cientos de veces. SCROLL_SPEED = 0 es automático:
+   se ajusta al largo promedio de cada pose (~12 vueltas de rueda por pose). Si lo fijás a mano, manda el número. */
+function scrollSpeedEff() {
+  if (SCROLL_SPEED > 0) return SCROLL_SPEED;
+  const avgVh = SCROLL_LENGTH_VH / Math.max(1, scenes.length - 1);
+  return Math.max(1, Math.min(15, Math.round((avgVh / 132) * 2) / 2));
+}
+function useScrollTuning() {
+  useEffect(() => {
+    const speed = scrollSpeedEff();
+    if (typeof Lenis === "undefined" || !window.__lenis) return;
+    if (speed <= 1) return;   // proyecto corto: queda el comportamiento de siempre
+    try {
+      const y = window.scrollY;
+      const old = window.__lenis;
+      old.destroy();
+      /* syncTouch: en celular el deslizamiento pasa por Lenis (multiplicador + inercia suave) en vez del scroll nativo,
+         que no se puede escalar ni frenar. */
+      window.__lenis = new Lenis({
+        duration: 1.2,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        wheelMultiplier: speed,
+        touchMultiplier: speed,
+        syncTouch: true,
+        syncTouchLerp: 0.1,
+        touchInertiaMultiplier: 18,
+      });
+      window.scrollTo(0, y);
+    } catch (e) {}
+  }, []);
+}
+
 function useScrollProgress(spacerRef) {
   useEffect(() => {
     // Alto "grande" del viewport (100lvh): no cambia cuando el navegador del celular esconde su barra al primer scroll.
@@ -2023,9 +2059,19 @@ function useArrowKeyScroll(step = 140) {
 }
 
 function ScrollSmoother() {
+  const started = useRef(false);
   useFrame((_, delta) => {
     const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
-    setSmoothProgress(damp(smoothProgress, progress, 4, delta));
+    // al abrir la página ya scrolleada (recarga) se salta directo, sin "viajar" por todas las poses
+    if (!started.current) { started.current = true; if (progress > 0) { setSmoothProgress(progress); return; } }
+    let next = damp(smoothProgress, progress, 4, delta);
+    /* Límite de velocidad: una sacudida fuerte del dedo/rueda ya no hace pasar todo "volando". La imagen avanza como
+       mucho SCROLL_MAX_PPS poses por segundo y alcanza al scroll real apenas se frena. 0 = sin límite. */
+    if (SCROLL_MAX_PPS > 0) {
+      const maxStep = (SCROLL_MAX_PPS * Math.min(delta, 0.1)) / Math.max(1, scenes.length - 1);
+      next = smoothProgress + Math.max(-maxStep, Math.min(maxStep, next - smoothProgress));
+    }
+    setSmoothProgress(next);
   });
   return null;
 }
@@ -2163,7 +2209,7 @@ function SparkleTrail({ anchorRef, enabled, color, size, life, rate }) {
     // Solo emite si el scroll realmente se movió este frame — filtra el
     // "respirar" idle del personaje, que no cuenta como movimiento real.
     const progress = useScrollStore.getState().smoothProgress;
-    const SCROLL_EPS = 0.00025;
+    const SCROLL_EPS = 2.1 / Math.max(1, SCROLL_LENGTH_VH * 0.01 * window.innerHeight);   // ~2 px de scroll por cuadro, sea cual sea el largo de la página
     const isScrolling = prevProgress.current !== null && Math.abs(progress - prevProgress.current) > SCROLL_EPS;
     prevProgress.current = progress;
 
@@ -3903,7 +3949,7 @@ function Experience({ device }) {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [debugOn]);
-  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · aa " + (AA_MODE === "off" ? "apagado" : !(tier >= 1 && safe < 2) ? "apagado (sin postproceso)" : (AA_MODE === "msaa" || AA_MODE === "both") && tier < 2 && AA_MODE !== "both" ? "msaa NO activo (nivel " + tier + ")" : (AA_MODE === "msaa" || AA_MODE === "both" ? (tier >= 2 ? "MSAA 4x" : "") : "") + (AA_MODE === "both" ? " + " : "") + (AA_MODE === "smaa" || AA_MODE === "both" ? "SMAA" : "")); }, [tier, fpsNow, forcedQ, safe]);
+  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · near " + CAM_NEAR + " · aa " + (AA_MODE === "off" ? "apagado" : !(tier >= 1 && safe < 2) ? "apagado (sin postproceso)" : (AA_MODE === "msaa" || AA_MODE === "both") && tier < 2 && AA_MODE !== "both" ? "msaa NO activo (nivel " + tier + ")" : (AA_MODE === "msaa" || AA_MODE === "both" ? (tier >= 2 ? "MSAA 4x" : "") : "") + (AA_MODE === "both" ? " + " : "") + (AA_MODE === "smaa" || AA_MODE === "both" ? "SMAA" : "")); }, [tier, fpsNow, forcedQ, safe]);
   return (
     <PerfCtx.Provider value={perfValue}>
       <BlackFrameGuard renderDirect={!(tier >= 1 && safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
@@ -4546,7 +4592,8 @@ function App() {
   const spacerRef = useRef(null);
   const stageRef = useRef(null);
   useScrollProgress(spacerRef);
-  useArrowKeyScroll();
+  useScrollTuning();
+  useArrowKeyScroll(140 * scrollSpeedEff());
   const device = useMemo(() => getDeviceProfile(), []);
   const [ready, setReady] = useState(false);
 
