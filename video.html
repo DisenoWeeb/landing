@@ -2830,7 +2830,7 @@ const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && win
    Arranca en 1 en celular y en 2 en escritorio; si los cuadros por segundo caen, baja de a un nivel (nunca vuelve a subir, para no parpadear). */
 const PerfCtx = React.createContext({ tier: 2, safe: 0, off: {} });
 /* ?off=ref,bloom,ao,beam,part,contact,dpr  -> apaga SOLO esos efectos (para medir cuál pesa más en un celular). Sin eso no cambia nada. */
-const AA_MODE = (() => { try { const v = new URLSearchParams(window.location.search).get("aa"); if (v === "msaa" || v === "smaa" || v === "off") return v; } catch (e) {} return IS_MOBILE_VIEW ? "smaa" : "msaa"; })();
+const AA_MODE = (() => { try { const v = new URLSearchParams(window.location.search).get("aa"); if (v === "msaa" || v === "smaa" || v === "both" || v === "off") return v; } catch (e) {} return IS_MOBILE_VIEW ? "smaa" : "msaa"; })();
 const OFF_FLAGS = (() => { try { const v = new URLSearchParams(window.location.search).get("off") || ""; const o = {}; v.split(",").forEach((k) => { if (k.trim()) o[k.trim()] = true; }); return o; } catch (e) { return {}; } })();
 /* Guardia de "pantalla negra": en algunas GPU de celular un efecto (oclusión ambiental, MSAA con postproceso, etc.) deja TODO lo 3D negro.
    Después de cargar, mira unos píxeles del canvas: si lo que se dibujó es casi negro, apaga de a un efecto por vez (primero la oclusión,
@@ -2989,7 +2989,7 @@ function Experience({ device }) {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [debugOn]);
-  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · aa " + AA_MODE; }, [tier, fpsNow, forcedQ, safe]);
+  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · aa " + (AA_MODE === "off" ? "apagado" : !(tier >= 1 && safe < 2) ? "apagado (sin postproceso)" : (AA_MODE === "msaa" || AA_MODE === "both") && tier < 2 && AA_MODE !== "both" ? "msaa NO activo (nivel " + tier + ")" : (AA_MODE === "msaa" || AA_MODE === "both" ? (tier >= 2 ? "MSAA 4x" : "") : "") + (AA_MODE === "both" ? " + " : "") + (AA_MODE === "smaa" || AA_MODE === "both" ? "SMAA" : "")); }, [tier, fpsNow, forcedQ, safe]);
   return (
     <PerfCtx.Provider value={perfValue}>
       <BlackFrameGuard renderDirect={!(tier >= 1 && safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
@@ -3036,12 +3036,12 @@ function Experience({ device }) {
           dpr máx. 1.5 — se ve casi igual y no se traba. Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
           a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
       {tier >= 1 && safe < 2 && (
-        <EffectComposer multisampling={tier >= 2 && AA_MODE === "msaa" ? 4 : 0}>
+        <EffectComposer multisampling={tier >= 2 && (AA_MODE === "msaa" || AA_MODE === "both") ? 4 : 0}>
           {AO_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.ao && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
           {DOF_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} />}
           {BLOOM_ENABLED && !OFF_FLAGS.bloom && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-          {AA_MODE === "smaa" && <SMAA />}
+          {(AA_MODE === "smaa" || AA_MODE === "both") && <SMAA />}
         </EffectComposer>
       )}
     </PerfCtx.Provider>
