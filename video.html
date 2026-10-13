@@ -882,10 +882,11 @@ const AO_INTENSITY = 2;
 const AO_RADIUS = 0.35;
 const DOF_ENABLED = false;
 const DOF_FOLLOW = true;
-const DOF_OFFSET = 0;
+const DOF_OFFSET = 1;
 const DOF_DISTANCE = 8;
-const DOF_RANGE = 3;
+const DOF_RANGE = 8;
 const DOF_BLUR = 3;
+const DOF_BACK = true;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -3038,7 +3039,7 @@ function Experience({ device }) {
       {tier >= 1 && safe < 2 && (
         <EffectComposer multisampling={tier >= 2 && (AA_MODE === "msaa" || AA_MODE === "both") ? 4 : 0}>
           {AO_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.ao && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
-          {DOF_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} />}
+          {DOF_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} back={DOF_BACK} />}
           {BLOOM_ENABLED && !OFF_FLAGS.bloom && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
           {(AA_MODE === "smaa" || AA_MODE === "both") && <SMAA />}
@@ -3050,21 +3051,62 @@ function Experience({ device }) {
 
 /* Desenfoque de profundidad (DOF cinematográfico): lo más lejano/cercano al plano de foco se desenfoca.
    follow = el foco acompaña al punto al que mira la cámara (+ ajuste); si no, distancia fija desde la cámara. */
-function DepthFocus({ getTarget, follow, offset, distance, range, blur }) {
+function DepthFocus({ getTarget, follow, offset, distance, range, blur, back }) {
   const ref = useRef(null);
-  const camera = useThree((st) => st.camera);
+  const { camera, gl, scene } = useThree();
   const tv = useMemo(() => new THREE.Vector3(), []);
+  const v2 = useMemo(() => new THREE.Vector2(), []);
+  const cc = useMemo(() => new THREE.Color(), []);
+  /* Profundidad propia: el depth del compositor llega vacío (todo "lejos") con esta combinación de versiones y el
+     desenfoque salía parejo en toda la imagen. Acá se dibuja la escena una vez más SOLO con profundidad, a casi
+     resolución completa (máx. 1600 px de ancho), sin lo que no escribe profundidad (partículas, rayo, brillos), y se la pasa al efecto. */
+  const depth = useMemo(() => ({
+    rt: new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, stencilBuffer: false }),
+    mat: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }),
+    hidden: [],
+  }), []);
+  useEffect(() => () => { depth.rt.dispose(); depth.mat.dispose(); }, [depth]);
+  const skipDepth = (o) => {
+    if (o.isPoints || o.isSprite || o.isLine) return true;
+    if (!o.isMesh) return false;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    return ms.some((m) => m && (m.depthWrite === false || m.blending === THREE.AdditiveBlending || (m.transparent && m.opacity < 0.02)));
+  };
   useFrame(() => {
     const e = ref.current;
     if (!e || !e.circleOfConfusionMaterial) return;
     let d = distance;
     if (follow) { const t = getTarget() || [0, 0.5, 0]; tv.set(t[0], t[1], t[2]); d = camera.position.distanceTo(tv) + offset; }
     const m = e.circleOfConfusionMaterial;
+    /* "Solo el fondo": se anula el desenfoque de lo que está MÁS CERCA del plano de foco (canal rojo del CoC).
+       Así el plano de foco pasa a ser el "fin de la zona nítida" y solo se desenfoca lo que queda detrás. */
+    if (m.__back !== !!back) {
+      m.__back = !!back;
+      if (!m.__src0) m.__src0 = m.fragmentShader;
+      m.fragmentShader = back ? m.__src0.replace("magnitude*vec2(step(signedDistance,0.0),step(0.0,signedDistance))", "magnitude*vec2(0.0,step(0.0,signedDistance))") : m.__src0;
+      m.needsUpdate = true;
+    }
     m.worldFocusDistance = Math.max(0.1, d);
-    m.worldFocusRange = Math.max(0.05, range);
+    m.worldFocusRange = Math.max(0.05, range);   // ancho de la transición (en unidades): de nítido a todo el desenfoque
     e.bokehScale = blur;
+    // --- profundidad propia ---
+    gl.getDrawingBufferSize(v2);
+    const sc = Math.min(1, 1600 / Math.max(1, v2.x)), w = Math.max(2, Math.floor(v2.x * sc)), h = Math.max(2, Math.floor(v2.y * sc));
+    if (depth.rt.width !== w || depth.rt.height !== h) depth.rt.setSize(w, h);
+    const hid = depth.hidden; hid.length = 0;
+    scene.traverse((o) => { if (o.visible && skipDepth(o)) { o.visible = false; hid.push(o); } });
+    const prevRT = gl.getRenderTarget(), prevShadow = gl.shadowMap.autoUpdate, prevBg = scene.background, prevOver = scene.overrideMaterial, prevFog = scene.fog, prevA = gl.getClearAlpha();
+    gl.getClearColor(cc);
+    gl.shadowMap.autoUpdate = false; scene.background = null; scene.fog = null; scene.overrideMaterial = depth.mat;
+    gl.setRenderTarget(depth.rt); gl.setClearColor(0xffffff, 1); gl.clear(true, true, false);
+    gl.render(scene, camera);
+    gl.setRenderTarget(prevRT); gl.setClearColor(cc, prevA);
+    gl.shadowMap.autoUpdate = prevShadow; scene.background = prevBg; scene.fog = prevFog; scene.overrideMaterial = prevOver;
+    for (let k = 0; k < hid.length; k++) hid[k].visible = true;
+    if (m.uniforms.depthBuffer.value !== depth.rt.texture) e.setDepthTexture(depth.rt.texture, THREE.RGBADepthPacking);
   });
-  return <DepthOfField ref={ref} worldFocusDistance={distance} worldFocusRange={range} bokehScale={blur} resolutionScale={0.5} />;
+  /* props fijas a propósito: si cambian, la librería recrea el efecto entero. Todo lo variable se aplica arriba, cada cuadro. */
+  return <DepthOfField ref={ref} resolutionScale={0.5} />;
 }
 
 function textWeight(kf, progress, window_ = 0.14) {
@@ -5025,21 +5067,62 @@ function BlenderGrid() {
    forma entre pestañas, así React nunca desmonta el personaje. */
 /* Desenfoque de profundidad (DOF cinematográfico): lo más lejano/cercano al plano de foco se desenfoca.
    follow = el foco acompaña al punto al que mira la cámara (+ ajuste); si no, distancia fija desde la cámara. */
-function DepthFocus({ getTarget, follow, offset, distance, range, blur }) {
+function DepthFocus({ getTarget, follow, offset, distance, range, blur, back }) {
   const ref = useRef(null);
-  const camera = useThree((st) => st.camera);
+  const { camera, gl, scene } = useThree();
   const tv = useMemo(() => new THREE.Vector3(), []);
+  const v2 = useMemo(() => new THREE.Vector2(), []);
+  const cc = useMemo(() => new THREE.Color(), []);
+  /* Profundidad propia: el depth del compositor llega vacío (todo "lejos") con esta combinación de versiones y el
+     desenfoque salía parejo en toda la imagen. Acá se dibuja la escena una vez más SOLO con profundidad, a casi
+     resolución completa (máx. 1600 px de ancho), sin lo que no escribe profundidad (partículas, rayo, brillos), y se la pasa al efecto. */
+  const depth = useMemo(() => ({
+    rt: new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, stencilBuffer: false }),
+    mat: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }),
+    hidden: [],
+  }), []);
+  useEffect(() => () => { depth.rt.dispose(); depth.mat.dispose(); }, [depth]);
+  const skipDepth = (o) => {
+    if (o.isPoints || o.isSprite || o.isLine) return true;
+    if (!o.isMesh) return false;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    return ms.some((m) => m && (m.depthWrite === false || m.blending === THREE.AdditiveBlending || (m.transparent && m.opacity < 0.02)));
+  };
   useFrame(() => {
     const e = ref.current;
     if (!e || !e.circleOfConfusionMaterial) return;
     let d = distance;
     if (follow) { const t = getTarget() || [0, 0.5, 0]; tv.set(t[0], t[1], t[2]); d = camera.position.distanceTo(tv) + offset; }
     const m = e.circleOfConfusionMaterial;
+    /* "Solo el fondo": se anula el desenfoque de lo que está MÁS CERCA del plano de foco (canal rojo del CoC).
+       Así el plano de foco pasa a ser el "fin de la zona nítida" y solo se desenfoca lo que queda detrás. */
+    if (m.__back !== !!back) {
+      m.__back = !!back;
+      if (!m.__src0) m.__src0 = m.fragmentShader;
+      m.fragmentShader = back ? m.__src0.replace("magnitude*vec2(step(signedDistance,0.0),step(0.0,signedDistance))", "magnitude*vec2(0.0,step(0.0,signedDistance))") : m.__src0;
+      m.needsUpdate = true;
+    }
     m.worldFocusDistance = Math.max(0.1, d);
-    m.worldFocusRange = Math.max(0.05, range);
+    m.worldFocusRange = Math.max(0.05, range);   // ancho de la transición (en unidades): de nítido a todo el desenfoque
     e.bokehScale = blur;
+    // --- profundidad propia ---
+    gl.getDrawingBufferSize(v2);
+    const sc = Math.min(1, 1600 / Math.max(1, v2.x)), w = Math.max(2, Math.floor(v2.x * sc)), h = Math.max(2, Math.floor(v2.y * sc));
+    if (depth.rt.width !== w || depth.rt.height !== h) depth.rt.setSize(w, h);
+    const hid = depth.hidden; hid.length = 0;
+    scene.traverse((o) => { if (o.visible && skipDepth(o)) { o.visible = false; hid.push(o); } });
+    const prevRT = gl.getRenderTarget(), prevShadow = gl.shadowMap.autoUpdate, prevBg = scene.background, prevOver = scene.overrideMaterial, prevFog = scene.fog, prevA = gl.getClearAlpha();
+    gl.getClearColor(cc);
+    gl.shadowMap.autoUpdate = false; scene.background = null; scene.fog = null; scene.overrideMaterial = depth.mat;
+    gl.setRenderTarget(depth.rt); gl.setClearColor(0xffffff, 1); gl.clear(true, true, false);
+    gl.render(scene, camera);
+    gl.setRenderTarget(prevRT); gl.setClearColor(cc, prevA);
+    gl.shadowMap.autoUpdate = prevShadow; scene.background = prevBg; scene.fog = prevFog; scene.overrideMaterial = prevOver;
+    for (let k = 0; k < hid.length; k++) hid[k].visible = true;
+    if (m.uniforms.depthBuffer.value !== depth.rt.texture) e.setDepthTexture(depth.rt.texture, THREE.RGBADepthPacking);
   });
-  return <DepthOfField ref={ref} worldFocusDistance={distance} worldFocusRange={range} bokehScale={blur} resolutionScale={0.5} />;
+  /* props fijas a propósito: si cambian, la librería recrea el efecto entero. Todo lo variable se aplica arriba, cada cuadro. */
+  return <DepthOfField ref={ref} resolutionScale={0.5} />;
 }
 
 function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate, movement, objects, showObjects, showGrid, fx, showFx, orbitRef, liveCameraRef, modelUrl, postFx, charScale, charCenterY, charAnchorRef, trail, reflection, markers, selectedObjectId, onSelectObject }) {
@@ -5167,7 +5250,7 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       {postFx && (
         <EffectComposer multisampling={4}>
           {showFx && postFx.aoEnabled && <N8AO aoRadius={postFx.aoRadius ?? 0.35} intensity={postFx.aoIntensity ?? 2} distanceFalloff={0.6} halfRes quality="high" />}
-          {showFx && postFx.dofEnabled && <DepthFocus getTarget={() => (orbitRef && orbitRef.current && orbitRef.current.target ? orbitRef.current.target.toArray() : (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0])} follow={postFx.dofFollow !== false} offset={postFx.dofOffset ?? 0} distance={postFx.dofDistance ?? 8} range={postFx.dofRange ?? 3} blur={postFx.dofBlur ?? 3} />}
+          {showFx && postFx.dofEnabled && <DepthFocus getTarget={() => (orbitRef && orbitRef.current && orbitRef.current.target ? orbitRef.current.target.toArray() : (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0])} follow={postFx.dofFollow !== false} offset={postFx.dofOffset ?? 0} distance={postFx.dofDistance ?? 8} range={postFx.dofRange ?? 8} blur={postFx.dofBlur ?? 3} back={postFx.dofBack !== false} />}
           {postFx.bloomEnabled && <Bloom intensity={postFx.bloomIntensity} luminanceThreshold={postFx.bloomThreshold ?? 0.25} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
@@ -6174,10 +6257,11 @@ const AO_INTENSITY = ${postFx.aoIntensity ?? 2};
 const AO_RADIUS = ${postFx.aoRadius ?? 0.35};
 const DOF_ENABLED = ${postFx.dofEnabled ? "true" : "false"};
 const DOF_FOLLOW = ${postFx.dofFollow === false ? "false" : "true"};
-const DOF_OFFSET = ${postFx.dofOffset ?? 0};
+const DOF_OFFSET = ${postFx.dofOffset ?? 1};
 const DOF_DISTANCE = ${postFx.dofDistance ?? 8};
-const DOF_RANGE = ${postFx.dofRange ?? 3};
-const DOF_BLUR = ${postFx.dofBlur ?? 3};`;
+const DOF_RANGE = ${postFx.dofRange ?? 8};
+const DOF_BLUR = ${postFx.dofBlur ?? 3};
+const DOF_BACK = ${postFx.dofBack === false ? "false" : "true"};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -7102,9 +7186,9 @@ function App() {
     aoRadius: 0.35,
     dofEnabled: false,
     dofFollow: true,
-    dofOffset: 0,
+    dofOffset: 1,
     dofDistance: 8,
-    dofRange: 3,
+    dofRange: 8,
     dofBlur: 3,
   });
   /* Tocar cualquier valor "fino" marca el look como Personalizado (los dos controles maestros no). */
@@ -8258,13 +8342,14 @@ function App() {
                     <Slider label="Intens." min={0} max={2} step={0.01} value={postFx.bloomIntensity} onChange={(v) => setPostFxField("bloomIntensity", v)} />
                   </Group>
                   <Group id="dof" title="Desenfoque (profundidad de campo)" toggle={{ checked: !!postFx.dofEnabled, onChange: (v) => setPostFxField("dofEnabled", v) }}>
-                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Efecto de lente: lo que está lejos o cerca del plano de foco se desenfoca. Solo en equipos con calidad alta (en celulares se apaga solo).</div>
+                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Desenfoca según la distancia a la cámara. Con "Solo el fondo" queda nítido todo lo que está entre la cámara y el plano de foco, y se desenfoca lo que queda detrás. Solo en equipos con calidad alta (en celulares se apaga solo).</div>
+                    <Switch label="Solo desenfocar el fondo (lo de atrás)" checked={postFx.dofBack !== false} onChange={(v) => setPostFxField("dofBack", v)} />
                     <Switch label="Enfocar donde mira la cámara" checked={postFx.dofFollow !== false} onChange={(v) => setPostFxField("dofFollow", v)} />
                     {postFx.dofFollow !== false
-                      ? <Slider label="Ajuste de foco" min={-10} max={10} step={0.1} value={postFx.dofOffset ?? 0} onChange={(v) => setPostFxField("dofOffset", v)} />
-                      : <Slider label="Distancia de foco" min={0.5} max={60} step={0.1} value={postFx.dofDistance ?? 8} onChange={(v) => setPostFxField("dofDistance", v)} />}
-                    <Slider label="Zona nítida" min={0.2} max={30} step={0.1} value={postFx.dofRange ?? 3} onChange={(v) => setPostFxField("dofRange", v)} />
-                    <Slider label="Desenfoque" min={0} max={10} step={0.1} value={postFx.dofBlur ?? 3} onChange={(v) => setPostFxField("dofBlur", v)} />
+                      ? <Slider label="Profundidad nítida (detrás del objetivo)" min={-10} max={20} step={0.1} value={postFx.dofOffset ?? 1} onChange={(v) => setPostFxField("dofOffset", v)} />
+                      : <Slider label="Distancia de foco (desde la cámara)" min={0.5} max={60} step={0.1} value={postFx.dofDistance ?? 8} onChange={(v) => setPostFxField("dofDistance", v)} />}
+                    <Slider label="Transición (suavidad)" min={0.2} max={60} step={0.1} value={postFx.dofRange ?? 8} onChange={(v) => setPostFxField("dofRange", v)} />
+                    <Slider label="Intensidad del desenfoque" min={0} max={10} step={0.1} value={postFx.dofBlur ?? 3} onChange={(v) => setPostFxField("dofBlur", v)} />
                   </Group>
                   <Group id="env" title="Entorno de reflejos (metal / vidrio)" toggle={{ checked: postFx.envEnabled ?? true, onChange: (v) => setPostFxField("envEnabled", v) }}>
                     <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Un "estudio" invisible (softboxes) que los materiales metálicos reflejan desde cualquier ángulo. No se ve de fondo: el fondo no cambia. Se aplica a los modelos .glb de la pestaña Objetos. Sale igual en el index.html y en el MP4.</div>
