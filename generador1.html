@@ -1968,17 +1968,6 @@ function makeFadeUniforms() {
     uFadeMinY: { value: -1 },
     uFadeMaxY: { value: 1 },
     uFadeBlur: { value: 0 },
-    uTxMode: { value: 0 },
-    uTxDir: { value: 1 },
-    uTxN: { value: 1 },
-    uTxY0: { value: 0 },
-    uTxY1: { value: 1 },
-    uTxX0: { value: 0 },
-    uTxX1: { value: 1 },
-    uTxAmt: { value: 1 },
-    uTxOut: { value: 0 },
-    uTxLH: { value: 0 },
-    uTxAsp: { value: 0 },
     uTxOwn: { value: 0 },
   };
 }
@@ -1998,96 +1987,8 @@ uniform float uFadeOut;
 uniform float uFadeDir;
 uniform float uFadeMin;
 uniform float uFadeMax;
-uniform float uTxMode;
-uniform float uTxDir;
-uniform float uTxN;
-uniform float uTxY0;
-uniform float uTxY1;
-uniform float uTxX0;
-uniform float uTxX1;
-uniform float uTxAmt;
-uniform float uTxOut;
-uniform float uTxLH;
-uniform float uTxAsp;
 uniform float uTxOwn;
-float txH(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float txA = 1.0;
-float txBl = 0.0;
-vec2 txUvG = vec2(0.0);
-void txApply(vec2 uv0) {
-  float amt = uTxAmt;
-  float outF = uTxOut > 0.5 ? 1.0 : 0.0;
-  float dirE = uTxDir * (outF > 0.5 ? -1.0 : 1.0);
-  float bh = max(uTxY1 - uTxY0, 0.0001);
-  float nL = max(uTxN, 1.0);
-  vec2 uv = uv0;
-  float lay = 1.0;
-  if (abs(uTxLH) > 0.001) {
-    float stp = 1.0 + uTxLH;
-    float L = ((1.0 - uv0.y) - uTxY0) / bh * nL;
-    float u = L + (nL - 1.0) * 0.5 * uTxLH;
-    float i0 = floor(u / stp);
-    float loc = u - i0 * stp;
-    if (i0 < 0.0 || i0 > nL - 1.0 || loc > 1.0) lay = 0.0;
-    float Ls = clamp(i0, 0.0, nL - 1.0) + clamp(loc, 0.0, 1.0);
-    uv.y = 1.0 - (uTxY0 + Ls / nL * bh);
-  }
-  txUvG = uv;
-  float n = (abs(uTxMode - 4.0) < 0.5) ? 1.0 : nL;
-  float cy = ((1.0 - uv.y) - uTxY0) / bh;
-  float li = clamp(floor(cy * n), 0.0, n - 1.0);
-  float cellH = bh / n;
-  float ux = clamp((uv.x - uTxX0) / max(uTxX1 - uTxX0, 0.0001), 0.0, 1.0);
-  float bl = 0.0;
-  float al = 1.0;
-  if (uTxMode < 0.5) {
-    al = 1.0;
-  } else if (abs(uTxMode - 5.0) < 0.5) {
-    float d = abs(ux - 0.5) * 2.0;
-    al = 1.0 - smoothstep(amt * 1.2 - 0.2, amt * 1.2, d);
-    bl = (1.0 - amt) * 3.0;
-  } else if (abs(uTxMode - 6.0) < 0.5) {
-    float rows = uTxAsp < 0.01 ? 14.0 : nL;
-    float cols = uTxAsp < 0.01 ? 14.0 : max(1.0, (uTxX1 - uTxX0) * uTxAsp * 2.0 / (bh / nL));
-    float rr = clamp(floor(cy * rows), 0.0, rows - 1.0);
-    float cc = floor(ux * cols);
-    float r = txH(vec2(cc, rr));
-    float p = clamp((amt - r * 0.7) / 0.3, 0.0, 1.0);
-    al = p * p * (3.0 - 2.0 * p);
-  } else if (abs(uTxMode - 7.0) < 0.5) {
-    float k = floor(amt * 14.0);
-    float f = txH(vec2(k, li + 1.7));
-    float on = f > 0.5 ? 1.0 : 0.12;
-    al = amt >= 0.9 ? mix(on, 1.0, clamp((amt - 0.9) * 10.0, 0.0, 1.0)) : on * smoothstep(0.0, 0.05, amt);
-  } else {
-    float rise = 0.0;
-    float p = 1.0;
-    if (abs(uTxMode - 1.0) < 0.5 || abs(uTxMode - 4.0) < 0.5) {
-      float st = n > 1.0 ? li / (n - 1.0) : 0.0;
-      float stag = n > 1.0 ? 0.7 : 0.0;
-      if (outF > 0.5) st = 1.0 - st;
-      p = clamp(amt * (1.0 + stag) - st * stag, 0.0, 1.0);
-      float e = 1.0 - pow(1.0 - p, 3.0);
-      rise = (1.0 - e) * cellH * 1.2;
-      al = clamp(p * 3.0, 0.0, 1.0);
-    } else {
-      float su = ux * 0.8 + (n > 1.0 ? li / n * 0.2 : 0.0);
-      if (outF > 0.5) su = 1.0 - su;
-      p = clamp(amt * 1.9 - su * 0.9, 0.0, 1.0);
-      float e = 1.0 - pow(1.0 - p, 3.0);
-      rise = (1.0 - e) * cellH * 0.6;
-      al = smoothstep(0.0, 0.7, p);
-      if (abs(uTxMode - 3.0) < 0.5) bl = (1.0 - p) * 6.0;
-    }
-    float sy = uv.y + rise * dirE;
-    txUvG = vec2(uv.x, sy);
-    float cys = ((1.0 - sy) - uTxY0) / bh;
-    float lis = clamp(floor(cys * n), -1.0, n);
-    if (abs(lis - li) > 0.5 || cys < 0.0 || cys > 1.0) al = 0.0;
-  }
-  txA = al * lay;
-  txBl = bl;
-}
 `;
 const FADE_FRAG_BODY = `
 {
@@ -2147,7 +2048,7 @@ function patchFadeMaterial(mat, uniforms) {
       "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;\n vFadeY = gl_Position.y / gl_Position.w;"
     );
     /* desenfoque de entrada/salida: se muestrea la textura en un nivel de mipmap más bajo (uFadeBlur = niveles) */
-    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\n txA = 1.0; txBl = 0.0; txUvG = vMapUv;\n if (uTxMode > 0.5 || abs(uTxLH) > 0.001) txApply(vMapUv);\n#endif\n" + THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, txUvG, uFadeBlur + txBl )"));
+    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, vMapUv, uFadeBlur )"));
     shader.fragmentShader = FADE_FRAG_DECL + shader.fragmentShader.replace(
       "#include <dithering_fragment>",
       "#include <dithering_fragment>\n" + FADE_FRAG_BODY
@@ -2159,7 +2060,7 @@ function patchFadeMaterial(mat, uniforms) {
 /* Llave de programa: cada combinación de parches (descartar transparentes, fade/revelado, esquinas y marco) compila su propio shader. */
 function weebProgKey(mat) {
   const u = mat.userData || {};
-  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f4" : "") + (u.__mediaPatched ? "m1" : "");
+  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f5" : "") + (u.__txaPatched ? "t1" : "") + (u.__mediaPatched ? "m1" : "");
 }
 /* Esquinas redondeadas y marco para imágenes y videos (máscara en el shader, no toca la textura). */
 function patchMediaMaterial(mat, o, aspect) {
@@ -2206,7 +2107,141 @@ function patchMediaMaterial(mat, o, aspect) {
 }
 /* Revelados de texto (elegidos por pose en "fadeDir"): [modo del shader, sentido]. 1 = líneas con máscara, 2 = letras en cascada,
    3 = letras con desenfoque, 4 = bloque que sube con máscara, 5 = se abre desde el centro. */
-const TX_MODES = { txLines: [1, 1], txLinesDown: [1, -1], txChars: [2, 1], txCharsBlur: [3, 1], txRise: [4, 1], txSplit: [5, 1], txRandom: [6, 1], txFlicker: [7, 1] };
+const TEXT_EFFECTS = { none: 0, maskLines: 1, maskWords: 2, maskChars: 3, fadeChars: 4, fadeRandom: 5, typewriter: 6, trackIn: 7, flipChars: 8, scaleChars: 9, flicker: 10, fadeLines: 11, fadeWords: 12 };
+const TXA_VERT_DECL = `
+attribute vec4 aG1;
+attribute vec4 aG2;
+attribute float aCx;
+uniform vec4 uTxA;
+uniform vec4 uTxB;
+uniform vec4 uTxC;
+varying float vTxA;
+varying float vTxY;
+varying vec2 vTxBand;
+varying float vTxM;
+float txHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+`;
+const TXA_VERT_BODY = `
+vec3 transformed = vec3(position);
+{
+  float eff = uTxA.x;
+  float prog = clamp(uTxA.y, 0.0, 1.0);
+  float lineI = aG1.x, wordI = aG1.y, gI = aG1.z, rnd = aG1.w;
+  float NG = max(uTxB.x, 1.0), NW = max(uTxB.y, 1.0), NL = max(uTxB.z, 1.0);
+  float slot = aG2.x, cnt = max(aG2.y, 1.0), cy = aG2.z, hh = aG2.w;
+  float emX = uTxC.x, cellH = uTxC.y, asp = max(uTxC.z, 0.0001);
+  float dx = uTxA.z * emX * (slot - uTxB.w * (cnt - 1.0));
+  float dy = -uTxA.w * cellH * (lineI - (NL - 1.0) * 0.5);
+  float cyL = cy + dy;
+  float a = 1.0;
+  float msk = 0.0;
+  float riseY = 0.0;
+  float sc = 1.0;
+  float theta = 0.0;
+  if (eff > 0.5 && prog < 0.9995) {
+    float gi = lineI;
+    float G = NL;
+    if (eff > 1.5 && eff < 2.5) { gi = wordI; G = NW; }
+    else if (eff > 11.5) { gi = wordI; G = NW; }
+    else if (eff > 2.5 && eff < 4.5) { gi = gI; G = NG; }
+    else if (eff > 5.5 && eff < 6.5) { gi = gI; G = NG; }
+    else if (eff > 7.5 && eff < 9.5) { gi = gI; G = NG; }
+    else if (eff > 4.5 && eff < 5.5) { gi = rnd * max(NG - 1.0, 0.0); G = NG; }
+    float tg = G > 1.0 ? gi / (G - 1.0) : 0.0;
+    float S = (eff < 2.5 || eff > 10.5 || (eff > 6.5 && eff < 7.5)) ? 0.55 : 0.85;
+    float p = clamp(prog * (1.0 + S) - tg * S, 0.0, 1.0);
+    float e = p >= 1.0 ? 1.0 : 1.0 - pow(2.0, -10.0 * p);
+    if (eff < 3.5) { riseY = -(1.0 - e) * cellH * 1.1; msk = 1.0; }
+    else if (eff < 5.5 || (eff > 10.5)) { a = e; }
+    else if (eff < 6.5) { a = (prog * NG > gI) ? 1.0 : 0.0; }
+    else if (eff < 7.5) { dx += (1.0 - e) * 0.6 * emX * (slot - uTxB.w * (cnt - 1.0)); a = smoothstep(0.0, 0.5, p); }
+    else if (eff < 8.5) { theta = (1.0 - e) * 1.5708; a = smoothstep(0.0, 0.4, p); }
+    else if (eff < 9.5) { float q = p - 1.0; sc = max(1.0 + 2.70158 * q * q * q + 1.70158 * q * q, 0.0); a = clamp(p * 5.0, 0.0, 1.0); }
+    else if (eff < 10.5) {
+      float kk = floor(prog * 14.0);
+      float f = txHash(vec2(kk, lineI + 1.3));
+      float on = f > 0.5 ? 1.0 : 0.1;
+      a = prog >= 0.9 ? mix(on, 1.0, clamp((prog - 0.9) * 10.0, 0.0, 1.0)) : on * smoothstep(0.0, 0.05, prog);
+    }
+  }
+  transformed.x += dx;
+  transformed.y += dy;
+  vec2 c = vec2(aCx + dx, cyL);
+  transformed.xy = c + (transformed.xy - c) * sc;
+  if (theta > 0.0) {
+    float yW = (transformed.y - cyL) * asp;
+    transformed.y = cyL + yW * cos(theta) / asp;
+    transformed.z += yW * sin(theta);
+  }
+  transformed.y += riseY;
+  vTxA = a;
+  vTxY = transformed.y;
+  vTxBand = vec2(cyL - hh, cyL + hh);
+  vTxM = msk;
+}
+`;
+const TXA_FRAG = `
+diffuseColor.a *= vTxA;
+if (vTxM > 0.5) {
+  float txAw = max(fwidth(vTxY), 0.00001);
+  diffuseColor.a *= smoothstep(vTxBand.x - txAw * 0.5, vTxBand.x + txAw * 0.5, vTxY) * (1.0 - smoothstep(vTxBand.y - txAw * 0.5, vTxBand.y + txAw * 0.5, vTxY));
+}
+`;
+function makeTextAnimUniforms() {
+  return { uTxA: { value: new THREE.Vector4(0, 1, 0, 0) }, uTxB: { value: new THREE.Vector4(1, 1, 1, 0.5) }, uTxC: { value: new THREE.Vector4(0.1, 0.1, 1, 0) } };
+}
+/* Texto armado letra por letra: cada letra es su propio rectángulo (con su pedazo de la textura). El shader las mueve/aparece. */
+function patchTextAnimMaterial(mat, U) {
+  if (!mat || !U) return;
+  mat.userData = mat.userData || {};
+  mat.userData.__txaU = U;
+  if (mat.userData.__txaPatched) { if (mat.userData.__txaShader) Object.assign(mat.userData.__txaShader.uniforms, U); return; }
+  mat.userData.__txaPatched = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev.call(mat, shader, renderer);
+    Object.assign(shader.uniforms, mat.userData.__txaU);
+    mat.userData.__txaShader = shader;
+    shader.vertexShader = TXA_VERT_DECL + shader.vertexShader.replace("#include <begin_vertex>", TXA_VERT_BODY);
+    shader.fragmentShader = "varying float vTxA;\nvarying float vTxY;\nvarying vec2 vTxBand;\nvarying float vTxM;\n" + shader.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\n" + TXA_FRAG);
+  };
+  mat.customProgramCacheKey = () => weebProgKey(mat);
+  mat.needsUpdate = true;
+}
+function buildTextGlyphGeometry(info) {
+  const W = info.W, H = info.H;
+  const pos = [], uv = [], g1 = [], g2 = [], cx = [], idx = [];
+  let gi = 0, vb = 0;
+  info.lines.forEach((ln, li) => {
+    const gl = ln.glyphs;
+    const Y1 = 0.5 - ln.yTop / H, Y0 = 0.5 - ln.yBot / H;
+    const cyU = (Y0 + Y1) / 2, hU = (Y1 - Y0) / 2;
+    gl.forEach((g, k) => {
+      const xa = k === 0 ? 0 : g.x0;
+      const xb = k === gl.length - 1 ? W : gl[k + 1].x0;
+      const X0 = xa / W - 0.5, X1 = xb / W - 0.5;
+      const rnd = Math.abs(Math.sin((gi + 1) * 78.233) * 43758.5453) % 1;
+      pos.push(X0, Y0, 0, X1, Y0, 0, X1, Y1, 0, X0, Y1, 0);
+      uv.push(xa / W, 1 - ln.yBot / H, xb / W, 1 - ln.yBot / H, xb / W, 1 - ln.yTop / H, xa / W, 1 - ln.yTop / H);
+      for (let q = 0; q < 4; q++) { g1.push(li, g.word, gi, rnd); g2.push(g.slot, ln.slots, cyU, hU); cx.push((X0 + X1) / 2); }
+      idx.push(vb, vb + 1, vb + 2, vb, vb + 2, vb + 3);
+      vb += 4; gi++;
+    });
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute("aG1", new THREE.Float32BufferAttribute(g1, 4));
+  geo.setAttribute("aG2", new THREE.Float32BufferAttribute(g2, 4));
+  geo.setAttribute("aCx", new THREE.Float32BufferAttribute(cx, 1));
+  geo.setIndex(idx);
+  return geo;
+}
+function driveTextAnim(U, info, effId, prog, tk, lh, align) {
+  U.uTxA.value.set(effId, prog, tk || 0, lh || 0);
+  U.uTxB.value.set(info.nGlyphs, info.nWords, info.n, align === "left" ? 0 : align === "right" ? 1 : 0.5);
+  U.uTxC.value.set(info.FS / info.W, info.lineH / info.H, info.H / info.refH, 0);
+}
 /* Estado de fade entre dos poses (a → b), con t ya pasado por el easing.
    amt = cuánto se ve (0 = invisible, 1 = visible). dir = dirección del
    barrido, la define la pose de DESTINO. out = true si está desapareciendo. */
@@ -2245,27 +2280,17 @@ function animFor(dir, amt, out) {
   }
   return a;
 }
-function driveFade(group, camera, uniforms, st, fx) {
+function driveFade(group, camera, uniforms, st, own) {
   const amt = st.amt;
   group.visible = amt > 0.001;
   uniforms.uFadeAmt.value = amt;
-  const wipe = !!FADE_WIPES[st.dir] && amt > 0.001 && amt < 0.999;
+  const wipe = !own && !!FADE_WIPES[st.dir] && amt > 0.001 && amt < 0.999;
   uniforms.uFadeMode.value = wipe ? 1 : 0;
   uniforms.uFadeOut.value = st.out ? 1 : 0;
   uniforms.uFadeAxis.value = st.dir === "wipeUp" || st.dir === "wipeDown" ? 1 : 0;
   uniforms.uFadeDir.value = st.dir === "rtl" || st.dir === "wipeDown" ? -1 : 1;
-  uniforms.uFadeBlur.value = animFor(st.dir, amt, st.out).blur;
-  const tx = TX_MODES[st.dir];
-  const txVis = !!tx && amt > 0.001 && amt < 0.999;
-  /* efecto continuo por pose (fx): revelado independiente de visible/invisible + interlineado */
-  const fxm = fx && fx.rm ? TX_MODES[fx.rm] : null;
-  const fxOn = !txVis && !!fxm && fx.rv < 0.999;
-  uniforms.uTxLH.value = fx && fx.lh > 0 ? Math.min(fx.lh, 6) : 0;
-  uniforms.uTxMode.value = txVis ? tx[0] : fxOn ? fxm[0] : 0;
-  uniforms.uTxDir.value = txVis ? tx[1] : fxOn ? fxm[1] : 1;
-  uniforms.uTxAmt.value = txVis ? amt : fxOn ? Math.max(0, fx.rv) : 1;
-  uniforms.uTxOut.value = txVis && st.out ? 1 : 0;
-  uniforms.uTxOwn.value = txVis ? 1 : 0;
+  uniforms.uFadeBlur.value = own ? 0 : animFor(st.dir, amt, st.out).blur;
+  uniforms.uTxOwn.value = own ? 1 : 0;
   if (!wipe) return;
   group.updateWorldMatrix(true, true);
   _fadeBox.setFromObject(group);
@@ -2458,13 +2483,6 @@ function applyShapeUniforms(mat, mesh, o, sh, kx, ky) {
   mesh.scale.set((w + pad) * (kx || 1), (h + pad) * (ky || 1), 1);
   mesh.rotation.z = ((g("rot") || 0) * Math.PI) / 180;
 }
-/* Caja de líneas del texto (para el revelado por líneas / letras) → uniforms del fade. */
-function applyTextBox(fade, texture) {
-  const bx = texture && texture.userData && texture.userData.box;
-  if (!bx) return;
-  fade.uTxAsp.value = texture.image && texture.image.height ? texture.image.width / texture.image.height : 0;
-  fade.uTxN.value = bx.n; fade.uTxY0.value = bx.y0; fade.uTxY1.value = bx.y1; fade.uTxX0.value = bx.x0; fade.uTxX1.value = bx.x1;
-}
 
 function sampleObjectKeyframes(keyframes, progress) {
   const list = keyframes;
@@ -2484,19 +2502,18 @@ function sampleObjectKeyframes(keyframes, progress) {
     sx: lerp(a.sx ?? 1, b.sx ?? 1, t),
     sy: lerp(a.sy ?? 1, b.sy ?? 1, t),
     rv: lerp(a.rv ?? 1, b.rv ?? 1, t),
-    rm: b.rm || a.rm || null,
+    tk: lerp(a.tk || 0, b.tk || 0, t),
     lh: lerp(a.lh || 0, b.lh || 0, t),
     sh: a.sh || b.sh ? shapeLerp(a.sh, b.sh, t) : null,
     fade: fadeStateFor(a, b, t),
   };
 }
 
-function useObjectTransformRef(keyframes, billboard) {
+function useObjectTransformRef(keyframes, billboard, own) {
   const groupRef = useRef(null);
   const fade = useMemo(() => makeFadeUniforms(), []);
   const hasFadeOnly = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
-  const hasFx = useMemo(() => keyframes.some((k) => k.rm || k.lh), [keyframes]);
-  const hasFade = hasFadeOnly || hasFx;
+  const hasFade = hasFadeOnly;
   const base = useRef({ x: 0, y: 0, z: 0, s: 1, sx: 1, sy: 1 });
   const live = useRef(null);   // posición/escala "reales"; la animación de entrada/salida se suma encima
   useFrame((state, delta) => {
@@ -2512,13 +2529,13 @@ function useObjectTransformRef(keyframes, billboard) {
     b.s = damp(b.s, kf.scale, 4, delta);
     b.sx = damp(b.sx, kf.sx ?? 1, 4, delta);
     b.sy = damp(b.sy, kf.sy ?? 1, 4, delta);
-    const an = hasFadeOnly ? animFor(kf.fade.dir, kf.fade.amt, kf.fade.out) : _ANIM_ID;
+    const an = hasFadeOnly && !own ? animFor(kf.fade.dir, kf.fade.amt, kf.fade.out) : _ANIM_ID;
     g.position.set(b.x + an.dx, b.y + an.dy, b.z);
     g.scale.set(b.s * b.sx * an.s * an.sx, b.s * b.sy * an.s * an.sy, b.s * an.s);
     if (!billboard) {
       g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
     }
-    if (hasFade) driveFade(g, state.camera, fade, kf.fade, hasFx ? { rm: kf.rm, rv: kf.rv ?? 1, lh: kf.lh || 0 } : null);
+    if (hasFade) driveFade(g, state.camera, fade, kf.fade, own);
   });
   return { groupRef, fade, hasFade, live };
 }
@@ -2737,12 +2754,13 @@ function drawTextCanvas(text, o) {
   let wi = 0;
   const lines = String(text || "").split("\n").map((line) => {
     const words = (line.match(/\S+/g) || []).map((w) => {
+      const idx = wi;
       const st = wordStyles[wi] || null;
       wi++;
       const spec = specOf((st && st.fontFamily) || baseFont);
       mctx.font = spec;
       const chars = Array.from(w);
-      return { w, chars, st, spec, width: mctx.measureText(w).width + Math.max(0, chars.length - 1) * ls };
+      return { w, idx, chars, st, spec, width: mctx.measureText(w).width + Math.max(0, chars.length - 1) * ls };
     });
     mctx.font = specOf(baseFont);
     const spaceW = mctx.measureText(" ").width + ls;
@@ -2751,42 +2769,101 @@ function drawTextCanvas(text, o) {
   });
   const n = lines.length;
   const maxW = Math.max(1, ...lines.map((l) => l.width));
-  const padV = Math.ceil(Math.max(0, +o.lhMax || 0) * lineH * (n - 1) / 2);   // margen extra arriba/abajo para el interlineado animado
-  const top = pad + padV;
-  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + top * 2);
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
-  ctx.textBaseline = "middle";
-  ctx.textAlign = "left";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = FS * 0.08;
-  ctx.strokeStyle = o.outlineColor || "#000000";
+  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + pad * 2);
   const g = o.gradient;
   const baseFill = { mode: g && g.on ? "gradient" : "solid", color: o.color || "#ffffff", colors: g && g.colors, angle: g && g.angle };
-  const block = { x: pad, y: top, w: W - pad * 2, h: n * lineH };
+  const block = { x: pad, y: pad, w: W - pad * 2, h: n * lineH };
   const align = o.align || "center";
-  lines.forEach((ln, i) => {
-    const y = top + lineH * i + lineH / 2;
+  let nGlyphs = 0;
+  const placed = lines.map((ln, i) => {
+    const y = pad + lineH * i + lineH / 2;
     let x = align === "left" ? pad : align === "right" ? W - pad - ln.width : (W - ln.width) / 2;
+    let slot = 0;
+    const ws = [], glyphs = [];
     ln.words.forEach((wd) => {
-      ctx.font = wd.spec;
-      const st = wd.st;
-      const own = st && st.mode;
-      const fillSpec = own ? { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle } : baseFill;
-      const rect = own ? { x, y: top + lineH * i, w: wd.width, h: lineH } : block;
-      ctx.fillStyle = makeCanvasFill(ctx, fillSpec, rect);
-      const draw = (fn) => {
-        if (ls === 0) fn(wd.w, x);
-        else wd.chars.forEach((ch, k) => fn(ch, x + ctx.measureText(wd.chars.slice(0, k).join("")).width + k * ls));
-      };
-      if (o.outline) draw((t, px) => ctx.strokeText(t, px, y));
-      draw((t, px) => ctx.fillText(t, px, y));
+      mctx.font = wd.spec;
+      const x0 = x;
+      wd.chars.forEach((ch, k) => {
+        glyphs.push({ x0: x0 + mctx.measureText(wd.chars.slice(0, k).join("")).width + k * ls, word: wd.idx, slot: slot + k });
+      });
+      nGlyphs += wd.chars.length;
+      slot += wd.chars.length + 1;
+      ws.push({ wd, x: x0 });
       x += wd.width + ln.spaceW;
     });
+    return { y, ws, glyphs, slots: Math.max(1, slot - 1) };
   });
-  return { canvas, refH: n * FS * 1.2 + FS * 0.5, box: { n, y0: top / H, y1: (top + n * lineH) / H, x0: pad / W, x1: (W - pad) / W } };
+  const paint = (ctx, withBg) => {
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = FS * 0.08;
+    ctx.strokeStyle = o.outlineColor || "#000000";
+    if (withBg) {
+      /* Fondo opaco del mismo color que las letras: así los bordes suaves no se mezclan con negro (se acaba el "sombreado"). */
+      ctx.fillStyle = o.outline ? (o.outlineColor || "#000000") : makeCanvasFill(ctx, baseFill, block);
+      ctx.fillRect(0, 0, W, H);
+      if (!o.outline) {
+        placed.forEach((pl, i) => pl.ws.forEach(({ wd, x }) => {
+          const st = wd.st;
+          if (!(st && st.mode)) return;
+          ctx.fillStyle = makeCanvasFill(ctx, { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle }, { x, y: pad + lineH * i, w: wd.width, h: lineH });
+          ctx.fillRect(x - FS * 0.3, pad + lineH * i - FS * 0.3, wd.width + FS * 0.6, lineH + FS * 0.6);
+        }));
+      }
+    }
+    placed.forEach((pl) => {
+      pl.ws.forEach(({ wd, x }) => {
+        const y = pl.y;
+        ctx.font = wd.spec;
+        const st = wd.st;
+        const own = st && st.mode;
+        const li = placed.indexOf(pl);
+        const fillSpec = own ? { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle } : baseFill;
+        const rect = own ? { x, y: pad + lineH * li, w: wd.width, h: lineH } : block;
+        ctx.fillStyle = makeCanvasFill(ctx, fillSpec, rect);
+        const draw = (fn) => {
+          if (ls === 0) fn(wd.w, x);
+          else wd.chars.forEach((ch, k) => fn(ch, x + ctx.measureText(wd.chars.slice(0, k).join("")).width + k * ls));
+        };
+        if (o.outline) draw((t, px) => ctx.strokeText(t, px, y));
+        draw((t, px) => ctx.fillText(t, px, y));
+      });
+    });
+  };
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  paint(canvas.getContext("2d"), false);
+  const colorCanvas = document.createElement("canvas");
+  colorCanvas.width = W; colorCanvas.height = H;
+  paint(colorCanvas.getContext("2d"), true);
+  const refH = n * FS * 1.2 + FS * 0.5;
+  return {
+    canvas, colorCanvas, refH,
+    glyphs: {
+      W, H, FS, lineH, refH, n, nGlyphs, nWords: wi,
+      lines: placed.map((pl, i) => ({ yTop: i === 0 ? 0 : pad + lineH * i, yBot: i === n - 1 ? H : pad + lineH * (i + 1), glyphs: pl.glyphs, slots: pl.slots })),
+    },
+  };
+}
+/* Textura final del texto: color (opaco, sin negro en los bordes) + transparencia aparte. */
+function composeTextTexture(r) {
+  const W = r.canvas.width, H = r.canvas.height;
+  const a = r.canvas.getContext("2d").getImageData(0, 0, W, H).data;
+  const c = r.colorCanvas.getContext("2d").getImageData(0, 0, W, H).data;
+  const out = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    const s = y * W * 4, d = (H - 1 - y) * W * 4;
+    for (let x = 0; x < W * 4; x += 4) { out[d + x] = c[s + x]; out[d + x + 1] = c[s + x + 1]; out[d + x + 2] = c[s + x + 2]; out[d + x + 3] = a[s + x + 3]; }
+  }
+  const tex = new THREE.DataTexture(out, W, H, THREE.RGBAFormat);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = 8;
+  tex.needsUpdate = true;
+  return tex;
 }
 function useHiResTextTexture(text, opts) {
   const o = opts || {};
@@ -2800,12 +2877,10 @@ function useHiResTextTexture(text, opts) {
       .then(() => Promise.all(fams.map((f) => (document.fonts && document.fonts.load ? document.fonts.load(`${textFontWeight(f, weight)} 200px ${f}`).catch(() => {}) : null))))
       .then(() => {
         if (cancelled) return;
-        const { canvas, refH, box } = drawTextCanvas(text, o);
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.userData.refH = refH;
-        tex.userData.box = box;
-        tex.needsUpdate = true;
+        const r = drawTextCanvas(text, o);
+        const tex = composeTextTexture(r);
+        tex.userData.refH = r.refH;
+        tex.userData.glyphs = r.glyphs;
         setTexture((prev) => { if (prev) prev.dispose(); return tex; });
       });
     return () => { cancelled = true; };
@@ -2826,16 +2901,26 @@ function SceneObjectText({ data }) {
     letterSpacing: data.letterSpacing,
     lineHeight: data.lineHeight,
     wordStyles: data.wordStyles,
-    lhMax: Math.max(0, ...data.keyframes.map((k) => k.lh || 0)),
   });
-  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  const effId = TEXT_EFFECTS[data.textEffect] || 0;
+  const wantTA = effId > 0 || data.keyframes.some((k) => k.tk || k.lh);
+  const { groupRef, fade, hasFade, live } = useObjectTransformRef(data.keyframes, data.billboard, effId > 0);
+  const ta = useMemo(() => makeTextAnimUniforms(), []);
+  const info = texture ? texture.userData.glyphs : null;
+  const geo = useMemo(() => (wantTA && info ? buildTextGlyphGeometry(info) : null), [wantTA, info]);
+  useEffect(() => () => { if (geo) geo.dispose(); }, [geo]);
+  useFrame(() => {
+    const k = live.current;
+    if (!geo || !k || !info) return;
+    const prog = Math.max(0, Math.min(1, (k.fade ? k.fade.amt : 1) * (k.rv ?? 1)));
+    driveTextAnim(ta, info, effId, prog, k.tk, k.lh, data.textAlign);
+  });
   if (!texture) return <group ref={groupRef} />;
-  applyTextBox(fade, texture);
   const refH = texture.userData.refH || texture.image.height;
   const mesh = (
-    <mesh renderOrder={10} scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
+    <mesh key={geo ? "g" : "p"} renderOrder={10} frustumCulled={!geo} geometry={geo || undefined} scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
+      {!geo && <planeGeometry args={[1, 1]} />}
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); if (geo) patchTextAnimMaterial(m, ta); }} />
     </mesh>
   );
   return (
@@ -4488,7 +4573,7 @@ function sampleObjectTransform(transformsByStage, progress, stages, easings) {
     sx: lerp(ta.sx ?? 1, tb.sx ?? 1, t),
     sy: lerp(ta.sy ?? 1, tb.sy ?? 1, t),
     rv: lerp(ta.rv ?? 1, tb.rv ?? 1, t),
-    rm: tb.rm || ta.rm || null,
+    tk: lerp(ta.tk || 0, tb.tk || 0, t),
     lh: lerp(ta.lh || 0, tb.lh || 0, t),
     sh: ta.sh || tb.sh ? shapeLerp(ta.sh, tb.sh, t) : null,
   }, fadeStateFor(ta, tb, t));
@@ -4704,7 +4789,14 @@ const FADE_SOFT = 1.0;
 //@@use patchFadeMaterial
 //@@use weebProgKey
 //@@use patchMediaMaterial
-//@@use TX_MODES
+//@@use TEXT_EFFECTS
+//@@use TXA_VERT_DECL
+//@@use TXA_VERT_BODY
+//@@use TXA_FRAG
+//@@use makeTextAnimUniforms
+//@@use patchTextAnimMaterial
+//@@use buildTextGlyphGeometry
+//@@use driveTextAnim
 //@@use fadeStateFor
 const _fadeBox = new THREE.Box3();
 //@@use _fadeVec
@@ -4719,21 +4811,21 @@ const _ANIM_ID = { dx: 0, dy: 0, s: 1, sx: 1, sy: 1, blur: 0 };
 //@@use shapeLerp
 //@@use makeShapeMaterial
 //@@use applyShapeUniforms
-//@@use applyTextBox
 /* En edición, una pose marcada "invisible" se ve fantasma (10%) para
    poder seguir ubicándola; en Preview se ve el fade real. */
-function editFade(t) { return { ...t, fadeAmt: t.hidden ? 0.1 : 1, fadeMode: "fade", fadeOut: false }; }
+function editFade(t) { return { ...t, fadeAmt: t.hidden ? 0.1 : 1, fadeMode: "fade", fadeOut: false, editGhost: !!t.hidden }; }
 function FadeGroup({ obj, fade, children }) {
   const ref = useRef(null);
   useFrame((state) => {
     if (!ref.current) return;
     const amt = obj.fadeAmt == null ? 1 : obj.fadeAmt, dir = obj.fadeMode || "fade", out = !!obj.fadeOut;
     /* animación de entrada/salida: el grupo escala/desplaza alrededor de la posición del objeto (no del origen del mundo) */
-    const an = animFor(dir, amt, out), p = obj.position || [0, 0, 0];
+    const own = obj.type === "text" && (TEXT_EFFECTS[obj.textEffect] || 0) > 0 && !obj.editGhost;
+    const an = own ? _ANIM_ID : animFor(dir, amt, out), p = obj.position || [0, 0, 0];
     const sx = an.s * an.sx, sy = an.s * an.sy, sz = an.s;
     ref.current.scale.set(sx, sy, sz);
     ref.current.position.set(p[0] * (1 - sx) + an.dx, p[1] * (1 - sy) + an.dy, p[2] * (1 - sz));
-    driveFade(ref.current, state.camera, fade, { amt, dir, out }, obj.rm || obj.lh ? { rm: obj.rm, rv: obj.rv ?? 1, lh: obj.lh || 0 } : null);
+    driveFade(ref.current, state.camera, fade, { amt, dir, out }, own);
   });
   return <group ref={ref}>{children}</group>;
 }
@@ -4978,6 +5070,7 @@ const _textFontLoads = {};
 //@@use textFontWeight
 //@@use makeCanvasFill
 //@@use drawTextCanvas
+//@@use composeTextTexture
 //@@use useHiResTextTexture
 function ObjectPreviewText({ obj, fade }) {
   const texture = useHiResTextTexture(obj.text, {
@@ -4991,19 +5084,28 @@ function ObjectPreviewText({ obj, fade }) {
     letterSpacing: obj.letterSpacing,
     lineHeight: obj.lineHeight,
     wordStyles: obj.wordStyles,
-    lhMax: obj.lhMax || 0,
+  });
+  const effId = TEXT_EFFECTS[obj.textEffect] || 0;
+  const wantTA = effId > 0 || !!obj.tk || !!obj.lh;
+  const ta = useMemo(() => makeTextAnimUniforms(), []);
+  const info = texture ? texture.userData.glyphs : null;
+  const geo = useMemo(() => (wantTA && info ? buildTextGlyphGeometry(info) : null), [wantTA, info]);
+  useEffect(() => () => { if (geo) geo.dispose(); }, [geo]);
+  useFrame(() => {
+    if (!geo || !info) return;
+    const prog = obj.editGhost ? 1 : Math.max(0, Math.min(1, (obj.fadeAmt == null ? 1 : obj.fadeAmt) * (obj.rv ?? 1)));
+    driveTextAnim(ta, info, effId, prog, obj.tk, obj.lh, obj.textAlign);
   });
   if (!texture) return null;
-  applyTextBox(fade, texture);
   const refH = texture.userData.refH || texture.image.height;
   const mesh = (
-    <mesh renderOrder={10}
+    <mesh key={geo ? "g" : "p"} renderOrder={10} frustumCulled={!geo} geometry={geo || undefined}
       scale={[(obj.scale * (obj.sx ?? 1) * texture.image.width) / refH, (obj.scale * (obj.sy ?? 1) * texture.image.height) / refH, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); }} />
+      {!geo && <planeGeometry args={[1, 1]} />}
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); if (geo) patchTextAnimMaterial(m, ta); }} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -5986,7 +6088,7 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     const kfLines = stages.map((kf, idx) => {
       const t = transforms[kf.id] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" };
       const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
-      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rm ? `, rm: "${t.rm}"` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
+      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.tk ? `, tk: ${fmtNum(t.tk)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
     }).join("\n");
     if (o.type === "text") {
       return `  {
@@ -6002,6 +6104,7 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     textAlign: "${o.textAlign || "center"}",
     textOutline: ${o.textOutline ? "true" : "false"},
     textOutlineColor: "${o.textOutlineColor || "#000000"}",
+    textEffect: "${o.textEffect || "none"}",
     billboard: ${o.billboard ? "true" : "false"},
     keyframes: [
 ${kfLines}
@@ -6494,6 +6597,7 @@ function TextStyleEditor({ o, updateObject }) {
       {g.on
         ? <GradientEditor colors={g.colors} angle={g.angle} onChange={(p) => up({ textGradient: { ...g, on: true, ...p } })} />
         : <ColorRow label="Color" value={o.textColor || "#ffffff"} onChange={(v) => up({ textColor: v })} />}
+      <SelectRow label="Animación del texto" value={o.textEffect || "none"} onChange={(v) => up({ textEffect: v })} options={[["none", "Ninguna"], ["maskLines", "Líneas con máscara (estilo lusion)"], ["maskWords", "Palabras con máscara"], ["maskChars", "Letras con máscara"], ["fadeLines", "Líneas aparecen suave"], ["fadeWords", "Palabras aparecen suave"], ["fadeChars", "Letras aparecen en cascada"], ["fadeRandom", "Letras al azar"], ["typewriter", "Tipeo letra por letra"], ["trackIn", "Espaciado se cierra"], ["flipChars", "Letras giran (3D)"], ["scaleChars", "Letras rebotan (escala)"], ["flicker", "Titileo neón"]]} />
       <Slider label="Entre letras" min={-0.1} max={1} step={0.01} value={o.letterSpacing ?? 0} onChange={(v) => up({ letterSpacing: v })} />
       <Slider label="Interlineado" min={0.5} max={2.5} step={0.05} value={o.lineHeight ?? 1.2} onChange={(v) => up({ lineHeight: v })} />
       <Seg value={o.textAlign || "center"} onChange={(v) => up({ textAlign: v })} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
@@ -7152,7 +7256,7 @@ function App() {
     const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", video: "Video", text: "Texto", shape: "Forma" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
     if (type === "video") Object.assign(base, { loop: true, videoMode: "scroll", scrubFrom: 0, scrubTo: 100 });
     if (type === "shape") Object.assign(base, { shapeKind: "rect", shapeCap: "round", shapeCols: 8, shapeRows: 4 });
-    if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000", textGradient: { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 }, letterSpacing: 0, lineHeight: 1.2, wordStyles: {} });
+    if (type === "text") Object.assign(base, { text: "Texto", textEffect: "none", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000", textGradient: { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 }, letterSpacing: 0, lineHeight: 1.2, wordStyles: {} });
     setObjects((prev) => [...prev, base]);
     setObjectTransformsByKf((prev) => ({ ...prev, [newId]: Object.fromEntries(stagesComputed.map((st) => [st.id, defaultObjectTransform()])) }));
     setSelectedObj(newId);
@@ -7272,6 +7376,7 @@ function App() {
           textAlign: o.textAlign ?? "center",
           textOutline: o.textOutline ?? false,
           textOutlineColor: o.textOutlineColor ?? "#000000",
+          textEffect: o.textEffect ?? "none",
           textGradient: o.textGradient ?? { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 },
           letterSpacing: o.letterSpacing ?? 0,
           lineHeight: o.lineHeight ?? 1.2,
@@ -7516,7 +7621,7 @@ function App() {
     const transforms = objectTransformsByKf[o.id];
     if (!transforms) return { ...o, ...editFade(defaultObjectTransform()), scrollProgress: scrollProgressNow };
     const t = sampled ? sampleObjectTransform(transforms, scrubV, stagesComputed, easings) : editFade(transforms[activeStage] || defaultObjectTransform());
-    return { ...o, ...t, lhMax: Math.max(0, ...Object.values(transforms).map((x) => (x && x.lh) || 0)), scrollProgress: scrollProgressNow };
+    return { ...o, ...t, scrollProgress: scrollProgressNow };
   }), [objects, objectTransformsByKf, sampled, scrubV, stagesComputed, easings, activeStage, scrollProgressNow]);
   const sceneCameraActive = exporting || !freeOrbit;
 
@@ -7959,32 +8064,25 @@ function App() {
           <Btn title="Oculto antes de la pose actual, visible desde aquí hasta el final" onClick={() => setObjectHiddenMode(o.id, "showFrom")}>Desde aquí ▶</Btn>
           <Btn title="Visible hasta antes de la pose actual, oculto desde aquí hasta el final" onClick={() => setObjectHiddenMode(o.id, "hideFrom")}>Hasta aquí ◀</Btn>
         </div>
-        <div className="row">
+        {!(isText && o.textEffect && o.textEffect !== "none") && <div className="row">
           <span className="lbl">Animación</span>
           <select value={t.fadeDir || "ltr"} onChange={(e) => setObjectTransform(o.id, "fadeDir", null, e.target.value)}>
             <optgroup label="Barrido de transparencia"><option value="ltr">Barrido Izq → Der</option><option value="rtl">Barrido Der → Izq</option><option value="wipeUp">Barrido hacia arriba</option><option value="wipeDown">Barrido hacia abajo</option><option value="fade">Fundido simple</option></optgroup>
-            <optgroup label="Movimiento"><option value="up">Subir</option><option value="down">Bajar</option><option value="slideL">Deslizar ←</option><option value="slideR">Deslizar →</option></optgroup>
-            <optgroup label="Escala"><option value="zoomIn">Zoom adentro</option><option value="zoomOut">Zoom afuera</option><option value="pop">Pop (rebote)</option><option value="flipX">Volteo horizontal</option><option value="flipY">Volteo vertical</option></optgroup>
-            <optgroup label="Texto / imagen (revelado)"><option value="txLines">Líneas suben (máscara)</option><option value="txLinesDown">Líneas bajan (máscara)</option><option value="txChars">Letras en cascada</option><option value="txCharsBlur">Letras en cascada + desenfoque</option><option value="txRise">Bloque sube (máscara)</option><option value="txSplit">Se abre desde el centro</option><option value="txRandom">Letras al azar</option><option value="txFlicker">Titileo (neón)</option></optgroup>
-            <optgroup label="Desenfoque"><option value="blur">Desenfoque</option><option value="blurUp">Desenfoque + subir</option><option value="blurZoom">Desenfoque + zoom</option></optgroup>
+            {!isText && <optgroup label="Movimiento"><option value="up">Subir</option><option value="down">Bajar</option><option value="slideL">Deslizar ←</option><option value="slideR">Deslizar →</option></optgroup>}
+            {!isText && <optgroup label="Escala"><option value="zoomIn">Zoom adentro</option><option value="zoomOut">Zoom afuera</option><option value="pop">Pop (rebote)</option><option value="flipX">Volteo horizontal</option><option value="flipY">Volteo vertical</option></optgroup>}
+            {!isText && <optgroup label="Desenfoque"><option value="blur">Desenfoque</option><option value="blurUp">Desenfoque + subir</option><option value="blurZoom">Desenfoque + zoom</option></optgroup>}
           </select>
-        </div>
+        </div>}
+        {isText && o.textEffect && o.textEffect !== "none" && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>La entrada y salida de este texto la hace su "Animación del texto" (en la ficha del texto): cuando pasa de Invisible a visible se arma con ese efecto, y al revés se desarma.</div>}
         <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Animación de entrada o salida al llegar a esta pose: el objeto aparece o desaparece según la pose anterior (necesita que alguna pose lo tenga invisible). Si entra, la animación va de afuera hacia su lugar; si sale, continúa hacia afuera. Probalo en Preview.</div>
-        {(isText || isImage || isVideo) && (
+        {isText && (
           <>
-            <div className="grp-t" style={{ marginTop: 6 }}>Efecto continuo · {currentStageLabel}</div>
-            <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Funciona aunque el objeto esté visible todo el tiempo: el valor de cada pose se mezcla con el de la siguiente mientras la cámara avanza (no depende de Visible / Invisible).</div>
-            <div className="row">
-              <span className="lbl">Efecto</span>
-              <select value={t.rm || ""} onChange={(e) => setObjectAllStages(o.id, "rm", e.target.value || null)}>
-                <option value="">Ninguno</option>
-                <option value="txLines">Líneas suben</option><option value="txLinesDown">Líneas bajan</option><option value="txChars">Letras en cascada</option><option value="txCharsBlur">Letras en cascada + desenfoque</option><option value="txRise">Bloque sube</option><option value="txSplit">Se abre desde el centro</option><option value="txRandom">Letras al azar</option><option value="txFlicker">Titileo (neón)</option>
-              </select>
-            </div>
-            {t.rm && <Slider label="Revelado" min={0} max={1} step={0.01} value={t.rv ?? 1} onChange={(v) => setObjectTransform(o.id, "rv", null, v)} />}
-            {t.rm && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>1 = todo visible, 0 = nada. Ej.: pose A en 1 y pose B en 0 → las letras desaparecen mientras la cámara pasa de A a B.</div>}
-            {isText && <Slider label="Interlineado extra" min={0} max={3} step={0.01} value={t.lh || 0} onChange={(v) => setObjectTransform(o.id, "lh", null, v)} />}
-            {isText && (t.lh || 0) > 0 && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Separa las líneas del texto. Se anima entre poses (0 = como está en "Interlineado" del texto).</div>}
+            <div className="grp-t" style={{ marginTop: 6 }}>Animación de texto · {currentStageLabel}</div>
+            <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Estos valores se mezclan de una pose a la siguiente mientras la cámara avanza, aunque el texto esté siempre visible.</div>
+            {o.textEffect && o.textEffect !== "none" && <Slider label="Revelado" min={0} max={1} step={0.01} value={t.rv ?? 1} onChange={(v) => setObjectTransform(o.id, "rv", null, v)} />}
+            {o.textEffect && o.textEffect !== "none" && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>1 = texto completo, 0 = nada. Pose A en 1 y pose B en 0: se desarma mientras la cámara va de A a B.</div>}
+            <Slider label="Espacio entre letras" min={-0.3} max={3} step={0.01} value={t.tk || 0} onChange={(v) => setObjectTransform(o.id, "tk", null, v)} />
+            <Slider label="Interlineado (extra)" min={-0.6} max={3} step={0.01} value={t.lh || 0} onChange={(v) => setObjectTransform(o.id, "lh", null, v)} />
           </>
         )}
         <div className="tools">
