@@ -1975,6 +1975,11 @@ function makeFadeUniforms() {
     uTxY1: { value: 1 },
     uTxX0: { value: 0 },
     uTxX1: { value: 1 },
+    uTxAmt: { value: 1 },
+    uTxOut: { value: 0 },
+    uTxLH: { value: 0 },
+    uTxAsp: { value: 0 },
+    uTxOwn: { value: 0 },
   };
 }
 /* Suavidad del barrido: 0.4 = borde marcado, 1.0 = el degradé ocupa todo
@@ -2000,25 +2005,60 @@ uniform float uTxY0;
 uniform float uTxY1;
 uniform float uTxX0;
 uniform float uTxX1;
+uniform float uTxAmt;
+uniform float uTxOut;
+uniform float uTxLH;
+uniform float uTxAsp;
+uniform float uTxOwn;
+float txH(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float txA = 1.0;
 float txBl = 0.0;
 vec2 txUvG = vec2(0.0);
-void txApply(vec2 uv) {
-  float amt = uFadeAmt;
-  float outF = uFadeOut > 0.5 ? 1.0 : 0.0;
+void txApply(vec2 uv0) {
+  float amt = uTxAmt;
+  float outF = uTxOut > 0.5 ? 1.0 : 0.0;
   float dirE = uTxDir * (outF > 0.5 ? -1.0 : 1.0);
   float bh = max(uTxY1 - uTxY0, 0.0001);
-  float n = (abs(uTxMode - 4.0) < 0.5) ? 1.0 : max(uTxN, 1.0);
+  float nL = max(uTxN, 1.0);
+  vec2 uv = uv0;
+  float lay = 1.0;
+  if (abs(uTxLH) > 0.001) {
+    float stp = 1.0 + uTxLH;
+    float L = ((1.0 - uv0.y) - uTxY0) / bh * nL;
+    float u = L + (nL - 1.0) * 0.5 * uTxLH;
+    float i0 = floor(u / stp);
+    float loc = u - i0 * stp;
+    if (i0 < 0.0 || i0 > nL - 1.0 || loc > 1.0) lay = 0.0;
+    float Ls = clamp(i0, 0.0, nL - 1.0) + clamp(loc, 0.0, 1.0);
+    uv.y = 1.0 - (uTxY0 + Ls / nL * bh);
+  }
+  txUvG = uv;
+  float n = (abs(uTxMode - 4.0) < 0.5) ? 1.0 : nL;
   float cy = ((1.0 - uv.y) - uTxY0) / bh;
   float li = clamp(floor(cy * n), 0.0, n - 1.0);
   float cellH = bh / n;
   float ux = clamp((uv.x - uTxX0) / max(uTxX1 - uTxX0, 0.0001), 0.0, 1.0);
   float bl = 0.0;
   float al = 1.0;
-  if (abs(uTxMode - 5.0) < 0.5) {
+  if (uTxMode < 0.5) {
+    al = 1.0;
+  } else if (abs(uTxMode - 5.0) < 0.5) {
     float d = abs(ux - 0.5) * 2.0;
     al = 1.0 - smoothstep(amt * 1.2 - 0.2, amt * 1.2, d);
     bl = (1.0 - amt) * 3.0;
+  } else if (abs(uTxMode - 6.0) < 0.5) {
+    float rows = uTxAsp < 0.01 ? 14.0 : nL;
+    float cols = uTxAsp < 0.01 ? 14.0 : max(1.0, (uTxX1 - uTxX0) * uTxAsp * 2.0 / (bh / nL));
+    float rr = clamp(floor(cy * rows), 0.0, rows - 1.0);
+    float cc = floor(ux * cols);
+    float r = txH(vec2(cc, rr));
+    float p = clamp((amt - r * 0.7) / 0.3, 0.0, 1.0);
+    al = p * p * (3.0 - 2.0 * p);
+  } else if (abs(uTxMode - 7.0) < 0.5) {
+    float k = floor(amt * 14.0);
+    float f = txH(vec2(k, li + 1.7));
+    float on = f > 0.5 ? 1.0 : 0.12;
+    al = amt >= 0.9 ? mix(on, 1.0, clamp((amt - 0.9) * 10.0, 0.0, 1.0)) : on * smoothstep(0.0, 0.05, amt);
   } else {
     float rise = 0.0;
     float p = 1.0;
@@ -2045,7 +2085,7 @@ void txApply(vec2 uv) {
     float lis = clamp(floor(cys * n), -1.0, n);
     if (abs(lis - li) > 0.5 || cys < 0.0 || cys > 1.0) al = 0.0;
   }
-  txA = al;
+  txA = al * lay;
   txBl = bl;
 }
 `;
@@ -2053,7 +2093,7 @@ const FADE_FRAG_BODY = `
 {
   float fa = uFadeAmt;
 #ifdef USE_MAP
-  if (uTxMode > 0.5) fa = 1.0;
+  if (uTxOwn > 0.5) fa = 1.0;
 #endif
   if (uFadeMode > 0.5) {
     float fc = uFadeAxis > 0.5 ? vFadeY : vFadeX;
@@ -2107,7 +2147,7 @@ function patchFadeMaterial(mat, uniforms) {
       "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;\n vFadeY = gl_Position.y / gl_Position.w;"
     );
     /* desenfoque de entrada/salida: se muestrea la textura en un nivel de mipmap más bajo (uFadeBlur = niveles) */
-    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\n txA = 1.0; txBl = 0.0; txUvG = vMapUv;\n if (uTxMode > 0.5) txApply(vMapUv);\n#endif\n" + THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, txUvG, uFadeBlur + txBl )"));
+    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\n txA = 1.0; txBl = 0.0; txUvG = vMapUv;\n if (uTxMode > 0.5 || abs(uTxLH) > 0.001) txApply(vMapUv);\n#endif\n" + THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, txUvG, uFadeBlur + txBl )"));
     shader.fragmentShader = FADE_FRAG_DECL + shader.fragmentShader.replace(
       "#include <dithering_fragment>",
       "#include <dithering_fragment>\n" + FADE_FRAG_BODY
@@ -2119,7 +2159,7 @@ function patchFadeMaterial(mat, uniforms) {
 /* Llave de programa: cada combinación de parches (descartar transparentes, fade/revelado, esquinas y marco) compila su propio shader. */
 function weebProgKey(mat) {
   const u = mat.userData || {};
-  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f3" : "") + (u.__mediaPatched ? "m1" : "");
+  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f4" : "") + (u.__mediaPatched ? "m1" : "");
 }
 /* Esquinas redondeadas y marco para imágenes y videos (máscara en el shader, no toca la textura). */
 function patchMediaMaterial(mat, o, aspect) {
@@ -2166,7 +2206,7 @@ function patchMediaMaterial(mat, o, aspect) {
 }
 /* Revelados de texto (elegidos por pose en "fadeDir"): [modo del shader, sentido]. 1 = líneas con máscara, 2 = letras en cascada,
    3 = letras con desenfoque, 4 = bloque que sube con máscara, 5 = se abre desde el centro. */
-const TX_MODES = { txLines: [1, 1], txLinesDown: [1, -1], txChars: [2, 1], txCharsBlur: [3, 1], txRise: [4, 1], txSplit: [5, 1] };
+const TX_MODES = { txLines: [1, 1], txLinesDown: [1, -1], txChars: [2, 1], txCharsBlur: [3, 1], txRise: [4, 1], txSplit: [5, 1], txRandom: [6, 1], txFlicker: [7, 1] };
 /* Estado de fade entre dos poses (a → b), con t ya pasado por el easing.
    amt = cuánto se ve (0 = invisible, 1 = visible). dir = dirección del
    barrido, la define la pose de DESTINO. out = true si está desapareciendo. */
@@ -2205,7 +2245,7 @@ function animFor(dir, amt, out) {
   }
   return a;
 }
-function driveFade(group, camera, uniforms, st) {
+function driveFade(group, camera, uniforms, st, fx) {
   const amt = st.amt;
   group.visible = amt > 0.001;
   uniforms.uFadeAmt.value = amt;
@@ -2216,8 +2256,16 @@ function driveFade(group, camera, uniforms, st) {
   uniforms.uFadeDir.value = st.dir === "rtl" || st.dir === "wipeDown" ? -1 : 1;
   uniforms.uFadeBlur.value = animFor(st.dir, amt, st.out).blur;
   const tx = TX_MODES[st.dir];
-  uniforms.uTxMode.value = tx && amt > 0.001 && amt < 0.999 ? tx[0] : 0;
-  uniforms.uTxDir.value = tx ? tx[1] : 1;
+  const txVis = !!tx && amt > 0.001 && amt < 0.999;
+  /* efecto continuo por pose (fx): revelado independiente de visible/invisible + interlineado */
+  const fxm = fx && fx.rm ? TX_MODES[fx.rm] : null;
+  const fxOn = !txVis && !!fxm && fx.rv < 0.999;
+  uniforms.uTxLH.value = fx && fx.lh > 0 ? Math.min(fx.lh, 6) : 0;
+  uniforms.uTxMode.value = txVis ? tx[0] : fxOn ? fxm[0] : 0;
+  uniforms.uTxDir.value = txVis ? tx[1] : fxOn ? fxm[1] : 1;
+  uniforms.uTxAmt.value = txVis ? amt : fxOn ? Math.max(0, fx.rv) : 1;
+  uniforms.uTxOut.value = txVis && st.out ? 1 : 0;
+  uniforms.uTxOwn.value = txVis ? 1 : 0;
   if (!wipe) return;
   group.updateWorldMatrix(true, true);
   _fadeBox.setFromObject(group);
@@ -2414,6 +2462,7 @@ function applyShapeUniforms(mat, mesh, o, sh, kx, ky) {
 function applyTextBox(fade, texture) {
   const bx = texture && texture.userData && texture.userData.box;
   if (!bx) return;
+  fade.uTxAsp.value = texture.image && texture.image.height ? texture.image.width / texture.image.height : 0;
   fade.uTxN.value = bx.n; fade.uTxY0.value = bx.y0; fade.uTxY1.value = bx.y1; fade.uTxX0.value = bx.x0; fade.uTxX1.value = bx.x1;
 }
 
@@ -2434,6 +2483,9 @@ function sampleObjectKeyframes(keyframes, progress) {
     rotationY: lerpAngle(a.rotationY, b.rotationY, t),
     sx: lerp(a.sx ?? 1, b.sx ?? 1, t),
     sy: lerp(a.sy ?? 1, b.sy ?? 1, t),
+    rv: lerp(a.rv ?? 1, b.rv ?? 1, t),
+    rm: b.rm || a.rm || null,
+    lh: lerp(a.lh || 0, b.lh || 0, t),
     sh: a.sh || b.sh ? shapeLerp(a.sh, b.sh, t) : null,
     fade: fadeStateFor(a, b, t),
   };
@@ -2442,7 +2494,9 @@ function sampleObjectKeyframes(keyframes, progress) {
 function useObjectTransformRef(keyframes, billboard) {
   const groupRef = useRef(null);
   const fade = useMemo(() => makeFadeUniforms(), []);
-  const hasFade = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
+  const hasFadeOnly = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
+  const hasFx = useMemo(() => keyframes.some((k) => k.rm || k.lh), [keyframes]);
+  const hasFade = hasFadeOnly || hasFx;
   const base = useRef({ x: 0, y: 0, z: 0, s: 1, sx: 1, sy: 1 });
   const live = useRef(null);   // posición/escala "reales"; la animación de entrada/salida se suma encima
   useFrame((state, delta) => {
@@ -2458,13 +2512,13 @@ function useObjectTransformRef(keyframes, billboard) {
     b.s = damp(b.s, kf.scale, 4, delta);
     b.sx = damp(b.sx, kf.sx ?? 1, 4, delta);
     b.sy = damp(b.sy, kf.sy ?? 1, 4, delta);
-    const an = hasFade ? animFor(kf.fade.dir, kf.fade.amt, kf.fade.out) : _ANIM_ID;
+    const an = hasFadeOnly ? animFor(kf.fade.dir, kf.fade.amt, kf.fade.out) : _ANIM_ID;
     g.position.set(b.x + an.dx, b.y + an.dy, b.z);
     g.scale.set(b.s * b.sx * an.s * an.sx, b.s * b.sy * an.s * an.sy, b.s * an.s);
     if (!billboard) {
       g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
     }
-    if (hasFade) driveFade(g, state.camera, fade, kf.fade);
+    if (hasFade) driveFade(g, state.camera, fade, kf.fade, hasFx ? { rm: kf.rm, rv: kf.rv ?? 1, lh: kf.lh || 0 } : null);
   });
   return { groupRef, fade, hasFade, live };
 }
@@ -2697,7 +2751,9 @@ function drawTextCanvas(text, o) {
   });
   const n = lines.length;
   const maxW = Math.max(1, ...lines.map((l) => l.width));
-  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + pad * 2);
+  const padV = Math.ceil(Math.max(0, +o.lhMax || 0) * lineH * (n - 1) / 2);   // margen extra arriba/abajo para el interlineado animado
+  const top = pad + padV;
+  const W = Math.ceil(maxW + pad * 2), H = Math.ceil(n * lineH + top * 2);
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -2709,17 +2765,17 @@ function drawTextCanvas(text, o) {
   ctx.strokeStyle = o.outlineColor || "#000000";
   const g = o.gradient;
   const baseFill = { mode: g && g.on ? "gradient" : "solid", color: o.color || "#ffffff", colors: g && g.colors, angle: g && g.angle };
-  const block = { x: pad, y: pad, w: W - pad * 2, h: n * lineH };
+  const block = { x: pad, y: top, w: W - pad * 2, h: n * lineH };
   const align = o.align || "center";
   lines.forEach((ln, i) => {
-    const y = pad + lineH * i + lineH / 2;
+    const y = top + lineH * i + lineH / 2;
     let x = align === "left" ? pad : align === "right" ? W - pad - ln.width : (W - ln.width) / 2;
     ln.words.forEach((wd) => {
       ctx.font = wd.spec;
       const st = wd.st;
       const own = st && st.mode;
       const fillSpec = own ? { mode: st.mode, color: st.color || baseFill.color, colors: st.colors, angle: st.angle } : baseFill;
-      const rect = own ? { x, y: pad + lineH * i, w: wd.width, h: lineH } : block;
+      const rect = own ? { x, y: top + lineH * i, w: wd.width, h: lineH } : block;
       ctx.fillStyle = makeCanvasFill(ctx, fillSpec, rect);
       const draw = (fn) => {
         if (ls === 0) fn(wd.w, x);
@@ -2730,7 +2786,7 @@ function drawTextCanvas(text, o) {
       x += wd.width + ln.spaceW;
     });
   });
-  return { canvas, refH: n * FS * 1.2 + FS * 0.5, box: { n, y0: pad / H, y1: (pad + n * lineH) / H, x0: pad / W, x1: (W - pad) / W } };
+  return { canvas, refH: n * FS * 1.2 + FS * 0.5, box: { n, y0: top / H, y1: (top + n * lineH) / H, x0: pad / W, x1: (W - pad) / W } };
 }
 function useHiResTextTexture(text, opts) {
   const o = opts || {};
@@ -2770,6 +2826,7 @@ function SceneObjectText({ data }) {
     letterSpacing: data.letterSpacing,
     lineHeight: data.lineHeight,
     wordStyles: data.wordStyles,
+    lhMax: Math.max(0, ...data.keyframes.map((k) => k.lh || 0)),
   });
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
@@ -4430,6 +4487,9 @@ function sampleObjectTransform(transformsByStage, progress, stages, easings) {
     rotationY: lerp(ta.rotationY, tb.rotationY, t),
     sx: lerp(ta.sx ?? 1, tb.sx ?? 1, t),
     sy: lerp(ta.sy ?? 1, tb.sy ?? 1, t),
+    rv: lerp(ta.rv ?? 1, tb.rv ?? 1, t),
+    rm: tb.rm || ta.rm || null,
+    lh: lerp(ta.lh || 0, tb.lh || 0, t),
     sh: ta.sh || tb.sh ? shapeLerp(ta.sh, tb.sh, t) : null,
   }, fadeStateFor(ta, tb, t));
 }
@@ -4673,7 +4733,7 @@ function FadeGroup({ obj, fade, children }) {
     const sx = an.s * an.sx, sy = an.s * an.sy, sz = an.s;
     ref.current.scale.set(sx, sy, sz);
     ref.current.position.set(p[0] * (1 - sx) + an.dx, p[1] * (1 - sy) + an.dy, p[2] * (1 - sz));
-    driveFade(ref.current, state.camera, fade, { amt, dir, out });
+    driveFade(ref.current, state.camera, fade, { amt, dir, out }, obj.rm || obj.lh ? { rm: obj.rm, rv: obj.rv ?? 1, lh: obj.lh || 0 } : null);
   });
   return <group ref={ref}>{children}</group>;
 }
@@ -4931,6 +4991,7 @@ function ObjectPreviewText({ obj, fade }) {
     letterSpacing: obj.letterSpacing,
     lineHeight: obj.lineHeight,
     wordStyles: obj.wordStyles,
+    lhMax: obj.lhMax || 0,
   });
   if (!texture) return null;
   applyTextBox(fade, texture);
@@ -5925,7 +5986,7 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     const kfLines = stages.map((kf, idx) => {
       const t = transforms[kf.id] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" };
       const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
-      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
+      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rm ? `, rm: "${t.rm}"` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
     }).join("\n");
     if (o.type === "text") {
       return `  {
@@ -7130,6 +7191,13 @@ function App() {
       return { ...prev, [id]: forObj };
     });
   };
+  const setObjectAllStages = (id, field, value) => {
+    setObjectTransformsByKf((prev) => {
+      const forObj = { ...prev[id] };
+      Object.keys(forObj).forEach((k) => { forObj[k] = { ...forObj[k], [field]: value }; });
+      return { ...prev, [id]: forObj };
+    });
+  };
   const setObjectShape = (id, key, value) => {
     setObjectTransformsByKf((prev) => {
       const forObj = { ...prev[id] };
@@ -7448,7 +7516,7 @@ function App() {
     const transforms = objectTransformsByKf[o.id];
     if (!transforms) return { ...o, ...editFade(defaultObjectTransform()), scrollProgress: scrollProgressNow };
     const t = sampled ? sampleObjectTransform(transforms, scrubV, stagesComputed, easings) : editFade(transforms[activeStage] || defaultObjectTransform());
-    return { ...o, ...t, scrollProgress: scrollProgressNow };
+    return { ...o, ...t, lhMax: Math.max(0, ...Object.values(transforms).map((x) => (x && x.lh) || 0)), scrollProgress: scrollProgressNow };
   }), [objects, objectTransformsByKf, sampled, scrubV, stagesComputed, easings, activeStage, scrollProgressNow]);
   const sceneCameraActive = exporting || !freeOrbit;
 
@@ -7897,11 +7965,28 @@ function App() {
             <optgroup label="Barrido de transparencia"><option value="ltr">Barrido Izq → Der</option><option value="rtl">Barrido Der → Izq</option><option value="wipeUp">Barrido hacia arriba</option><option value="wipeDown">Barrido hacia abajo</option><option value="fade">Fundido simple</option></optgroup>
             <optgroup label="Movimiento"><option value="up">Subir</option><option value="down">Bajar</option><option value="slideL">Deslizar ←</option><option value="slideR">Deslizar →</option></optgroup>
             <optgroup label="Escala"><option value="zoomIn">Zoom adentro</option><option value="zoomOut">Zoom afuera</option><option value="pop">Pop (rebote)</option><option value="flipX">Volteo horizontal</option><option value="flipY">Volteo vertical</option></optgroup>
-            <optgroup label="Texto / imagen (revelado)"><option value="txLines">Líneas suben (máscara)</option><option value="txLinesDown">Líneas bajan (máscara)</option><option value="txChars">Letras en cascada</option><option value="txCharsBlur">Letras en cascada + desenfoque</option><option value="txRise">Bloque sube (máscara)</option><option value="txSplit">Se abre desde el centro</option></optgroup>
+            <optgroup label="Texto / imagen (revelado)"><option value="txLines">Líneas suben (máscara)</option><option value="txLinesDown">Líneas bajan (máscara)</option><option value="txChars">Letras en cascada</option><option value="txCharsBlur">Letras en cascada + desenfoque</option><option value="txRise">Bloque sube (máscara)</option><option value="txSplit">Se abre desde el centro</option><option value="txRandom">Letras al azar</option><option value="txFlicker">Titileo (neón)</option></optgroup>
             <optgroup label="Desenfoque"><option value="blur">Desenfoque</option><option value="blurUp">Desenfoque + subir</option><option value="blurZoom">Desenfoque + zoom</option></optgroup>
           </select>
         </div>
         <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Animación de entrada o salida al llegar a esta pose: el objeto aparece o desaparece según la pose anterior (necesita que alguna pose lo tenga invisible). Si entra, la animación va de afuera hacia su lugar; si sale, continúa hacia afuera. Probalo en Preview.</div>
+        {(isText || isImage || isVideo) && (
+          <>
+            <div className="grp-t" style={{ marginTop: 6 }}>Efecto continuo · {currentStageLabel}</div>
+            <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Funciona aunque el objeto esté visible todo el tiempo: el valor de cada pose se mezcla con el de la siguiente mientras la cámara avanza (no depende de Visible / Invisible).</div>
+            <div className="row">
+              <span className="lbl">Efecto</span>
+              <select value={t.rm || ""} onChange={(e) => setObjectAllStages(o.id, "rm", e.target.value || null)}>
+                <option value="">Ninguno</option>
+                <option value="txLines">Líneas suben</option><option value="txLinesDown">Líneas bajan</option><option value="txChars">Letras en cascada</option><option value="txCharsBlur">Letras en cascada + desenfoque</option><option value="txRise">Bloque sube</option><option value="txSplit">Se abre desde el centro</option><option value="txRandom">Letras al azar</option><option value="txFlicker">Titileo (neón)</option>
+              </select>
+            </div>
+            {t.rm && <Slider label="Revelado" min={0} max={1} step={0.01} value={t.rv ?? 1} onChange={(v) => setObjectTransform(o.id, "rv", null, v)} />}
+            {t.rm && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>1 = todo visible, 0 = nada. Ej.: pose A en 1 y pose B en 0 → las letras desaparecen mientras la cámara pasa de A a B.</div>}
+            {isText && <Slider label="Interlineado extra" min={0} max={3} step={0.01} value={t.lh || 0} onChange={(v) => setObjectTransform(o.id, "lh", null, v)} />}
+            {isText && (t.lh || 0) > 0 && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Separa las líneas del texto. Se anima entre poses (0 = como está en "Interlineado" del texto).</div>}
+          </>
+        )}
         <div className="tools">
           <Btn icon="copy" onClick={() => copyObjectTransformFromPrev(o.id)} disabled={stageIndex <= 0}>Desde anterior</Btn>
           <Btn icon="pin" kind="acc" onClick={() => applyObjectTransformToAllStages(o.id)}>Fijar en todas</Btn>
