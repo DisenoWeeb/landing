@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <!--@GEN:SEO_HEAD_START-->
-<title>Dra Lilia Bruzera — Veterinaria en Paraná, Entre Ríos</title>
+<title>Dra. Lili Bruzera — Veterinaria en Paraná, Entre Ríos</title>
 <meta name="description" content="Veterinaria en Paraná, Entre Ríos. Consultas, vacunación, diagnóstico, cirugías, estética y farmacia, con turnos online e ID único para tu mascota." />
 <meta name="robots" content="index, follow, max-image-preview:large" />
 <link rel="canonical" href="https://www.veterinariabruzera.com/" />
@@ -2381,7 +2381,7 @@ const MENU = {
   "side": 18,
   "btnStyle": "none",
   "btnShape": "square",
-  "btnSize": 62,
+  "btnSize": 72,
   "lines": 2,
   "lineWidth": 1.5,
   "lineGap": 5,
@@ -2401,13 +2401,13 @@ const MENU = {
   "ease": "expo",
   "font": "'Montserrat', sans-serif",
   "weight": 600,
-  "size": 72,
-  "letterSpacing": 0.085,
+  "size": 21,
+  "letterSpacing": 0.08,
   "uppercase": true,
   "align": "left",
   "color": "#ffffff",
-  "hoverColor": "#9197ee",
-  "gap": 37,
+  "hoverColor": "#da74e2",
+  "gap": 26,
   "numbers": true,
   "itemAnim": "letters",
   "itemDelay": 0.06,
@@ -2417,7 +2417,7 @@ const MENU = {
   "footerSize": 13,
   "items": [
     {
-      "label": "Ingresar",
+      "label": "Panel Vet",
       "type": "url",
       "href": "",
       "newTab": false
@@ -5018,6 +5018,27 @@ function SceneEnvironment() {
   return null;
 }
 
+/* Con el menú abierto el 3D queda quieto (el scroll está frenado): así el menú se anima fluido aunque haya un piso espejo, AO, etc.
+   Al cerrar (o al elegir un link) vuelve a dibujar de inmediato. */
+function MenuFreeze() {
+  const setFrameloop = useThree((st) => st.setFrameloop);
+  const invalidate = useThree((st) => st.invalidate);
+  useEffect(() => {
+    const root = document.documentElement;
+    let last = false;
+    const sync = () => {
+      const open = root.classList.contains("menu-open");
+      if (open === last) return;
+      last = open;
+      try { setFrameloop(open ? "never" : "always"); if (!open) invalidate(); } catch (e) {}
+    };
+    const mo = new MutationObserver(sync);
+    mo.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => { mo.disconnect(); try { setFrameloop("always"); } catch (e) {} };
+  }, [setFrameloop, invalidate]);
+  return null;
+}
+
 function Experience({ device }) {
   const mouse = useMouseParallax();
   const charAnchorRef = useRef(null);
@@ -5067,6 +5088,7 @@ function Experience({ device }) {
       <BlackFrameGuard renderDirect={!(tier >= 1 && safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
       {autoOn && monitorOn && forcedQ == null && <PerformanceMonitor ms={800} iterations={4} bounds={() => [22, 144]} onChange={({ fps }) => { if (debugOn) setFpsNow(Math.round(fps)); }} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} />}
       <ScrollSmoother />
+      <MenuFreeze />
       <SceneEnvironment />
       <CameraRig mouse={mouse} />
       <Lighting />
@@ -5096,7 +5118,7 @@ function Experience({ device }) {
         intensity={REFLECTION_INTENSITY}
       />
 
-      <LightBeam enabled={BEAM_ENABLED && !OFF_FLAGS.beam} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
+      <LightBeam enabled={BEAM_ENABLED && BEAM_OPACITY > 0.02 && !OFF_FLAGS.beam} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
       <AmbientParticles
         enabled={PART_ENABLED && !OFF_FLAGS.part} count={tier >= 2 ? PART_COUNT : tier >= 1 ? Math.min(PART_COUNT, 450) : Math.min(PART_COUNT, 120)} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
         beam={BEAM_ENABLED ? PART_BEAM : 0} beamWidth={BEAM_WIDTH} beamHeight={BEAM_HEIGHT} beamTarget={BEAM_TARGET}
@@ -5111,7 +5133,7 @@ function Experience({ device }) {
         <EffectComposer multisampling={tier >= 2 && (AA_MODE === "msaa" || AA_MODE === "both") ? 4 : 0}>
           {AO_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.ao && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
           {DOF_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} back={DOF_BACK} />}
-          {BLOOM_ENABLED && !OFF_FLAGS.bloom && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+          {BLOOM_ENABLED && BLOOM_INTENSITY > 0.01 && !OFF_FLAGS.bloom && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
           {(AA_MODE === "smaa" || AA_MODE === "both") && <SMAA />}
         </EffectComposer>
@@ -5493,7 +5515,7 @@ const MENU_CSS = `
 .sitemenu--side .sitemenu__scrim { display: block; } .sitemenu.is-open .sitemenu__scrim { opacity: 1; }
 .sitemenu__box { position: absolute; inset: 0; overflow: hidden; }
 .sitemenu--side .sitemenu__box { width: min(var(--sm-pw), 100%); } .sitemenu--side.sitemenu--r .sitemenu__box { left: auto; right: 0; } .sitemenu--side.sitemenu--l .sitemenu__box { right: auto; left: 0; }
-.sitemenu__bg { position: absolute; inset: 0; background: var(--sm-bg); -webkit-backdrop-filter: blur(var(--sm-blur)); backdrop-filter: blur(var(--sm-blur)); transition: transform calc(var(--sm-dur) * .85) var(--sm-ease), opacity calc(var(--sm-dur) * .6) var(--sm-ease), clip-path var(--sm-dur) var(--sm-ease); }
+.sitemenu__bg { position: absolute; inset: 0; background: var(--sm-bg); -webkit-backdrop-filter: var(--sm-bf); backdrop-filter: var(--sm-bf); transition: transform calc(var(--sm-dur) * .85) var(--sm-ease), opacity calc(var(--sm-dur) * .6) var(--sm-ease), clip-path var(--sm-dur) var(--sm-ease); }
 .sm-bg-fade .sitemenu__bg { opacity: 0; } .sm-bg-fade.is-open .sitemenu__bg { opacity: 1; }
 .sm-bg-circle .sitemenu__bg { clip-path: circle(0px at var(--ox, 90%) var(--oy, 40px)); } .sm-bg-circle.is-open .sitemenu__bg { clip-path: circle(160vmax at var(--ox, 90%) var(--oy, 40px)); }
 .sm-bg-slideDown .sitemenu__bg { transform: translateY(-101%); } .sm-bg-slideUp .sitemenu__bg { transform: translateY(101%); }
@@ -5502,7 +5524,7 @@ const MENU_CSS = `
 .sitemenu--side:not(.sm-bg-fade) .sitemenu__bg { transform: translateX(101%); clip-path: none; opacity: 1; } .sitemenu--side.sitemenu--l:not(.sm-bg-fade) .sitemenu__bg { transform: translateX(-101%); }
 .sitemenu--side.is-open:not(.sm-bg-fade) .sitemenu__bg { transform: none; }
 .sm-bg-columns .sitemenu__bg { display: flex; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-.sm-bg-columns .sitemenu__bg i { flex: 1; background: var(--sm-bg); -webkit-backdrop-filter: blur(var(--sm-blur)); backdrop-filter: blur(var(--sm-blur)); transform: scaleY(0); transform-origin: top; transition: transform calc(var(--sm-dur) * .8) var(--sm-ease) calc(var(--ci) * .06s); margin-right: -1px; }
+.sm-bg-columns .sitemenu__bg i { flex: 1; background: var(--sm-bg); -webkit-backdrop-filter: var(--sm-bf); backdrop-filter: var(--sm-bf); transform: scaleY(0); transform-origin: top; transition: transform calc(var(--sm-dur) * .8) var(--sm-ease) calc(var(--ci) * .06s); margin-right: -1px; }
 .sm-bg-columns.is-open .sitemenu__bg i { transform: scaleY(1); }
 .sitemenu__nav { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 90px clamp(22px, 7vw, 72px) 60px; box-sizing: border-box; overflow-y: auto; color: var(--sm-color); text-align: var(--sm-align); }
 .sitemenu__nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sm-gap); align-items: var(--sm-ai); }
@@ -5591,7 +5613,7 @@ function SiteMenu({ cfg, contained }) {
   const vars = {
     "--sm-font": C.font, "--sm-top": C.top + "px", "--sm-side": C.side + "px", "--sm-bsize": C.btnSize + "px",
     "--sm-lw": C.lineWidth + "px", "--sm-lg": C.lineGap + "px", "--sm-bcolor": C.btnColor, "--sm-bbg": menuRgba(C.btnBg, C.btnStyle === "solid" ? 1 : C.btnBgAlpha),
-    "--sm-bg": bg2, "--sm-blur": C.bgBlur + "px", "--sm-dur": C.duration + "s", "--sm-ease": MENU_EASES[C.ease] || MENU_EASES.expo, "--sm-pw": C.panelWidth + "px",
+    "--sm-bg": bg2, "--sm-blur": C.bgBlur + "px", "--sm-bf": (C.bgBlur > 0 && (C.bgAlpha == null || C.bgAlpha < 0.9)) ? "blur(" + C.bgBlur + "px)" : "none", "--sm-dur": C.duration + "s", "--sm-ease": MENU_EASES[C.ease] || MENU_EASES.expo, "--sm-pw": C.panelWidth + "px",
     "--sm-weight": C.weight, "--sm-size": C.size + "px", "--sm-ls": C.letterSpacing + "em", "--sm-tt": C.uppercase ? "uppercase" : "none", "--sm-align": C.align,
     "--sm-ai": C.align === "center" ? "center" : C.align === "right" ? "flex-end" : "flex-start", "--sm-color": C.color, "--sm-gap": C.gap + "px",
     "--sm-d0": (C.duration * 0.35) + "s", "--sm-stag": C.itemDelay + "s", "--sm-idur": C.itemDuration + "s", "--sm-fsize": C.footerSize + "px", "--n": items.length,
