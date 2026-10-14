@@ -402,6 +402,32 @@
     transition: height 0.05s linear;
   }
 
+  /* ---- Botón "volver arriba": vidrio neutro, se ve sobre cualquier fondo ---- */
+  .backtop { --bt-size: 46px; position: fixed; z-index: 9; bottom: calc(var(--bt-bottom, 24px) + env(safe-area-inset-bottom));
+    width: var(--bt-size); height: var(--bt-size); margin: 0; padding: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
+    color: var(--bt-fg, #fff); background: var(--bt-bg, rgba(12,12,16,.5)); border: 1px solid var(--bt-line, rgba(255,255,255,.26));
+    -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: 0 6px 22px rgba(0,0,0,.28); -webkit-tap-highlight-color: transparent; font: inherit;
+    opacity: 0; visibility: hidden; transform: translateY(14px) scale(.86);
+    transition: opacity .4s ease, transform .5s cubic-bezier(.2,.9,.25,1.15), visibility 0s linear .5s, background .25s ease; }
+  .backtop.is-on { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+  .backtop:hover { background: var(--bt-bg-h, rgba(12,12,16,.7)); }
+  .backtop:active { transform: scale(.94); }
+  .backtop:focus-visible { outline: 2px solid var(--bt-fg, #fff); outline-offset: 3px; }
+  .backtop--right { right: 24px; } .backtop--left { left: 24px; }
+  .backtop--center { left: 50%; margin-left: calc(var(--bt-size) / -2); }
+  .app-root--phone .backtop--right { right: max(14px, calc(50% - min(220px, 50vw) + 14px)); }
+  .app-root--phone .backtop--left { left: max(14px, calc(50% - min(220px, 50vw) + 14px)); }
+  .backtop--light { --bt-fg: #111; --bt-bg: rgba(255,255,255,.62); --bt-line: rgba(0,0,0,.14); --bt-bg-h: rgba(255,255,255,.85); box-shadow: 0 6px 22px rgba(0,0,0,.16); }
+  .backtop--accent { --bt-fg: #0a0a0a; --bt-bg: var(--bt-accent, var(--brand-accent)); --bt-line: transparent; --bt-bg-h: var(--bt-accent, var(--brand-accent)); }
+  .backtop__ring { position: absolute; inset: -1px; width: calc(100% + 2px); height: calc(100% + 2px); transform: rotate(-90deg); pointer-events: none; }
+  .backtop__ring circle { fill: none; stroke: currentColor; stroke-width: 1.6; }
+  .backtop__ring .bt-track { opacity: .18; }
+  .backtop__ring .bt-fill { stroke-linecap: round; transition: stroke-dashoffset .12s linear; }
+  .backtop__ico { width: 40%; height: 40%; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform .3s ease; }
+  .backtop:hover .backtop__ico { transform: translateY(-2px); }
+  @media (prefers-reduced-motion: reduce) { .backtop, .backtop__ico { transition: opacity .2s linear; } }
+
   .brand-mark {
     position: fixed;
     top: 3vh;
@@ -964,6 +990,16 @@ const CURSOR = {
 };
 const PROGRESS_BAR = {
   "enabled": true,
+  "color": ""
+};
+const BACKTOP = {
+  "enabled": true,
+  "position": "right",
+  "style": "dark",
+  "size": 46,
+  "showAfter": 0.06,
+  "duration": 1.8,
+  "ring": true,
   "color": ""
 };
 /*@GEN:EXTRAS_END*/
@@ -1932,6 +1968,13 @@ function makeFadeUniforms() {
     uFadeMinY: { value: -1 },
     uFadeMaxY: { value: 1 },
     uFadeBlur: { value: 0 },
+    uTxMode: { value: 0 },
+    uTxDir: { value: 1 },
+    uTxN: { value: 1 },
+    uTxY0: { value: 0 },
+    uTxY1: { value: 1 },
+    uTxX0: { value: 0 },
+    uTxX1: { value: 1 },
   };
 }
 /* Suavidad del barrido: 0.4 = borde marcado, 1.0 = el degradé ocupa todo
@@ -1950,10 +1993,68 @@ uniform float uFadeOut;
 uniform float uFadeDir;
 uniform float uFadeMin;
 uniform float uFadeMax;
+uniform float uTxMode;
+uniform float uTxDir;
+uniform float uTxN;
+uniform float uTxY0;
+uniform float uTxY1;
+uniform float uTxX0;
+uniform float uTxX1;
+float txA = 1.0;
+float txBl = 0.0;
+vec2 txUvG = vec2(0.0);
+void txApply(vec2 uv) {
+  float amt = uFadeAmt;
+  float outF = uFadeOut > 0.5 ? 1.0 : 0.0;
+  float dirE = uTxDir * (outF > 0.5 ? -1.0 : 1.0);
+  float bh = max(uTxY1 - uTxY0, 0.0001);
+  float n = (abs(uTxMode - 4.0) < 0.5) ? 1.0 : max(uTxN, 1.0);
+  float cy = ((1.0 - uv.y) - uTxY0) / bh;
+  float li = clamp(floor(cy * n), 0.0, n - 1.0);
+  float cellH = bh / n;
+  float ux = clamp((uv.x - uTxX0) / max(uTxX1 - uTxX0, 0.0001), 0.0, 1.0);
+  float bl = 0.0;
+  float al = 1.0;
+  if (abs(uTxMode - 5.0) < 0.5) {
+    float d = abs(ux - 0.5) * 2.0;
+    al = 1.0 - smoothstep(amt * 1.2 - 0.2, amt * 1.2, d);
+    bl = (1.0 - amt) * 3.0;
+  } else {
+    float rise = 0.0;
+    float p = 1.0;
+    if (abs(uTxMode - 1.0) < 0.5 || abs(uTxMode - 4.0) < 0.5) {
+      float st = n > 1.0 ? li / (n - 1.0) : 0.0;
+      float stag = n > 1.0 ? 0.7 : 0.0;
+      if (outF > 0.5) st = 1.0 - st;
+      p = clamp(amt * (1.0 + stag) - st * stag, 0.0, 1.0);
+      float e = 1.0 - pow(1.0 - p, 3.0);
+      rise = (1.0 - e) * cellH * 1.2;
+      al = clamp(p * 3.0, 0.0, 1.0);
+    } else {
+      float su = ux * 0.8 + (n > 1.0 ? li / n * 0.2 : 0.0);
+      if (outF > 0.5) su = 1.0 - su;
+      p = clamp(amt * 1.9 - su * 0.9, 0.0, 1.0);
+      float e = 1.0 - pow(1.0 - p, 3.0);
+      rise = (1.0 - e) * cellH * 0.6;
+      al = smoothstep(0.0, 0.7, p);
+      if (abs(uTxMode - 3.0) < 0.5) bl = (1.0 - p) * 6.0;
+    }
+    float sy = uv.y + rise * dirE;
+    txUvG = vec2(uv.x, sy);
+    float cys = ((1.0 - sy) - uTxY0) / bh;
+    float lis = clamp(floor(cys * n), -1.0, n);
+    if (abs(lis - li) > 0.5 || cys < 0.0 || cys > 1.0) al = 0.0;
+  }
+  txA = al;
+  txBl = bl;
+}
 `;
 const FADE_FRAG_BODY = `
 {
   float fa = uFadeAmt;
+#ifdef USE_MAP
+  if (uTxMode > 0.5) fa = 1.0;
+#endif
   if (uFadeMode > 0.5) {
     float fc = uFadeAxis > 0.5 ? vFadeY : vFadeX;
     float flo = uFadeAxis > 0.5 ? uFadeMinY : uFadeMin;
@@ -1968,7 +2069,7 @@ const FADE_FRAG_BODY = `
 #if defined(USE_ALPHATEST) && !defined(ALPHA_TO_COVERAGE)
   gl_FragColor.a = 1.0;
 #endif
-  gl_FragColor.a *= fa;
+  gl_FragColor.a *= fa * txA;
 }
 `;
 /* Los carteles/imágenes planas descartan solo los píxeles 100 % transparentes: así el rectángulo de la imagen no tapa (ni recorta) lo que tiene detrás,
@@ -1976,6 +2077,7 @@ const FADE_FRAG_BODY = `
 function discardClearPixels(mat) {
   if (!mat || mat.userData.__discardClear) return;
   mat.userData.__discardClear = true;
+  mat.customProgramCacheKey = () => weebProgKey(mat);
   const prev = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev.call(mat, shader, renderer);
@@ -2005,15 +2107,66 @@ function patchFadeMaterial(mat, uniforms) {
       "#include <project_vertex>\n vFadeX = gl_Position.x / gl_Position.w;\n vFadeY = gl_Position.y / gl_Position.w;"
     );
     /* desenfoque de entrada/salida: se muestrea la textura en un nivel de mipmap más bajo (uFadeBlur = niveles) */
-    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, vMapUv, uFadeBlur )"));
+    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", "#ifdef USE_MAP\n txA = 1.0; txBl = 0.0; txUvG = vMapUv;\n if (uTxMode > 0.5) txApply(vMapUv);\n#endif\n" + THREE.ShaderChunk.map_fragment.replace("texture2D( map, vMapUv )", "texture2D( map, txUvG, uFadeBlur + txBl )"));
     shader.fragmentShader = FADE_FRAG_DECL + shader.fragmentShader.replace(
       "#include <dithering_fragment>",
       "#include <dithering_fragment>\n" + FADE_FRAG_BODY
     );
   };
-  mat.customProgramCacheKey = () => "weeb-fade-2";
+  mat.customProgramCacheKey = () => weebProgKey(mat);
   mat.needsUpdate = true;
 }
+/* Llave de programa: cada combinación de parches (descartar transparentes, fade/revelado, esquinas y marco) compila su propio shader. */
+function weebProgKey(mat) {
+  const u = mat.userData || {};
+  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f3" : "") + (u.__mediaPatched ? "m1" : "");
+}
+/* Esquinas redondeadas y marco para imágenes y videos (máscara en el shader, no toca la textura). */
+function patchMediaMaterial(mat, o, aspect) {
+  if (!mat || !o) return;
+  const rad = Math.max(0, Math.min(0.5, +o.cornerRadius || 0)), bw = Math.max(0, Math.min(0.2, +o.borderWidth || 0));
+  mat.userData = mat.userData || {};
+  let U = mat.userData.__mediaU;
+  if (!U) {
+    if (rad <= 0 && bw <= 0) return;
+    U = mat.userData.__mediaU = { uMRad: { value: rad }, uMBorder: { value: bw }, uMBorderColor: { value: new THREE.Color("#ffffff") }, uMAspect: { value: aspect || 1 } };
+    mat.userData.__mediaPatched = true;
+    const prev = mat.onBeforeCompile;
+    mat.onBeforeCompile = (shader, renderer) => {
+      if (prev) prev.call(mat, shader, renderer);
+      Object.assign(shader.uniforms, mat.userData.__mediaU);
+      shader.fragmentShader = "uniform float uMRad;\nuniform float uMBorder;\nuniform vec3 uMBorderColor;\nuniform float uMAspect;\n" + shader.fragmentShader.replace(
+        "#include <alphatest_fragment>",
+        `#include <alphatest_fragment>
+#ifdef USE_MAP
+{
+  vec2 mhb = vec2(uMAspect, 1.0) * 0.5;
+  vec2 mp = (vMapUv - 0.5) * vec2(uMAspect, 1.0);
+  float mr = min(uMRad, 0.5) * min(uMAspect, 1.0);
+  vec2 mq = abs(mp) - mhb + vec2(mr);
+  float md = length(max(mq, 0.0)) + min(max(mq.x, mq.y), 0.0) - mr;
+  float maa = max(fwidth(md), 0.00001);
+  float mm = 1.0 - smoothstep(-maa, maa, md);
+  float mbw = uMBorder * min(uMAspect, 1.0);
+  float mb = mbw > 0.0 ? smoothstep(-mbw - maa, -mbw + maa, md) : 0.0;
+  diffuseColor.rgb = mix(diffuseColor.rgb, uMBorderColor, mb);
+  diffuseColor.a = mix(diffuseColor.a, 1.0, mb) * mm;
+  if (diffuseColor.a < 0.02) discard;
+}
+#endif`
+      );
+    };
+    mat.customProgramCacheKey = () => weebProgKey(mat);
+    mat.needsUpdate = true;
+  }
+  U.uMRad.value = rad;
+  U.uMBorder.value = bw;
+  U.uMBorderColor.value.set(o.borderColor || "#ffffff");
+  U.uMAspect.value = aspect || 1;
+}
+/* Revelados de texto (elegidos por pose en "fadeDir"): [modo del shader, sentido]. 1 = líneas con máscara, 2 = letras en cascada,
+   3 = letras con desenfoque, 4 = bloque que sube con máscara, 5 = se abre desde el centro. */
+const TX_MODES = { txLines: [1, 1], txLinesDown: [1, -1], txChars: [2, 1], txCharsBlur: [3, 1], txRise: [4, 1], txSplit: [5, 1] };
 /* Estado de fade entre dos poses (a → b), con t ya pasado por el easing.
    amt = cuánto se ve (0 = invisible, 1 = visible). dir = dirección del
    barrido, la define la pose de DESTINO. out = true si está desapareciendo. */
@@ -2062,6 +2215,9 @@ function driveFade(group, camera, uniforms, st) {
   uniforms.uFadeAxis.value = st.dir === "wipeUp" || st.dir === "wipeDown" ? 1 : 0;
   uniforms.uFadeDir.value = st.dir === "rtl" || st.dir === "wipeDown" ? -1 : 1;
   uniforms.uFadeBlur.value = animFor(st.dir, amt, st.out).blur;
+  const tx = TX_MODES[st.dir];
+  uniforms.uTxMode.value = tx && amt > 0.001 && amt < 0.999 ? tx[0] : 0;
+  uniforms.uTxDir.value = tx ? tx[1] : 1;
   if (!wipe) return;
   group.updateWorldMatrix(true, true);
   _fadeBox.setFromObject(group);
@@ -2085,6 +2241,182 @@ function driveFade(group, camera, uniforms, st) {
   uniforms.uFadeMaxY.value = mxy + padY;
 }
 
+/* ============================================================
+   FORMAS ANIMABLES: rectángulo / círculo (con redondeo), línea (con guiones o puntos) y grilla de puntos.
+   Se dibujan con un shader (bordes nítidos a cualquier tamaño) y todos sus valores (tamaño, redondeo, colores, trazo,
+   guiones, giro) se interpolan entre poses, así una forma puede redondearse, estirarse o cambiar de color mientras scrolleás.
+   ============================================================ */
+const SHAPE_VERT = `
+varying vec2 vUv;
+varying float vFadeX;
+varying float vFadeY;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vFadeX = gl_Position.x / gl_Position.w;
+  vFadeY = gl_Position.y / gl_Position.w;
+}
+`;
+const SHAPE_FRAG = `
+uniform vec2 uBox;
+uniform vec2 uSize;
+uniform float uKind;
+uniform float uRad;
+uniform vec4 uFill;
+uniform vec4 uStroke;
+uniform float uSW;
+uniform float uDash;
+uniform float uGap;
+uniform float uShift;
+uniform float uCap;
+uniform vec2 uGrid;
+uniform float uDot;
+varying vec2 vUv;
+float shDashDist(float t, float L, float dl) {
+  float tt = mod(t, L);
+  float a1 = max(max(-tt, tt - dl), 0.0);
+  float tt2 = tt - L;
+  float a2 = max(max(-tt2, tt2 - dl), 0.0);
+  return min(a1, a2);
+}
+float shPerimT(vec2 p, vec2 b, float r) {
+  vec2 a = abs(p);
+  vec2 q = a - b;
+  float u;
+  float quarter = b.y + r * 1.5707963 + b.x;
+  if (q.x > 0.0 && q.y > 0.0) u = b.y + r * atan(q.y, q.x);
+  else if (q.x > q.y) u = clamp(a.y, 0.0, b.y);
+  else u = b.y + r * 1.5707963 + (b.x - clamp(a.x, 0.0, b.x));
+  float P = 4.0 * quarter;
+  float t;
+  if (p.x >= 0.0 && p.y >= 0.0) t = u;
+  else if (p.x < 0.0 && p.y >= 0.0) t = P * 0.5 - u;
+  else if (p.x < 0.0 && p.y < 0.0) t = P * 0.5 + u;
+  else t = P - u;
+  return t;
+}
+void main() {
+  vec2 p = (vUv - 0.5) * uSize;
+  vec4 fillC = vec4(0.0);
+  vec4 strC = vec4(0.0);
+  float sw = max(uSW, 0.0);
+  bool solid = (uDash <= 0.0 && uGap <= 0.0);
+  if (uKind < 0.5) {
+    float mn = min(uBox.x, uBox.y);
+    float r = clamp(uRad, 0.0, 1.0) * mn * 0.5;
+    vec2 b = max(uBox * 0.5 - vec2(r), vec2(0.0));
+    vec2 q = abs(p) - b;
+    float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+    float aa = max(fwidth(d), 0.00001);
+    fillC = vec4(uFill.rgb, uFill.a * (1.0 - smoothstep(-aa, aa, d)));
+    if (sw > 0.0) {
+      float dist;
+      if (solid) {
+        dist = abs(d) - sw * 0.5;
+      } else {
+        float P = 4.0 * (b.y + r * 1.5707963 + b.x);
+        float per = max(uDash + uGap, 0.0001);
+        float nn = max(1.0, floor(P / per + 0.5));
+        float L = P / nn;
+        float dl = uDash * (L / per);
+        float t = shPerimT(p, b, r) + uShift * L;
+        float a = shDashDist(t, L, dl);
+        dist = (uCap > 0.5 || dl <= 0.0) ? length(vec2(a, d)) - sw * 0.5 : max(a, abs(d) - sw * 0.5);
+      }
+      float aa2 = max(fwidth(dist), 0.00001);
+      strC = vec4(uStroke.rgb, uStroke.a * (1.0 - smoothstep(-aa2, aa2, dist)));
+    }
+  } else if (uKind < 1.5) {
+    float hb = uBox.x * 0.5;
+    float ex = abs(p.x) - hb;
+    float dist;
+    if (solid) {
+      dist = (uCap > 0.5) ? length(vec2(max(ex, 0.0), p.y)) - sw * 0.5 : max(ex, abs(p.y) - sw * 0.5);
+    } else {
+      float per = max(uDash + uGap, 0.0001);
+      float a = shDashDist(p.x + hb + uShift * per, per, uDash);
+      float dd = (uCap > 0.5 || uDash <= 0.0) ? length(vec2(a, p.y)) - sw * 0.5 : max(a, abs(p.y) - sw * 0.5);
+      dist = max(dd, ex);
+    }
+    float aa2 = max(fwidth(dist), 0.00001);
+    strC = vec4(uStroke.rgb, uStroke.a * (1.0 - smoothstep(-aa2, aa2, dist)));
+  } else {
+    vec2 cell = uBox / max(uGrid, vec2(1.0));
+    vec2 pp = p + uBox * 0.5;
+    vec2 cp = mod(pp, cell) - cell * 0.5;
+    float rr = uDot * 0.5 * min(cell.x, cell.y);
+    float dd = length(cp) - rr;
+    float inside = step(0.0, pp.x) * step(pp.x, uBox.x) * step(0.0, pp.y) * step(pp.y, uBox.y);
+    float aa2 = max(fwidth(dd), 0.00001);
+    fillC = vec4(uFill.rgb, uFill.a * (1.0 - smoothstep(-aa2, aa2, dd)) * inside);
+  }
+  float a = strC.a + fillC.a * (1.0 - strC.a);
+  vec3 rgb = (strC.rgb * strC.a + fillC.rgb * fillC.a * (1.0 - strC.a)) / max(a, 0.0001);
+  if (a < 0.002) discard;
+  gl_FragColor = vec4(rgb, a);
+  ${FADE_FRAG_BODY}
+  #include <colorspace_fragment>
+}
+`;
+const _shapeCol = new THREE.Color();
+function defaultShapeParams() {
+  return { w: 1.2, h: 0.7, radius: 0.15, fillColor: "#ffffff", fillAlpha: 0, strokeColor: "#ffffff", strokeAlpha: 1, strokeW: 0.012, dash: 0, gap: 0, shift: 0, dotSize: 0.5, rot: 0 };
+}
+function shapeLerp(a, b, t) {
+  const d = defaultShapeParams(), o = {};
+  Object.keys(d).forEach((k) => {
+    const va = a && a[k] != null ? a[k] : d[k], vb = b && b[k] != null ? b[k] : d[k];
+    if (typeof d[k] === "string") o[k] = "#" + new THREE.Color(va).lerp(new THREE.Color(vb), t).getHexString();
+    else o[k] = va + (vb - va) * t;
+  });
+  return o;
+}
+function makeShapeMaterial(fade) {
+  const m = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    uniforms: Object.assign({}, fade, {
+      uBox: { value: new THREE.Vector2(1, 1) }, uSize: { value: new THREE.Vector2(1, 1) }, uKind: { value: 0 }, uRad: { value: 0 },
+      uFill: { value: new THREE.Vector4(1, 1, 1, 0) }, uStroke: { value: new THREE.Vector4(1, 1, 1, 1) }, uSW: { value: 0.01 },
+      uDash: { value: 0 }, uGap: { value: 0 }, uShift: { value: 0 }, uCap: { value: 1 }, uGrid: { value: new THREE.Vector2(8, 4) }, uDot: { value: 0.5 },
+    }),
+    vertexShader: SHAPE_VERT,
+    fragmentShader: FADE_FRAG_DECL + SHAPE_FRAG,
+  });
+  m.toneMapped = false;
+  return m;
+}
+/* Pasa los valores de la pose (sh) y las opciones fijas del objeto (o) al shader y al tamaño del plano. kx / ky = escala extra. */
+function applyShapeUniforms(mat, mesh, o, sh, kx, ky) {
+  const d = defaultShapeParams(), g = (k) => (sh && sh[k] != null ? sh[k] : d[k]);
+  const U = mat.uniforms;
+  const kind = o.shapeKind === "line" ? 1 : o.shapeKind === "dots" ? 2 : 0;
+  const sw = Math.max(0, g("strokeW"));
+  const w = Math.max(0.001, g("w"));
+  const h = kind === 1 ? Math.max(0.001, sw) : Math.max(0.001, g("h"));
+  const pad = sw + 0.05;
+  U.uKind.value = kind;
+  U.uBox.value.set(w, h);
+  U.uSize.value.set(w + pad, h + pad);
+  U.uRad.value = g("radius");
+  U.uSW.value = sw;
+  U.uDash.value = Math.max(0, g("dash"));
+  U.uGap.value = Math.max(0, g("gap"));
+  U.uShift.value = g("shift");
+  U.uCap.value = o.shapeCap === "butt" ? 0 : 1;
+  U.uGrid.value.set(Math.max(1, o.shapeCols || 8), Math.max(1, o.shapeRows || 4));
+  U.uDot.value = g("dotSize");
+  _shapeCol.set(g("fillColor")); U.uFill.value.set(_shapeCol.r, _shapeCol.g, _shapeCol.b, g("fillAlpha"));
+  _shapeCol.set(g("strokeColor")); U.uStroke.value.set(_shapeCol.r, _shapeCol.g, _shapeCol.b, g("strokeAlpha"));
+  mesh.scale.set((w + pad) * (kx || 1), (h + pad) * (ky || 1), 1);
+  mesh.rotation.z = ((g("rot") || 0) * Math.PI) / 180;
+}
+/* Caja de líneas del texto (para el revelado por líneas / letras) → uniforms del fade. */
+function applyTextBox(fade, texture) {
+  const bx = texture && texture.userData && texture.userData.box;
+  if (!bx) return;
+  fade.uTxN.value = bx.n; fade.uTxY0.value = bx.y0; fade.uTxY1.value = bx.y1; fade.uTxX0.value = bx.x0; fade.uTxX1.value = bx.x1;
+}
+
 function sampleObjectKeyframes(keyframes, progress) {
   const list = keyframes;
   const p = clamp(progress, 0, 1);
@@ -2100,6 +2432,9 @@ function sampleObjectKeyframes(keyframes, progress) {
     position: lerpVec3(a.position, b.position, t),
     scale: lerp(a.scale, b.scale, t),
     rotationY: lerpAngle(a.rotationY, b.rotationY, t),
+    sx: lerp(a.sx ?? 1, b.sx ?? 1, t),
+    sy: lerp(a.sy ?? 1, b.sy ?? 1, t),
+    sh: a.sh || b.sh ? shapeLerp(a.sh, b.sh, t) : null,
     fade: fadeStateFor(a, b, t),
   };
 }
@@ -2108,26 +2443,30 @@ function useObjectTransformRef(keyframes, billboard) {
   const groupRef = useRef(null);
   const fade = useMemo(() => makeFadeUniforms(), []);
   const hasFade = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
-  const base = useRef({ x: 0, y: 0, z: 0, s: 1 });   // posición/escala "reales"; la animación de entrada/salida se suma encima
+  const base = useRef({ x: 0, y: 0, z: 0, s: 1, sx: 1, sy: 1 });
+  const live = useRef(null);   // posición/escala "reales"; la animación de entrada/salida se suma encima
   useFrame((state, delta) => {
     const g = groupRef.current;
     if (!g) return;
     const progress = useScrollStore.getState().smoothProgress;
     const kf = sampleObjectKeyframes(keyframes, progress);
+    live.current = kf;
     const b = base.current;
     b.x = damp(b.x, kf.position[0], 4, delta);
     b.y = damp(b.y, kf.position[1], 4, delta);
     b.z = damp(b.z, kf.position[2], 2.2, delta);
     b.s = damp(b.s, kf.scale, 4, delta);
+    b.sx = damp(b.sx, kf.sx ?? 1, 4, delta);
+    b.sy = damp(b.sy, kf.sy ?? 1, 4, delta);
     const an = hasFade ? animFor(kf.fade.dir, kf.fade.amt, kf.fade.out) : _ANIM_ID;
     g.position.set(b.x + an.dx, b.y + an.dy, b.z);
-    g.scale.set(b.s * an.s * an.sx, b.s * an.s * an.sy, b.s * an.s);
+    g.scale.set(b.s * b.sx * an.s * an.sx, b.s * b.sy * an.s * an.sy, b.s * an.s);
     if (!billboard) {
       g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
     }
     if (hasFade) driveFade(g, state.camera, fade, kf.fade);
   });
-  return { groupRef, fade, hasFade };
+  return { groupRef, fade, hasFade, live };
 }
 
 /* Los navegadores rasterizan un SVG a un tamaño chico por defecto
@@ -2391,7 +2730,7 @@ function drawTextCanvas(text, o) {
       x += wd.width + ln.spaceW;
     });
   });
-  return { canvas, refH: n * FS * 1.2 + FS * 0.5 };
+  return { canvas, refH: n * FS * 1.2 + FS * 0.5, box: { n, y0: pad / H, y1: (pad + n * lineH) / H, x0: pad / W, x1: (W - pad) / W } };
 }
 function useHiResTextTexture(text, opts) {
   const o = opts || {};
@@ -2405,10 +2744,11 @@ function useHiResTextTexture(text, opts) {
       .then(() => Promise.all(fams.map((f) => (document.fonts && document.fonts.load ? document.fonts.load(`${textFontWeight(f, weight)} 200px ${f}`).catch(() => {}) : null))))
       .then(() => {
         if (cancelled) return;
-        const { canvas, refH } = drawTextCanvas(text, o);
+        const { canvas, refH, box } = drawTextCanvas(text, o);
         const tex = new THREE.CanvasTexture(canvas);
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.userData.refH = refH;
+        tex.userData.box = box;
         tex.needsUpdate = true;
         setTexture((prev) => { if (prev) prev.dispose(); return tex; });
       });
@@ -2433,6 +2773,7 @@ function SceneObjectText({ data }) {
   });
   const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
+  applyTextBox(fade, texture);
   const refH = texture.userData.refH || texture.image.height;
   const mesh = (
     <mesh renderOrder={10} scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
@@ -2849,7 +3190,7 @@ function SceneObjectImageRaster({ data }) {
   const mesh = (
     <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); patchMediaMaterial(m, data, aspect); }} />
     </mesh>
   );
   return (
@@ -2866,7 +3207,7 @@ function SceneObjectImageSvg({ data }) {
   const mesh = (
     <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); patchMediaMaterial(m, data, aspect); }} />
     </mesh>
   );
   return (
@@ -2887,7 +3228,7 @@ function SceneObjectVideo({ data }) {
   const mesh = (
     <mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); }} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); patchMediaMaterial(m, data, aspect); }} />
     </mesh>
   );
   return (
@@ -2899,7 +3240,28 @@ function SceneObjectVideo({ data }) {
 function SceneObjectImage({ data }) {
   return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
 }
+function SceneObjectShape({ data }) {
+  const { groupRef, fade, live } = useObjectTransformRef(data.keyframes, data.billboard);
+  const mat = useMemo(() => makeShapeMaterial(fade), [fade]);
+  const meshRef = useRef(null);
+  useFrame(() => {
+    const kf = live.current;
+    if (kf && meshRef.current) applyShapeUniforms(mat, meshRef.current, data, kf.sh);
+  });
+  const mesh = (
+    <mesh ref={meshRef} renderOrder={10}>
+      <planeGeometry args={[1, 1]} />
+      <primitive object={mat} attach="material" />
+    </mesh>
+  );
+  return (
+    <group ref={groupRef}>
+      {data.billboard ? <Billboard>{mesh}</Billboard> : mesh}
+    </group>
+  );
+}
 function SceneObject({ data }) {
+  if (data.type === "shape") return <SceneObjectShape data={data} />;
   if (data.type === "text") return <SceneObjectText data={data} />;
   if (data.type === "video") return <SceneObjectVideo data={data} />;
   return data.type === "image" ? <SceneObjectImage data={data} /> : <SceneObjectModel data={data} />;
@@ -3491,6 +3853,52 @@ function ProgressIndicator() {
   );
 }
 
+/* Botón "volver arriba" (configurable en el editor, pestaña Escena). Aparece al avanzar el scroll, sube con inercia (Lenis)
+   y se acomoda solo arriba de la zona fija de WhatsApp / turnero. */
+function BackToTop() {
+  const ref = useRef(null);
+  const fillRef = useRef(null);
+  const R = 21, C = 2 * Math.PI * R;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const upd = (p) => {
+      el.classList.toggle("is-on", p > (BACKTOP.showAfter ?? 0.06));
+      if (fillRef.current) fillRef.current.style.strokeDashoffset = String(C * (1 - Math.min(1, Math.max(0, p))));
+      el.tabIndex = p > (BACKTOP.showAfter ?? 0.06) ? 0 : -1;
+    };
+    upd(useScrollStore.getState().smoothProgress);
+    const unsub = useScrollStore.subscribe((st) => upd(st.smoothProgress));
+    const dockEl = document.querySelector(".dock");
+    const place = () => { const h = dockEl ? dockEl.getBoundingClientRect().height : 0; el.style.setProperty("--bt-bottom", (h ? h + 14 : 24) + "px"); };
+    place();
+    let ro = null;
+    if (dockEl && window.ResizeObserver) { ro = new ResizeObserver(place); ro.observe(dockEl); }
+    window.addEventListener("resize", place);
+    return () => { unsub(); if (ro) ro.disconnect(); window.removeEventListener("resize", place); };
+  }, []);
+  const go = () => {
+    const l = window.__lenis;
+    if (l && l.scrollTo) l.scrollTo(0, { duration: BACKTOP.duration || 1.8, easing: (t) => 1 - Math.pow(1 - t, 4) });
+    else window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const sz = BACKTOP.size || 46;
+  const custom = BACKTOP.color ? { "--bt-bg": BACKTOP.color, "--bt-bg-h": BACKTOP.color, "--bt-line": "transparent", "--bt-fg": "#0a0a0a", "--bt-accent": BACKTOP.color } : null;
+  return (
+    <button ref={ref} type="button" aria-label="Volver arriba" tabIndex={-1} onClick={go}
+      className={"backtop backtop--" + (BACKTOP.position || "right") + (BACKTOP.style === "light" ? " backtop--light" : BACKTOP.style === "accent" ? " backtop--accent" : "")}
+      style={{ "--bt-size": sz + "px", ...(custom || {}) }}>
+      {BACKTOP.ring !== false && (
+        <svg className="backtop__ring" viewBox="0 0 44 44" aria-hidden="true">
+          <circle className="bt-track" cx="22" cy="22" r={R} />
+          <circle ref={fillRef} className="bt-fill" cx="22" cy="22" r={R} strokeDasharray={C} strokeDashoffset={C} />
+        </svg>
+      )}
+      <svg className="backtop__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="M5.5 11.5 12 5l6.5 6.5" /></svg>
+    </button>
+  );
+}
+
 function CursorTrail() {
   const canvasRef = useRef(null);
   useEffect(() => startCursorTrail(canvasRef.current, CURSOR, window), []);
@@ -3810,6 +4218,7 @@ function App() {
       </div>
       <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
       {DOCK.enabled && <><div className="dock-shade" aria-hidden="true" /><Dock /></>}
+      {BACKTOP.enabled && <BackToTop />}
     </div>
   );
 }
@@ -4019,6 +4428,9 @@ function sampleObjectTransform(transformsByStage, progress, stages, easings) {
     position: lerpVec3(ta.position, tb.position, t),
     scale: lerp(ta.scale, tb.scale, t),
     rotationY: lerp(ta.rotationY, tb.rotationY, t),
+    sx: lerp(ta.sx ?? 1, tb.sx ?? 1, t),
+    sy: lerp(ta.sy ?? 1, tb.sy ?? 1, t),
+    sh: ta.sh || tb.sh ? shapeLerp(ta.sh, tb.sh, t) : null,
   }, fadeStateFor(ta, tb, t));
 }
 
@@ -4230,45 +4642,24 @@ const FADE_SOFT = 1.0;
 //@@use FADE_FRAG_BODY
 //@@use discardClearPixels
 //@@use patchFadeMaterial
+//@@use weebProgKey
+//@@use patchMediaMaterial
+//@@use TX_MODES
 //@@use fadeStateFor
 const _fadeBox = new THREE.Box3();
 //@@use _fadeVec
 const FADE_WIPES = { ltr: 1, rtl: 1, wipeUp: 1, wipeDown: 1 };
 const _ANIM_ID = { dx: 0, dy: 0, s: 1, sx: 1, sy: 1, blur: 0 };
 //@@use animFor
-function driveFade(group, camera, uniforms, st) {
-  const amt = st.amt;
-  group.visible = amt > 0.001;
-  uniforms.uFadeAmt.value = amt;
-  const wipe = !!FADE_WIPES[st.dir] && amt > 0.001 && amt < 0.999;
-  uniforms.uFadeMode.value = wipe ? 1 : 0;
-  uniforms.uFadeOut.value = st.out ? 1 : 0;
-  uniforms.uFadeAxis.value = st.dir === "wipeUp" || st.dir === "wipeDown" ? 1 : 0;
-  uniforms.uFadeDir.value = st.dir === "rtl" || st.dir === "wipeDown" ? -1 : 1;
-  uniforms.uFadeBlur.value = animFor(st.dir, amt, st.out).blur;
-  if (!wipe) return;
-  group.updateWorldMatrix(true, true);
-  _fadeBox.setFromObject(group);
-  if (_fadeBox.isEmpty()) return;
-  let mn = Infinity, mx = -Infinity, mny = Infinity, mxy = -Infinity;
-  for (let i = 0; i < 8; i++) {
-    _fadeVec.set(
-      i & 1 ? _fadeBox.max.x : _fadeBox.min.x,
-      i & 2 ? _fadeBox.max.y : _fadeBox.min.y,
-      i & 4 ? _fadeBox.max.z : _fadeBox.min.z
-    ).project(camera);
-    mn = Math.min(mn, _fadeVec.x);
-    mx = Math.max(mx, _fadeVec.x);
-    mny = Math.min(mny, _fadeVec.y);
-    mxy = Math.max(mxy, _fadeVec.y);
-  }
-  const pad = (mx - mn) * 0.02, padY = (mxy - mny) * 0.02;
-  uniforms.uFadeMin.value = mn - pad;
-  uniforms.uFadeMax.value = mx + pad;
-  uniforms.uFadeMinY.value = mny - padY;
-  uniforms.uFadeMaxY.value = mxy + padY;
-}
-
+//@@use driveFade
+//@@use SHAPE_VERT
+//@@use SHAPE_FRAG
+//@@use _shapeCol
+//@@use defaultShapeParams
+//@@use shapeLerp
+//@@use makeShapeMaterial
+//@@use applyShapeUniforms
+//@@use applyTextBox
 /* En edición, una pose marcada "invisible" se ve fantasma (10%) para
    poder seguir ubicándola; en Preview se ve el fade real. */
 function editFade(t) { return { ...t, fadeAmt: t.hidden ? 0.1 : 1, fadeMode: "fade", fadeOut: false }; }
@@ -4542,10 +4933,11 @@ function ObjectPreviewText({ obj, fade }) {
     wordStyles: obj.wordStyles,
   });
   if (!texture) return null;
+  applyTextBox(fade, texture);
   const refH = texture.userData.refH || texture.image.height;
   const mesh = (
     <mesh renderOrder={10}
-      scale={[(obj.scale * texture.image.width) / refH, (obj.scale * texture.image.height) / refH, 1]}
+      scale={[(obj.scale * (obj.sx ?? 1) * texture.image.width) / refH, (obj.scale * (obj.sy ?? 1) * texture.image.height) / refH, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
@@ -4561,12 +4953,12 @@ function ObjectPreviewImageRaster({ obj, fade }) {
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const mesh = (
     <mesh renderOrder={10}
-      scale={[obj.scale * aspect, obj.scale, 1]}
+      scale={[obj.scale * (obj.sx ?? 1) * aspect, obj.scale * (obj.sy ?? 1), 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); }} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); patchMediaMaterial(m, obj, aspect); }} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4577,12 +4969,12 @@ function ObjectPreviewImageSvg({ obj, fade }) {
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
     <mesh renderOrder={10}
-      scale={[obj.scale * aspect, obj.scale, 1]}
+      scale={[obj.scale * (obj.sx ?? 1) * aspect, obj.scale * (obj.sy ?? 1), 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); }} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); patchMediaMaterial(m, obj, aspect); }} />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4597,12 +4989,27 @@ function ObjectPreviewVideo({ obj, fade }) {
   if (!texture) return null;
   const mesh = (
     <mesh renderOrder={10}
-      scale={[obj.scale * aspect, obj.scale, 1]}
+      scale={[obj.scale * (obj.sx ?? 1) * aspect, obj.scale * (obj.sy ?? 1), 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
       rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); }} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); patchMediaMaterial(m, obj, aspect); }} />
+    </mesh>
+  );
+  return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
+}
+function ObjectPreviewShape({ obj, fade }) {
+  const mat = useMemo(() => makeShapeMaterial(fade), [fade]);
+  const meshRef = useRef(null);
+  useFrame(() => { if (meshRef.current) applyShapeUniforms(mat, meshRef.current, obj, obj.sh, obj.scale * (obj.sx ?? 1), obj.scale * (obj.sy ?? 1)); });
+  const mesh = (
+    <mesh ref={meshRef} renderOrder={10}
+      position={obj.billboard ? [0, 0, 0] : obj.position}
+      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
+      <planeGeometry args={[1, 1]} />
+      <primitive object={mat} attach="material" />
     </mesh>
   );
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
@@ -4612,9 +5019,10 @@ function ObjectPreviewImage({ obj, fade }) {
 }
 function ObjectPreview({ obj }) {
   const fade = useMemo(() => makeFadeUniforms(), []);
-  if (obj.type !== "text" && !(obj.previewUrl || obj.url)) return null;
+  if (obj.type !== "text" && obj.type !== "shape" && !(obj.previewUrl || obj.url)) return null;
   let inner;
   if (obj.type === "text") inner = <ObjectPreviewText obj={obj} fade={fade} />;
+  else if (obj.type === "shape") inner = <ObjectPreviewShape obj={obj} fade={fade} />;
   else if (obj.type === "video") inner = <ObjectPreviewVideo obj={obj} fade={fade} />;
   else inner = obj.type === "image" ? <ObjectPreviewImage obj={obj} fade={fade} /> : <ObjectPreviewModel obj={obj} fade={fade} />;
   return <FadeGroup obj={obj} fade={fade}>{inner}</FadeGroup>;
@@ -5489,10 +5897,11 @@ function generateDockCode(dock) {
 
 const DEFAULT_CURSOR = { enabled: true, color: "#ffffff", size: 56, life: 0.7, intensity: 0.6, shift: 60 };
 const DEFAULT_PROGRESS_BAR = { enabled: true, color: "" };
+const DEFAULT_BACKTOP = { enabled: true, position: "right", style: "dark", size: 46, showAfter: 0.06, duration: 1.8, ring: true, color: "" };
 /* Bloque @GEN:EXTRAS de la plantilla: estela del mouse y barra de progreso lateral. */
-function generateExtrasCode(cursor, progressBar) {
-  const c = { ...DEFAULT_CURSOR, ...cursor }, p = { ...DEFAULT_PROGRESS_BAR, ...progressBar };
-  return `const CURSOR = ${JSON.stringify(c, null, 2)};\nconst PROGRESS_BAR = ${JSON.stringify(p, null, 2)};`;
+function generateExtrasCode(cursor, progressBar, backTop) {
+  const c = { ...DEFAULT_CURSOR, ...cursor }, p = { ...DEFAULT_PROGRESS_BAR, ...progressBar }, b = { ...DEFAULT_BACKTOP, ...backTop };
+  return `const CURSOR = ${JSON.stringify(c, null, 2)};\nconst PROGRESS_BAR = ${JSON.stringify(p, null, 2)};\nconst BACKTOP = ${JSON.stringify(b, null, 2)};`;
 }
 const DEFAULT_LOADER = { enabled: true, svg: "", background: "#05070f", lineColor: "#ffffff", font: "'Space Grotesk', sans-serif", lineWidth: 1.4, minMs: 1800, showNumber: true };
 /* Bloques @GEN:LOADER y @GEN:LOADER_CSS de la plantilla: pantalla de carga con tu SVG y el contador 000 → 100. */
@@ -5507,7 +5916,7 @@ function generateLoaderCss(loader) {
 }
 
 function generateObjectsCode(objects, transformsByKf, stages, easings) {
-  objects = objects.filter((o) => o.type === "text" || (o.url && o.url.trim()));
+  objects = objects.filter((o) => o.type === "text" || o.type === "shape" || (o.url && o.url.trim()));
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
   const esc = (s) => JSON.stringify(s == null ? "" : s);
@@ -5516,7 +5925,7 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     const kfLines = stages.map((kf, idx) => {
       const t = transforms[kf.id] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" };
       const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
-      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}" },`;
+      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
     }).join("\n");
     if (o.type === "text") {
       return `  {
@@ -5532,6 +5941,19 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     textAlign: "${o.textAlign || "center"}",
     textOutline: ${o.textOutline ? "true" : "false"},
     textOutlineColor: "${o.textOutlineColor || "#000000"}",
+    billboard: ${o.billboard ? "true" : "false"},
+    keyframes: [
+${kfLines}
+    ],
+  },`;
+    }
+    if (o.type === "shape") {
+      return `  {
+    type: "shape",
+    shapeKind: "${o.shapeKind || "rect"}",
+    shapeCap: "${o.shapeCap || "round"}",
+    shapeCols: ${Math.max(1, Math.round(o.shapeCols || 8))},
+    shapeRows: ${Math.max(1, Math.round(o.shapeRows || 4))},
     billboard: ${o.billboard ? "true" : "false"},
     keyframes: [
 ${kfLines}
@@ -5554,6 +5976,9 @@ ${kfLines}
     tintAmt: ${fmtNum(o.tintAmt || 0)},
     glassMatch: ${JSON.stringify(o.glassMatch || "")},
     shadows: ${o.shadows === false ? "false" : "true"},
+    cornerRadius: ${fmtNum(o.cornerRadius || 0)},
+    borderWidth: ${fmtNum(o.borderWidth || 0)},
+    borderColor: ${JSON.stringify(o.borderColor || "#ffffff")},
     billboard: ${o.billboard ? "true" : "false"},
     keyframes: [
 ${kfLines}
@@ -5571,6 +5996,8 @@ const DEFAULT_SEO = {
   title: "", description: "", siteName: "", lang: "es-AR", url: "", image: "", index: true, themeColor: "",
   jsonld: true, businessType: "LocalBusiness", businessName: "", instagram: "", facebook: "",
   includeScene: true, content: "",
+  favicon: "", imageAlt: "", logo: "", email: "", priceRange: "", areaServed: "", geoLat: "", geoLng: "", otherLinks: "",
+  noscript: true,
 };
 const SCHEMA_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const ES_DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -5608,6 +6035,13 @@ function generateSeoPack(seoIn, dockIn, objects) {
   if (desc) head.push('<meta name="description" content="' + seoEsc(desc) + '" />');
   head.push('<meta name="robots" content="' + (s.index === false ? "noindex, nofollow" : "index, follow, max-image-preview:large") + '" />');
   if (url) head.push('<link rel="canonical" href="' + seoEsc(url) + '" />');
+  if (url) { head.push('<link rel="alternate" hreflang="' + seoEsc(s.lang || "es") + '" href="' + seoEsc(url) + '" />'); head.push('<link rel="alternate" hreflang="x-default" href="' + seoEsc(url) + '" />'); }
+  if (s.favicon) {
+    const fav = String(s.favicon).trim(), ext = (fav.split("?")[0].split(".").pop() || "").toLowerCase();
+    const mime = ext === "svg" ? "image/svg+xml" : ext === "ico" ? "image/x-icon" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+    head.push('<link rel="icon" type="' + mime + '" href="' + seoEsc(fav) + '" />');
+    if (ext !== "svg" && ext !== "ico") head.push('<link rel="apple-touch-icon" href="' + seoEsc(fav) + '" />');
+  }
   if (s.themeColor) head.push('<meta name="theme-color" content="' + seoEsc(s.themeColor) + '" />');
   head.push('<meta property="og:type" content="website" />');
   head.push('<meta property="og:locale" content="' + seoEsc(String(s.lang || "es").replace("-", "_")) + '" />');
@@ -5616,23 +6050,35 @@ function generateSeoPack(seoIn, dockIn, objects) {
   if (url) head.push('<meta property="og:url" content="' + seoEsc(url) + '" />');
   if (s.siteName) head.push('<meta property="og:site_name" content="' + seoEsc(s.siteName) + '" />');
   if (image) head.push('<meta property="og:image" content="' + seoEsc(image) + '" />');
+  if (image && (s.imageAlt || title)) head.push('<meta property="og:image:alt" content="' + seoEsc(s.imageAlt || title) + '" />');
   head.push('<meta name="twitter:card" content="' + (image ? "summary_large_image" : "summary") + '" />');
   if (title) head.push('<meta name="twitter:title" content="' + seoEsc(title) + '" />');
   if (desc) head.push('<meta name="twitter:description" content="' + seoEsc(desc) + '" />');
   if (image) head.push('<meta name="twitter:image" content="' + seoEsc(image) + '" />');
+  if (image && (s.imageAlt || title)) head.push('<meta name="twitter:image:alt" content="' + seoEsc(s.imageAlt || title) + '" />');
   const bizName = String(s.businessName || s.siteName || "").trim();
   if (s.jsonld && bizName) {
-    const ld = { "@context": "https://schema.org", "@type": String(s.businessType || "LocalBusiness").trim() || "LocalBusiness", name: bizName };
-    if (url) ld.url = url;
-    if (desc) ld.description = desc;
-    if (image) ld.image = image;
-    if (phone) ld.telephone = "+" + phone;
-    if (d.address) ld.address = { "@type": "PostalAddress", streetAddress: d.address };
+    const biz = { "@type": String(s.businessType || "LocalBusiness").trim() || "LocalBusiness", name: bizName };
+    if (url) { biz["@id"] = url.replace(/#.*$/, "") + "#negocio"; biz.url = url; }
+    if (desc) biz.description = desc;
+    if (image) biz.image = image;
+    if (s.logo) biz.logo = String(s.logo).trim();
+    if (phone) biz.telephone = "+" + phone;
+    if (s.email) biz.email = String(s.email).trim();
+    if (s.priceRange) biz.priceRange = String(s.priceRange).trim();
+    if (d.address) biz.address = { "@type": "PostalAddress", streetAddress: d.address };
+    const lat = parseFloat(String(s.geoLat).replace(",", ".")), lng = parseFloat(String(s.geoLng).replace(",", "."));
+    if (isFinite(lat) && isFinite(lng)) biz.geo = { "@type": "GeoCoordinates", latitude: lat, longitude: lng };
+    if (s.areaServed) biz.areaServed = String(s.areaServed).trim();
+    if (d.mapUrl) biz.hasMap = d.mapUrl;
     const spec = [];
     ORDER_DAYS.forEach((dow) => seoRanges(d.schedule && d.schedule[dow]).forEach((r) => spec.push({ "@type": "OpeningHoursSpecification", dayOfWeek: SCHEMA_DAYS[dow], opens: r[0], closes: r[1] })));
-    if (spec.length) ld.openingHoursSpecification = spec;
-    const same = [s.instagram, s.facebook].map((x) => String(x || "").trim()).filter(Boolean);
-    if (same.length) ld.sameAs = same;
+    if (spec.length) biz.openingHoursSpecification = spec;
+    const same = [s.instagram, s.facebook].concat(String(s.otherLinks || "").split(/\s*[\n,]\s*/)).map((x) => String(x || "").trim()).filter(Boolean);
+    if (same.length) biz.sameAs = same;
+    const graph = [biz];
+    if (url) graph.unshift({ "@type": "WebSite", "@id": url.replace(/#.*$/, "") + "#sitio", url, name: bizName, inLanguage: String(s.lang || "es") });
+    const ld = { "@context": "https://schema.org", "@graph": graph };
     head.push("<" + 'script type="application/ld+json">' + JSON.stringify(ld).replace(/</g, "\\u003c") + "</" + "script>");
   }
   // ---- contenido visible para buscadores
@@ -5656,7 +6102,19 @@ function generateSeoPack(seoIn, dockIn, objects) {
   const bodyHtml = body.length
     ? '<main id="seo-content" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);pointer-events:none">\n' + body.join("\n") + "\n</main>"
     : "";
-  return { head: head.join("\n"), body: bodyHtml, lang: String(s.lang || "es") };
+  /* Para quien no tiene JavaScript (o el navegador no soporta WebGL): una página simple con lo esencial. */
+  let ns = "";
+  if (s.noscript !== false && (title || desc || phone || d.address)) {
+    const sch = d.enabled !== false ? ORDER_DAYS.map((dow) => { const rs = seoRanges(d.schedule && d.schedule[dow]); return "<li>" + ES_DAYS[dow] + ": " + (rs.length ? rs.map((r) => r[0] + " a " + r[1]).join(" y ") : "cerrado") + "</li>"; }).join("") : "";
+    ns = "\n<noscript><div style=\"position:fixed;inset:0;z-index:200;overflow:auto;background:#0b0b10;color:#f2f2f5;font-family:system-ui,sans-serif;line-height:1.5;padding:8vh 8vw\">"
+      + (title ? "<h1 style=\"margin:0 0 .5em;font-size:1.8rem\">" + seoEsc(title) + "</h1>" : "")
+      + (desc ? "<p>" + seoEsc(desc) + "</p>" : "")
+      + (phone ? "<p><a style=\"color:#8fd8ff\" href=\"https://wa.me/" + phone + "\">WhatsApp: +" + phone + "</a></p>" : "")
+      + (d.address ? "<p>" + (d.mapUrl ? "<a style=\"color:#8fd8ff\" href=\"" + seoEsc(d.mapUrl) + "\">" + seoEsc(d.address) + "</a>" : seoEsc(d.address)) + "</p>" : "")
+      + (sch ? "<h2 style=\"font-size:1.1rem\">Horarios de atención</h2><ul>" + sch + "</ul>" : "")
+      + "<p style=\"opacity:.6;font-size:.85rem\">Activá JavaScript para ver la experiencia completa.</p></div></noscript>";
+  }
+  return { head: head.join("\n"), body: bodyHtml + ns, lang: String(s.lang || "es") };
 }
 const ORDER_DAYS = [1, 2, 3, 4, 5, 6, 0];
 function generateRobotsTxt(url) {
@@ -5686,6 +6144,35 @@ function SeoPanel({ seo, setSeoField, pack, dock }) {
   let host = s.url || "https://tusitio.com";
   return (
     <>
+      <Group id="seo-check" title="Chequeo de SEO">
+        {(() => {
+          const t = String(s.title || s.siteName || "").trim(), de = String(s.description || "").trim(), im = String(s.image || "").trim(), u = String(s.url || "").trim();
+          const ph = String((dock && dock.whatsappPhone) || "").replace(/\D/g, "");
+          const items = [
+            [t.length >= 15 && t.length <= 60, "Título de 15 a 60 caracteres", t ? t.length + " caracteres" : "falta"],
+            [de.length >= 70 && de.length <= 160, "Descripción de 70 a 160 caracteres", de ? de.length + " caracteres" : "falta"],
+            [/^https:\/\//.test(u), "URL del sitio con https://", u ? "revisá que empiece con https://" : "falta (necesaria para canonical y sitemap)"],
+            [/^https?:\/\//.test(im), "Imagen para compartir con URL completa", im ? "debe empezar con https://" : "falta (1200 × 630 px)"],
+            [!!String(s.favicon || "").trim(), "Ícono del sitio (favicon)", "falta"],
+            [s.index !== false, "Indexable por buscadores", "está bloqueado (noindex)"],
+            [!!String(s.businessName || s.siteName || "").trim() && s.jsonld !== false, "Datos del negocio para Google", "falta el nombre del negocio"],
+            [!!(dock && dock.address), "Dirección cargada (zona fija)", "falta en Escena · zona fija"],
+            [ph.length >= 10, "WhatsApp cargado (zona fija)", "falta en Escena · zona fija"],
+            [(s.content || "").trim().length > 80 || s.includeScene !== false, "Texto para buscadores", "agregá texto o dejá el automático"],
+          ];
+          const ok = items.filter((i) => i[0]).length;
+          return (
+            <>
+              <div style={{ fontSize: 11, opacity: 0.75 }}>{ok} de {items.length} listos</div>
+              {items.map((i, k) => (
+                <div key={k} style={{ display: "flex", gap: 6, fontSize: 11.5, lineHeight: 1.35, color: i[0] ? "#7ddc9a" : "#ffb454" }}>
+                  <span>{i[0] ? "✓" : "!"}</span><span style={{ flex: 1 }}>{i[1]}{!i[0] && <span style={{ opacity: 0.75, color: "inherit" }}> · {i[2]}</span>}</span>
+                </div>
+              ))}
+            </>
+          );
+        })()}
+      </Group>
       <Group id="seo-g" title="Cómo aparece en Google">
         {txt("Título", "title", "Marca · qué hacés · ciudad")}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>{count(s.title, 60)}</div>
@@ -5707,6 +6194,8 @@ function SeoPanel({ seo, setSeoField, pack, dock }) {
         {txt("Nombre del sitio", "siteName", "Ej: Dra. Bruzera")}
         {txt("Imagen (URL)", "image", "https://tusitio.com/preview.jpg")}
         {txt("Color del navegador", "themeColor", "#05070f (opcional)")}
+        {txt("Ícono (favicon)", "favicon", "favicon.png o https://tusitio.com/favicon.png")}
+        {txt("Descripción de la imagen", "imageAlt", "Texto alternativo de la imagen al compartir")}
         {note("Imagen recomendada: 1200 × 630 px, en JPG o PNG, con la URL completa (https://…). Es la que aparece cuando alguien pega tu link en WhatsApp o redes.")}
       </Group>
       <Group id="seo-biz" title="Datos del negocio (Google Maps y resultados enriquecidos)" toggle={{ checked: s.jsonld !== false, onChange: (v) => setSeoField("jsonld", v) }}>
@@ -5714,6 +6203,17 @@ function SeoPanel({ seo, setSeoField, pack, dock }) {
         {txt("Tipo", "businessType", "LocalBusiness (o Dentist, VeterinaryCare, Restaurant…)")}
         {txt("Instagram", "instagram", "https://instagram.com/tu_usuario")}
         {txt("Facebook", "facebook", "https://facebook.com/tu_pagina")}
+        <div className="row" style={{ alignItems: "flex-start" }}><span className="lbl">Otras redes</span>
+          <textarea rows={2} style={{ flex: 1 }} value={s.otherLinks || ""} placeholder={"TikTok, YouTube, Google Maps… un link por línea"} onChange={(e) => setSeoField("otherLinks", e.target.value)} />
+        </div>
+        {txt("Email", "email", "contacto@tusitio.com")}
+        {txt("Logo (URL)", "logo", "https://tusitio.com/logo.png")}
+        {txt("Rango de precios", "priceRange", "$$ (opcional)")}
+        {txt("Zona de atención", "areaServed", "Ej: Palermo, CABA")}
+        <div className="row"><span className="lbl">Ubicación</span>
+          <input type="text" style={{ flex: 1, minWidth: 0 }} value={s.geoLat || ""} placeholder="Latitud -34.58" spellCheck={false} onChange={(e) => setSeoField("geoLat", e.target.value)} />
+          <input type="text" style={{ flex: 1, minWidth: 0 }} value={s.geoLng || ""} placeholder="Longitud -58.43" spellCheck={false} onChange={(e) => setSeoField("geoLng", e.target.value)} />
+        </div>
         {note("El teléfono (WhatsApp), la dirección y los horarios se toman solos de 'Pantalla de celular · zona fija' (pestaña Escena). Así no los cargás dos veces.")}
       </Group>
       <Group id="seo-text" title="Texto para buscadores">
@@ -5721,6 +6221,7 @@ function SeoPanel({ seo, setSeoField, pack, dock }) {
           placeholder={"# Veterinaria en Palermo\n\nAtención de lunes a sábados, urgencias y vacunación.\n\n## Servicios\n- Consultas y vacunas\n- Cirugía\n- Peluquería canina"} onChange={(e) => setSeoField("content", e.target.value)} />
         {note("Formato: '# Título' (el principal, uno solo), '## Subtítulo', '- ' para listas; una línea en blanco separa párrafos. Si no ponés un '# ', se usa el título de arriba como título principal.")}
         <Switch checked={s.includeScene !== false} onChange={(v) => setSeoField("includeScene", v)} label="Sumar automático: textos de la escena, WhatsApp, dirección y horarios" />
+        <Switch checked={s.noscript !== false} onChange={(v) => setSeoField("noscript", v)} label="Página simple para quien no tiene JavaScript" />
         {note("Este texto no se ve en pantalla, pero está en el HTML para buscadores y lectores de pantalla. Escribí lo mismo que dice o muestra tu sitio: Google ignora (o penaliza) el texto oculto que no coincide con lo visible.")}
       </Group>
       <Group id="seo-files" title="Archivos para publicar" defaultOpen={false}>
@@ -5807,6 +6308,7 @@ const ICONS = {
   video: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M10 9.5v5l4.5-2.5z" /></>,
   capture: <><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>,
   reset: <path d="M4 12a8 8 0 108-8M4 4v5h5" />,
+  shape: <><rect x="3.5" y="6" width="17" height="12" rx="4.5" /><path d="M7 12h.01M12 12h.01M17 12h.01" /></>,
 };
 function Icon({ name, size = 18 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{ICONS[name]}</svg>;
@@ -6408,6 +6910,8 @@ function App() {
   const [loader, setLoader] = useState(DEFAULT_LOADER);
   const [cursor, setCursor] = useState(DEFAULT_CURSOR);
   const [progressBar, setProgressBar] = useState(DEFAULT_PROGRESS_BAR);
+  const [backTop, setBackTop] = useState(DEFAULT_BACKTOP);
+  const setBackTopField = (field, value) => setBackTop((prev) => ({ ...prev, [field]: value }));
   const setCursorField = (field, value) => setCursor((prev) => ({ ...prev, [field]: value }));
   const setProgressField = (field, value) => setProgressBar((prev) => ({ ...prev, [field]: value }));
   const setLoaderField = (field, value) => setLoader((prev) => ({ ...prev, [field]: value }));
@@ -6584,8 +7088,9 @@ function App() {
     const newId = `obj-${Date.now()}`;
     const used = objects.map((o, k) => o.color || PALETTE[k % PALETTE.length]);
     const color = PALETTE.find((c) => !used.includes(c)) || PALETTE[objects.length % PALETTE.length];
-    const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", video: "Video", text: "Texto" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
+    const base = { id: newId, label: `${{ model: "Modelo", image: "Imagen", video: "Video", text: "Texto", shape: "Forma" }[type]} ${objects.length + 1}`, type, url: "", previewUrl: null, billboard: type !== "model", visible: true, color };
     if (type === "video") Object.assign(base, { loop: true, videoMode: "scroll", scrubFrom: 0, scrubTo: 100 });
+    if (type === "shape") Object.assign(base, { shapeKind: "rect", shapeCap: "round", shapeCols: 8, shapeRows: 4 });
     if (type === "text") Object.assign(base, { text: "Texto", textColor: "#ffffff", fontFamily: "'Inter', sans-serif", fontWeight: 600, textAlign: "center", textOutline: false, textOutlineColor: "#000000", textGradient: { on: false, colors: ["#6ee7f9", "#a78bfa"], angle: 0 }, letterSpacing: 0, lineHeight: 1.2, wordStyles: {} });
     setObjects((prev) => [...prev, base]);
     setObjectTransformsByKf((prev) => ({ ...prev, [newId]: Object.fromEntries(stagesComputed.map((st) => [st.id, defaultObjectTransform()])) }));
@@ -6621,6 +7126,15 @@ function App() {
       } else {
         cur[field] = value;
       }
+      forObj[activeStage] = cur;
+      return { ...prev, [id]: forObj };
+    });
+  };
+  const setObjectShape = (id, key, value) => {
+    setObjectTransformsByKf((prev) => {
+      const forObj = { ...prev[id] };
+      const cur = { ...forObj[activeStage] };
+      cur.sh = { ...defaultShapeParams(), ...(cur.sh || {}), [key]: value };
       forObj[activeStage] = cur;
       return { ...prev, [id]: forObj };
     });
@@ -6695,6 +7209,9 @@ function App() {
           lineHeight: o.lineHeight ?? 1.2,
           wordStyles: o.wordStyles ?? {},
         };
+      }
+      if (type === "shape") {
+        return { ...o, type: "shape", url: "", previewUrl: null, billboard: o.billboard ?? true, shapeKind: o.shapeKind ?? "rect", shapeCap: o.shapeCap ?? "round", shapeCols: o.shapeCols ?? 8, shapeRows: o.shapeRows ?? 4 };
       }
       let url = o.url;
       const wantExt = { model: ".glb", image: ".png", video: ".mp4" }[type];
@@ -6949,7 +7466,7 @@ function App() {
   const seoPack = useMemo(() => generateSeoPack(seo, dock, objects), [seo, dock, objects]);
   const loaderCode = useMemo(() => generateLoaderCode(loader), [loader]);
   const loaderCss = useMemo(() => generateLoaderCss(loader), [loader]);
-  const extrasCode = useMemo(() => generateExtrasCode(cursor, progressBar), [cursor, progressBar]);
+  const extrasCode = useMemo(() => generateExtrasCode(cursor, progressBar, backTop), [cursor, progressBar, backTop]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
@@ -6982,6 +7499,7 @@ function App() {
     loader,
     cursor,
     progressBar,
+    backTop,
     stages,
     durationsVh,
     easings,
@@ -7006,6 +7524,7 @@ function App() {
     setLoader({ ...DEFAULT_LOADER, ...(p.loader || {}) });
     setCursor({ ...DEFAULT_CURSOR, ...(p.cursor || {}) });
     setProgressBar({ ...DEFAULT_PROGRESS_BAR, ...(p.progressBar || {}) });
+    setBackTop({ ...DEFAULT_BACKTOP, ...(p.backTop || {}) });
     const loadedStages = p.stages && p.stages.length ? p.stages : makeDefaultStages();
     setStages(loadedStages);
     setDurationsVh(p.durationsVh || DEFAULT_DURATIONS_VH);
@@ -7219,7 +7738,7 @@ function App() {
     setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0, partEnabled: false, partCount: 650, partSize: 1, partOpacity: 0.65, partSpeed: 1, partBlur: 0.6, partRange: 16, partBeam: 0.6, envEnabled: true, envIntensity: 0.8, toneMap: false, naturalLight: 0, exposure: 1, lookPreset: "" });
     setTrail({ enabled: false, color: "#ffd873", size: 0.05, life: 0.9, rate: 40 });
     setReflection({ enabled: false, resolution: 256, updateEvery: 2, intensity: 1 });
-    setDock(DEFAULT_DOCK); setSeo(DEFAULT_SEO); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR);
+    setDock(DEFAULT_DOCK); setSeo(DEFAULT_SEO); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR); setBackTop(DEFAULT_BACKTOP);
     setStages(st); setDurationsVh([]); setEasings([]);
     setPosesByKf(initialPoses(st)); setCamsByKf(initialCameras(st)); setMovesByKf(initialMovements(st)); setFxByKf(initialFx(st));
     setObjects([]); setObjectTransformsByKf({}); setSelectedObj(null);
@@ -7258,7 +7777,7 @@ function App() {
 
   const renderObjectEditor = (o, idx) => {
     const c = colorOf(o, idx);
-    const isImage = o.type === "image", isVideo = o.type === "video", isText = o.type === "text", isModel = !isImage && !isVideo && !isText;
+    const isImage = o.type === "image", isVideo = o.type === "video", isText = o.type === "text", isShape = o.type === "shape", isModel = !isImage && !isVideo && !isText && !isShape;
     const t = (objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage]) || defaultObjectTransform();
     const mismatch = (isModel && /\.(svg|png|jpe?g|webp|mp4|webm)$/i.test(o.url)) || (isImage && /\.(glb|mp4|webm)$/i.test(o.url)) || (isVideo && /\.(glb|svg|png|jpe?g|webp)$/i.test(o.url));
     return (
@@ -7270,10 +7789,10 @@ function App() {
             {PALETTE.map((p) => <option key={p} value={p} style={{ color: p }}>●</option>)}
           </select>
         </div>
-        <Seg value={o.type || "model"} onChange={(v) => setObjectType(o.id, v)} options={[["model", "Modelo"], ["image", "Imagen / SVG"], ["video", "Video"], ["text", "Texto"]]} />
+        <Seg value={o.type || "model"} onChange={(v) => setObjectType(o.id, v)} options={[["model", "Modelo"], ["image", "Imagen / SVG"], ["video", "Video"], ["text", "Texto"], ["shape", "Forma"]]} />
         {isText ? (
           <TextStyleEditor o={o} updateObject={updateObject} />
-        ) : (
+        ) : isShape ? null : (
           <div className="row">
             <span className="lbl">Archivo</span>
             <PathInput value={o.url} onCommit={(v) => setObjectUrl(o.id, v)} placeholder={isImage ? "./assets/models/imagen.svg" : isVideo ? "./assets/models/video.mp4" : "./assets/models/objeto.glb"} />
@@ -7294,6 +7813,46 @@ function App() {
         )}
         {isVideo && o.videoMode === "play" && <Switch checked={o.loop !== false} onChange={(v) => updateObject(o.id, { loop: v })} label="Repetir en loop" />}
         {isVideo && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Va siempre sin sonido. Copiá el archivo a assets/models/ junto al index.html. Para que avance fluido, exportalo con un keyframe cada 2 cuadros (ffmpeg -g 2).</div>}
+        {(isImage || isVideo) && (
+          <>
+            <div className="grp-t" style={{ marginTop: 6 }}>Esquinas y marco</div>
+            <Slider label="Redondeo %" min={0} max={50} step={0.5} value={(o.cornerRadius || 0) * 100} onChange={(v) => updateObject(o.id, { cornerRadius: v / 100 })} />
+            <Slider label="Marco %" min={0} max={10} step={0.1} value={(o.borderWidth || 0) * 100} onChange={(v) => updateObject(o.id, { borderWidth: v / 100 })} />
+            {(o.borderWidth || 0) > 0 && <ColorRow label="Color del marco" value={o.borderColor || "#ffffff"} onChange={(v) => updateObject(o.id, { borderColor: v })} />}
+            <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Redondea las puntas de la foto o el video y le suma un marco de color. 50 % = óvalo / círculo. El grosor del marco es un porcentaje del lado más corto.</div>
+          </>
+        )}
+        {isShape && (() => {
+          const kind = o.shapeKind || "rect";
+          const d = defaultShapeParams(), sp = (k) => (t.sh && t.sh[k] != null ? t.sh[k] : d[k]), set = (k) => (v) => setObjectShape(o.id, k, v);
+          return (
+            <>
+              <SelectRow label="Tipo" value={kind} onChange={(v) => updateObject(o.id, { shapeKind: v })} options={[["rect", "Rectángulo / círculo"], ["line", "Línea / puntitos"], ["dots", "Grilla de puntos"]]} />
+              {kind !== "dots" && <SelectRow label="Puntas" value={o.shapeCap || "round"} onChange={(v) => updateObject(o.id, { shapeCap: v })} options={[["round", "Redondeadas"], ["butt", "Rectas"]]} />}
+              {kind === "dots" && <Slider label="Columnas" min={1} max={40} step={1} value={o.shapeCols || 8} onChange={(v) => updateObject(o.id, { shapeCols: v })} />}
+              {kind === "dots" && <Slider label="Filas" min={1} max={40} step={1} value={o.shapeRows || 4} onChange={(v) => updateObject(o.id, { shapeRows: v })} />}
+              <div className="grp-t" style={{ marginTop: 6 }}>Forma · {currentStageLabel} (se anima entre poses)</div>
+              <Slider label={kind === "line" ? "Largo" : "Ancho"} min={0.05} max={8} step={0.01} value={sp("w")} onChange={set("w")} />
+              {kind !== "line" && <Slider label="Alto" min={0.05} max={8} step={0.01} value={sp("h")} onChange={set("h")} />}
+              {kind === "rect" && <Slider label="Redondeo %" min={0} max={100} step={1} value={Math.round(sp("radius") * 100)} onChange={(v) => set("radius")(v / 100)} />}
+              {kind === "dots" && <Slider label="Tamaño punto %" min={5} max={100} step={1} value={Math.round(sp("dotSize") * 100)} onChange={(v) => set("dotSize")(v / 100)} />}
+              <Slider label="Giro" min={-180} max={180} step={0.5} value={sp("rot")} onChange={set("rot")} />
+              {kind !== "line" && <ColorRow label={kind === "dots" ? "Color" : "Relleno"} value={sp("fillColor")} onChange={set("fillColor")} />}
+              {kind !== "line" && <Slider label={kind === "dots" ? "Opacidad %" : "Relleno opac. %"} min={0} max={100} step={1} value={Math.round(sp("fillAlpha") * 100)} onChange={(v) => set("fillAlpha")(v / 100)} />}
+              {kind !== "dots" && (
+                <>
+                  <ColorRow label="Trazo" value={sp("strokeColor")} onChange={set("strokeColor")} />
+                  <Slider label="Trazo opac. %" min={0} max={100} step={1} value={Math.round(sp("strokeAlpha") * 100)} onChange={(v) => set("strokeAlpha")(v / 100)} />
+                  <Slider label="Grosor" min={0} max={0.4} step={0.001} value={sp("strokeW")} onChange={set("strokeW")} />
+                  <Slider label="Guion" min={0} max={1.5} step={0.005} value={sp("dash")} onChange={set("dash")} />
+                  <Slider label="Hueco" min={0} max={1.5} step={0.005} value={sp("gap")} onChange={set("gap")} />
+                  <Slider label="Desfase (marcha)" min={0} max={20} step={0.01} value={sp("shift")} onChange={set("shift")} />
+                  <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Guion y Hueco en 0 = trazo continuo. Guion 0 con Hueco &gt; 0 = línea de puntitos. Cambiá el Desfase entre dos poses para que los guiones "caminen" al scrollear. Todo lo que cambies entre poses se anima solo.</div>
+                </>
+              )}
+            </>
+          );
+        })()}
         {isModel && <Slider label="Brillo" min={0} max={3} step={0.05} value={o.glow || 0} onChange={(v) => updateObject(o.id, { glow: v })} />}
         {isModel && <Slider label="Vidrio (pantalla)" min={0} max={1} step={0.01} value={o.glass || 0} onChange={(v) => updateObject(o.id, { glass: v })} />}
         {isModel && (
@@ -7320,6 +7879,8 @@ function App() {
         {!isModel && <Switch checked={!!o.billboard} onChange={(v) => updateObject(o.id, { billboard: v })} label="Billboard (mira a cámara)" />}
         <div className="grp-t" style={{ marginTop: 4 }}>Transformación · {currentStageLabel}</div>
         <Slider label="Escala" min={0.05} max={20} step={0.01} value={t.scale} onChange={(v) => setObjectTransform(o.id, "scale", null, v)} />
+        {!isModel && <Slider label="Estirar ancho" min={0.05} max={6} step={0.01} value={t.sx ?? 1} onChange={(v) => setObjectTransform(o.id, "sx", null, v)} />}
+        {!isModel && <Slider label="Estirar alto" min={0.05} max={6} step={0.01} value={t.sy ?? 1} onChange={(v) => setObjectTransform(o.id, "sy", null, v)} />}
         <Vec3 label="Posición" value={t.position} onChange={(a, v) => setObjectTransform(o.id, "position", a, v)} />
         {!(!isModel && o.billboard) && <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />}
         <div className="grp-t" style={{ marginTop: 6 }}>Visibilidad · {currentStageLabel}</div>
@@ -7336,6 +7897,7 @@ function App() {
             <optgroup label="Barrido de transparencia"><option value="ltr">Barrido Izq → Der</option><option value="rtl">Barrido Der → Izq</option><option value="wipeUp">Barrido hacia arriba</option><option value="wipeDown">Barrido hacia abajo</option><option value="fade">Fundido simple</option></optgroup>
             <optgroup label="Movimiento"><option value="up">Subir</option><option value="down">Bajar</option><option value="slideL">Deslizar ←</option><option value="slideR">Deslizar →</option></optgroup>
             <optgroup label="Escala"><option value="zoomIn">Zoom adentro</option><option value="zoomOut">Zoom afuera</option><option value="pop">Pop (rebote)</option><option value="flipX">Volteo horizontal</option><option value="flipY">Volteo vertical</option></optgroup>
+            <optgroup label="Texto / imagen (revelado)"><option value="txLines">Líneas suben (máscara)</option><option value="txLinesDown">Líneas bajan (máscara)</option><option value="txChars">Letras en cascada</option><option value="txCharsBlur">Letras en cascada + desenfoque</option><option value="txRise">Bloque sube (máscara)</option><option value="txSplit">Se abre desde el centro</option></optgroup>
             <optgroup label="Desenfoque"><option value="blur">Desenfoque</option><option value="blurUp">Desenfoque + subir</option><option value="blurZoom">Desenfoque + zoom</option></optgroup>
           </select>
         </div>
@@ -7479,6 +8041,19 @@ function App() {
                   <Slider label="Tamaño" min={20} max={140} step={1} value={cursor.size} onChange={(v) => setCursorField("size", v)} />
                   <Slider label="Duración (s)" min={0.2} max={2} step={0.05} value={cursor.life} onChange={(v) => setCursorField("life", v)} />
                   <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Una huella translúcida que sigue al mouse (o al dedo en el celular) y se desvanece rápido. Con blanco se ve como el rastro de un dedo sobre un vidrio; "Cambio de color" regula cuánto varían los reflejos. Probalo moviendo el mouse sobre el visor.</div>
+                </Group>
+                <Group id="backtop" title="Botón volver arriba" toggle={{ checked: backTop.enabled, onChange: (v) => setBackTopField("enabled", v) }}>
+                  <SelectRow label="Posición" value={backTop.position} onChange={(v) => setBackTopField("position", v)} options={[["right", "Derecha"], ["left", "Izquierda"], ["center", "Centro"]]} />
+                  <SelectRow label="Estilo" value={backTop.style} onChange={(v) => setBackTopField("style", v)} options={[["dark", "Vidrio oscuro"], ["light", "Vidrio claro"], ["accent", "Color de marca"]]} />
+                  <Slider label="Tamaño" min={36} max={68} step={1} value={backTop.size} onChange={(v) => setBackTopField("size", v)} />
+                  <Slider label="Aparece al (%)" min={0} max={50} step={1} value={Math.round((backTop.showAfter ?? 0.06) * 100)} onChange={(v) => setBackTopField("showAfter", v / 100)} />
+                  <Slider label="Subida (s)" min={0.5} max={5} step={0.1} value={backTop.duration} onChange={(v) => setBackTopField("duration", v)} />
+                  <Switch checked={backTop.ring !== false} onChange={(v) => setBackTopField("ring", v)} label="Anillo que muestra el avance del scroll" />
+                  <div className="row"><span className="lbl">Color propio</span>
+                    <HexColor value={backTop.color || "#49d3ff"} onChange={(v) => setBackTopField("color", v)} />
+                    {backTop.color && <button className="mini" onClick={() => setBackTopField("color", "")}>Quitar</button>}
+                  </div>
+                  <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Aparece en el sitio al avanzar el scroll y vuelve al principio con inercia. Con el vidrio oscuro o claro se ve bien sobre cualquier fondo; se acomoda solo arriba de WhatsApp / turnero. No se ve en el visor, probalo en el sitio exportado.</div>
                 </Group>
                 <Group id="railbar" title="Barra de progreso lateral" toggle={{ checked: progressBar.enabled, onChange: (v) => setProgressField("enabled", v) }}>
                   <div className="row"><span className="lbl">Color</span>
@@ -7704,6 +8279,7 @@ function App() {
                   <Btn icon="image" onClick={() => addObject("image")}>Imagen</Btn>
                   <Btn icon="video" onClick={() => addObject("video")}>Video</Btn>
                   <Btn icon="text" onClick={() => addObject("text")}>Texto</Btn>
+                  <Btn icon="shape" onClick={() => addObject("shape")}>Forma</Btn>
                   <span className="grow" />
                   <IBtn icon="copy" title="Todos desde la pose anterior" disabled={stageIndex <= 0 || !objects.length} onClick={copyAllObjectTransformsFromPrev} />
                   <IBtn icon="pin" title="Fijar todos en todas las poses" disabled={!objects.length} onClick={applyAllObjectTransformsToAllStages} />
@@ -7712,7 +8288,7 @@ function App() {
                 <div className="outliner">
                   {objects.map((o, i) => (objOnlyVisible && !isVisibleHere(o) && !(selObj && selObj.id === o.id)) ? null : (
                     <div key={o.id} className={`orow ${selObj && selObj.id === o.id ? "sel" : ""} ${o.visible && !(objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage] && objectTransformsByKf[o.id][activeStage].hidden) ? "" : "off"}`} style={{ "--oc": colorOf(o, i) }} onClick={() => setSelectedObj(o.id)}>
-                      <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
+                      <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "shape" ? "shape" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
                       <span className="oname">{o.label}</span>
                       <button className="mini" title="Visible" onClick={(e) => { e.stopPropagation(); updateObject(o.id, { visible: !o.visible }); }}><Icon name={o.visible ? "eye" : "eyeoff"} size={14} /></button>
                       <button className="mini" title="Duplicar (usa el mismo archivo)" onClick={(e) => { e.stopPropagation(); duplicateObject(o.id); }}><Icon name="copy" size={14} /></button>
