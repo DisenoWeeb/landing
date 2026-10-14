@@ -2374,6 +2374,72 @@ const BACKTOP = {
   "ring": true,
   "color": "#eaa9c8"
 };
+const MENU = {
+  "enabled": true,
+  "position": "right",
+  "top": 18,
+  "side": 18,
+  "btnStyle": "none",
+  "btnShape": "square",
+  "btnSize": 62,
+  "lines": 2,
+  "lineWidth": 1.5,
+  "lineGap": 5,
+  "btnColor": "#ffffff",
+  "btnBg": "#101014",
+  "btnBgAlpha": 0.45,
+  "autoContrast": false,
+  "panel": "full",
+  "panelWidth": 460,
+  "bgAnim": "circle",
+  "bgColor": "#030321",
+  "bgColor2": "#490551",
+  "bgAngle": 206,
+  "bgAlpha": 0.96,
+  "bgBlur": 3,
+  "duration": 1.2,
+  "ease": "expo",
+  "font": "'Montserrat', sans-serif",
+  "weight": 600,
+  "size": 72,
+  "letterSpacing": 0.085,
+  "uppercase": true,
+  "align": "left",
+  "color": "#ffffff",
+  "hoverColor": "#9197ee",
+  "gap": 37,
+  "numbers": true,
+  "itemAnim": "letters",
+  "itemDelay": 0.06,
+  "itemDuration": 0.8,
+  "hover": "dim",
+  "footer": "",
+  "footerSize": 13,
+  "items": [
+    {
+      "label": "Ingresar",
+      "type": "url",
+      "href": "",
+      "newTab": false
+    },
+    {
+      "label": "Peluqueria",
+      "type": "pose",
+      "href": "",
+      "newTab": false,
+      "pose": 28,
+      "p": 0.8471
+    },
+    {
+      "label": "veterinaria",
+      "type": "pose",
+      "href": "",
+      "newTab": false,
+      "pose": 33,
+      "p": 1
+    }
+  ]
+};
 /*@GEN:EXTRAS_END*/
 
 function damp(current, target, lambda, dt) {
@@ -5383,6 +5449,190 @@ function ProgressIndicator() {
 
 /* Botón "volver arriba" (configurable en el editor, pestaña Escena). Aparece al avanzar el scroll, sube con inercia (Lenis)
    y se acomoda solo arriba de la zona fija de WhatsApp / turnero. */
+const MENU_DEFAULTS = {
+  enabled: false,
+  position: "right", top: 18, side: 18,
+  btnStyle: "glass", btnShape: "circle", btnSize: 52, lines: 2, lineWidth: 2, lineGap: 5,
+  btnColor: "#ffffff", btnBg: "#101014", btnBgAlpha: 0.45, autoContrast: false,
+  panel: "full", panelWidth: 460,
+  bgAnim: "circle", bgColor: "#0b0b10", bgColor2: "", bgAngle: 135, bgAlpha: 0.94, bgBlur: 14,
+  duration: 0.9, ease: "expo",
+  font: "'Inter', sans-serif", weight: 600, size: 46, letterSpacing: -0.01, uppercase: false, align: "left",
+  color: "#ffffff", hoverColor: "", gap: 10, numbers: true,
+  itemAnim: "mask", itemDelay: 0.06, itemDuration: 0.8, hover: "shift",
+  footer: "", footerSize: 13,
+  items: [
+    { label: "Inicio", type: "pose", pose: 1, href: "", newTab: false },
+    { label: "Servicios", type: "url", href: "", pose: 1, newTab: false },
+    { label: "Contacto", type: "url", href: "", pose: 1, newTab: false },
+  ],
+};
+const MENU_EASES = { expo: "cubic-bezier(.19,1,.22,1)", smooth: "cubic-bezier(.65,0,.35,1)", back: "cubic-bezier(.34,1.45,.64,1)", linear: "linear" };
+const MENU_CSS = `
+.sitemenu { position: fixed; inset: 0; z-index: 30; pointer-events: none; font-family: var(--sm-font); }
+.sitemenu--contained { position: absolute; }
+.app-root--col .sitemenu:not(.sitemenu--contained) { left: calc(50% - var(--col-w) / 2); right: auto; width: var(--col-w); }
+.sitemenu__btn { position: absolute; top: calc(var(--sm-top) + env(safe-area-inset-top, 0px)); width: var(--sm-bsize); height: var(--sm-bsize); padding: 0; border: 0; cursor: pointer; pointer-events: auto; color: var(--sm-bcolor); background: transparent; z-index: 3; -webkit-tap-highlight-color: transparent; display: grid; place-items: center; transition: transform .4s var(--sm-ease), background .3s; }
+.sitemenu--r .sitemenu__btn { right: var(--sm-side); } .sitemenu--l .sitemenu__btn { left: var(--sm-side); }
+.sitemenu__btn--circle { border-radius: 50%; } .sitemenu__btn--square { border-radius: 14px; }
+.sitemenu__btn--glass { background: var(--sm-bbg); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+.sitemenu__btn--solid { background: var(--sm-bbg); }
+.sitemenu__btn--outline { box-shadow: inset 0 0 0 1.5px currentColor; }
+.sitemenu__btn:hover { transform: scale(1.06); } .sitemenu__btn:active { transform: scale(.94); }
+.sitemenu__btn:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.sitemenu--auto .sitemenu__btn { mix-blend-mode: difference; color: #fff; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.sm-l { position: absolute; left: 50%; top: 50%; width: 40%; height: var(--sm-lw); margin: calc(var(--sm-lw) / -2) 0 0 -20%; background: currentColor; border-radius: 3px; transition: transform .6s cubic-bezier(.7,0,.2,1), width .35s var(--sm-ease), opacity .25s; }
+.sm-l1 { transform: translateY(calc(var(--sm-lg) * -1)); } .sm-l2 { transform: translateY(var(--sm-lg)); } .sm-l3 { transform: none; }
+.sitemenu__btn:hover .sm-l2 { width: 26%; margin-left: -8%; }
+.sitemenu.is-open .sitemenu__btn:hover .sm-l2 { width: 40%; margin-left: -20%; }
+.sitemenu.is-open .sm-l1 { transform: rotate(45deg); } .sitemenu.is-open .sm-l2 { transform: rotate(-45deg); }
+.sitemenu.is-open .sm-l3 { opacity: 0; transform: scaleX(0); }
+.sitemenu__panel { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transition: visibility 0s linear var(--sm-dur); z-index: 2; }
+.sitemenu.is-open .sitemenu__panel { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+.sitemenu__scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); opacity: 0; transition: opacity var(--sm-dur) var(--sm-ease); display: none; }
+.sitemenu--side .sitemenu__scrim { display: block; } .sitemenu.is-open .sitemenu__scrim { opacity: 1; }
+.sitemenu__box { position: absolute; inset: 0; overflow: hidden; }
+.sitemenu--side .sitemenu__box { width: min(var(--sm-pw), 100%); } .sitemenu--side.sitemenu--r .sitemenu__box { left: auto; right: 0; } .sitemenu--side.sitemenu--l .sitemenu__box { right: auto; left: 0; }
+.sitemenu__bg { position: absolute; inset: 0; background: var(--sm-bg); -webkit-backdrop-filter: blur(var(--sm-blur)); backdrop-filter: blur(var(--sm-blur)); transition: transform calc(var(--sm-dur) * .85) var(--sm-ease), opacity calc(var(--sm-dur) * .6) var(--sm-ease), clip-path var(--sm-dur) var(--sm-ease); }
+.sm-bg-fade .sitemenu__bg { opacity: 0; } .sm-bg-fade.is-open .sitemenu__bg { opacity: 1; }
+.sm-bg-circle .sitemenu__bg { clip-path: circle(0px at var(--ox, 90%) var(--oy, 40px)); } .sm-bg-circle.is-open .sitemenu__bg { clip-path: circle(160vmax at var(--ox, 90%) var(--oy, 40px)); }
+.sm-bg-slideDown .sitemenu__bg { transform: translateY(-101%); } .sm-bg-slideUp .sitemenu__bg { transform: translateY(101%); }
+.sm-bg-slideSide .sitemenu__bg { transform: translateX(101%); } .sm-bg-slideSide.sitemenu--l .sitemenu__bg { transform: translateX(-101%); }
+.sm-bg-slideDown.is-open .sitemenu__bg, .sm-bg-slideUp.is-open .sitemenu__bg, .sm-bg-slideSide.is-open .sitemenu__bg { transform: none; }
+.sitemenu--side:not(.sm-bg-fade) .sitemenu__bg { transform: translateX(101%); clip-path: none; opacity: 1; } .sitemenu--side.sitemenu--l:not(.sm-bg-fade) .sitemenu__bg { transform: translateX(-101%); }
+.sitemenu--side.is-open:not(.sm-bg-fade) .sitemenu__bg { transform: none; }
+.sm-bg-columns .sitemenu__bg { display: flex; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.sm-bg-columns .sitemenu__bg i { flex: 1; background: var(--sm-bg); -webkit-backdrop-filter: blur(var(--sm-blur)); backdrop-filter: blur(var(--sm-blur)); transform: scaleY(0); transform-origin: top; transition: transform calc(var(--sm-dur) * .8) var(--sm-ease) calc(var(--ci) * .06s); margin-right: -1px; }
+.sm-bg-columns.is-open .sitemenu__bg i { transform: scaleY(1); }
+.sitemenu__nav { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 90px clamp(22px, 7vw, 72px) 60px; box-sizing: border-box; overflow-y: auto; color: var(--sm-color); text-align: var(--sm-align); }
+.sitemenu__nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sm-gap); align-items: var(--sm-ai); }
+.sitemenu__li { overflow: hidden; padding: .06em 26px .14em; margin: 0 -26px; }
+.sitemenu__a { display: inline-flex; align-items: baseline; gap: .55em; color: inherit; text-decoration: none; font-weight: var(--sm-weight); font-size: min(var(--sm-size), 12.5vw); letter-spacing: var(--sm-ls); line-height: 1.04; text-transform: var(--sm-tt); transition: transform .45s var(--sm-ease), color .3s, opacity .3s; }
+.sitemenu__panel:focus { outline: none; }
+.sitemenu__a:focus { outline: none; }
+.sitemenu__a:focus-visible .sm-lab { background-size: 100% .06em; }
+.sm-num { font-size: .3em; letter-spacing: .08em; opacity: .55; font-weight: 500; transform: translateY(-1.2em); font-variant-numeric: tabular-nums; }
+.sm-lab { display: inline-block; background: linear-gradient(currentColor, currentColor) 0 100% / 0 .06em no-repeat; transition: background-size .5s var(--sm-ease); padding-bottom: .04em; }
+.sm-in, .sm-ch { display: inline-block; white-space: pre; }
+.sm-it-mask .sm-in, .sm-it-letters .sm-ch { transform: translateY(118%); transition: transform .35s ease 0s; }
+.sm-it-fade .sm-in { opacity: 0; transition: opacity .25s ease 0s; }
+.sm-it-slide .sm-in { opacity: 0; transform: translateX(-34px); transition: transform .3s ease 0s, opacity .25s ease 0s; }
+.sm-it-mask .sm-num, .sm-it-letters .sm-num, .sm-it-fade .sm-num, .sm-it-slide .sm-num { opacity: 0; transition: opacity .2s; }
+.is-open.sm-it-mask .sm-in { transform: none; transition: transform var(--sm-idur) var(--sm-ease) calc(var(--sm-d0) + var(--i) * var(--sm-stag)); }
+.is-open.sm-it-letters .sm-ch { transform: none; transition: transform var(--sm-idur) var(--sm-ease) calc(var(--sm-d0) + var(--i) * var(--sm-stag) + var(--k) * .022s); }
+.is-open.sm-it-fade .sm-in { opacity: 1; transition: opacity var(--sm-idur) ease calc(var(--sm-d0) + var(--i) * var(--sm-stag)); }
+.is-open.sm-it-slide .sm-in { opacity: 1; transform: none; transition: transform var(--sm-idur) var(--sm-ease) calc(var(--sm-d0) + var(--i) * var(--sm-stag)), opacity var(--sm-idur) ease calc(var(--sm-d0) + var(--i) * var(--sm-stag)); }
+.is-open.sm-it-mask .sm-num, .is-open.sm-it-letters .sm-num, .is-open.sm-it-fade .sm-num, .is-open.sm-it-slide .sm-num { opacity: .55; transition: opacity .6s ease calc(var(--sm-d0) + var(--i) * var(--sm-stag) + .25s); }
+.sm-hv-shift .sitemenu__a:hover, .sm-hv-shift .sitemenu__a:focus-visible { transform: translateX(14px); }
+.sm-hv-underline .sitemenu__a:hover .sm-lab, .sm-hv-underline .sitemenu__a:focus-visible .sm-lab { background-size: 100% .06em; }
+.sm-hv-dim .sitemenu__nav ul:hover .sitemenu__a { opacity: .3; } .sm-hv-dim .sitemenu__nav ul .sitemenu__a:hover { opacity: 1; }
+.sitemenu__a:hover, .sitemenu__a:focus-visible { color: var(--sm-hover, inherit); }
+.sitemenu__foot { margin-top: clamp(24px, 6vh, 56px); font-size: var(--sm-fsize); opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; letter-spacing: .02em; white-space: pre-line; }
+.is-open .sitemenu__foot { opacity: .65; transform: none; transition: opacity .8s ease calc(var(--sm-d0) + var(--n) * var(--sm-stag) + .1s), transform .8s var(--sm-ease) calc(var(--sm-d0) + var(--n) * var(--sm-stag) + .1s); }
+html.menu-open, html.menu-open body { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .sitemenu *, .sitemenu *::before { transition-duration: .01s !important; transition-delay: 0s !important; } }
+`;
+function menuRgba(hex, a) {
+  const h = String(hex || "#000000").replace("#", "");
+  const f = h.length === 3 ? h.split("").map((c) => c + c).join("") : h.padEnd(6, "0");
+  const n = parseInt(f, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+function SiteMenu({ cfg, contained }) {
+  const C = { ...MENU_DEFAULTS, ...(cfg || {}) };
+  const items = C.items || [];
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
+  useEffect(() => { ensureTextFont(C.font); }, [C.font]);
+  useEffect(() => {
+    const l = window.__lenis;
+    if (!contained) {
+      if (open) { if (l && l.stop) l.stop(); document.documentElement.classList.add("menu-open"); }
+      else { if (l && l.start) l.start(); document.documentElement.classList.remove("menu-open"); }
+    }
+    const p = panelRef.current;
+    if (p) { if (open) p.removeAttribute("inert"); else p.setAttribute("inert", ""); }
+    let t = null;
+    if (open && p) t = setTimeout(() => { p.setAttribute("tabindex", "-1"); p.focus({ preventScroll: true }); }, 380);
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); if (t) clearTimeout(t); };
+  }, [open, contained]);
+  useEffect(() => () => { const l = window.__lenis; if (!contained) { if (l && l.start) l.start(); document.documentElement.classList.remove("menu-open"); } }, [contained]);
+  const toggle = () => {
+    if (!open && wrapRef.current && btnRef.current) {
+      const w = wrapRef.current.getBoundingClientRect(), b = btnRef.current.getBoundingClientRect();
+      wrapRef.current.style.setProperty("--ox", (b.left + b.width / 2 - w.left) + "px");
+      wrapRef.current.style.setProperty("--oy", (b.top + b.height / 2 - w.top) + "px");
+    }
+    setOpen((v) => !v);
+  };
+  const go = (e, it) => {
+    e.preventDefault();
+    setOpen(false);
+    if (contained) return;
+    setTimeout(() => {
+      if (it.type === "pose") {
+        const l = window.__lenis;
+        const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        const y = Math.max(0, Math.min(1, it.p || 0)) * max;
+        if (l && l.scrollTo) l.scrollTo(y, { duration: 1.6, easing: (t) => 1 - Math.pow(1 - t, 4) });
+        else window.scrollTo({ top: y, behavior: "smooth" });
+      } else if (it.href) {
+        if (it.newTab) window.open(it.href, "_blank", "noopener"); else window.location.href = it.href;
+      }
+    }, 140);
+  };
+  const side = C.panel === "right" || C.panel === "left";
+  const posCls = side ? (C.panel === "left" ? "l" : "r") : (C.position === "left" ? "l" : "r");
+  const bg2 = C.bgColor2 ? `linear-gradient(${C.bgAngle}deg, ${menuRgba(C.bgColor, C.bgAlpha)}, ${menuRgba(C.bgColor2, C.bgAlpha)})` : menuRgba(C.bgColor, C.bgAlpha);
+  const vars = {
+    "--sm-font": C.font, "--sm-top": C.top + "px", "--sm-side": C.side + "px", "--sm-bsize": C.btnSize + "px",
+    "--sm-lw": C.lineWidth + "px", "--sm-lg": C.lineGap + "px", "--sm-bcolor": C.btnColor, "--sm-bbg": menuRgba(C.btnBg, C.btnStyle === "solid" ? 1 : C.btnBgAlpha),
+    "--sm-bg": bg2, "--sm-blur": C.bgBlur + "px", "--sm-dur": C.duration + "s", "--sm-ease": MENU_EASES[C.ease] || MENU_EASES.expo, "--sm-pw": C.panelWidth + "px",
+    "--sm-weight": C.weight, "--sm-size": C.size + "px", "--sm-ls": C.letterSpacing + "em", "--sm-tt": C.uppercase ? "uppercase" : "none", "--sm-align": C.align,
+    "--sm-ai": C.align === "center" ? "center" : C.align === "right" ? "flex-end" : "flex-start", "--sm-color": C.color, "--sm-gap": C.gap + "px",
+    "--sm-d0": (C.duration * 0.35) + "s", "--sm-stag": C.itemDelay + "s", "--sm-idur": C.itemDuration + "s", "--sm-fsize": C.footerSize + "px", "--n": items.length,
+  };
+  if (C.hoverColor) vars["--sm-hover"] = C.hoverColor;
+  const cls = "sitemenu sitemenu--" + posCls + (side ? " sitemenu--side" : "") + (contained ? " sitemenu--contained" : "") + (open ? " is-open" : "") +
+    " sm-bg-" + C.bgAnim + " sm-it-" + C.itemAnim + " sm-hv-" + C.hover + (C.autoContrast ? " sitemenu--auto" : "");
+  const label = (it) => {
+    const txt = String(it.label || "");
+    if (C.itemAnim === "letters") return Array.from(txt).map((ch, k) => <span key={k} className="sm-ch" style={{ "--k": k }}>{ch === " " ? " " : ch}</span>);
+    return <span className="sm-in">{txt}</span>;
+  };
+  return (
+    <div ref={wrapRef} className={cls} style={vars}>
+      <style>{MENU_CSS}</style>
+      <div ref={panelRef} className="sitemenu__panel" id="sitemenu-panel" role="dialog" aria-modal="true" aria-label="Menú">
+        <div className="sitemenu__scrim" onClick={() => setOpen(false)} />
+        <div className="sitemenu__box">
+          <div className="sitemenu__bg" aria-hidden="true">{C.bgAnim === "columns" && !side ? [0, 1, 2, 3, 4].map((i) => <i key={i} style={{ "--ci": i }} />) : null}</div>
+          <nav className="sitemenu__nav" aria-label="Principal">
+            <ul>
+              {items.map((it, i) => (
+                <li key={i} className="sitemenu__li" style={{ "--i": i }}>
+                  <a className="sitemenu__a" href={it.type === "pose" ? "#pose-" + (it.pose || 1) : (it.href || "#")} onClick={(e) => go(e, it)}>
+                    {C.numbers && <span className="sm-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>}
+                    <span className="sm-lab">{label(it)}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            {C.footer && <div className="sitemenu__foot">{C.footer}</div>}
+          </nav>
+        </div>
+      </div>
+      <button ref={btnRef} type="button" className={"sitemenu__btn sitemenu__btn--" + C.btnStyle + " sitemenu__btn--" + C.btnShape} aria-label={open ? "Cerrar menú" : "Abrir menú"} aria-expanded={open} aria-controls="sitemenu-panel" onClick={toggle}>
+        <span className="sm-l sm-l1" /><span className="sm-l sm-l2" />{C.lines === 3 && <span className="sm-l sm-l3" />}
+      </button>
+    </div>
+  );
+}
+
 function BackToTop() {
   const ref = useRef(null);
   const fillRef = useRef(null);
@@ -5747,6 +5997,7 @@ function App() {
       <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
       {DOCK.enabled && <><div className="dock-shade" aria-hidden="true" /><Dock /></>}
       {BACKTOP.enabled && <BackToTop />}
+      {MENU.enabled && <SiteMenu cfg={MENU} />}
     </div>
   );
 }
