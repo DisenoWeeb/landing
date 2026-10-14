@@ -1002,6 +1002,7 @@ const BACKTOP = {
   "ring": true,
   "color": ""
 };
+const MENU = { "enabled": false };
 /*@GEN:EXTRAS_END*/
 
 function damp(current, target, lambda, dt) {
@@ -2151,7 +2152,7 @@ vec3 transformed = vec3(position);
     float S = (eff < 2.5 || eff > 10.5 || (eff > 6.5 && eff < 7.5)) ? 0.55 : 0.85;
     float p = clamp(prog * (1.0 + S) - tg * S, 0.0, 1.0);
     float e = p >= 1.0 ? 1.0 : 1.0 - pow(2.0, -10.0 * p);
-    if (eff < 3.5) { riseY = -(1.0 - e) * cellH * 1.1; msk = 1.0; }
+    if (eff < 3.5) { riseY = -(1.0 - e) * max(cellH, 2.0 * hh) * 1.15; msk = 1.0; }
     else if (eff < 5.5 || (eff > 10.5)) { a = e; }
     else if (eff < 6.5) { a = (prog * NG > gI) ? 1.0 : 0.0; }
     else if (eff < 7.5) { dx += (1.0 - e) * 0.6 * emX * (slot - uTxB.w * (cnt - 1.0)); a = smoothstep(0.0, 0.5, p); }
@@ -2502,6 +2503,7 @@ function sampleObjectKeyframes(keyframes, progress) {
     sx: lerp(a.sx ?? 1, b.sx ?? 1, t),
     sy: lerp(a.sy ?? 1, b.sy ?? 1, t),
     rv: lerp(a.rv ?? 1, b.rv ?? 1, t),
+    rz: lerp(a.rz || 0, b.rz || 0, t),
     tk: lerp(a.tk || 0, b.tk || 0, t),
     lh: lerp(a.lh || 0, b.lh || 0, t),
     sh: a.sh || b.sh ? shapeLerp(a.sh, b.sh, t) : null,
@@ -2515,6 +2517,7 @@ function useObjectTransformRef(keyframes, billboard, own) {
   const hasFadeOnly = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
   const hasFade = hasFadeOnly;
   const base = useRef({ x: 0, y: 0, z: 0, s: 1, sx: 1, sy: 1 });
+  const zRef = useRef(null);   // giro en el plano (Z) de carteles/imágenes/videos
   const live = useRef(null);   // posición/escala "reales"; la animación de entrada/salida se suma encima
   useFrame((state, delta) => {
     const g = groupRef.current;
@@ -2536,8 +2539,9 @@ function useObjectTransformRef(keyframes, billboard, own) {
       g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
     }
     if (hasFade) driveFade(g, state.camera, fade, kf.fade, own);
+    if (zRef.current) zRef.current.rotation.z = damp(zRef.current.rotation.z, ((kf.rz || 0) * Math.PI) / 180, 4, delta);
   });
-  return { groupRef, fade, hasFade, live };
+  return { groupRef, fade, hasFade, live, zRef };
 }
 
 /* Los navegadores rasterizan un SVG a un tamaño chico por defecto
@@ -2791,7 +2795,18 @@ function drawTextCanvas(text, o) {
       ws.push({ wd, x: x0 });
       x += wd.width + ln.spaceW;
     });
-    return { y, ws, glyphs, slots: Math.max(1, slot - 1) };
+    /* alto real de la tinta de esta línea (según la fuente), para que ninguna letra quede cortada aunque el interlineado sea muy chico */
+    mctx.textBaseline = "middle";
+    let asc = 0, desc = 0;
+    ln.words.forEach((wd) => {
+      mctx.font = wd.spec;
+      const m = mctx.measureText(wd.w);
+      asc = Math.max(asc, m.actualBoundingBoxAscent || FS * 0.5);
+      desc = Math.max(desc, m.actualBoundingBoxDescent || FS * 0.5);
+    });
+    if (!ln.words.length) { asc = FS * 0.4; desc = FS * 0.4; }
+    const mg = FS * 0.08 + 3;
+    return { y, ws, glyphs, slots: Math.max(1, slot - 1), yTop: Math.max(0, y - asc - mg), yBot: Math.min(H, y + desc + mg) };
   });
   const paint = (ctx, withBg) => {
     ctx.textBaseline = "middle";
@@ -2842,7 +2857,7 @@ function drawTextCanvas(text, o) {
     canvas, colorCanvas, refH,
     glyphs: {
       W, H, FS, lineH, refH, n, nGlyphs, nWords: wi,
-      lines: placed.map((pl, i) => ({ yTop: i === 0 ? 0 : pad + lineH * i, yBot: i === n - 1 ? H : pad + lineH * (i + 1), glyphs: pl.glyphs, slots: pl.slots })),
+      lines: placed.map((pl) => ({ yTop: pl.yTop, yBot: pl.yBot, glyphs: pl.glyphs, slots: pl.slots })),
     },
   };
 }
@@ -2904,7 +2919,7 @@ function SceneObjectText({ data }) {
   });
   const effId = TEXT_EFFECTS[data.textEffect] || 0;
   const wantTA = effId > 0 || data.keyframes.some((k) => k.tk || k.lh);
-  const { groupRef, fade, hasFade, live } = useObjectTransformRef(data.keyframes, data.billboard, effId > 0);
+  const { groupRef, fade, hasFade, live, zRef } = useObjectTransformRef(data.keyframes, data.billboard, effId > 0);
   const ta = useMemo(() => makeTextAnimUniforms(), []);
   const info = texture ? texture.userData.glyphs : null;
   const geo = useMemo(() => (wantTA && info ? buildTextGlyphGeometry(info) : null), [wantTA, info]);
@@ -2918,10 +2933,10 @@ function SceneObjectText({ data }) {
   if (!texture) return <group ref={groupRef} />;
   const refH = texture.userData.refH || texture.image.height;
   const mesh = (
-    <mesh key={geo ? "g" : "p"} renderOrder={10} frustumCulled={!geo} geometry={geo || undefined} scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
+    <group ref={zRef}><mesh key={geo ? "g" : "p"} renderOrder={10} frustumCulled={!geo} geometry={geo || undefined} scale={[texture.image.width / refH, texture.image.height / refH, 1]}>
       {!geo && <planeGeometry args={[1, 1]} />}
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); if (geo) patchTextAnimMaterial(m, ta); }} />
-    </mesh>
+    </mesh></group>
   );
   return (
     <group ref={groupRef}>
@@ -3328,12 +3343,12 @@ function SceneObjectModel({ data }) {
 function SceneObjectImageRaster({ data }) {
   const texture = useTexture(data.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
-  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard);
   const mesh = (
-    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
+    <group ref={zRef}><mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); patchMediaMaterial(m, data, aspect); }} />
-    </mesh>
+    </mesh></group>
   );
   return (
     <group ref={groupRef}>
@@ -3343,14 +3358,14 @@ function SceneObjectImageRaster({ data }) {
 }
 function SceneObjectImageSvg({ data }) {
   const texture = useHiResSvgTexture(data.url, 3072);
-  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard);
   if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
   const mesh = (
-    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
+    <group ref={zRef}><mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); patchMediaMaterial(m, data, aspect); }} />
-    </mesh>
+    </mesh></group>
   );
   return (
     <group ref={groupRef}>
@@ -3361,17 +3376,17 @@ function SceneObjectImageSvg({ data }) {
 function SceneObjectVideo({ data }) {
   const scrub = data.videoMode !== "play";
   const { texture, aspect, video } = useVideoTexture(data.url, data.loop, scrub);
-  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard);
   useFrame(() => {
     if (!scrub || !video) return;
     seekVideoToProgress(video, useScrollStore.getState().smoothProgress, data.scrollFrom ?? 0, data.scrollTo ?? 1);
   });
   if (!texture) return <group ref={groupRef} />;
   const mesh = (
-    <mesh renderOrder={10} scale={[aspect, 1, 1]}>
+    <group ref={zRef}><mesh renderOrder={10} scale={[aspect, 1, 1]}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); if (hasFade) patchFadeMaterial(m, fade); patchMediaMaterial(m, data, aspect); }} />
-    </mesh>
+    </mesh></group>
   );
   return (
     <group ref={groupRef}>
@@ -3997,6 +4012,190 @@ function ProgressIndicator() {
 
 /* Botón "volver arriba" (configurable en el editor, pestaña Escena). Aparece al avanzar el scroll, sube con inercia (Lenis)
    y se acomoda solo arriba de la zona fija de WhatsApp / turnero. */
+const MENU_DEFAULTS = {
+  enabled: false,
+  position: "right", top: 18, side: 18,
+  btnStyle: "glass", btnShape: "circle", btnSize: 52, lines: 2, lineWidth: 2, lineGap: 5,
+  btnColor: "#ffffff", btnBg: "#101014", btnBgAlpha: 0.45, autoContrast: false,
+  panel: "full", panelWidth: 460,
+  bgAnim: "circle", bgColor: "#0b0b10", bgColor2: "", bgAngle: 135, bgAlpha: 0.94, bgBlur: 14,
+  duration: 0.9, ease: "expo",
+  font: "'Inter', sans-serif", weight: 600, size: 46, letterSpacing: -0.01, uppercase: false, align: "left",
+  color: "#ffffff", hoverColor: "", gap: 10, numbers: true,
+  itemAnim: "mask", itemDelay: 0.06, itemDuration: 0.8, hover: "shift",
+  footer: "", footerSize: 13,
+  items: [
+    { label: "Inicio", type: "pose", pose: 1, href: "", newTab: false },
+    { label: "Servicios", type: "url", href: "", pose: 1, newTab: false },
+    { label: "Contacto", type: "url", href: "", pose: 1, newTab: false },
+  ],
+};
+const MENU_EASES = { expo: "cubic-bezier(.19,1,.22,1)", smooth: "cubic-bezier(.65,0,.35,1)", back: "cubic-bezier(.34,1.45,.64,1)", linear: "linear" };
+const MENU_CSS = `
+.sitemenu { position: fixed; inset: 0; z-index: 30; pointer-events: none; font-family: var(--sm-font); }
+.sitemenu--contained { position: absolute; }
+.app-root--col .sitemenu:not(.sitemenu--contained) { left: calc(50% - var(--col-w) / 2); right: auto; width: var(--col-w); }
+.sitemenu__btn { position: absolute; top: calc(var(--sm-top) + env(safe-area-inset-top, 0px)); width: var(--sm-bsize); height: var(--sm-bsize); padding: 0; border: 0; cursor: pointer; pointer-events: auto; color: var(--sm-bcolor); background: transparent; z-index: 3; -webkit-tap-highlight-color: transparent; display: grid; place-items: center; transition: transform .4s var(--sm-ease), background .3s; }
+.sitemenu--r .sitemenu__btn { right: var(--sm-side); } .sitemenu--l .sitemenu__btn { left: var(--sm-side); }
+.sitemenu__btn--circle { border-radius: 50%; } .sitemenu__btn--square { border-radius: 14px; }
+.sitemenu__btn--glass { background: var(--sm-bbg); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+.sitemenu__btn--solid { background: var(--sm-bbg); }
+.sitemenu__btn--outline { box-shadow: inset 0 0 0 1.5px currentColor; }
+.sitemenu__btn:hover { transform: scale(1.06); } .sitemenu__btn:active { transform: scale(.94); }
+.sitemenu__btn:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.sitemenu--auto .sitemenu__btn { mix-blend-mode: difference; color: #fff; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.sm-l { position: absolute; left: 50%; top: 50%; width: 40%; height: var(--sm-lw); margin: calc(var(--sm-lw) / -2) 0 0 -20%; background: currentColor; border-radius: 3px; transition: transform .6s cubic-bezier(.7,0,.2,1), width .35s var(--sm-ease), opacity .25s; }
+.sm-l1 { transform: translateY(calc(var(--sm-lg) * -1)); } .sm-l2 { transform: translateY(var(--sm-lg)); } .sm-l3 { transform: none; }
+.sitemenu__btn:hover .sm-l2 { width: 26%; margin-left: -8%; }
+.sitemenu.is-open .sitemenu__btn:hover .sm-l2 { width: 40%; margin-left: -20%; }
+.sitemenu.is-open .sm-l1 { transform: rotate(45deg); } .sitemenu.is-open .sm-l2 { transform: rotate(-45deg); }
+.sitemenu.is-open .sm-l3 { opacity: 0; transform: scaleX(0); }
+.sitemenu__panel { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transition: visibility 0s linear var(--sm-dur); z-index: 2; }
+.sitemenu.is-open .sitemenu__panel { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+.sitemenu__scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); opacity: 0; transition: opacity var(--sm-dur) var(--sm-ease); display: none; }
+.sitemenu--side .sitemenu__scrim { display: block; } .sitemenu.is-open .sitemenu__scrim { opacity: 1; }
+.sitemenu__box { position: absolute; inset: 0; overflow: hidden; }
+.sitemenu--side .sitemenu__box { width: min(var(--sm-pw), 100%); } .sitemenu--side.sitemenu--r .sitemenu__box { left: auto; right: 0; } .sitemenu--side.sitemenu--l .sitemenu__box { right: auto; left: 0; }
+.sitemenu__bg { position: absolute; inset: 0; background: var(--sm-bg); -webkit-backdrop-filter: blur(var(--sm-blur)); backdrop-filter: blur(var(--sm-blur)); transition: transform calc(var(--sm-dur) * .85) var(--sm-ease), opacity calc(var(--sm-dur) * .6) var(--sm-ease), clip-path var(--sm-dur) var(--sm-ease); }
+.sm-bg-fade .sitemenu__bg { opacity: 0; } .sm-bg-fade.is-open .sitemenu__bg { opacity: 1; }
+.sm-bg-circle .sitemenu__bg { clip-path: circle(0px at var(--ox, 90%) var(--oy, 40px)); } .sm-bg-circle.is-open .sitemenu__bg { clip-path: circle(160vmax at var(--ox, 90%) var(--oy, 40px)); }
+.sm-bg-slideDown .sitemenu__bg { transform: translateY(-101%); } .sm-bg-slideUp .sitemenu__bg { transform: translateY(101%); }
+.sm-bg-slideSide .sitemenu__bg { transform: translateX(101%); } .sm-bg-slideSide.sitemenu--l .sitemenu__bg { transform: translateX(-101%); }
+.sm-bg-slideDown.is-open .sitemenu__bg, .sm-bg-slideUp.is-open .sitemenu__bg, .sm-bg-slideSide.is-open .sitemenu__bg { transform: none; }
+.sitemenu--side:not(.sm-bg-fade) .sitemenu__bg { transform: translateX(101%); clip-path: none; opacity: 1; } .sitemenu--side.sitemenu--l:not(.sm-bg-fade) .sitemenu__bg { transform: translateX(-101%); }
+.sitemenu--side.is-open:not(.sm-bg-fade) .sitemenu__bg { transform: none; }
+.sm-bg-columns .sitemenu__bg { display: flex; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.sm-bg-columns .sitemenu__bg i { flex: 1; background: var(--sm-bg); -webkit-backdrop-filter: blur(var(--sm-blur)); backdrop-filter: blur(var(--sm-blur)); transform: scaleY(0); transform-origin: top; transition: transform calc(var(--sm-dur) * .8) var(--sm-ease) calc(var(--ci) * .06s); margin-right: -1px; }
+.sm-bg-columns.is-open .sitemenu__bg i { transform: scaleY(1); }
+.sitemenu__nav { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 90px clamp(22px, 7vw, 72px) 60px; box-sizing: border-box; overflow-y: auto; color: var(--sm-color); text-align: var(--sm-align); }
+.sitemenu__nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sm-gap); align-items: var(--sm-ai); }
+.sitemenu__li { overflow: hidden; padding: .06em 26px .14em; margin: 0 -26px; }
+.sitemenu__a { display: inline-flex; align-items: baseline; gap: .55em; color: inherit; text-decoration: none; font-weight: var(--sm-weight); font-size: min(var(--sm-size), 12.5vw); letter-spacing: var(--sm-ls); line-height: 1.04; text-transform: var(--sm-tt); transition: transform .45s var(--sm-ease), color .3s, opacity .3s; }
+.sitemenu__panel:focus { outline: none; }
+.sitemenu__a:focus { outline: none; }
+.sitemenu__a:focus-visible .sm-lab { background-size: 100% .06em; }
+.sm-num { font-size: .3em; letter-spacing: .08em; opacity: .55; font-weight: 500; transform: translateY(-1.2em); font-variant-numeric: tabular-nums; }
+.sm-lab { display: inline-block; background: linear-gradient(currentColor, currentColor) 0 100% / 0 .06em no-repeat; transition: background-size .5s var(--sm-ease); padding-bottom: .04em; }
+.sm-in, .sm-ch { display: inline-block; white-space: pre; }
+.sm-it-mask .sm-in, .sm-it-letters .sm-ch { transform: translateY(118%); transition: transform .35s ease 0s; }
+.sm-it-fade .sm-in { opacity: 0; transition: opacity .25s ease 0s; }
+.sm-it-slide .sm-in { opacity: 0; transform: translateX(-34px); transition: transform .3s ease 0s, opacity .25s ease 0s; }
+.sm-it-mask .sm-num, .sm-it-letters .sm-num, .sm-it-fade .sm-num, .sm-it-slide .sm-num { opacity: 0; transition: opacity .2s; }
+.is-open.sm-it-mask .sm-in { transform: none; transition: transform var(--sm-idur) var(--sm-ease) calc(var(--sm-d0) + var(--i) * var(--sm-stag)); }
+.is-open.sm-it-letters .sm-ch { transform: none; transition: transform var(--sm-idur) var(--sm-ease) calc(var(--sm-d0) + var(--i) * var(--sm-stag) + var(--k) * .022s); }
+.is-open.sm-it-fade .sm-in { opacity: 1; transition: opacity var(--sm-idur) ease calc(var(--sm-d0) + var(--i) * var(--sm-stag)); }
+.is-open.sm-it-slide .sm-in { opacity: 1; transform: none; transition: transform var(--sm-idur) var(--sm-ease) calc(var(--sm-d0) + var(--i) * var(--sm-stag)), opacity var(--sm-idur) ease calc(var(--sm-d0) + var(--i) * var(--sm-stag)); }
+.is-open.sm-it-mask .sm-num, .is-open.sm-it-letters .sm-num, .is-open.sm-it-fade .sm-num, .is-open.sm-it-slide .sm-num { opacity: .55; transition: opacity .6s ease calc(var(--sm-d0) + var(--i) * var(--sm-stag) + .25s); }
+.sm-hv-shift .sitemenu__a:hover, .sm-hv-shift .sitemenu__a:focus-visible { transform: translateX(14px); }
+.sm-hv-underline .sitemenu__a:hover .sm-lab, .sm-hv-underline .sitemenu__a:focus-visible .sm-lab { background-size: 100% .06em; }
+.sm-hv-dim .sitemenu__nav ul:hover .sitemenu__a { opacity: .3; } .sm-hv-dim .sitemenu__nav ul .sitemenu__a:hover { opacity: 1; }
+.sitemenu__a:hover, .sitemenu__a:focus-visible { color: var(--sm-hover, inherit); }
+.sitemenu__foot { margin-top: clamp(24px, 6vh, 56px); font-size: var(--sm-fsize); opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; letter-spacing: .02em; white-space: pre-line; }
+.is-open .sitemenu__foot { opacity: .65; transform: none; transition: opacity .8s ease calc(var(--sm-d0) + var(--n) * var(--sm-stag) + .1s), transform .8s var(--sm-ease) calc(var(--sm-d0) + var(--n) * var(--sm-stag) + .1s); }
+html.menu-open, html.menu-open body { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .sitemenu *, .sitemenu *::before { transition-duration: .01s !important; transition-delay: 0s !important; } }
+`;
+function menuRgba(hex, a) {
+  const h = String(hex || "#000000").replace("#", "");
+  const f = h.length === 3 ? h.split("").map((c) => c + c).join("") : h.padEnd(6, "0");
+  const n = parseInt(f, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+function SiteMenu({ cfg, contained }) {
+  const C = { ...MENU_DEFAULTS, ...(cfg || {}) };
+  const items = C.items || [];
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
+  useEffect(() => { ensureTextFont(C.font); }, [C.font]);
+  useEffect(() => {
+    const l = window.__lenis;
+    if (!contained) {
+      if (open) { if (l && l.stop) l.stop(); document.documentElement.classList.add("menu-open"); }
+      else { if (l && l.start) l.start(); document.documentElement.classList.remove("menu-open"); }
+    }
+    const p = panelRef.current;
+    if (p) { if (open) p.removeAttribute("inert"); else p.setAttribute("inert", ""); }
+    let t = null;
+    if (open && p) t = setTimeout(() => { p.setAttribute("tabindex", "-1"); p.focus({ preventScroll: true }); }, 380);
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); if (t) clearTimeout(t); };
+  }, [open, contained]);
+  useEffect(() => () => { const l = window.__lenis; if (!contained) { if (l && l.start) l.start(); document.documentElement.classList.remove("menu-open"); } }, [contained]);
+  const toggle = () => {
+    if (!open && wrapRef.current && btnRef.current) {
+      const w = wrapRef.current.getBoundingClientRect(), b = btnRef.current.getBoundingClientRect();
+      wrapRef.current.style.setProperty("--ox", (b.left + b.width / 2 - w.left) + "px");
+      wrapRef.current.style.setProperty("--oy", (b.top + b.height / 2 - w.top) + "px");
+    }
+    setOpen((v) => !v);
+  };
+  const go = (e, it) => {
+    e.preventDefault();
+    setOpen(false);
+    if (contained) return;
+    setTimeout(() => {
+      if (it.type === "pose") {
+        const l = window.__lenis;
+        const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        const y = Math.max(0, Math.min(1, it.p || 0)) * max;
+        if (l && l.scrollTo) l.scrollTo(y, { duration: 1.6, easing: (t) => 1 - Math.pow(1 - t, 4) });
+        else window.scrollTo({ top: y, behavior: "smooth" });
+      } else if (it.href) {
+        if (it.newTab) window.open(it.href, "_blank", "noopener"); else window.location.href = it.href;
+      }
+    }, 140);
+  };
+  const side = C.panel === "right" || C.panel === "left";
+  const posCls = side ? (C.panel === "left" ? "l" : "r") : (C.position === "left" ? "l" : "r");
+  const bg2 = C.bgColor2 ? `linear-gradient(${C.bgAngle}deg, ${menuRgba(C.bgColor, C.bgAlpha)}, ${menuRgba(C.bgColor2, C.bgAlpha)})` : menuRgba(C.bgColor, C.bgAlpha);
+  const vars = {
+    "--sm-font": C.font, "--sm-top": C.top + "px", "--sm-side": C.side + "px", "--sm-bsize": C.btnSize + "px",
+    "--sm-lw": C.lineWidth + "px", "--sm-lg": C.lineGap + "px", "--sm-bcolor": C.btnColor, "--sm-bbg": menuRgba(C.btnBg, C.btnStyle === "solid" ? 1 : C.btnBgAlpha),
+    "--sm-bg": bg2, "--sm-blur": C.bgBlur + "px", "--sm-dur": C.duration + "s", "--sm-ease": MENU_EASES[C.ease] || MENU_EASES.expo, "--sm-pw": C.panelWidth + "px",
+    "--sm-weight": C.weight, "--sm-size": C.size + "px", "--sm-ls": C.letterSpacing + "em", "--sm-tt": C.uppercase ? "uppercase" : "none", "--sm-align": C.align,
+    "--sm-ai": C.align === "center" ? "center" : C.align === "right" ? "flex-end" : "flex-start", "--sm-color": C.color, "--sm-gap": C.gap + "px",
+    "--sm-d0": (C.duration * 0.35) + "s", "--sm-stag": C.itemDelay + "s", "--sm-idur": C.itemDuration + "s", "--sm-fsize": C.footerSize + "px", "--n": items.length,
+  };
+  if (C.hoverColor) vars["--sm-hover"] = C.hoverColor;
+  const cls = "sitemenu sitemenu--" + posCls + (side ? " sitemenu--side" : "") + (contained ? " sitemenu--contained" : "") + (open ? " is-open" : "") +
+    " sm-bg-" + C.bgAnim + " sm-it-" + C.itemAnim + " sm-hv-" + C.hover + (C.autoContrast ? " sitemenu--auto" : "");
+  const label = (it) => {
+    const txt = String(it.label || "");
+    if (C.itemAnim === "letters") return Array.from(txt).map((ch, k) => <span key={k} className="sm-ch" style={{ "--k": k }}>{ch === " " ? " " : ch}</span>);
+    return <span className="sm-in">{txt}</span>;
+  };
+  return (
+    <div ref={wrapRef} className={cls} style={vars}>
+      <style>{MENU_CSS}</style>
+      <div ref={panelRef} className="sitemenu__panel" id="sitemenu-panel" role="dialog" aria-modal="true" aria-label="Menú">
+        <div className="sitemenu__scrim" onClick={() => setOpen(false)} />
+        <div className="sitemenu__box">
+          <div className="sitemenu__bg" aria-hidden="true">{C.bgAnim === "columns" && !side ? [0, 1, 2, 3, 4].map((i) => <i key={i} style={{ "--ci": i }} />) : null}</div>
+          <nav className="sitemenu__nav" aria-label="Principal">
+            <ul>
+              {items.map((it, i) => (
+                <li key={i} className="sitemenu__li" style={{ "--i": i }}>
+                  <a className="sitemenu__a" href={it.type === "pose" ? "#pose-" + (it.pose || 1) : (it.href || "#")} onClick={(e) => go(e, it)}>
+                    {C.numbers && <span className="sm-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>}
+                    <span className="sm-lab">{label(it)}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            {C.footer && <div className="sitemenu__foot">{C.footer}</div>}
+          </nav>
+        </div>
+      </div>
+      <button ref={btnRef} type="button" className={"sitemenu__btn sitemenu__btn--" + C.btnStyle + " sitemenu__btn--" + C.btnShape} aria-label={open ? "Cerrar menú" : "Abrir menú"} aria-expanded={open} aria-controls="sitemenu-panel" onClick={toggle}>
+        <span className="sm-l sm-l1" /><span className="sm-l sm-l2" />{C.lines === 3 && <span className="sm-l sm-l3" />}
+      </button>
+    </div>
+  );
+}
+
 function BackToTop() {
   const ref = useRef(null);
   const fillRef = useRef(null);
@@ -4361,6 +4560,7 @@ function App() {
       <div ref={spacerRef} className="scroll-spacer" style={{ height: `${SCROLL_LENGTH_VH}vh` }} />
       {DOCK.enabled && <><div className="dock-shade" aria-hidden="true" /><Dock /></>}
       {BACKTOP.enabled && <BackToTop />}
+      {MENU.enabled && <SiteMenu cfg={MENU} />}
     </div>
   );
 }
@@ -4573,6 +4773,7 @@ function sampleObjectTransform(transformsByStage, progress, stages, easings) {
     sx: lerp(ta.sx ?? 1, tb.sx ?? 1, t),
     sy: lerp(ta.sy ?? 1, tb.sy ?? 1, t),
     rv: lerp(ta.rv ?? 1, tb.rv ?? 1, t),
+    rz: lerp(ta.rz || 0, tb.rz || 0, t),
     tk: lerp(ta.tk || 0, tb.tk || 0, t),
     lh: lerp(ta.lh || 0, tb.lh || 0, t),
     sh: ta.sh || tb.sh ? shapeLerp(ta.sh, tb.sh, t) : null,
@@ -4833,6 +5034,11 @@ function FadeGroup({ obj, fade, children }) {
 /* ---- Look: "Luz natural" y "Exposición" (globales) ----
    Se mezclan con la luz de cada pose SIN tocar los valores de las poses: la composición manual queda intacta
    y subir la luz natural solo rellena las sombras para que la imagen no quede oscura (web y MP4). */
+//@@use MENU_DEFAULTS
+//@@use MENU_EASES
+//@@use MENU_CSS
+//@@use menuRgba
+//@@use SiteMenu
 //@@use lookLight
 //@@use NaturalFill
 //@@use buildStudioEnvTexture
@@ -5102,7 +5308,7 @@ function ObjectPreviewText({ obj, fade }) {
     <mesh key={geo ? "g" : "p"} renderOrder={10} frustumCulled={!geo} geometry={geo || undefined}
       scale={[(obj.scale * (obj.sx ?? 1) * texture.image.width) / refH, (obj.scale * (obj.sy ?? 1) * texture.image.height) / refH, 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
-      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+      rotation={obj.billboard ? [0, 0, ((obj.rz || 0) * Math.PI) / 180] : [0, (obj.rotationY * Math.PI) / 180, ((obj.rz || 0) * Math.PI) / 180]}
     >
       {!geo && <planeGeometry args={[1, 1]} />}
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); if (geo) patchTextAnimMaterial(m, ta); }} />
@@ -5118,7 +5324,7 @@ function ObjectPreviewImageRaster({ obj, fade }) {
     <mesh renderOrder={10}
       scale={[obj.scale * (obj.sx ?? 1) * aspect, obj.scale * (obj.sy ?? 1), 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
-      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+      rotation={obj.billboard ? [0, 0, ((obj.rz || 0) * Math.PI) / 180] : [0, (obj.rotationY * Math.PI) / 180, ((obj.rz || 0) * Math.PI) / 180]}
     >
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); patchMediaMaterial(m, obj, aspect); }} />
@@ -5134,7 +5340,7 @@ function ObjectPreviewImageSvg({ obj, fade }) {
     <mesh renderOrder={10}
       scale={[obj.scale * (obj.sx ?? 1) * aspect, obj.scale * (obj.sy ?? 1), 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
-      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+      rotation={obj.billboard ? [0, 0, ((obj.rz || 0) * Math.PI) / 180] : [0, (obj.rotationY * Math.PI) / 180, ((obj.rz || 0) * Math.PI) / 180]}
     >
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); patchMediaMaterial(m, obj, aspect); }} />
@@ -5154,7 +5360,7 @@ function ObjectPreviewVideo({ obj, fade }) {
     <mesh renderOrder={10}
       scale={[obj.scale * (obj.sx ?? 1) * aspect, obj.scale * (obj.sy ?? 1), 1]}
       position={obj.billboard ? [0, 0, 0] : obj.position}
-      rotation={obj.billboard ? [0, 0, 0] : [0, (obj.rotationY * Math.PI) / 180, 0]}
+      rotation={obj.billboard ? [0, 0, ((obj.rz || 0) * Math.PI) / 180] : [0, (obj.rotationY * Math.PI) / 180, ((obj.rz || 0) * Math.PI) / 180]}
     >
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial map={texture} transparent toneMapped={false} ref={(m) => { discardClearPixels(m); patchFadeMaterial(m, fade); patchMediaMaterial(m, obj, aspect); }} />
@@ -6062,9 +6268,13 @@ const DEFAULT_CURSOR = { enabled: true, color: "#ffffff", size: 56, life: 0.7, i
 const DEFAULT_PROGRESS_BAR = { enabled: true, color: "" };
 const DEFAULT_BACKTOP = { enabled: true, position: "right", style: "dark", size: 46, showAfter: 0.06, duration: 1.8, ring: true, color: "" };
 /* Bloque @GEN:EXTRAS de la plantilla: estela del mouse y barra de progreso lateral. */
-function generateExtrasCode(cursor, progressBar, backTop) {
+const DEFAULT_MENU = MENU_DEFAULTS;
+function generateExtrasCode(cursor, progressBar, backTop, menu, stageProgress) {
   const c = { ...DEFAULT_CURSOR, ...cursor }, p = { ...DEFAULT_PROGRESS_BAR, ...progressBar }, b = { ...DEFAULT_BACKTOP, ...backTop };
-  return `const CURSOR = ${JSON.stringify(c, null, 2)};\nconst PROGRESS_BAR = ${JSON.stringify(p, null, 2)};\nconst BACKTOP = ${JSON.stringify(b, null, 2)};`;
+  const m0 = { ...DEFAULT_MENU, ...(menu || {}) };
+  const sp = stageProgress || [0];
+  const m = { ...m0, items: (m0.items || []).map((it) => ({ label: it.label || "", type: it.type === "pose" ? "pose" : "url", href: it.href || "", newTab: !!it.newTab, ...(it.type === "pose" ? { pose: it.pose || 1, p: Math.round((sp[Math.min(sp.length - 1, Math.max(0, (it.pose || 1) - 1))] || 0) * 10000) / 10000 } : {}) })) };
+  return `const CURSOR = ${JSON.stringify(c, null, 2)};\nconst PROGRESS_BAR = ${JSON.stringify(p, null, 2)};\nconst BACKTOP = ${JSON.stringify(b, null, 2)};\nconst MENU = ${JSON.stringify(m, null, 2)};`;
 }
 const DEFAULT_LOADER = { enabled: true, svg: "", background: "#05070f", lineColor: "#ffffff", font: "'Space Grotesk', sans-serif", lineWidth: 1.4, minMs: 1800, showNumber: true };
 /* Bloques @GEN:LOADER y @GEN:LOADER_CSS de la plantilla: pantalla de carga con tu SVG y el contador 000 → 100. */
@@ -6088,7 +6298,7 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     const kfLines = stages.map((kf, idx) => {
       const t = transforms[kf.id] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" };
       const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
-      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.tk ? `, tk: ${fmtNum(t.tk)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
+      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.rz ? `, rz: ${fmtNum(t.rz)}` : ""}${t.tk ? `, tk: ${fmtNum(t.tk)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
     }).join("\n");
     if (o.type === "text") {
       return `  {
@@ -7076,6 +7286,12 @@ function App() {
   const [cursor, setCursor] = useState(DEFAULT_CURSOR);
   const [progressBar, setProgressBar] = useState(DEFAULT_PROGRESS_BAR);
   const [backTop, setBackTop] = useState(DEFAULT_BACKTOP);
+  const [menu, setMenu] = useState(DEFAULT_MENU);
+  const setMenuField = (field, value) => setMenu((prev) => ({ ...prev, [field]: value }));
+  const setMenuItem = (i, patch) => setMenu((prev) => ({ ...prev, items: prev.items.map((it, k) => (k === i ? { ...it, ...patch } : it)) }));
+  const addMenuItem = () => setMenu((prev) => ({ ...prev, items: [...prev.items, { label: "Nuevo link", type: "url", href: "", pose: 1, newTab: false }] }));
+  const removeMenuItem = (i) => setMenu((prev) => ({ ...prev, items: prev.items.filter((_, k) => k !== i) }));
+  const moveMenuItem = (i, d) => setMenu((prev) => { const a = [...prev.items]; const j = i + d; if (j < 0 || j >= a.length) return prev; [a[i], a[j]] = [a[j], a[i]]; return { ...prev, items: a }; });
   const setBackTopField = (field, value) => setBackTop((prev) => ({ ...prev, [field]: value }));
   const setCursorField = (field, value) => setCursor((prev) => ({ ...prev, [field]: value }));
   const setProgressField = (field, value) => setProgressBar((prev) => ({ ...prev, [field]: value }));
@@ -7639,7 +7855,7 @@ function App() {
   const seoPack = useMemo(() => generateSeoPack(seo, dock, objects), [seo, dock, objects]);
   const loaderCode = useMemo(() => generateLoaderCode(loader), [loader]);
   const loaderCss = useMemo(() => generateLoaderCss(loader), [loader]);
-  const extrasCode = useMemo(() => generateExtrasCode(cursor, progressBar, backTop), [cursor, progressBar, backTop]);
+  const extrasCode = useMemo(() => generateExtrasCode(cursor, progressBar, backTop, menu, stagesComputed.map((st) => st.progress)), [cursor, progressBar, backTop, menu, stagesComputed]);
 
   const copy = async (text, which) => {
     try { await navigator.clipboard.writeText(text); setCopiedWhich(which); setTimeout(() => setCopiedWhich(null), 1500); }
@@ -7673,6 +7889,7 @@ function App() {
     cursor,
     progressBar,
     backTop,
+    menu,
     stages,
     durationsVh,
     easings,
@@ -7698,6 +7915,7 @@ function App() {
     setCursor({ ...DEFAULT_CURSOR, ...(p.cursor || {}) });
     setProgressBar({ ...DEFAULT_PROGRESS_BAR, ...(p.progressBar || {}) });
     setBackTop({ ...DEFAULT_BACKTOP, ...(p.backTop || {}) });
+    setMenu({ ...DEFAULT_MENU, ...(p.menu || {}), items: (p.menu && p.menu.items) || DEFAULT_MENU.items });
     const loadedStages = p.stages && p.stages.length ? p.stages : makeDefaultStages();
     setStages(loadedStages);
     setDurationsVh(p.durationsVh || DEFAULT_DURATIONS_VH);
@@ -7911,7 +8129,7 @@ function App() {
     setPostFx({ vignetteEnabled: false, vignetteDarkness: 0.5, vignetteOffset: 0.15, bloomEnabled: false, bloomIntensity: 0.5, beamEnabled: false, beamOpacity: 0.5, beamWidth: 2.5, beamHeight: 14, beamSoft: 0.5, beamGlow: 0.35, beamTx: 0, beamTy: 0, beamTz: 0, partEnabled: false, partCount: 650, partSize: 1, partOpacity: 0.65, partSpeed: 1, partBlur: 0.6, partRange: 16, partBeam: 0.6, envEnabled: true, envIntensity: 0.8, toneMap: false, naturalLight: 0, exposure: 1, lookPreset: "" });
     setTrail({ enabled: false, color: "#ffd873", size: 0.05, life: 0.9, rate: 40 });
     setReflection({ enabled: false, resolution: 256, updateEvery: 2, intensity: 1 });
-    setDock(DEFAULT_DOCK); setSeo(DEFAULT_SEO); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR); setBackTop(DEFAULT_BACKTOP);
+    setDock(DEFAULT_DOCK); setSeo(DEFAULT_SEO); setLoader(DEFAULT_LOADER); setCursor(DEFAULT_CURSOR); setProgressBar(DEFAULT_PROGRESS_BAR); setBackTop(DEFAULT_BACKTOP); setMenu(DEFAULT_MENU);
     setStages(st); setDurationsVh([]); setEasings([]);
     setPosesByKf(initialPoses(st)); setCamsByKf(initialCameras(st)); setMovesByKf(initialMovements(st)); setFxByKf(initialFx(st));
     setObjects([]); setObjectTransformsByKf({}); setSelectedObj(null);
@@ -8056,6 +8274,16 @@ function App() {
         {!isModel && <Slider label="Estirar alto" min={0.05} max={6} step={0.01} value={t.sy ?? 1} onChange={(v) => setObjectTransform(o.id, "sy", null, v)} />}
         <Vec3 label="Posición" value={t.position} onChange={(a, v) => setObjectTransform(o.id, "position", a, v)} />
         {!(!isModel && o.billboard) && <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />}
+        {!isModel && !isShape && (
+          <>
+            <Slider label="Giro Z (en el plano)" min={-180} max={180} step={1} value={t.rz || 0} onChange={(v) => setObjectTransform(o.id, "rz", null, v)} />
+            <div className="tools">
+              <Btn title="Texto vertical, se lee de abajo hacia arriba" onClick={() => setObjectTransform(o.id, "rz", null, 90)}>Vertical ↑</Btn>
+              <Btn title="Texto vertical, se lee de arriba hacia abajo" onClick={() => setObjectTransform(o.id, "rz", null, -90)}>Vertical ↓</Btn>
+              <Btn onClick={() => setObjectTransform(o.id, "rz", null, 0)}>Horizontal</Btn>
+            </div>
+          </>
+        )}
         <div className="grp-t" style={{ marginTop: 6 }}>Visibilidad · {currentStageLabel}</div>
         <Switch checked={!!t.hidden} onChange={(v) => setObjectTransform(o.id, "hidden", null, v)} label="Invisible en esta pose" />
         <div className="tools">
@@ -8115,6 +8343,11 @@ function App() {
         )}
         {showMobileFrame && <MobileFrameOverlay box={phoneBox} split={dock.splitPct || 67} dockOn={dock.enabled} shade={dock.shadeStrength ?? 0.7} dock={dock} />}
         {cursor.enabled && <CursorTrailPreview cfg={cursor} targetRef={viewportRef} />}
+        {menu.enabled && !exporting && (
+          <div style={{ position: "absolute", zIndex: 7, pointerEvents: "none", ...(phoneBox ? { left: phoneBox.left, top: phoneBox.top, width: phoneBox.w, height: phoneBox.h } : { inset: 0 }) }}>
+            <SiteMenu cfg={menu} contained />
+          </div>
+        )}
         {progressBar.enabled && (
           <div className="vp-rail" style={{ ...(phoneBox ? { left: phoneBox.left + phoneBox.w - 14 } : { right: 14 }), ...(progressBar.color ? { "--rail-color": progressBar.color } : {}) }}>
             <i style={{ height: `${Math.round(scrollProgressNow * 100)}%` }} />
@@ -8237,6 +8470,98 @@ function App() {
                     {backTop.color && <button className="mini" onClick={() => setBackTopField("color", "")}>Quitar</button>}
                   </div>
                   <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Aparece en el sitio al avanzar el scroll y vuelve al principio con inercia. Con el vidrio oscuro o claro se ve bien sobre cualquier fondo; se acomoda solo arriba de WhatsApp / turnero. No se ve en el visor, probalo en el sitio exportado.</div>
+                </Group>
+                <Group id="menu" title="Menú (hamburguesa)" defaultOpen={false} toggle={{ checked: menu.enabled, onChange: (v) => setMenuField("enabled", v) }}>
+                  <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Botón de dos rayitas que se convierte en una cruz al abrir. Mirá y probalo en el visor (tocá el botón).</div>
+                  <div className="grp-t" style={{ marginTop: 4 }}>Botón</div>
+                  <SelectRow label="Posición" value={menu.position} onChange={(v) => setMenuField("position", v)} options={[["right", "Arriba derecha"], ["left", "Arriba izquierda"]]} />
+                  <SelectRow label="Estilo" value={menu.btnStyle} onChange={(v) => setMenuField("btnStyle", v)} options={[["glass", "Vidrio"], ["solid", "Sólido"], ["outline", "Solo borde"], ["none", "Solo las rayitas"]]} />
+                  <SelectRow label="Forma" value={menu.btnShape} onChange={(v) => setMenuField("btnShape", v)} options={[["circle", "Círculo"], ["square", "Cuadrado redondeado"]]} />
+                  <Switch checked={!!menu.autoContrast} onChange={(v) => setMenuField("autoContrast", v)} label="Adaptar al fondo (se ve sobre claro y oscuro)" />
+                  <Slider label="Tamaño" min={36} max={80} step={1} value={menu.btnSize} onChange={(v) => setMenuField("btnSize", v)} />
+                  <Slider label="Distancia arriba" min={4} max={60} step={1} value={menu.top} onChange={(v) => setMenuField("top", v)} />
+                  <Slider label="Distancia al borde" min={4} max={60} step={1} value={menu.side} onChange={(v) => setMenuField("side", v)} />
+                  <SelectRow label="Rayitas" value={String(menu.lines)} onChange={(v) => setMenuField("lines", Number(v))} options={[["2", "Dos"], ["3", "Tres"]]} />
+                  <Slider label="Grosor rayitas" min={1} max={5} step={0.5} value={menu.lineWidth} onChange={(v) => setMenuField("lineWidth", v)} />
+                  <Slider label="Separación" min={2} max={12} step={0.5} value={menu.lineGap} onChange={(v) => setMenuField("lineGap", v)} />
+                  <ColorRow label="Color rayitas" value={menu.btnColor} onChange={(v) => setMenuField("btnColor", v)} />
+                  {(menu.btnStyle === "glass" || menu.btnStyle === "solid") && <ColorRow label="Fondo del botón" value={menu.btnBg} onChange={(v) => setMenuField("btnBg", v)} />}
+                  {menu.btnStyle === "glass" && <Slider label="Transparencia botón" min={0} max={1} step={0.01} value={menu.btnBgAlpha} onChange={(v) => setMenuField("btnBgAlpha", v)} />}
+                  <div className="grp-t" style={{ marginTop: 8 }}>Fondo del menú</div>
+                  <SelectRow label="Tipo" value={menu.panel} onChange={(v) => setMenuField("panel", v)} options={[["full", "Pantalla completa"], ["right", "Panel lateral derecho"], ["left", "Panel lateral izquierdo"]]} />
+                  {menu.panel === "full" ? (
+                    <SelectRow label="Animación" value={menu.bgAnim} onChange={(v) => setMenuField("bgAnim", v)} options={[["circle", "Círculo que crece desde el botón"], ["columns", "Cortina de columnas"], ["slideDown", "Baja desde arriba"], ["slideUp", "Sube desde abajo"], ["slideSide", "Entra de costado"], ["fade", "Aparece suave"]]} />
+                  ) : (
+                    <>
+                      <SelectRow label="Animación" value={menu.bgAnim === "fade" ? "fade" : "slide"} onChange={(v) => setMenuField("bgAnim", v)} options={[["slide", "Desliza desde el costado"], ["fade", "Aparece suave"]]} />
+                      <Slider label="Ancho del panel" min={280} max={720} step={10} value={menu.panelWidth} onChange={(v) => setMenuField("panelWidth", v)} />
+                    </>
+                  )}
+                  <ColorRow label="Color" value={menu.bgColor} onChange={(v) => setMenuField("bgColor", v)} />
+                  <div className="row"><span className="lbl">Segundo color (degradé)</span>
+                    <HexColor value={menu.bgColor2 || "#1a1030"} onChange={(v) => setMenuField("bgColor2", v)} />
+                    {menu.bgColor2 && <button className="mini" onClick={() => setMenuField("bgColor2", "")}>Quitar</button>}
+                  </div>
+                  {menu.bgColor2 && <Slider label="Ángulo del degradé" min={0} max={360} step={1} value={menu.bgAngle} onChange={(v) => setMenuField("bgAngle", v)} />}
+                  <Slider label="Opacidad del fondo" min={0} max={1} step={0.01} value={menu.bgAlpha} onChange={(v) => setMenuField("bgAlpha", v)} />
+                  <Slider label="Desenfoque del fondo (vidrio)" min={0} max={40} step={1} value={menu.bgBlur} onChange={(v) => setMenuField("bgBlur", v)} />
+                  <Slider label="Duración (s)" min={0.3} max={2} step={0.05} value={menu.duration} onChange={(v) => setMenuField("duration", v)} />
+                  <SelectRow label="Curva" value={menu.ease} onChange={(v) => setMenuField("ease", v)} options={[["expo", "Suave y rápida (expo)"], ["smooth", "Pareja"], ["back", "Con rebote leve"], ["linear", "Lineal"]]} />
+                  <div className="grp-t" style={{ marginTop: 8 }}>Textos del menú</div>
+                  <FontSelect label="Fuente" value={menu.font} onChange={(v) => setMenuField("font", v)} />
+                  <SelectRow label="Peso" value={String(textFontWeight(menu.font, menu.weight))} onChange={(v) => setMenuField("weight", Number(v))} options={((TEXT_FONTS.find((f) => f[0] === menu.font) || [])[3] || [300, 400, 500, 600, 700]).map((w) => [String(w), WEIGHT_NAMES[w] || String(w)])} />
+                  <Slider label="Tamaño" min={16} max={110} step={1} value={menu.size} onChange={(v) => setMenuField("size", v)} />
+                  <Slider label="Espacio entre letras" min={-0.08} max={0.4} step={0.005} value={menu.letterSpacing} onChange={(v) => setMenuField("letterSpacing", v)} />
+                  <Slider label="Espacio entre links" min={0} max={50} step={1} value={menu.gap} onChange={(v) => setMenuField("gap", v)} />
+                  <Seg value={menu.align} onChange={(v) => setMenuField("align", v)} options={[["left", "Izq."], ["center", "Centro"], ["right", "Der."]]} />
+                  <Switch checked={!!menu.uppercase} onChange={(v) => setMenuField("uppercase", v)} label="Mayúsculas" />
+                  <Switch checked={!!menu.numbers} onChange={(v) => setMenuField("numbers", v)} label="Numerar (01, 02, 03…)" />
+                  <ColorRow label="Color del texto" value={menu.color} onChange={(v) => setMenuField("color", v)} />
+                  <div className="row"><span className="lbl">Color al pasar el mouse</span>
+                    <HexColor value={menu.hoverColor || "#49d3ff"} onChange={(v) => setMenuField("hoverColor", v)} />
+                    {menu.hoverColor && <button className="mini" onClick={() => setMenuField("hoverColor", "")}>Quitar</button>}
+                  </div>
+                  <SelectRow label="Animación de entrada" value={menu.itemAnim} onChange={(v) => setMenuField("itemAnim", v)} options={[["mask", "Líneas suben con máscara"], ["letters", "Letra por letra con máscara"], ["fade", "Aparecen suave"], ["slide", "Entran de costado"], ["none", "Sin animación"]]} />
+                  <Slider label="Retraso entre links (s)" min={0} max={0.3} step={0.01} value={menu.itemDelay} onChange={(v) => setMenuField("itemDelay", v)} />
+                  <Slider label="Duración de cada link (s)" min={0.2} max={1.8} step={0.05} value={menu.itemDuration} onChange={(v) => setMenuField("itemDuration", v)} />
+                  <SelectRow label="Al pasar el mouse" value={menu.hover} onChange={(v) => setMenuField("hover", v)} options={[["shift", "Se corre a la derecha"], ["underline", "Subrayado animado"], ["dim", "Los otros se apagan"], ["none", "Nada"]]} />
+                  <div className="grp-t" style={{ marginTop: 8 }}>Links (a dónde llevan)</div>
+                  {menu.items.map((it, i) => (
+                    <div key={i} style={{ display: "flex", flexDirection: "column", gap: 5, padding: 8, border: "1px solid var(--line2)", borderRadius: 6 }}>
+                      <div className="row">
+                        <span className="lbl">Nombre</span>
+                        <input type="text" style={{ flex: 1 }} value={it.label} spellCheck={false} onChange={(e) => setMenuItem(i, { label: e.target.value })} />
+                      </div>
+                      <div className="row">
+                        <span className="lbl">Lleva a</span>
+                        <select style={{ flex: 1 }} value={it.type === "pose" ? "pose" : "url"} onChange={(e) => setMenuItem(i, { type: e.target.value })}>
+                          <option value="url">Una dirección (web, WhatsApp, mail…)</option>
+                          <option value="pose">Un punto de esta misma página</option>
+                        </select>
+                      </div>
+                      {it.type === "pose" ? (
+                        <SelectRow label="Pose" value={String(it.pose || 1)} onChange={(v) => setMenuItem(i, { pose: Number(v) })} options={stagesComputed.map((st, k) => [String(k + 1), `${k + 1} · ${st.label || "Pose " + (k + 1)}`])} />
+                      ) : (
+                        <>
+                          <div className="row">
+                            <span className="lbl">Dirección</span>
+                            <input type="text" style={{ flex: 1 }} value={it.href || ""} placeholder="https://… · mailto:… · tel:… · https://wa.me/54911…" spellCheck={false} onChange={(e) => setMenuItem(i, { href: e.target.value })} />
+                          </div>
+                          <Switch checked={!!it.newTab} onChange={(v) => setMenuItem(i, { newTab: v })} label="Abrir en pestaña nueva" />
+                        </>
+                      )}
+                      <div className="tools">
+                        <Btn onClick={() => moveMenuItem(i, -1)} disabled={i === 0}>↑ Subir</Btn>
+                        <Btn onClick={() => moveMenuItem(i, 1)} disabled={i === menu.items.length - 1}>↓ Bajar</Btn>
+                        <Btn onClick={() => removeMenuItem(i)}>Quitar</Btn>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="tools"><Btn icon="plus" kind="acc" onClick={addMenuItem}>Agregar link</Btn></div>
+                  <div className="row" style={{ alignItems: "flex-start" }}>
+                    <span className="lbl">Texto al pie</span>
+                    <textarea rows={2} style={{ flex: 1 }} value={menu.footer || ""} placeholder="Ej: hola@tumarca.com · +54 9 11 …" onChange={(e) => setMenuField("footer", e.target.value)} />
+                  </div>
                 </Group>
                 <Group id="railbar" title="Barra de progreso lateral" toggle={{ checked: progressBar.enabled, onChange: (v) => setProgressField("enabled", v) }}>
                   <div className="row"><span className="lbl">Color</span>
