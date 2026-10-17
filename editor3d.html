@@ -484,6 +484,8 @@
     "react-dom": "https://esm.sh/react-dom@18.3.1",
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
     "three": "https://esm.sh/three@0.160.0",
+    "three/examples/jsm/loaders/SVGLoader.js": "https://esm.sh/three@0.160.0/examples/jsm/loaders/SVGLoader.js?external=three",
+    "three/examples/jsm/utils/BufferGeometryUtils.js": "https://esm.sh/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js?external=three",
     "zustand": "https://esm.sh/zustand@4.5.5?external=react",
     "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
     "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
@@ -501,6 +503,8 @@ import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import * as THREE from "three";
+import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
+import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Stars, useTexture, Billboard, useProgress, MeshReflectorMaterial, ContactShadows, PerformanceMonitor } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping, N8AO, SMAA, DepthOfField } from "@react-three/postprocessing";
@@ -3449,6 +3453,89 @@ function SceneObjectModel({ data }) {
     </group>
   );
 }
+/* ---- Logo / SVG con volumen (extruido) ----
+   Un .svg subido como "Imagen / SVG" puede pasar de cartel plano a objeto 3D: se extruyen sus trazos
+   (grosor + bisel) y se le da un material (mate, plástico, metal, cromo, oro, vidrio, neón). Grosor 0 = plano, como siempre. */
+const SVG_MATS = {
+  matte:   { label: "Mate", rough: 0.85, metal: 0 },
+  plastic: { label: "Plástico brillante", rough: 0.22, metal: 0, clear: 1 },
+  metal:   { label: "Metal pulido", rough: 0.25, metal: 1 },
+  chrome:  { label: "Cromo", rough: 0.05, metal: 1, color: "#e6ebf2" },
+  gold:    { label: "Oro", rough: 0.2, metal: 1, color: "#f0b840" },
+  glass:   { label: "Vidrio", rough: 0.05, metal: 0, glass: true },
+  neon:    { label: "Neón (brilla)", rough: 0.5, metal: 0, neon: true },
+};
+const __svgTextCache = new Map();
+function fetchSvgText(url) {
+  if (!__svgTextCache.has(url)) __svgTextCache.set(url, fetch(url).then((r) => r.text()));
+  return __svgTextCache.get(url);
+}
+function buildSvgExtrude(text, depthK, bevK) {
+  const data = new SVGLoader().parse(text);
+  const parts = [];
+  const box = new THREE.Box2();
+  data.paths.forEach((pa) => {
+    const st = (pa.userData && pa.userData.style) || {};
+    if (!st.fill || st.fill === "none") return;
+    const shapes = SVGLoader.createShapes(pa);
+    if (!shapes.length) return;
+    shapes.forEach((sh) => sh.getPoints(8).forEach((v) => box.expandByPoint(v)));
+    parts.push({ shapes, color: pa.color ? pa.color.clone() : new THREE.Color("#ffffff") });
+  });
+  const H = Math.max(1e-6, box.max.y - box.min.y), W = box.max.x - box.min.x;
+  const cx = (box.min.x + box.max.x) / 2, cy = (box.min.y + box.max.y) / 2;
+  const depth = Math.max(0.002, depthK) * H;
+  const b = Math.min(depth * 0.45, Math.max(0, bevK) * 0.05 * H);
+  parts.forEach((pt) => {
+    let g = new THREE.ExtrudeGeometry(pt.shapes, { depth, curveSegments: 10, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: 4 });
+    g.translate(-cx, -cy, -(depth / 2 + b));
+    g.scale(1 / H, 1 / H, 1 / H);
+    pt.geo = toCreasedNormals(g, 0.6);
+    g.dispose();
+  });
+  return { parts, aspect: W / H };
+}
+function makeSvgMat(data, base) {
+  const pr = SVG_MATS[data.mat] || SVG_MATS.plastic;
+  const color = new THREE.Color(data.matColor || pr.color || base);
+  const m = new THREE.MeshPhysicalMaterial({
+    color, roughness: data.matRough != null ? data.matRough : pr.rough, metalness: pr.metal,
+    clearcoat: pr.clear ? 1 : 0, clearcoatRoughness: 0.08,
+    transmission: pr.glass ? 1 : 0, thickness: pr.glass ? 0.4 : 0, ior: 1.45,
+    emissive: pr.neon ? color : new THREE.Color("#000000"), emissiveIntensity: pr.neon ? 2.2 : 0,
+  });
+  return m;
+}
+function SvgExtrudeBody({ url, data, fade, hasFade, shadows }) {
+  const [built, setBuilt] = useState(null);
+  const ext = data.ext || 0, bev = data.bev ?? 0.3;
+  const gref = useRef(null);
+  useEffect(() => {
+    let off = false;
+    fetchSvgText(url).then((t) => { if (off) return; try { setBuilt((prev) => { if (prev) prev.parts.forEach((pt) => pt.geo.dispose()); return buildSvgExtrude(t, ext, bev); }); } catch (e) { console.warn("No se pudo extruir el SVG:", e && e.message); } }).catch(() => {});
+    return () => { off = true; };
+  }, [url, ext, bev]);
+  const mats = useMemo(() => (built ? built.parts.map((pt) => makeSvgMat(data, pt.color)) : []), [built, data.mat, data.matColor, data.matRough]);
+  useEffect(() => () => mats.forEach((m) => m.dispose()), [mats]);
+  const envTex = useStudioEnv();
+  const envCfg = React.useContext(EnvSettingsCtx);
+  useEffect(() => {
+    if (!gref.current) return;
+    if (hasFade) patchFadeMaterial(mats, fade);
+    applyStudioEnv(gref.current, envTex, envCfg.enabled, envCfg.intensity);
+  }, [mats, envTex, envCfg.enabled, envCfg.intensity, hasFade, fade]);
+  if (!built) return null;
+  return (
+    <group ref={gref}>
+      {built.parts.map((pt, i) => <mesh key={i} geometry={pt.geo} material={mats[i]} scale={[1, -1, 1]} castShadow={shadows !== false} receiveShadow />)}
+    </group>
+  );
+}
+function SceneObjectSvgExtrude({ data }) {
+  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard);
+  const body = <group ref={zRef}><SvgExtrudeBody url={data.url} data={data} fade={fade} hasFade={hasFade} shadows={data.shadows !== false} /></group>;
+  return <group ref={groupRef}>{data.billboard ? <Billboard>{body}</Billboard> : body}</group>;
+}
 function SceneObjectImageRaster({ data }) {
   const texture = useTexture(data.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
@@ -3506,7 +3593,7 @@ function SceneObjectVideo({ data }) {
   );
 }
 function SceneObjectImage({ data }) {
-  return isSvgUrl(data.url) ? <SceneObjectImageSvg data={data} /> : <SceneObjectImageRaster data={data} />;
+  return isSvgUrl(data.url) ? ((data.ext || 0) > 0 ? <SceneObjectSvgExtrude data={data} /> : <SceneObjectImageSvg data={data} />) : <SceneObjectImageRaster data={data} />;
 }
 /* ============================================================
    HUMO / NIEBLA VOLUMÉTRICA: una caja que se dibuja con raymarching (se "recorre" cada rayo dentro del volumen sumando densidad).
@@ -4911,6 +4998,8 @@ createRoot(document.getElementById("root")).render(<App />);
     "react-dom": "https://esm.sh/react-dom@18.3.1",
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
     "three": "https://esm.sh/three@0.160.0",
+    "three/examples/jsm/loaders/SVGLoader.js": "https://esm.sh/three@0.160.0/examples/jsm/loaders/SVGLoader.js?external=three",
+    "three/examples/jsm/utils/BufferGeometryUtils.js": "https://esm.sh/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js?external=three",
     "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.17.10?external=react,react-dom,three",
     "@react-three/drei": "https://esm.sh/@react-three/drei@9.114.3?external=react,react-dom,three,@react-three/fiber",
     "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.3?external=react,three,@react-three/fiber,postprocessing",
@@ -4926,6 +5015,8 @@ import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
+import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
+import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Grid, useTexture, Billboard, Html, useProgress, MeshReflectorMaterial, ContactShadows } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping, N8AO, DepthOfField } from "@react-three/postprocessing";
@@ -5395,6 +5486,12 @@ function FadeGroup({ obj, fade, children }) {
 //@@use weebLightSet
 //@@use applyShapeLights
 //@@use lookLight
+//@@use SVG_MATS
+//@@use __svgTextCache
+//@@use fetchSvgText
+//@@use buildSvgExtrude
+//@@use makeSvgMat
+//@@use SvgExtrudeBody
 //@@use accentTone
 //@@use accentHalo
 //@@use NaturalFill
@@ -5680,6 +5777,16 @@ function ObjectPreviewText({ obj, fade }) {
   return obj.billboard ? <Billboard position={obj.position}>{mesh}</Billboard> : mesh;
 }
 
+function ObjectPreviewSvgExtrude({ obj, fade }) {
+  const sc = obj.scale;
+  const body = (
+    <group scale={[sc * (obj.sx ?? 1), sc * (obj.sy ?? 1), sc]} position={obj.billboard ? [0, 0, 0] : obj.position}
+      rotation={obj.billboard ? [0, 0, ((obj.rz || 0) * Math.PI) / 180] : eulYXZ(obj.rx, obj.rotationY, obj.rz)}>
+      <SvgExtrudeBody url={obj.previewUrl || obj.url} data={obj} fade={fade} hasFade shadows />
+    </group>
+  );
+  return obj.billboard ? <Billboard position={obj.position}>{body}</Billboard> : body;
+}
 function ObjectPreviewImageRaster({ obj, fade }) {
   const texture = useTexture(obj.previewUrl || obj.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
@@ -5750,7 +5857,7 @@ function ObjectPreviewShape({ obj, fade }) {
     : <group position={obj.position} rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}>{mesh}</group>;
 }
 function ObjectPreviewImage({ obj, fade }) {
-  return isSvgUrl(obj.url) ? <ObjectPreviewImageSvg obj={obj} fade={fade} /> : <ObjectPreviewImageRaster obj={obj} fade={fade} />;
+  return isSvgUrl(obj.url) ? ((obj.ext || 0) > 0 ? <ObjectPreviewSvgExtrude obj={obj} fade={fade} /> : <ObjectPreviewImageSvg obj={obj} fade={fade} />) : <ObjectPreviewImageRaster obj={obj} fade={fade} />;
 }
 function eulYXZ(rx, ry, rz) { return new THREE.Euler(((rx || 0) * Math.PI) / 180, ((ry || 0) * Math.PI) / 180, ((rz || 0) * Math.PI) / 180, "YXZ"); }
 function ObjectPreviewSmoke({ obj }) {
@@ -6745,6 +6852,11 @@ ${kfLines}
     borderWidth: ${fmtNum(o.borderWidth || 0)},
     borderColor: ${JSON.stringify(o.borderColor || "#ffffff")},
     billboard: ${o.billboard ? "true" : "false"},
+    ext: ${fmtNum(o.ext || 0)},
+    bev: ${fmtNum(o.bev ?? 0.3)},
+    mat: ${JSON.stringify(o.mat || "plastic")},
+    matColor: ${JSON.stringify(o.matColor || "")},
+    matRough: ${o.matRough != null ? fmtNum(o.matRough) : "null"},
     keyframes: [
 ${kfLines}
     ],
@@ -8894,6 +9006,22 @@ function App() {
         {(isText || isImage || (isShape && !o.phys)) && <Switch checked={!!o.lit} onChange={(v) => updateObject(o.id, { lit: v })} label="Recibe luz (spots y luces de la escena)" />}
         {(isText || isImage || (isShape && !o.phys)) && o.lit && <Slider label="Brillo propio" min={0} max={1} step={0.01} value={o.litBase ?? 0.2} onChange={(v) => updateObject(o.id, { litBase: v })} />}
         {(isText || isImage || (isShape && !o.phys)) && o.lit && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Con esto el cartel se ve según la luz que le llega: oscuro donde no hay luz y brillante bajo los spots. «Brillo propio» es lo mínimo que se ve sin luz.</div>}
+        {isImage && isSvgUrl(o.url) && (
+          <>
+            <div className="grp-t" style={{ marginTop: 4 }}>Volumen 3D (extruir el logo)</div>
+            <Slider label="Grosor (0 = plano)" min={0} max={0.6} step={0.005} value={o.ext || 0} onChange={(v) => updateObject(o.id, { ext: v, ...(v > 0 && !o.ext && o.billboard ? { billboard: false } : {}) })} />
+            {(o.ext || 0) > 0 && (
+              <>
+                <Slider label="Bisel (borde redondeado)" min={0} max={1} step={0.01} value={o.bev ?? 0.3} onChange={(v) => updateObject(o.id, { bev: v })} />
+                <SelectRow label="Material" value={o.mat || "plastic"} onChange={(v) => updateObject(o.id, { mat: v, matRough: null })} options={Object.entries(SVG_MATS).map(([k, m]) => [k, m.label])} />
+                <ColorRow label="Color" value={o.matColor || "#ffffff"} onChange={(v) => updateObject(o.id, { matColor: v })} />
+                <div className="tools"><Btn title="Usa el color que trae el SVG (el oro y el cromo usan el suyo)" onClick={() => updateObject(o.id, { matColor: "" })}>Color original del SVG</Btn></div>
+                <Slider label="Rugosidad" min={0} max={1} step={0.01} value={o.matRough != null ? o.matRough : (SVG_MATS[o.mat || "plastic"] || SVG_MATS.plastic).rough} onChange={(v) => updateObject(o.id, { matRough: v })} />
+                <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Reacciona a la luz de la escena y a tus spots. Los metales y el cromo necesitan el «Entorno de reflejos» prendido (Look). Con «Billboard» el logo mira siempre a cámara y no se ve el volumen: apagalo y usá «Giro Y» para girarlo. El vidrio es más pesado en celulares.</div>
+              </>
+            )}
+          </>
+        )}
         <div className="grp-t" style={{ marginTop: 4 }}>Transformación · {currentStageLabel}</div>
         <Slider label="Escala" min={0.05} max={20} step={0.01} value={t.scale} onChange={(v) => setObjectTransform(o.id, "scale", null, v)} />
         {!isModel && <Slider label="Estirar ancho" min={0.05} max={6} step={0.01} value={t.sx ?? 1} onChange={(v) => setObjectTransform(o.id, "sx", null, v)} />}
