@@ -3457,18 +3457,131 @@ function SceneObjectModel({ data }) {
    Un .svg subido como "Imagen / SVG" puede pasar de cartel plano a objeto 3D: se extruyen sus trazos
    (grosor + bisel) y se le da un material (mate, plástico, metal, cromo, oro, vidrio, neón). Grosor 0 = plano, como siempre. */
 const SVG_MATS = {
-  matte:   { label: "Mate", rough: 0.85, metal: 0 },
-  plastic: { label: "Plástico brillante", rough: 0.22, metal: 0, clear: 1 },
-  metal:   { label: "Metal pulido", rough: 0.25, metal: 1 },
-  chrome:  { label: "Cromo", rough: 0.05, metal: 1, color: "#e6ebf2" },
-  gold:    { label: "Oro", rough: 0.2, metal: 1, color: "#f0b840" },
-  glass:   { label: "Vidrio", rough: 0.05, metal: 0, glass: true },
-  neon:    { label: "Neón (brilla)", rough: 0.5, metal: 0, neon: true },
+  /* base */
+  matte:     { label: "Mate", rough: 0.85, metal: 0 },
+  plastic:   { label: "Plástico brillante", rough: 0.22, metal: 0, clear: 1 },
+  ceramic:   { label: "Cerámica / porcelana", rough: 0.12, metal: 0, clear: 1, color: "#f4f1ec" },
+  rubber:    { label: "Goma negra", rough: 0.95, metal: 0, color: "#1a1a1c" },
+  piano:     { label: "Negro piano", rough: 0.06, metal: 0, clear: 1, color: "#09090a" },
+  /* metales pulidos */
+  metal:     { label: "Metal pulido", rough: 0.25, metal: 1 },
+  chrome:    { label: "Cromo", rough: 0.05, metal: 1, color: "#e6ebf2" },
+  silver:    { label: "Plata", rough: 0.12, metal: 1, color: "#d7d9dd" },
+  gold:      { label: "Oro", rough: 0.2, metal: 1, color: "#f0b840" },
+  rosegold:  { label: "Oro rosa", rough: 0.18, metal: 1, color: "#e8a99a" },
+  copper:    { label: "Cobre pulido", rough: 0.2, metal: 1, color: "#d9825b" },
+  titanium:  { label: "Titanio oscuro", rough: 0.3, metal: 1, color: "#6c6f78" },
+  /* viejo / gastado */
+  goldAged:  { label: "Oro viejo (gastado)", rough: 1, metal: 1, tex: "goldAged" },
+  silverOld: { label: "Plata empañada", rough: 1, metal: 1, tex: "silverOld" },
+  bronze:    { label: "Bronce añejo con pátina", rough: 1, metal: 1, tex: "bronze" },
+  copperOx:  { label: "Cobre oxidado (verdín)", rough: 1, metal: 1, tex: "copperOx" },
+  rust:      { label: "Hierro oxidado", rough: 1, metal: 1, tex: "rust" },
+  steel:     { label: "Acero cepillado", rough: 1, metal: 1, tex: "steel" },
+  paintChip: { label: "Pintura descascarada (usa el color)", rough: 1, metal: 1, tex: "paintChip", useBase: true },
+  plasticOld:{ label: "Plástico viejo / sucio (usa el color)", rough: 1, metal: 0, tex: "plasticOld", useBase: true },
+  /* naturales */
+  stone:     { label: "Piedra", rough: 1, metal: 0, tex: "stone" },
+  concrete:  { label: "Concreto", rough: 1, metal: 0, tex: "concrete" },
+  wood:      { label: "Madera", rough: 1, metal: 0, tex: "wood", clear: 0.25 },
+  magma:     { label: "Magma (roca con grietas encendidas)", rough: 1, metal: 0, tex: "magma", neonTex: true },
+  /* especiales */
+  glass:     { label: "Vidrio", rough: 0.05, metal: 0, glass: true },
+  frosted:   { label: "Vidrio esmerilado", rough: 0.55, metal: 0, glass: true, frost: true },
+  iris:      { label: "Iridiscente / holográfico", rough: 0.1, metal: 0.9, color: "#b9b9d6", iris: 1 },
+  pearl:     { label: "Perla nacarada", rough: 0.25, metal: 0, color: "#f4efe8", clear: 1, iris: 0.6, sheen: 1 },
+  neon:      { label: "Neón (brilla)", rough: 0.5, metal: 0, neon: true },
 };
+/* Texturas procedurales (ruido que se repite sin costuras) para los materiales viejos / gastados. Se generan una vez por material y color. */
+function _mh(ix, iy, sd) { let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(sd, 982451653)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967295; }
+function _mn(x, y, per, sd) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const m = (q) => ((q % per) + per) % per;
+  const a = _mh(m(xi), m(yi), sd), b = _mh(m(xi + 1), m(yi), sd), c = _mh(m(xi), m(yi + 1), sd), d = _mh(m(xi + 1), m(yi + 1), sd);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function _mf(u, v, per, oct, sd) { let s = 0, a = 0.5, t = 0, f = 1; for (let i = 0; i < oct; i++) { s += a * _mn(u * per * f, v * per * f, per * f, sd + i * 7); t += a; a *= 0.5; f *= 2; } return s / t; }
+const _ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const _mx = (A, B, t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t];
+const _lin = (c) => Math.pow(c, 2.2);
+const __matTexCache = new Map();
+function getMatTex(kind, baseHex) {
+  const key = kind + "|" + (baseHex || "");
+  if (__matTexCache.has(key)) return __matTexCache.get(key);
+  const N = 256;
+  const bc = baseHex ? (() => { const c = new THREE.Color(baseHex); return [c.r, c.g, c.b].map((q) => Math.pow(q, 1 / 2.2)); })() : [1, 1, 1];
+  const cv = () => { const c = document.createElement("canvas"); c.width = c.height = N; return c; };
+  const C = { map: cv(), rough: cv(), metal: cv(), emis: cv(), bump: cv() };
+  const X = {}; Object.keys(C).forEach((k) => { X[k] = C[k].getContext("2d").createImageData(N, N); });
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const u = i / N, v = j / N, o = (j * N + i) * 4;
+    const n1 = _mf(u, v, 4, 5, 1), n2 = _mf(u, v, 8, 4, 11), n3 = _mf(u, v, 2, 3, 23), fine = _mf(u, v, 32, 2, 31);
+    let col = [1, 1, 1], rough = 0.5, metal = 0, em = [0, 0, 0], bump = n1;
+    if (kind === "goldAged") { const g = _ss(0.5, 0.75, n3 * 0.6 + n2 * 0.5); col = _mx([0.86, 0.66, 0.27], [0.18, 0.12, 0.05], g * 0.85); rough = 0.3 + 0.5 * g + 0.15 * fine; metal = 1 - 0.35 * g; bump = n1 * 0.6 + fine * 0.4; }
+    else if (kind === "silverOld") { const g = _ss(0.45, 0.72, n3 * 0.6 + n2 * 0.5); col = _mx([0.82, 0.82, 0.85], [0.2, 0.18, 0.17], g * 0.9); rough = 0.2 + 0.5 * g + 0.1 * fine; metal = 1 - 0.3 * g; bump = fine; }
+    else if (kind === "bronze") { const p = _ss(0.6, 0.8, n3 * 0.55 + n1 * 0.55); col = _mx([0.46, 0.28, 0.12], [0.22, 0.58, 0.5], p); col = _mx(col, [0.08, 0.05, 0.03], _ss(0.6, 0.85, n2) * 0.5); rough = 0.45 + 0.4 * p + 0.1 * fine; metal = 1 - 0.75 * p; bump = n1 * 0.5 + p * 0.5; }
+    else if (kind === "copperOx") { const p = _ss(0.52, 0.72, n3 * 0.55 + n1 * 0.55); col = _mx([0.74, 0.4, 0.23], [0.36, 0.78, 0.66], p); rough = 0.4 + 0.45 * p + 0.1 * fine; metal = 1 - 0.8 * p; bump = n1 * 0.4 + p * 0.6; }
+    else if (kind === "rust") { const r = _ss(0.38, 0.62, n1 * 0.7 + n3 * 0.4); col = _mx([0.3, 0.29, 0.28], [0.56, 0.25, 0.09], r); col = _mx(col, [0.26, 0.1, 0.04], _ss(0.55, 0.8, n2) * r); rough = 0.55 + 0.4 * r + 0.1 * fine; metal = 1 - 0.6 * r; bump = n1 * 0.6 + n2 * 0.5; }
+    else if (kind === "steel") { const st = (_mn(3.5, v * 96, 96, 3) * 0.6 + _mn(3.5, v * 192, 192, 5) * 0.4) * (0.85 + 0.3 * n1); col = [0.72 * (0.92 + 0.1 * st), 0.73 * (0.92 + 0.1 * st), 0.75 * (0.92 + 0.1 * st)]; rough = 0.3 + 0.18 * st; metal = 1; bump = 0.5 + (st - 0.5) * 0.25; }
+    else if (kind === "paintChip") { const c = _ss(0.6, 0.66, n3 * 0.45 + n2 * 0.4 + fine * 0.3); const sc = _ss(0.8, 0.9, _mn(2.5, v * 90, 90, 9)) * _ss(0.45, 0.6, n2) * 0.6; const cc = Math.max(c, sc); col = _mx([bc[0] * (0.88 + 0.12 * n1), bc[1] * (0.88 + 0.12 * n1), bc[2] * (0.88 + 0.12 * n1)], _mx([0.45, 0.45, 0.47], [0.3, 0.16, 0.08], _ss(0.5, 0.8, n1) * 0.7), cc); rough = cc > 0.5 ? 0.45 : 0.55; metal = cc; bump = 1 - cc * 0.6; }
+    else if (kind === "plasticOld") { const dirt = _ss(0.45, 0.8, n3 * 0.5 + n1 * 0.6); const yel = _ss(0.3, 0.7, n3); col = _mx(_mx(bc, [bc[0] * 0.95 + 0.06, bc[1] * 0.9 + 0.05, bc[2] * 0.6], yel * 0.45), [0.12, 0.1, 0.08], dirt * 0.45); rough = 0.35 + 0.45 * dirt + 0.15 * fine; bump = fine * 0.5 + n2 * 0.3; }
+    else if (kind === "stone") { const sh = 0.55 + 0.7 * n1; col = [0.46 * sh, 0.45 * sh, 0.43 * sh]; col = _mx(col, [0.2, 0.2, 0.2], _ss(0.65, 0.9, n2) * 0.6); rough = 0.9 + 0.1 * fine; bump = n1 * 0.7 + n2 * 0.5 + fine * 0.4; }
+    else if (kind === "concrete") { const sh = 0.7 + 0.45 * n3; col = [0.6 * sh, 0.6 * sh, 0.58 * sh]; col = _mx(col, [0.18, 0.18, 0.18], _ss(0.72, 0.85, fine * 0.5 + n2 * 0.6) * 0.8); rough = 0.95; bump = fine * 0.7 + n2 * 0.5; }
+    else if (kind === "wood") { const t = (v * 9 + 2.2 * _mn(u * 4, v * 4, 4, 41) + 0.6 * _mf(u, v, 8, 3, 43)); const ring = t - Math.floor(t); const g = _ss(0.0, 0.5, ring) * (1 - _ss(0.5, 1.0, ring)) ; col = _mx([0.64, 0.43, 0.23], [0.34, 0.19, 0.08], 1 - Math.abs(ring - 0.5) * 2 * 0.9 > 0.5 ? g : 0.2 + 0.5 * g); col = [col[0] * (0.85 + 0.2 * fine), col[1] * (0.85 + 0.2 * fine), col[2] * (0.85 + 0.2 * fine)]; rough = 0.55 + 0.25 * fine; bump = g * 0.6 + fine * 0.4; }
+    else if (kind === "magma") { const crack = 1 - _ss(0.0, 0.07, Math.abs(_mf(u, v, 4, 4, 51) - 0.5)); const glow = _ss(0.62, 0.85, n2) * 0.5; const hot = Math.min(1, crack + glow); col = _mx([0.07, 0.06, 0.06], [0.2, 0.17, 0.15], n1); em = [1.0 * hot, 0.32 * hot + 0.1 * hot * hot, 0.04 * hot]; rough = 0.9; bump = n1 * 0.7 + (1 - crack) * 0.3; }
+    const put = (k, r, g, b) => { X[k].data[o] = Math.round(Math.min(1, Math.max(0, r)) * 255); X[k].data[o + 1] = Math.round(Math.min(1, Math.max(0, g)) * 255); X[k].data[o + 2] = Math.round(Math.min(1, Math.max(0, b)) * 255); X[k].data[o + 3] = 255; };
+    put("map", col[0], col[1], col[2]); put("rough", rough, rough, rough); put("metal", metal, metal, metal); put("emis", em[0], em[1], em[2]); put("bump", bump, bump, bump);
+  }
+  const out = {};
+  Object.keys(C).forEach((k) => {
+    C[k].getContext("2d").putImageData(X[k], 0, 0);
+    const t = new THREE.CanvasTexture(C[k]);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+    t.colorSpace = k === "map" || k === "emis" ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    out[k] = t;
+  });
+  __matTexCache.set(key, out);
+  return out;
+}
 const __svgTextCache = new Map();
 function fetchSvgText(url) {
   if (!__svgTextCache.has(url)) __svgTextCache.set(url, fetch(url).then((r) => r.text()));
   return __svgTextCache.get(url);
+}
+/* Los cantos y el bisel se suavizan, pero las caras planas de adelante y atrás conservan su normal plana
+   (si se promedian con el bisel quedan rayas diagonales por los triángulos largos de la tapa). */
+function creaseSides(g) {
+  const gr = g.groups;
+  if (!gr || gr.length < 2) return toCreasedNormals(g, 0.6);
+  const pos = g.attributes.position.array, nor = g.attributes.normal.array;
+  const caps = gr.filter((q) => q.materialIndex === 0), sides = gr.filter((q) => q.materialIndex !== 0);
+  const cat = (list, arr) => { const n = list.reduce((t, q) => t + q.count, 0), out = new Float32Array(n * 3); let o = 0; list.forEach((q) => { out.set(arr.slice(q.start * 3, (q.start + q.count) * 3), o); o += q.count * 3; }); return out; };
+  const capP = cat(caps, pos), capN = cat(caps, nor), sideP = cat(sides, pos);
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute("position", new THREE.BufferAttribute(sideP, 3));
+  const sc = toCreasedNormals(sg, 0.6);
+  const P = new Float32Array(capP.length + sideP.length), Nn = new Float32Array(capP.length + sideP.length);
+  P.set(capP, 0); Nn.set(capN, 0); P.set(sc.attributes.position.array, capP.length); Nn.set(sc.attributes.normal.array, capP.length);
+  const o = new THREE.BufferGeometry();
+  o.setAttribute("position", new THREE.BufferAttribute(P, 3)); o.setAttribute("normal", new THREE.BufferAttribute(Nn, 3));
+  sg.dispose(); sc.dispose();
+  return o;
+}
+/* UV por proyección según hacia dónde mira cada cara (las del ExtrudeGeometry están en unidades del SVG y no sirven para texturas repetidas). */
+function projectUVs(g, tile) {
+  const P = g.attributes.position.array, n = P.length / 9, uv = new Float32Array(n * 6);
+  for (let t = 0; t < n; t++) {
+    const i = t * 9;
+    const ux = P[i + 3] - P[i], uy = P[i + 4] - P[i + 1], uz = P[i + 5] - P[i + 2], vx = P[i + 6] - P[i], vy = P[i + 7] - P[i + 1], vz = P[i + 8] - P[i + 2];
+    const nx = Math.abs(uy * vz - uz * vy), ny = Math.abs(uz * vx - ux * vz), nz = Math.abs(ux * vy - uy * vx);
+    for (let k = 0; k < 3; k++) {
+      const x = P[i + k * 3], y = P[i + k * 3 + 1], z = P[i + k * 3 + 2];
+      let a, b;
+      if (nz >= nx && nz >= ny) { a = x; b = y; } else if (nx >= ny) { a = z; b = y; } else { a = x; b = z; }
+      uv[t * 6 + k * 2] = a * tile; uv[t * 6 + k * 2 + 1] = b * tile;
+    }
+  }
+  g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 }
 function buildSvgExtrude(text, depthK, bevK) {
   const data = new SVGLoader().parse(text);
@@ -3487,23 +3600,33 @@ function buildSvgExtrude(text, depthK, bevK) {
   const depth = Math.max(0.002, depthK) * H;
   const b = Math.min(depth * 0.45, Math.max(0, bevK) * 0.05 * H);
   parts.forEach((pt) => {
-    let g = new THREE.ExtrudeGeometry(pt.shapes, { depth, curveSegments: 10, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: 4 });
+    const g = new THREE.ExtrudeGeometry(pt.shapes, { depth, curveSegments: 10, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: 5 });
     g.translate(-cx, -cy, -(depth / 2 + b));
     g.scale(1 / H, 1 / H, 1 / H);
-    pt.geo = toCreasedNormals(g, 0.6);
+    pt.geo = creaseSides(g);
+    projectUVs(pt.geo, 1.6);
     g.dispose();
   });
   return { parts, aspect: W / H };
 }
 function makeSvgMat(data, base) {
   const pr = SVG_MATS[data.mat] || SVG_MATS.plastic;
-  const color = new THREE.Color(data.matColor || pr.color || base);
-  const m = new THREE.MeshPhysicalMaterial({
-    color, roughness: data.matRough != null ? data.matRough : pr.rough, metalness: pr.metal,
-    clearcoat: pr.clear ? 1 : 0, clearcoatRoughness: 0.08,
-    transmission: pr.glass ? 1 : 0, thickness: pr.glass ? 0.4 : 0, ior: 1.45,
-    emissive: pr.neon ? color : new THREE.Color("#000000"), emissiveIntensity: pr.neon ? 2.2 : 0,
-  });
+  const baseCol = new THREE.Color(data.matColor || pr.color || base);
+  const rough = data.matRough != null ? data.matRough : pr.rough;
+  const o = { roughness: rough, metalness: pr.metal, clearcoat: pr.clear ? (pr.clear === true ? 1 : pr.clear) : 0, clearcoatRoughness: 0.08, ior: 1.45 };
+  if (pr.glass) { o.transmission = pr.frost ? 0.9 : 1; o.thickness = pr.frost ? 0.5 : 0.4; }
+  if (pr.iris) { o.iridescence = pr.iris; o.iridescenceIOR = 1.8; o.iridescenceThicknessRange = [200, 800]; }
+  if (pr.sheen) { o.sheen = 1; o.sheenColor = new THREE.Color("#ffd9f0"); o.sheenRoughness = 0.4; }
+  o.color = pr.tex ? (pr.useBase ? new THREE.Color("#ffffff") : (data.matColor ? baseCol : new THREE.Color("#ffffff"))) : baseCol;
+  const m = new THREE.MeshPhysicalMaterial(o);
+  if (pr.neon) { m.emissive = baseCol.clone(); m.emissiveIntensity = 2.2; }
+  if (pr.tex) {
+    const T = getMatTex(pr.tex, pr.useBase ? "#" + baseCol.getHexString() : "");
+    m.map = T.map; m.roughnessMap = T.rough; m.bumpMap = T.bump; m.bumpScale = 3;
+    if (pr.metal > 0) { m.metalnessMap = T.metal; m.metalness = 1; }
+    if (pr.neonTex) { m.emissiveMap = T.emis; m.emissive = new THREE.Color("#ffffff"); m.emissiveIntensity = 1.8; }
+    m.needsUpdate = true;
+  }
   return m;
 }
 function SvgExtrudeBody({ url, data, fade, hasFade, shadows }) {
@@ -5487,6 +5610,16 @@ function FadeGroup({ obj, fade, children }) {
 //@@use applyShapeLights
 //@@use lookLight
 //@@use SVG_MATS
+//@@use _mh
+//@@use _mn
+//@@use _mf
+//@@use _ss
+//@@use _mx
+//@@use _lin
+//@@use __matTexCache
+//@@use getMatTex
+//@@use creaseSides
+//@@use projectUVs
 //@@use __svgTextCache
 //@@use fetchSvgText
 //@@use buildSvgExtrude
