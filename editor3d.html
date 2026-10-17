@@ -804,8 +804,7 @@ const SCROLL_LENGTH_VH = 950;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
-const AUTO_RIM = true;
-const AUTO_FILL = true;
+const ACCENT = "";
 const HALO = 0;
 const PHONE_COLUMN = false;
 const VIGNETTE_ENABLED = false;
@@ -3068,7 +3067,21 @@ function NaturalFill({ intensity }) {
    Sin entorno reflejan negro salvo cuando una luz les pega justo de frente. Acá se arma un estudio
    procedural (paredes oscuras + softboxes) y se pasa por PMREM; se aplica a los materiales de los
    objetos .glb SIN tocar scene.background (el fondo violeta queda igual). Sin descargas de HDRI. */
-function buildStudioEnvTexture(gl) {
+/* Color de acento global (opcional): reemplaza el rosa/violeta automático del contraluz, el entorno de reflejos y el foco de fondo.
+   Vacío = como siempre (cada pose usa su color de contraluz). Blanco = acento neutro. */
+function accentTone(accent, l, fallback) {
+  if (!accent) return fallback;
+  const c = new THREE.Color(accent), h = {};
+  c.getHSL(h);
+  return new THREE.Color().setHSL(h.h, h.s, l);
+}
+function accentHalo(accent, halo) {
+  if (!accent) return [`rgba(255,232,255,${0.34 * halo})`, `rgba(196,140,255,${0.12 * halo})`];
+  const n = parseInt(String(accent).slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mix = (v) => Math.round(v + (255 - v) * 0.78);
+  return [`rgba(${mix(r)},${mix(g)},${mix(b)},${0.34 * halo})`, `rgba(${r},${g},${b},${0.14 * halo})`];
+}
+function buildStudioEnvTexture(gl, accent) {
   const env = new THREE.Scene();
   const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
   // +x, -x, +y, -y, +z, -z
@@ -3082,7 +3095,7 @@ function buildStudioEnvTexture(gl) {
   panel(9, 9, "#fff1dc", 7, 0, 19, 0);          // arriba (cálido)
   panel(2.6, 20, "#ffffff", 10, -17, 3, 9);     // tira alta adelante-izquierda: dibuja el brillo largo en bordes y placas
   panel(2.6, 20, "#ffe6c8", 7, 17, 3, 9);       // tira alta adelante-derecha (cálida)
-  panel(3.5, 18, "#ff5fd2", 8, 18, 2, -8);      // acento fucsia atrás-derecha (rim)
+  panel(3.5, 18, accent ? accentTone(accent, 0.62, null) : "#ff5fd2", 8, 18, 2, -8);      // acento fucsia atrás-derecha (rim)
   panel(3.5, 18, "#8db8ff", 4, -18, 2, -8);     // relleno frío atrás-izquierda
   panel(22, 10, "#ffeedd", 4.5, 0, 3, 19);      // relleno suave detrás de cámara (es lo que ve una placa dorada de frente)
   const pm = new THREE.PMREMGenerator(gl);
@@ -3092,18 +3105,20 @@ function buildStudioEnvTexture(gl) {
   return rt.texture;
 }
 const __studioEnvCache = new WeakMap();
-function getStudioEnv(gl) {
-  let t = __studioEnvCache.get(gl);
-  if (!t) { t = buildStudioEnvTexture(gl); __studioEnvCache.set(gl, t); }
-  return t;
+function getStudioEnv(gl, accent) {
+  let m = __studioEnvCache.get(gl); if (!m) { m = {}; __studioEnvCache.set(gl, m); }
+  const k = accent || "";
+  if (!m[k]) m[k] = buildStudioEnvTexture(gl, accent);
+  return m[k];
 }
 function useStudioEnv() {
   const gl = useThree((s) => s.gl);
   const rig = React.useContext(EnvSettingsCtx).rig;
+  const accent = React.useContext(EnvSettingsCtx).accent || "";
   return useMemo(() => {
-    try { return rig === "studio" ? getStudioEnvV2(gl) : getStudioEnv(gl); }
+    try { return rig === "studio" ? getStudioEnvV2(gl, accent) : getStudioEnv(gl, accent); }
     catch (e) { console.warn("No se pudo crear el entorno de reflejos:", e && e.message); return null; }
-  }, [gl, rig]);
+  }, [gl, rig, accent]);
 }
 /* Aplica (o saca) el entorno a los materiales PBR de un modelo. Si el material del .glb ya trae su propio envMap, lo respeta. */
 function applyStudioEnv(root, tex, enabled, intensity) {
@@ -3123,11 +3138,11 @@ function applyStudioEnv(root, tex, enabled, intensity) {
    Entorno v2: cuarto casi negro + softboxes altas y finas. Lo que da el look de producto
    no es "más luz" sino brillos largos y nítidos en cantos y metales sobre un fondo oscuro.
    Se usa cuando postFx.lightRig === "studio" (el rig clásico queda igual que antes). */
-function buildStudioEnvTextureV2(gl) {
+function buildStudioEnvTextureV2(gl, accent) {
   const env = new THREE.Scene();
   const wall = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.BackSide, toneMapped: false });
   // +x, -x, +y, -y, +z, -z
-  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), [wall("#2a1440", 1), wall("#2a1440", 1), wall("#2a1440", 1), wall("#4a1778", 1), wall("#2a1440", 1), wall("#2a1440", 1)]));
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), (() => { const w = accentTone(accent, 0.17, "#2a1440"), f = accentTone(accent, 0.29, "#4a1778"); return [wall(w, 1), wall(w, 1), wall(w, 1), wall(f, 1), wall(w, 1), wall(w, 1)]; })()));
   const panel = (w, h, hex, k, x, y, z) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide, toneMapped: false }));
     m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
@@ -3135,12 +3150,12 @@ function buildStudioEnvTextureV2(gl) {
   // Look "producto premium": cuarto violeta medio (así el metal nunca se ve negro), UNA softbox grande arriba-izquierda,
   // filos largos de contraluz (el brillo fino en cantos y dorado) y un panel cálido a la derecha para que el oro lea como oro.
   panel(28, 24, "#fff4ee", 2.6, -13, 11, 13);   // key: softbox grande arriba-izquierda-adelante
-  panel(4, 34, "#ffe6f7", 7, 16, 6, -5);        // filo derecho (contraluz)
+  panel(4, 34, accent ? accentTone(accent, 0.93, null) : "#ffe6f7", 7, 16, 6, -5);        // filo derecho (contraluz)
   panel(4, 34, "#ffffff", 3.5, -17, 6, -8);     // filo izquierdo, más tenue
   panel(24, 16, "#ffdca0", 1.6, 15, 3, 12);     // cálido adelante-derecha (oro)
   panel(20, 20, "#fff0e0", 1.2, 0, 19, 0);      // techo
   panel(30, 14, "#ffe9c8", 1.2, 0, 3, 19);      // frente cálido
-  panel(16, 10, "#b27cf0", 0.9, -14, -2, 10);   // relleno violeta
+  panel(16, 10, accent ? accentTone(accent, 0.7, null) : "#b27cf0", 0.9, -14, -2, 10);   // relleno violeta
   const pm = new THREE.PMREMGenerator(gl);
   const rt = pm.fromScene(env, 0.02);
   pm.dispose();
@@ -3148,17 +3163,18 @@ function buildStudioEnvTextureV2(gl) {
   return rt.texture;
 }
 const __studioEnvV2Cache = new WeakMap();
-function getStudioEnvV2(gl) {
-  let t = __studioEnvV2Cache.get(gl);
-  if (!t) { t = buildStudioEnvTextureV2(gl); __studioEnvV2Cache.set(gl, t); }
-  return t;
+function getStudioEnvV2(gl, accent) {
+  let m = __studioEnvV2Cache.get(gl); if (!m) { m = {}; __studioEnvV2Cache.set(gl, m); }
+  const k = accent || "";
+  if (!m[k]) m[k] = buildStudioEnvTextureV2(gl, accent);
+  return m[k];
 }
 /* Luces del rig Estudio: un spot (key) con sombra suave + un rim de color atrás.
    Sigue la dirección/color/intensidad de la luz de cada pose (Escena → Luz). */
 const STUDIO_KEY = 200;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
 const STUDIO_RIM = 50;
 const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
-function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile, rimOn = true }) {
+function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile, accent }) {
   const spot = useRef(null);
   const rim = useRef(null);
   const amb = useRef(null);
@@ -3196,8 +3212,8 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile, rim
     if (rim.current) {
       const q = lightDirFromAngles((L.azimuth ?? 45) + 160, 25, d * 0.78);
       rim.current.position.set(la[0] + q[0], la[1] + q[1], la[2] + q[2]);
-      rim.current.color.set(L.rimColor || "#ff9ad8");
-      rim.current.intensity = rigDamp(rim.current.intensity, (rimOn ? (L.rimIntensity ?? 1.4) : 0) * STUDIO_RIM * e * k, 4, delta);
+      rim.current.color.set(accent || L.rimColor || "#ff9ad8");
+      rim.current.intensity = rigDamp(rim.current.intensity, (L.rimIntensity ?? 1.4) * STUDIO_RIM * e * k, 4, delta);
     }
   });
   return (
@@ -3359,7 +3375,7 @@ function applyScreenGlass(root, amount, match, onSwap) {
     if (next.some((m, i) => m !== mats[i])) child.material = isArr ? next : next[0];
   });
 }
-const EnvSettingsCtx = React.createContext({ enabled: ENV_ENABLED, intensity: ENV_INTENSITY * EXPOSURE * (1 + 0.35 * NATURAL_LIGHT), rig: LIGHT_RIG });
+const EnvSettingsCtx = React.createContext({ enabled: ENV_ENABLED, intensity: ENV_INTENSITY * EXPOSURE * (1 + 0.35 * NATURAL_LIGHT), rig: LIGHT_RIG, accent: ACCENT });
 function applyGlow(scene, glow) {
   scene.traverse((child) => {
     if (!child.isMesh) return;
@@ -3898,7 +3914,7 @@ function Lighting() {
 }
 function StudioLighting() {
   const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
-  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={false} rimOn={AUTO_RIM} />;
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={false} accent={ACCENT} />;
 }
 function ClassicLighting() {
   const keyRef = useRef(null);
@@ -3921,11 +3937,11 @@ function ClassicLighting() {
       keyRef.current.position.copy(dampedPos.current);
     }
     if (rimRef.current) {
-      rimRef.current.color.set(state.light.rimColor);
-      rimRef.current.intensity = damp(rimRef.current.intensity, AUTO_RIM ? LL.rim : 0, 4, delta);
+      rimRef.current.color.set(ACCENT || state.light.rimColor);
+      rimRef.current.intensity = damp(rimRef.current.intensity, LL.rim, 4, delta);
     }
     if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, LL.amb, 4, delta);
-    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, AUTO_FILL ? LL.hemi : 0, 4, delta);
+    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, LL.hemi, 4, delta);
   });
 
   return (
@@ -3946,9 +3962,9 @@ function ClassicLighting() {
         shadow-camera-near={1}
         shadow-camera-far={20}
       />
-      <directionalLight position={[-3, 2, -2]} intensity={AUTO_FILL ? 0.5 : 0} />
-      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={AUTO_RIM ? 1.4 : 0} distance={12} />
-      <NaturalFill intensity={AUTO_FILL ? NATURAL_LIGHT * 0.85 * EXPOSURE : 0} />
+      <directionalLight position={[-3, 2, -2]} intensity={0.5} />
+      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
+      <NaturalFill intensity={NATURAL_LIGHT * 0.85 * EXPOSURE} />
     </>
   );
 }
@@ -4850,7 +4866,7 @@ function App() {
           </Canvas>
         </div>
         <BackgroundGradient stageRef={stageRef} />
-        {HALO > 0 && <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", background: `radial-gradient(ellipse 75% 48% at 20% 0%, rgba(255,232,255,${0.34 * HALO}) 0%, rgba(196,140,255,${0.12 * HALO}) 42%, rgba(0,0,0,0) 74%)` }} />}
+        {HALO > 0 && <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", background: `radial-gradient(ellipse 75% 48% at 20% 0%, ${accentHalo(ACCENT, HALO)[0]} 0%, ${accentHalo(ACCENT, HALO)[1]} 42%, rgba(0,0,0,0) 74%)` }} />}
         {VIGNETTE_ENABLED && (
           <div
             aria-hidden="true"
@@ -5379,13 +5395,16 @@ function FadeGroup({ obj, fade, children }) {
 //@@use weebLightSet
 //@@use applyShapeLights
 //@@use lookLight
+//@@use accentTone
+//@@use accentHalo
 //@@use NaturalFill
 //@@use buildStudioEnvTexture
 const __studioEnvCache = new WeakMap();
-function getStudioEnv(gl) {
-  let t = __studioEnvCache.get(gl);
-  if (!t) { t = buildStudioEnvTexture(gl); __studioEnvCache.set(gl, t); }
-  return t;
+function getStudioEnv(gl, accent) {
+  let m = __studioEnvCache.get(gl); if (!m) { m = {}; __studioEnvCache.set(gl, m); }
+  const k = accent || "";
+  if (!m[k]) m[k] = buildStudioEnvTexture(gl, accent);
+  return m[k];
 }
 //@@use useStudioEnv
 //@@use applyStudioEnv
@@ -5453,7 +5472,7 @@ function ReflectorFloor({ mesh, root, strength, mobile, contact, contactOpacity,
 //@@use ReflectorFloors
 const SCREEN_GLASS_DEFAULT = "pantalla|screen|display|foto|photo|vidrio|glass";
 //@@use applyScreenGlass
-const EnvSettingsCtx = React.createContext({ enabled: false, intensity: 1, rig: "classic", floor: { enabled: true, strength: 0.5, contact: false, contactOpacity: 0.75 } });   // el editor lo provee desde Scene (postFx)
+const EnvSettingsCtx = React.createContext({ enabled: false, intensity: 1, rig: "classic", accent: "", floor: { enabled: true, strength: 0.5, contact: false, contactOpacity: 0.75 } });   // el editor lo provee desde Scene (postFx)
 //@@use applyGlow
 //@@use cloneModelScene
 //@@use useClonedScene
@@ -5867,24 +5886,24 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
   const envInt = (postFx && postFx.envIntensity != null ? postFx.envIntensity : 0.8) * (postFx && postFx.exposure != null ? postFx.exposure : 1) * (1 + 0.35 * ((postFx && postFx.naturalLight) || 0));
   const LL = showFx ? lookLight(fx.light, postFx && postFx.naturalLight, postFx && postFx.exposure) : null;
   const rig = showFx && postFx && postFx.lightRig === "studio" ? "studio" : "classic";
-  const fillOn = !(postFx && postFx.autoFill === false), rimOnE = !(postFx && postFx.autoRim === false);
   const floorCfg = {
     enabled: !(postFx && postFx.floorReflect === false),
     strength: (postFx && postFx.floorReflectStrength) ?? 0.5,
     contact: !!(showFx && postFx && postFx.contactShadow),
     contactOpacity: (postFx && postFx.contactShadowOpacity) ?? 0.75,
   };
-  const envCtx = useMemo(() => ({ enabled: envOn, intensity: envInt, rig, floor: floorCfg }),
-    [envOn, envInt, rig, floorCfg.enabled, floorCfg.strength, floorCfg.contact, floorCfg.contactOpacity]);
+  const accentC = (showFx && postFx && postFx.accent) || "";
+  const envCtx = useMemo(() => ({ enabled: envOn, intensity: envInt, rig, accent: accentC, floor: floorCfg }),
+    [envOn, envInt, rig, accentC, floorCfg.enabled, floorCfg.strength, floorCfg.contact, floorCfg.contactOpacity]);
   return (
     <EnvSettingsCtx.Provider value={envCtx}>
       {showFx && fx.fog.enabled !== false && <fogExp2 attach="fog" args={[fx.fog.color, 1 / Math.max(fx.fog.far, 1)]} />}
       {rig === "studio" ? (
-        <StudioRigLights getLight={() => fx.light} getLookAt={() => (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0]}
+        <StudioRigLights accent={postFx && postFx.accent} getLight={() => fx.light} getLookAt={() => (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0]}
           getCamPos={() => (cameraTarget && cameraTarget.position) || [0, 0, 9]}
-          exposure={postFx && postFx.exposure != null ? postFx.exposure : 1} rimOn={!(postFx && postFx.autoRim === false)} />
+          exposure={postFx && postFx.exposure != null ? postFx.exposure : 1} />
       ) : (<>
-      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={fillOn ? (LL ? LL.hemi : 0.35) : 0} />
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={LL ? LL.hemi : 0.35} />
       <ambientLight intensity={LL ? LL.amb : 0.28} />
       <directionalLight
         color={showFx ? fx.light.color : "#ffffff"}
@@ -5901,9 +5920,9 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
         shadow-camera-near={1}
         shadow-camera-far={20}
       />
-      <directionalLight position={[-3, 2, -2]} intensity={fillOn ? 0.4 : 0} />
-      <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={LL && rimOnE ? LL.rim : 0} distance={12} />
-      <NaturalFill intensity={LL && fillOn ? LL.fill : 0} />
+      <directionalLight position={[-3, 2, -2]} intensity={0.4} />
+      <pointLight color={showFx ? ((postFx && postFx.accent) || fx.light.rimColor) : "#ffffff"} position={[-2.5, -1, -2]} intensity={LL ? LL.rim : 0} distance={12} />
+      <NaturalFill intensity={LL ? LL.fill : 0} />
       </>)}
       {showGrid && <BlenderGrid />}
       {showObjects &&
@@ -6510,8 +6529,7 @@ const CHAR_SCALE = ${fmtNum(scale)};`;
 }
 
 function generatePostFxCode(postFx) {
-  return `const AUTO_RIM = ${postFx.autoRim === false ? "false" : "true"};
-const AUTO_FILL = ${postFx.autoFill === false ? "false" : "true"};
+  return `const ACCENT = ${JSON.stringify(/^#[0-9a-fA-F]{6}$/.test(postFx.accent || "") ? postFx.accent : "")};
 const HALO = ${postFx.halo ?? 0};
 const PHONE_COLUMN = ${postFx.phoneColumn === true ? "true" : "false"};
 const VIGNETTE_ENABLED = ${postFx.vignetteEnabled ? "true" : "false"};
@@ -7477,13 +7495,14 @@ function paintVideoBackground(ctx, w, h, bg) {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 }
-function paintVideoHalo(ctx, w, h, halo) {
+function paintVideoHalo(ctx, w, h, halo, accent) {
+  const hc = accentHalo(accent, halo);
   ctx.save();
   ctx.translate(w * 0.2, 0);
   ctx.scale(w * 0.75, h * 0.48);
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-  g.addColorStop(0, `rgba(255,232,255,${0.34 * halo})`);
-  g.addColorStop(0.42, `rgba(196,140,255,${0.12 * halo})`);
+  g.addColorStop(0, hc[0]);
+  g.addColorStop(0.42, hc[1]);
   g.addColorStop(0.74, "rgba(0,0,0,0)");
   g.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = g;
@@ -7593,8 +7612,6 @@ function App() {
     partRange: 16,
     partBeam: 0.6,
     envEnabled: true,
-    autoRim: true,
-    autoFill: true,
     envIntensity: 0.8,
     toneMap: false,
     naturalLight: 0,
@@ -8561,7 +8578,7 @@ function App() {
         const bg = sampleFx(fxByKf, t, stagesComputed, easings).background;
         paintVideoBackground(ctx, rw, rh, bg);
         ctx.drawImage(b.canvas, 0, 0, rw, rh);
-        if ((postFx.halo || 0) > 0) paintVideoHalo(ctx, rw, rh, postFx.halo);
+        if ((postFx.halo || 0) > 0) paintVideoHalo(ctx, rw, rh, postFx.halo, postFx.accent);
         if (postFx.vignetteEnabled) paintVideoVignette(ctx, rw, rh, postFx.vignetteOffset == null ? 0.15 : postFx.vignetteOffset, postFx.vignetteDarkness == null ? 0.5 : postFx.vignetteDarkness);
         if (full !== out) octx.drawImage(full, 0, cropSy, w, h, 0, 0, w, h);   // 4:5 = recorte del 9:16
 
@@ -8968,7 +8985,7 @@ function App() {
           <VideoExportBridge tag={exportT} bridgeRef={vidBridge} />
         </Canvas>
         </div>
-        {showFx && (postFx.halo || 0) > 0 && <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", background: `radial-gradient(ellipse 75% 48% at 20% 0%, rgba(255,232,255,${0.34 * postFx.halo}) 0%, rgba(196,140,255,${0.12 * postFx.halo}) 42%, rgba(0,0,0,0) 74%)` }} />}
+        {showFx && (postFx.halo || 0) > 0 && <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", background: `radial-gradient(ellipse 75% 48% at 20% 0%, ${accentHalo(postFx.accent, postFx.halo)[0]} 0%, ${accentHalo(postFx.accent, postFx.halo)[1]} 42%, rgba(0,0,0,0) 74%)` }} />}
         {showFx && postFx.vignetteEnabled && (
           <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none", background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - postFx.vignetteOffset) * 100}%, rgba(0,0,0,${postFx.vignetteDarkness}) 100%)` }} />
         )}
@@ -9260,14 +9277,6 @@ function App() {
                   <Slider label="Exposición" min={0.5} max={2} step={0.01} value={postFx.exposure ?? 1} onChange={(v) => setPostFxField("exposure", v)} />
                   <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Luz natural: relleno suave y cálido desde arriba que aclara las sombras (no cambia el fondo ni el neón). Exposición: multiplica todas las luces a la vez. Salen igual en el index.html y en el MP4.</div>
                 </Group>
-                <Group id="autolights" title="Luces automáticas (además de la principal)">
-                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Además de la luz principal, el editor suma luces por su cuenta: un contraluz de color (el lila/magenta sale de acá y del "color de contraluz" de cada pose), un relleno parejo, el entorno de reflejos y el foco de fondo. Apagalas para manejar la iluminación solo con la principal y tus spots.</div>
-                  <button className="btn" onClick={() => setPostFx((prev) => ({ ...prev, autoRim: false, autoFill: false, envEnabled: false, halo: 0, naturalLight: 0, lookPreset: "custom" }))}>Solo luz principal</button>
-                  <Switch label="Contraluz de color (rim)" checked={postFx.autoRim !== false} onChange={(v) => setPostFxField("autoRim", v)} />
-                  <Switch label="Relleno automático (cielo + luz natural)" checked={postFx.autoFill !== false} onChange={(v) => setPostFxField("autoFill", v)} />
-                  <Switch label="Entorno de reflejos" checked={postFx.envEnabled ?? true} onChange={(v) => setPostFxField("envEnabled", v)} />
-                  <Switch label="Foco de fondo lila (halo)" checked={(postFx.halo || 0) > 0} onChange={(v) => setPostFxField("halo", v ? 0.55 : 0)} />
-                </Group>
                 {lookMode === "manual" && (
                   <>
                   <Group id="screen" title="Pantalla (PC y celular)">
@@ -9300,6 +9309,8 @@ function App() {
                     <Slider label="Intensidad" min={0} max={3} step={0.05} value={postFx.envIntensity ?? 0.8} onChange={(v) => setPostFxField("envIntensity", v)} />
                   </Group>
                   <Group id="rig" title="Luz de estudio y piso">
+                    <ColorRow label="Color de acento" value={postFx.accent || "#ffffff"} onChange={(v) => setPostFxField("accent", v)} />
+                    <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Cambia de una vez el color del contraluz, del entorno de reflejos y del foco de fondo (el lila/magenta de Estudio). Blanco = neutro. <span style={{ color: "var(--acc)", cursor: "pointer", textDecoration: "underline" }} onClick={() => setPostFxField("accent", "")}>Volver al color original (por pose)</span>{postFx.accent ? ` · Activo: ${postFx.accent}` : " · Activo: original"}</div>
                     <Seg value={postFx.lightRig === "studio" ? "studio" : "classic"} onChange={(v) => setPostFxField("lightRig", v)} options={[["classic", "Clásica"], ["studio", "Estudio"]]} />
                     <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Estudio: un spot con sombra suave + rim de color atrás + softboxes para los reflejos, casi sin luz ambiente. Usa la dirección, color e intensidad de la luz de cada pose. El tone mapping ahora va siempre (antes con Bloom los colores se quemaban).</div>
                     <Slider label="Umbral bloom" min={0} max={1.5} step={0.01} value={postFx.bloomThreshold ?? 0.25} onChange={(v) => setPostFxField("bloomThreshold", v)} />
