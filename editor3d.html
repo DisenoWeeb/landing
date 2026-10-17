@@ -804,6 +804,8 @@ const SCROLL_LENGTH_VH = 950;
 /*@GEN:SCROLL_LENGTH_END*/
 
 /*@GEN:POSTFX_START*/
+const AUTO_RIM = true;
+const AUTO_FILL = true;
 const HALO = 0;
 const PHONE_COLUMN = false;
 const VIGNETTE_ENABLED = false;
@@ -3156,7 +3158,7 @@ function getStudioEnvV2(gl) {
 const STUDIO_KEY = 200;   // la intensidad "0.7" de una pose → ~50 cd a 9 u de distancia
 const STUDIO_RIM = 50;
 const rigDamp = (c, t, l, dt) => c + (t - c) * (1 - Math.exp(-l * dt));
-function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
+function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile, rimOn = true }) {
   const spot = useRef(null);
   const rim = useRef(null);
   const amb = useRef(null);
@@ -3195,7 +3197,7 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile }) {
       const q = lightDirFromAngles((L.azimuth ?? 45) + 160, 25, d * 0.78);
       rim.current.position.set(la[0] + q[0], la[1] + q[1], la[2] + q[2]);
       rim.current.color.set(L.rimColor || "#ff9ad8");
-      rim.current.intensity = rigDamp(rim.current.intensity, (L.rimIntensity ?? 1.4) * STUDIO_RIM * e * k, 4, delta);
+      rim.current.intensity = rigDamp(rim.current.intensity, (rimOn ? (L.rimIntensity ?? 1.4) : 0) * STUDIO_RIM * e * k, 4, delta);
     }
   });
   return (
@@ -3896,7 +3898,7 @@ function Lighting() {
 }
 function StudioLighting() {
   const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
-  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={false} />;
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={false} rimOn={AUTO_RIM} />;
 }
 function ClassicLighting() {
   const keyRef = useRef(null);
@@ -3920,10 +3922,10 @@ function ClassicLighting() {
     }
     if (rimRef.current) {
       rimRef.current.color.set(state.light.rimColor);
-      rimRef.current.intensity = damp(rimRef.current.intensity, LL.rim, 4, delta);
+      rimRef.current.intensity = damp(rimRef.current.intensity, AUTO_RIM ? LL.rim : 0, 4, delta);
     }
     if (ambRef.current) ambRef.current.intensity = damp(ambRef.current.intensity, LL.amb, 4, delta);
-    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, LL.hemi, 4, delta);
+    if (hemiRef.current) hemiRef.current.intensity = damp(hemiRef.current.intensity, AUTO_FILL ? LL.hemi : 0, 4, delta);
   });
 
   return (
@@ -3944,9 +3946,9 @@ function ClassicLighting() {
         shadow-camera-near={1}
         shadow-camera-far={20}
       />
-      <directionalLight position={[-3, 2, -2]} intensity={0.5} />
-      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
-      <NaturalFill intensity={NATURAL_LIGHT * 0.85 * EXPOSURE} />
+      <directionalLight position={[-3, 2, -2]} intensity={AUTO_FILL ? 0.5 : 0} />
+      <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={AUTO_RIM ? 1.4 : 0} distance={12} />
+      <NaturalFill intensity={AUTO_FILL ? NATURAL_LIGHT * 0.85 * EXPOSURE : 0} />
     </>
   );
 }
@@ -5865,6 +5867,7 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
   const envInt = (postFx && postFx.envIntensity != null ? postFx.envIntensity : 0.8) * (postFx && postFx.exposure != null ? postFx.exposure : 1) * (1 + 0.35 * ((postFx && postFx.naturalLight) || 0));
   const LL = showFx ? lookLight(fx.light, postFx && postFx.naturalLight, postFx && postFx.exposure) : null;
   const rig = showFx && postFx && postFx.lightRig === "studio" ? "studio" : "classic";
+  const fillOn = !(postFx && postFx.autoFill === false), rimOnE = !(postFx && postFx.autoRim === false);
   const floorCfg = {
     enabled: !(postFx && postFx.floorReflect === false),
     strength: (postFx && postFx.floorReflectStrength) ?? 0.5,
@@ -5879,9 +5882,9 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
       {rig === "studio" ? (
         <StudioRigLights getLight={() => fx.light} getLookAt={() => (cameraTarget && cameraTarget.lookAt) || [0, 0.5, 0]}
           getCamPos={() => (cameraTarget && cameraTarget.position) || [0, 0, 9]}
-          exposure={postFx && postFx.exposure != null ? postFx.exposure : 1} />
+          exposure={postFx && postFx.exposure != null ? postFx.exposure : 1} rimOn={!(postFx && postFx.autoRim === false)} />
       ) : (<>
-      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={LL ? LL.hemi : 0.35} />
+      <hemisphereLight color="#cfe8ff" groundColor="#1a1410" intensity={fillOn ? (LL ? LL.hemi : 0.35) : 0} />
       <ambientLight intensity={LL ? LL.amb : 0.28} />
       <directionalLight
         color={showFx ? fx.light.color : "#ffffff"}
@@ -5898,9 +5901,9 @@ function Scene({ pose, onBonesFound, cameraTarget, sceneCameraActive, autoRotate
         shadow-camera-near={1}
         shadow-camera-far={20}
       />
-      <directionalLight position={[-3, 2, -2]} intensity={0.4} />
-      <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={LL ? LL.rim : 0} distance={12} />
-      <NaturalFill intensity={LL ? LL.fill : 0} />
+      <directionalLight position={[-3, 2, -2]} intensity={fillOn ? 0.4 : 0} />
+      <pointLight color={showFx ? fx.light.rimColor : "#ffffff"} position={[-2.5, -1, -2]} intensity={LL && rimOnE ? LL.rim : 0} distance={12} />
+      <NaturalFill intensity={LL && fillOn ? LL.fill : 0} />
       </>)}
       {showGrid && <BlenderGrid />}
       {showObjects &&
@@ -6507,7 +6510,9 @@ const CHAR_SCALE = ${fmtNum(scale)};`;
 }
 
 function generatePostFxCode(postFx) {
-  return `const HALO = ${postFx.halo ?? 0};
+  return `const AUTO_RIM = ${postFx.autoRim === false ? "false" : "true"};
+const AUTO_FILL = ${postFx.autoFill === false ? "false" : "true"};
+const HALO = ${postFx.halo ?? 0};
 const PHONE_COLUMN = ${postFx.phoneColumn === true ? "true" : "false"};
 const VIGNETTE_ENABLED = ${postFx.vignetteEnabled ? "true" : "false"};
 const VIGNETTE_DARKNESS = ${postFx.vignetteDarkness};
@@ -7588,6 +7593,8 @@ function App() {
     partRange: 16,
     partBeam: 0.6,
     envEnabled: true,
+    autoRim: true,
+    autoFill: true,
     envIntensity: 0.8,
     toneMap: false,
     naturalLight: 0,
@@ -9252,6 +9259,14 @@ function App() {
                   <Slider label="Luz natural" min={0} max={1} step={0.01} value={postFx.naturalLight ?? 0} onChange={(v) => setPostFxField("naturalLight", v)} />
                   <Slider label="Exposición" min={0.5} max={2} step={0.01} value={postFx.exposure ?? 1} onChange={(v) => setPostFxField("exposure", v)} />
                   <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Luz natural: relleno suave y cálido desde arriba que aclara las sombras (no cambia el fondo ni el neón). Exposición: multiplica todas las luces a la vez. Salen igual en el index.html y en el MP4.</div>
+                </Group>
+                <Group id="autolights" title="Luces automáticas (además de la principal)">
+                  <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Además de la luz principal, el editor suma luces por su cuenta: un contraluz de color (el lila/magenta sale de acá y del "color de contraluz" de cada pose), un relleno parejo, el entorno de reflejos y el foco de fondo. Apagalas para manejar la iluminación solo con la principal y tus spots.</div>
+                  <button className="btn" onClick={() => setPostFx((prev) => ({ ...prev, autoRim: false, autoFill: false, envEnabled: false, halo: 0, naturalLight: 0, lookPreset: "custom" }))}>Solo luz principal</button>
+                  <Switch label="Contraluz de color (rim)" checked={postFx.autoRim !== false} onChange={(v) => setPostFxField("autoRim", v)} />
+                  <Switch label="Relleno automático (cielo + luz natural)" checked={postFx.autoFill !== false} onChange={(v) => setPostFxField("autoFill", v)} />
+                  <Switch label="Entorno de reflejos" checked={postFx.envEnabled ?? true} onChange={(v) => setPostFxField("envEnabled", v)} />
+                  <Switch label="Foco de fondo lila (halo)" checked={(postFx.halo || 0) > 0} onChange={(v) => setPostFxField("halo", v ? 0.55 : 0)} />
                 </Group>
                 {lookMode === "manual" && (
                   <>
