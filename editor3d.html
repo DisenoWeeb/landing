@@ -6872,7 +6872,63 @@ function generateLoaderCss(loader) {
   return `:root { --ldr-bg: ${m.background}; --ldr-line: ${m.lineColor}; --ldr-font: ${m.font}; }`;
 }
 
+
+/* ---- Grupos (objeto madre → hijos) ----
+   Un objeto puede tener una "madre" (o.parent). Lo que se guarda en el hijo es su transformación RELATIVA a la madre en cada pose,
+   así al mover / escalar / girar la madre de una pose a otra, todos los hijos viajan en bloque. El visor y la exportación
+   componen la transformación final (mundo) y escriben keyframes normales: el sitio exportado no necesita nada extra. */
+const GRP_DEF = () => ({ position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" });
+function tfMatrix(t) {
+  const s = t.scale ?? 1, sx = t.sx ?? 1, sy = t.sy ?? 1;
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(((t.rx || 0) * Math.PI) / 180, ((t.rotationY || 0) * Math.PI) / 180, 0, "YXZ"));
+  return new THREE.Matrix4().compose(new THREE.Vector3(...(t.position || [0, 0, 0])), q, new THREE.Vector3(s * sx, s * sy, s));
+}
+function matToTf(m, base) {
+  const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+  m.decompose(p, q, sc);
+  const e = new THREE.Euler().setFromQuaternion(q, "YXZ");
+  const sz = Math.abs(sc.z) || 1e-6;
+  return { ...base, position: [p.x, p.y, p.z], scale: sz, sx: sc.x / sz, sy: sc.y / sz, rotationY: (e.y * 180) / Math.PI, rx: (e.x * 180) / Math.PI };
+}
+function composeGroups(objects, tfByKf, stages) {
+  const byId = {}; objects.forEach((o) => { byId[o.id] = o; });
+  if (!objects.some((o) => o.parent && byId[o.parent])) return tfByKf;
+  const memo = {};
+  const world = (id, k, depth) => {
+    const key = id + "|" + k;
+    if (memo[key]) return memo[key];
+    const o = byId[id];
+    let m = tfMatrix((tfByKf[id] && tfByKf[id][k]) || GRP_DEF());
+    if (o && o.parent && byId[o.parent] && depth < 8) m = world(o.parent, k, depth + 1).clone().multiply(m);
+    memo[key] = m;
+    return m;
+  };
+  const out = { ...tfByKf };
+  objects.forEach((o) => {
+    if (!(o.parent && byId[o.parent])) return;
+    const per = {};
+    stages.forEach((st) => { per[st.id] = matToTf(world(o.id, st.id, 0), (tfByKf[o.id] && tfByKf[o.id][st.id]) || GRP_DEF()); });
+    out[o.id] = per;
+  });
+  return out;
+}
+/* Cambia la madre de un objeto SIN moverlo de donde está: recalcula su transformación relativa en cada pose. */
+function reparentObject(objects, tfByKf, stages, id, parentId) {
+  const before = composeGroups(objects, tfByKf, stages);
+  const nextObjects = objects.map((o) => (o.id === id ? { ...o, parent: parentId || null } : o));
+  const after = composeGroups(nextObjects, tfByKf, stages);
+  const per = {};
+  stages.forEach((st) => {
+    const stored = (tfByKf[id] && tfByKf[id][st.id]) || GRP_DEF();
+    const Mw = tfMatrix((before[id] && before[id][st.id]) || stored);
+    let Ml = Mw;
+    if (parentId) { const Mp = tfMatrix((after[parentId] && after[parentId][st.id]) || GRP_DEF()); Ml = Mp.clone().invert().multiply(Mw); }
+    per[st.id] = matToTf(Ml, stored);
+  });
+  return { objects: nextObjects, tf: { ...tfByKf, [id]: per } };
+}
 function generateObjectsCode(objects, transformsByKf, stages, easings) {
+  transformsByKf = composeGroups(objects, transformsByKf, stages);
   objects = objects.filter((o) => o.type === "text" || o.type === "shape" || o.type === "light" || o.type === "smoke" || (o.url && o.url.trim()));
   const fmtNum = (n) => (Math.abs(n) < 0.0001 ? 0 : Math.round(n * 1000) / 1000);
   const fmtVec = (v) => `[${v.map(fmtNum).join(", ")}]`;
@@ -8197,9 +8253,19 @@ function App() {
     setObjects((prev) => { const i = prev.findIndex((o) => o.id === id); const nx = [...prev]; nx.splice(i + 1, 0, ...newObjs); return nx; });
     setObjectTransformsByKf((prev) => ({ ...prev, ...newTr, [id]: shifted(-half * gap) }));
   };
+  const setObjectParent = (id, parentId) => {
+    const r = reparentObject(objects, objectTransformsByKf, stagesComputed, id, parentId);
+    setObjects(r.objects);
+    setObjectTransformsByKf(r.tf);
+  };
+  /* Si se borra una madre, sus hijos se sueltan (o pasan a la madre de la madre) quedándose donde estaban. */
   const removeObject = (id) => {
-    setObjects((prev) => prev.filter((o) => o.id !== id));
-    setObjectTransformsByKf((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    let objs = objects, tf = objectTransformsByKf;
+    const gp = (objects.find((o) => o.id === id) || {}).parent || null;
+    objects.filter((o) => o.parent === id).forEach((c) => { const r = reparentObject(objs, tf, stagesComputed, c.id, gp); objs = r.objects; tf = r.tf; });
+    const nextTf = { ...tf }; delete nextTf[id];
+    setObjects(objs.filter((o) => o.id !== id));
+    setObjectTransformsByKf(nextTf);
   };
   const updateObject = (id, patch) => setObjects((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
   const setObjectTransform = (id, field, axis, value) => {
@@ -8575,12 +8641,13 @@ function App() {
   const renderFx = sampled ? sampleFx(fxByKf, scrubV, stagesComputed, easings) : fxByKf[activeStage];
   // Progreso de scroll que ve el video en el visor: en Preview es el del slider; en edición, el de la pose activa.
   const scrollProgressNow = sampled ? scrubV : ((stagesComputed.find((st) => st.id === activeStage) || {}).progress || 0);
+  const worldTf = useMemo(() => composeGroups(objects, objectTransformsByKf, stagesComputed), [objects, objectTransformsByKf, stagesComputed]);
   const renderObjects = useMemo(() => objects.map((o) => {
-    const transforms = objectTransformsByKf[o.id];
+    const transforms = worldTf[o.id];
     if (!transforms) return { ...o, ...editFade(defaultObjectTransform()), scrollProgress: scrollProgressNow, lightHelper: !exporting };
     const t = sampled ? sampleObjectTransform(transforms, scrubV, stagesComputed, easings) : editFade(transforms[activeStage] || defaultObjectTransform());
     return { ...o, ...t, scrollProgress: scrollProgressNow, lightHelper: !exporting };
-  }), [objects, objectTransformsByKf, sampled, scrubV, stagesComputed, easings, activeStage, scrollProgressNow, exporting]);
+  }), [objects, worldTf, sampled, scrubV, stagesComputed, easings, activeStage, scrollProgressNow, exporting]);
   const sceneCameraActive = exporting || !freeOrbit;
 
   const boneCode = useMemo(() => generateBoneArrayCode(posesByKf, stagesComputed, easings), [posesByKf, stagesComputed, easings]);
@@ -9155,13 +9222,28 @@ function App() {
             )}
           </>
         )}
+        {!isLight && !isSmoke && objects.length > 1 && (() => {
+          const desc = new Set([o.id]); let grew = true;
+          while (grew) { grew = false; objects.forEach((q) => { if (q.parent && desc.has(q.parent) && !desc.has(q.id)) { desc.add(q.id); grew = true; } }); }
+          const opts = [["", "— ninguna (va sola) —"], ...objects.filter((q) => !desc.has(q.id) && q.type !== "light" && q.type !== "smoke").map((q) => [q.id, q.label])];
+          const kids = objects.filter((q) => q.parent === o.id);
+          return (
+            <>
+              <div className="grp-t" style={{ marginTop: 4 }}>Grupo</div>
+              <SelectRow label="Sigue a (madre)" value={o.parent || ""} onChange={(v) => setObjectParent(o.id, v)} options={opts} />
+              <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>
+                {o.parent ? "Este objeto viaja con su madre: al mover, escalar o girar la madre en cada pose, él se mueve en bloque. Sus propios valores (Posición, Escala, Giro) son relativos a la madre, así que podés mantener la forma del conjunto o animarlo aparte. Aparecer/desaparecer sigue siendo propio de cada uno." : kids.length ? `Madre de: ${kids.map((q) => q.label).join(", ")}. Moverla mueve a todos sus hijos.` : "Elegí una madre para que este objeto se mueva en bloque con ella. No se mueve de donde está al vincularlo."}
+              </div>
+            </>
+          );
+        })()}
         <div className="grp-t" style={{ marginTop: 4 }}>Transformación · {currentStageLabel}</div>
         <Slider label="Escala" min={0.05} max={20} step={0.01} value={t.scale} onChange={(v) => setObjectTransform(o.id, "scale", null, v)} />
         {!isModel && <Slider label="Estirar ancho" min={0.05} max={6} step={0.01} value={t.sx ?? 1} onChange={(v) => setObjectTransform(o.id, "sx", null, v)} />}
         {!isModel && <Slider label="Desenfoque" min={0} max={30} step={0.1} value={t.bl || 0} onChange={(v) => setObjectTransform(o.id, "bl", null, v)} />}
         {!isModel && (t.bl || 0) > 0 && <div className="tools"><Btn title="Mismo desenfoque en todas las poses" onClick={() => setObjectAllStages(o.id, "bl", t.bl || 0)}>Desenfoque en todas las poses</Btn><Btn onClick={() => setObjectAllStages(o.id, "bl", 0)}>Quitar en todas</Btn></div>}
         {!isModel && <Slider label="Estirar alto" min={0.05} max={6} step={0.01} value={t.sy ?? 1} onChange={(v) => setObjectTransform(o.id, "sy", null, v)} />}
-        <Vec3 label="Posición" value={t.position} onChange={(a, v) => setObjectTransform(o.id, "position", a, v)} />
+        <Vec3 label={o.parent ? "Posición (relativa a la madre)" : "Posición"} value={t.position} onChange={(a, v) => setObjectTransform(o.id, "position", a, v)} />
         {!(!isModel && o.billboard) && <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />}
         {(
           <>
@@ -9743,7 +9825,7 @@ function App() {
                   {objects.map((o, i) => (objOnlyVisible && !isVisibleHere(o) && !(selObj && selObj.id === o.id)) ? null : (
                     <div key={o.id} className={`orow ${selObj && selObj.id === o.id ? "sel" : ""} ${o.visible && !(objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage] && objectTransformsByKf[o.id][activeStage].hidden) ? "" : "off"}`} style={{ "--oc": colorOf(o, i) }} onClick={() => setSelectedObj(o.id)}>
                       <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "shape" ? "shape" : o.type === "light" ? "light" : o.type === "smoke" ? "smoke" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
-                      <span className="oname">{o.label}</span>
+                      <span className="oname">{o.parent && objects.some((q) => q.id === o.parent) ? "↳ " : ""}{o.label}{objects.some((q) => q.parent === o.id) ? " ⛓" : ""}</span>
                       <button className="mini" title="Visible" onClick={(e) => { e.stopPropagation(); updateObject(o.id, { visible: !o.visible }); }}><Icon name={o.visible ? "eye" : "eyeoff"} size={14} /></button>
                       <button className="mini" title="Duplicar (usa el mismo archivo)" onClick={(e) => { e.stopPropagation(); duplicateObject(o.id); }}><Icon name="copy" size={14} /></button>
                       <button className="mini danger" title="Eliminar" onClick={(e) => { e.stopPropagation(); removeObject(o.id); }}><Icon name="trash" size={14} /></button>
