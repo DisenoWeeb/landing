@@ -3583,7 +3583,7 @@ function projectUVs(g, tile) {
   }
   g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 }
-function buildSvgExtrude(text, depthK, bevK) {
+function buildSvgExtrude(text, depthK, bevK, segK) {
   const data = new SVGLoader().parse(text);
   const parts = [];
   const box = new THREE.Box2();
@@ -3595,12 +3595,16 @@ function buildSvgExtrude(text, depthK, bevK) {
     shapes.forEach((sh) => sh.getPoints(8).forEach((v) => box.expandByPoint(v)));
     parts.push({ shapes, color: pa.color ? pa.color.clone() : new THREE.Color("#ffffff") });
   });
+  /* Suavidad de las curvas: automática según cuántas curvas tiene el logo (un logo con muchas curvas no necesita tantos lados por curva y pesaría de más). */
+  let nCurves = 0;
+  parts.forEach((pt) => pt.shapes.forEach((sh) => { nCurves += sh.curves.length; (sh.holes || []).forEach((h) => { nCurves += h.curves.length; }); }));
+  const curveSeg = segK > 0 ? Math.round(segK) : Math.max(8, Math.min(32, Math.round(2500 / Math.max(1, nCurves))));
   const H = Math.max(1e-6, box.max.y - box.min.y), W = box.max.x - box.min.x;
   const cx = (box.min.x + box.max.x) / 2, cy = (box.min.y + box.max.y) / 2;
   const depth = Math.max(0.002, depthK) * H;
   const b = Math.min(depth * 0.45, Math.max(0, bevK) * 0.05 * H);
   parts.forEach((pt) => {
-    const g = new THREE.ExtrudeGeometry(pt.shapes, { depth, curveSegments: 10, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: 5 });
+    const g = new THREE.ExtrudeGeometry(pt.shapes, { depth, curveSegments: curveSeg, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: 5 });
     g.translate(-cx, -cy, -(depth / 2 + b));
     g.scale(1 / H, 1 / H, 1 / H);
     pt.geo = creaseSides(g);
@@ -3631,13 +3635,13 @@ function makeSvgMat(data, base) {
 }
 function SvgExtrudeBody({ url, data, fade, hasFade, shadows }) {
   const [built, setBuilt] = useState(null);
-  const ext = data.ext || 0, bev = data.bev ?? 0.3;
+  const ext = data.ext || 0, bev = data.bev ?? 0.3, seg = data.seg || 0;
   const gref = useRef(null);
   useEffect(() => {
     let off = false;
-    fetchSvgText(url).then((t) => { if (off) return; try { setBuilt((prev) => { if (prev) prev.parts.forEach((pt) => pt.geo.dispose()); return buildSvgExtrude(t, ext, bev); }); } catch (e) { console.warn("No se pudo extruir el SVG:", e && e.message); } }).catch(() => {});
+    fetchSvgText(url).then((t) => { if (off) return; try { setBuilt((prev) => { if (prev) prev.parts.forEach((pt) => pt.geo.dispose()); return buildSvgExtrude(t, ext, bev, seg); }); } catch (e) { console.warn("No se pudo extruir el SVG:", e && e.message); } }).catch(() => {});
     return () => { off = true; };
-  }, [url, ext, bev]);
+  }, [url, ext, bev, seg]);
   const mats = useMemo(() => (built ? built.parts.map((pt) => makeSvgMat(data, pt.color)) : []), [built, data.mat, data.matColor, data.matRough]);
   useEffect(() => () => mats.forEach((m) => m.dispose()), [mats]);
   const envTex = useStudioEnv();
@@ -7043,6 +7047,7 @@ ${kfLines}
     billboard: ${o.billboard ? "true" : "false"},
     ext: ${fmtNum(o.ext || 0)},
     bev: ${fmtNum(o.bev ?? 0.3)},
+    seg: ${fmtNum(o.seg || 0)},
     mat: ${JSON.stringify(o.mat || "plastic")},
     matColor: ${JSON.stringify(o.matColor || "")},
     matRough: ${o.matRough != null ? fmtNum(o.matRough) : "null"},
@@ -9213,6 +9218,7 @@ function App() {
             {(o.ext || 0) > 0 && (
               <>
                 <Slider label="Bisel (borde redondeado)" min={0} max={1} step={0.01} value={o.bev ?? 0.3} onChange={(v) => updateObject(o.id, { bev: v })} />
+                <Slider label="Suavidad de curvas (0 = auto)" min={0} max={64} step={1} value={o.seg || 0} onChange={(v) => updateObject(o.id, { seg: v })} />
                 <SelectRow label="Material" value={o.mat || "plastic"} onChange={(v) => updateObject(o.id, { mat: v, matRough: null })} options={Object.entries(SVG_MATS).map(([k, m]) => [k, m.label])} />
                 <ColorRow label="Color" value={o.matColor || "#ffffff"} onChange={(v) => updateObject(o.id, { matColor: v })} />
                 <div className="tools"><Btn title="Usa el color que trae el SVG (el oro y el cromo usan el suyo)" onClick={() => updateObject(o.id, { matColor: "" })}>Color original del SVG</Btn></div>
