@@ -8205,6 +8205,10 @@ function App() {
   const [selectedObj, setSelectedObj] = useState(null);
   const [lightGap, setLightGap] = useState(1.2);
   const [showObjects, setShowObjects] = useState(true);
+  const [showGhosts, setShowGhosts] = useState(false);     // objetos ocultos en esta pose (se dibujan tenues)
+  const [labelMode, setLabelMode] = useState("visible");     // etiquetas del visor: all | visible | sel | none
+  const [isolate, setIsolate] = useState(false);              // solo el objeto seleccionado y su grupo
+  const [objSearch, setObjSearch] = useState("");
   const [showGrid, setShowGrid] = useState(true);
   const [showFx, setShowFx] = useState(true);
   const [showMobileFrame, setShowMobileFrame] = useState(true);
@@ -8974,7 +8978,30 @@ function App() {
   const goStage = (d) => { const t = stagesComputed[clamp(stageIndex + d, 0, nStages - 1, )]; if (t) setActiveStage(t.id); };
   const colorOf = (o, i) => o.color || PALETTE[i % PALETTE.length];
   const selObj = objects.find((o) => o.id === selectedObj) || null;
-  const markers = renderObjects.map((o, i) => ({ id: o.id, label: o.label, color: colorOf(o, i), position: o.position, visible: o.visible, hidden: !!o.hidden }));
+  /* Orden en el visor (solo en edición; la exportación y el preview siempre muestran todo):
+     - fantasmas: los objetos ocultos en esta pose se dibujan tenues; con 100+ objetos tapan todo, así que se pueden apagar.
+     - aislar: deja solo el objeto seleccionado con su grupo (madre e hijos). Las luces siempre quedan. */
+  let viewObjects = renderObjects;
+  if (!exporting) {
+    let groupIds = null;
+    if (isolate && selObj) {
+      groupIds = new Set([selObj.id]);
+      for (let cur = selObj; cur && cur.parent && objects.some((q) => q.id === cur.parent) && groupIds.size < 400; cur = objects.find((q) => q.id === cur.parent)) groupIds.add(cur.parent);
+      let grew = true;
+      while (grew) { grew = false; objects.forEach((q) => { if (q.parent && groupIds.has(q.parent) && !groupIds.has(q.id)) { groupIds.add(q.id); grew = true; } }); }
+    }
+    viewObjects = renderObjects.filter((o) => {
+      if (selObj && o.id === selObj.id) return true;
+      if (o.type === "light") return true;
+      if (groupIds && !groupIds.has(o.id)) return false;
+      if (!showGhosts && !sampled && o.editGhost) return false;
+      return true;
+    });
+  }
+  const markers = viewObjects
+    .map((o) => ({ o, i: renderObjects.indexOf(o) }))
+    .filter(({ o }) => labelMode === "all" || (labelMode === "visible" && !o.hidden && o.visible) || (selObj && o.id === selObj.id))
+    .map(({ o, i }) => ({ id: o.id, label: o.label, color: colorOf(o, i), position: o.position, visible: o.visible, hidden: !!o.hidden }));
   const toast = projectLoaded ? "Proyecto cargado" : downloaded ? "index.html descargado" : copiedWhich ? "Copiado" : null;
   const fileName = (projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto";
 
@@ -9326,11 +9353,19 @@ function App() {
           {[["Libre", freeOrbit, setFreeOrbit], ["Rotar", autoRotate, setAutoRotate, freeOrbit], ["Objetos", showObjects, setShowObjects], ["Grilla", showGrid, setShowGrid], ["Ambiente", showFx, setShowFx], ["9:16", showMobileFrame, setShowMobileFrame]]
             .filter((c) => c[3] === undefined || c[3])
             .map(([t, on, set]) => <span key={t} className={`vchip ${on ? "on" : ""}`} onClick={() => set(!on)}>{t}</span>)}
+          {section === "objects" && showObjects && (
+            <>
+              <span className="vchip" style={{ opacity: 0.35, padding: 0, width: 1 }} />
+              <span className={`vchip ${isolate ? "on" : ""}`} title="Muestra solo el objeto seleccionado con su grupo (madre e hijos)" onClick={() => setIsolate(!isolate)}>Aislar</span>
+              <span className={`vchip ${showGhosts ? "on" : ""}`} title="Dibuja tenues los objetos que están ocultos en esta pose" onClick={() => setShowGhosts(!showGhosts)}>Fantasmas</span>
+              <span className="vchip on" title="Qué etiquetas se ven en el visor: todas, solo los visibles en esta pose, solo el seleccionado o ninguna" onClick={() => setLabelMode(labelMode === "all" ? "visible" : labelMode === "visible" ? "sel" : labelMode === "sel" ? "none" : "all")}>Etiquetas: {labelMode === "all" ? "todas" : labelMode === "visible" ? "visibles" : labelMode === "sel" ? "selección" : "ninguna"}</span>
+            </>
+          )}
         </div>
         <div className="scene-box" style={vidBox ? { position: "fixed", inset: "auto", left: 0, top: 0, width: vidBox.w, height: vidBox.h } : undefined}>
         <Canvas key={canvasKey} onCreated={onCanvasCreated} shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={exporting ? 1 : [1, 1.5]} gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}>
-          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={!exporting && autoRotate} movement={currentMovement} objects={renderObjects} showObjects={exporting || showObjects} showGrid={!exporting && showGrid} fx={renderFx} showFx={exporting || showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection}
-            markers={!exporting && section === "objects" && showObjects ? markers : null} selectedObjectId={selectedObj} onSelectObject={setSelectedObj} />
+          <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={!exporting && autoRotate} movement={currentMovement} objects={exporting ? renderObjects : viewObjects} showObjects={exporting || showObjects} showGrid={!exporting && showGrid} fx={renderFx} showFx={exporting || showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection}
+            markers={!exporting && section === "objects" && showObjects && labelMode !== "none" ? markers : (!exporting && section === "objects" && showObjects && selObj ? markers.filter((m) => m.id === selObj.id) : null)} selectedObjectId={selectedObj} onSelectObject={setSelectedObj} />
           <VideoExportBridge tag={exportT} bridgeRef={vidBridge} />
         </Canvas>
         </div>
@@ -9827,8 +9862,9 @@ function App() {
                   <IBtn icon="pin" title="Fijar todos en todas las poses" disabled={!objects.length} onClick={applyAllObjectTransformsToAllStages} />
                 </div>
                 {objects.length > 3 && <Switch checked={objOnlyVisible} onChange={setObjOnlyVisible} label={`Solo los visibles en esta pose (${objects.filter(isVisibleHere).length} de ${objects.length})`} />}
+                {objects.length > 6 && <input type="text" placeholder={`Buscar entre ${objects.length} objetos…`} value={objSearch} onChange={(e) => setObjSearch(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />}
                 <div className="outliner">
-                  {objects.map((o, i) => (objOnlyVisible && !isVisibleHere(o) && !(selObj && selObj.id === o.id)) ? null : (
+                  {objects.map((o, i) => (objOnlyVisible && !isVisibleHere(o) && !(selObj && selObj.id === o.id)) || (objSearch.trim() && !String(o.label).toLowerCase().includes(objSearch.trim().toLowerCase()) && !(selObj && selObj.id === o.id)) ? null : (
                     <div key={o.id} className={`orow ${selObj && selObj.id === o.id ? "sel" : ""} ${o.visible && !(objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage] && objectTransformsByKf[o.id][activeStage].hidden) ? "" : "off"}`} style={{ "--oc": colorOf(o, i) }} onClick={() => setSelectedObj(o.id)}>
                       <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "shape" ? "shape" : o.type === "light" ? "light" : o.type === "smoke" ? "smoke" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
                       <span className="oname">{o.parent && objects.some((q) => q.id === o.parent) ? "↳ " : ""}{o.label}{objects.some((q) => q.parent === o.id) ? " ⛓" : ""}</span>
