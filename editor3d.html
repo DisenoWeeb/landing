@@ -834,6 +834,9 @@ const DOF_BLUR = 3;
 const DOF_BACK = true;
 const SCROLL_SPEED = 0;
 const SCROLL_MAX_PPS = 1.5;
+const SCROLL_SPEED_MOBILE = 0;
+const TOUCH_INERTIA = 6;
+const MOBILE_SNAP = false;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -1033,11 +1036,18 @@ function scrollSpeedEff() {
   const avgVh = SCROLL_LENGTH_VH / Math.max(1, scenes.length - 1);
   return Math.max(1, Math.min(15, Math.round((avgVh / 132) * 2) / 2));
 }
+/* Celular (pantalla táctil): velocidad e inercia propias, separadas de la rueda de la PC.
+   SCROLL_SPEED_MOBILE = 0 es automático (40% de la velocidad de la PC). TOUCH_INERTIA: cuánto sigue avanzando al soltar el dedo. */
+const IS_TOUCH_DEVICE = typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+function mobileSpeedEff() {
+  if (SCROLL_SPEED_MOBILE > 0) return SCROLL_SPEED_MOBILE;
+  return Math.max(1, Math.round(scrollSpeedEff() * 0.4 * 2) / 2);
+}
 function useScrollTuning() {
   useEffect(() => {
     const speed = scrollSpeedEff();
     if (typeof Lenis === "undefined" || !window.__lenis) return;
-    if (speed <= 1) return;   // proyecto corto: queda el comportamiento de siempre
+    if (speed <= 1 && !IS_TOUCH_DEVICE) return;   // proyecto corto en PC: queda el comportamiento de siempre
     try {
       const y = window.scrollY;
       const old = window.__lenis;
@@ -1049,10 +1059,10 @@ function useScrollTuning() {
         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
         smoothWheel: true,
         wheelMultiplier: speed,
-        touchMultiplier: speed,
+        touchMultiplier: MOBILE_SNAP && IS_TOUCH_DEVICE ? 0 : mobileSpeedEff(),
         syncTouch: true,
         syncTouchLerp: 0.1,
-        touchInertiaMultiplier: 18,
+        touchInertiaMultiplier: Math.max(0, TOUCH_INERTIA),
       });
       window.scrollTo(0, y);
     } catch (e) {}
@@ -1070,6 +1080,7 @@ function useScrollProgress(spacerRef) {
       const el = spacerRef.current;
       if (!el) return;
       const total = el.offsetHeight - stableVh();
+      window.__wsScrollTotal = total;
       const raw = total > 0 ? window.scrollY / total : 0;
       const p = clamp(raw, 0, 1);
       useScrollStore.getState().setProgress(p);
@@ -1084,6 +1095,59 @@ function useScrollProgress(spacerRef) {
       probe.remove();
     };
   }, [spacerRef]);
+}
+
+/* Celular: cada deslizamiento lleva exactamente a la pose siguiente (o la anterior) y la animación se ve completa.
+   Los gestos horizontales (por ejemplo los días del turnero) y los toques en botones quedan como siempre. */
+function useMobileSnap() {
+  useEffect(() => {
+    if (!MOBILE_SNAP || !IS_TOUCH_DEVICE) return;
+    let y0 = 0, x0 = 0, tracking = false, busyUntil = 0;
+    const marks = scenes.map((s) => s.progress);
+    const onStart = (e) => {
+      if (e.touches.length !== 1) { tracking = false; return; }
+      const t = e.target;
+      if (t && t.closest && t.closest("input, textarea, select, [data-no-snap]")) { tracking = false; return; }
+      tracking = true; y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
+    };
+    const onMove = (e) => {
+      if (!tracking) return;
+      const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
+      if (Math.abs(dy) > Math.abs(dx) && e.cancelable) e.preventDefault();   // vertical: lo manejamos nosotros
+    };
+    const onEnd = (e) => {
+      if (!tracking) return; tracking = false;
+      const t = e.changedTouches[0]; const dy = t.clientY - y0, dx = t.clientX - x0;
+      if (Math.abs(dy) < 36 || Math.abs(dy) < Math.abs(dx)) return;
+      const now = performance.now(); if (now < busyUntil) return;
+      const total = window.__wsScrollTotal || 0; if (total <= 0) return;
+      const cur = useScrollStore.getState().progress;
+      let i = 0; let best = 1e9;
+      marks.forEach((m, k) => { const d = Math.abs(m - cur); if (d < best) { best = d; i = k; } });
+      const dir = dy < 0 ? 1 : -1;
+      let j = i + dir;
+      if (dir > 0 && marks[i] > cur + 0.002) j = i;            // estaba antes de la pose más cercana: ir a esa
+      if (dir < 0 && marks[i] < cur - 0.002) j = i;
+      j = Math.max(0, Math.min(marks.length - 1, j));
+      if (j === i && Math.abs(marks[i] - cur) < 0.002) return;
+      const span = Math.abs(marks[j] - cur) * SCROLL_LENGTH_VH;
+      const avg = SCROLL_LENGTH_VH / Math.max(1, marks.length - 1);
+      const dur = Math.max(0.8, Math.min(2.6, 1.3 * span / avg));
+      busyUntil = now + dur * 1000 * 0.85;
+      const target = marks[j] * total;
+      const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+      if (window.__lenis && window.__lenis.scrollTo) window.__lenis.scrollTo(target, { duration: dur, easing: ease, force: true });
+      else window.scrollTo({ top: target, behavior: "smooth" });
+    };
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, []);
 }
 
 function useArrowKeyScroll(step = 140) {
@@ -2576,7 +2640,25 @@ function sampleObjectKeyframes(keyframes, progress) {
   };
 }
 
-function useObjectTransformRef(keyframes, billboard, own) {
+/* Flotar siempre: un vaivén suave que no depende del scroll (sube y baja y se mece un poco), con su propio ritmo por
+   objeto. En el MP4 usa el tiempo del video (window.__wsExportTime), así sale fluido y repetible. */
+const _FLO = { dy: 0, ry: 0, rz: 0 };
+function floatOffset(data, clockT) {
+  const amp = data && data.float > 0 ? data.float : 0;
+  if (!amp) { _FLO.dy = 0; _FLO.ry = 0; _FLO.rz = 0; return _FLO; }
+  const ext = typeof window !== "undefined" ? window.__wsExportTime : null;
+  const t = ext != null ? ext : clockT;
+  const sp = data.floatSpeed > 0 ? data.floatSpeed : 1;
+  let h = 0; const id = String(data.id || data.url || ""); for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 9973;
+  const ph = (h / 9973) * Math.PI * 2;
+  const w = (Math.PI * 2 * sp) / 3.2;                       // un ciclo cada 3,2 s con velocidad 1
+  const rot = Math.min(0.2, amp * 0.7);                      // se mece en proporción a la altura (máx ~11°)
+  _FLO.dy = amp * Math.sin(t * w + ph);
+  _FLO.ry = rot * Math.sin(t * w * 0.77 + ph * 1.7);
+  _FLO.rz = rot * 0.6 * Math.sin(t * w * 0.61 + ph * 2.3);
+  return _FLO;
+}
+function useObjectTransformRef(keyframes, billboard, own, data) {
   const groupRef = useRef(null);
   const fade = useMemo(() => makeFadeUniforms(), []);
   const hasFadeOnly = useMemo(() => keyframes.some((k) => k.hidden), [keyframes]);
@@ -2599,16 +2681,17 @@ function useObjectTransformRef(keyframes, billboard, own) {
     b.sx = damp(b.sx, kf.sx ?? 1, 4, delta);
     b.sy = damp(b.sy, kf.sy ?? 1, 4, delta);
     const an = hasFadeOnly && !own ? animFor(kf.fade.dir, kf.fade.amt, kf.fade.out) : _ANIM_ID;
-    g.position.set(b.x + an.dx, b.y + an.dy, b.z);
+    const fl = floatOffset(data, state.clock.elapsedTime);
+    g.position.set(b.x + an.dx, b.y + an.dy + fl.dy, b.z);
     g.scale.set(b.s * b.sx * an.s * an.sx, b.s * b.sy * an.s * an.sy, b.s * an.s);
     if (!billboard) {
       g.rotation.order = "YXZ";
-      g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180, 4, delta);
+      g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180 + fl.ry, 4, delta);
       g.rotation.x = damp(g.rotation.x, ((kf.rx || 0) * Math.PI) / 180, 4, delta);   // inclinación (acostar como piso)
     }
     if (hasFade) driveFade(g, state.camera, fade, kf.fade, own);
     fade.uBlr.value = hasBlur ? Math.max(0, kf.bl || 0) * 0.01 : 0;
-    if (zRef.current) zRef.current.rotation.z = damp(zRef.current.rotation.z, ((kf.rz || 0) * Math.PI) / 180, 4, delta);
+    if (zRef.current) zRef.current.rotation.z = damp(zRef.current.rotation.z, ((kf.rz || 0) * Math.PI) / 180 + fl.rz, 4, delta);
   });
   return { groupRef, fade, hasFade, live, zRef };
 }
@@ -3014,7 +3097,7 @@ function SceneObjectText({ data }) {
   });
   const effId = TEXT_EFFECTS[data.textEffect] || 0;
   const wantTA = effId > 0 || data.keyframes.some((k) => k.tk || k.lh);
-  const { groupRef, fade, hasFade, live, zRef } = useObjectTransformRef(data.keyframes, data.billboard, effId > 0);
+  const { groupRef, fade, hasFade, live, zRef } = useObjectTransformRef(data.keyframes, data.billboard, effId > 0, data);
   const ta = useMemo(() => makeTextAnimUniforms(), []);
   const info = texture ? texture.userData.glyphs : null;
   const geo = useMemo(() => (wantTA && info ? buildTextGlyphGeometry(info) : null), [wantTA, info]);
@@ -3420,7 +3503,7 @@ function useClonedScene(src) {
 function SceneObjectModel({ data }) {
   const { scene: srcScene } = useGLTF(data.url);
   const scene = useClonedScene(srcScene);
-  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false);
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false, false, data);
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
@@ -3659,14 +3742,14 @@ function SvgExtrudeBody({ url, data, fade, hasFade, shadows }) {
   );
 }
 function SceneObjectSvgExtrude({ data }) {
-  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard, false, data);
   const body = <group ref={zRef}><SvgExtrudeBody url={data.url} data={data} fade={fade} hasFade={hasFade} shadows={data.shadows !== false} /></group>;
   return <group ref={groupRef}>{data.billboard ? <Billboard>{body}</Billboard> : body}</group>;
 }
 function SceneObjectImageRaster({ data }) {
   const texture = useTexture(data.url);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
-  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard, false, data);
   const sd = useAlphaDepth(texture, !!data.shCast);
   const mesh = (
     <group ref={zRef}><mesh renderOrder={10} scale={[aspect, 1, 1]} castShadow={!!sd} customDepthMaterial={sd ? sd.depth : undefined} customDistanceMaterial={sd ? sd.dist : undefined}>
@@ -3682,7 +3765,7 @@ function SceneObjectImageRaster({ data }) {
 }
 function SceneObjectImageSvg({ data }) {
   const texture = useHiResSvgTexture(data.url, 3072);
-  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard, false, data);
   const sd = useAlphaDepth(texture, !!data.shCast);
   if (!texture) return <group ref={groupRef} />;
   const aspect = texture.image.width / texture.image.height;
@@ -3701,7 +3784,7 @@ function SceneObjectImageSvg({ data }) {
 function SceneObjectVideo({ data }) {
   const scrub = data.videoMode !== "play";
   const { texture, aspect, video } = useVideoTexture(data.url, data.loop, scrub);
-  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, hasFade, zRef } = useObjectTransformRef(data.keyframes, data.billboard, false, data);
   useFrame(() => {
     if (!scrub || !video) return;
     seekVideoToProgress(video, useScrollStore.getState().smoothProgress, data.scrollFrom ?? 0, data.scrollTo ?? 1);
@@ -3957,7 +4040,7 @@ function driveSmoke(mat, mesh, o, sm, camera, delta, st, liveQ) {
   return U.uDens.value;
 }
 function SceneObjectSmoke({ data }) {
-  const { groupRef, live } = useObjectTransformRef(data.keyframes, false);
+  const { groupRef, live } = useObjectTransformRef(data.keyframes, false, false, data);
   const { camera } = useThree();
   const perf = React.useContext(PerfCtx);
   const mat = useMemo(() => makeSmokeMaterial(), []);
@@ -3979,7 +4062,7 @@ function SceneObjectSmoke({ data }) {
   );
 }
 function SceneObjectShape({ data }) {
-  const { groupRef, fade, live } = useObjectTransformRef(data.keyframes, data.billboard);
+  const { groupRef, fade, live } = useObjectTransformRef(data.keyframes, data.billboard, false, data);
   const mat = useMemo(() => makeShapeMaterial(fade), [fade]);
   const meshRef = useRef(null);
   const physRef = useRef(null);
@@ -5044,6 +5127,7 @@ function App() {
   const stageRef = useRef(null);
   useScrollProgress(spacerRef);
   useScrollTuning();
+  useMobileSnap();
   useArrowKeyScroll(140 * scrollSpeedEff());
   const device = useMemo(() => getDeviceProfile(), []);
   const [ready, setReady] = useState(false);
@@ -5540,6 +5624,8 @@ const FADE_SOFT = 1.0;
 //@@use FADE_FRAG_DECL
 //@@use FADE_FRAG_BODY
 //@@use discardClearPixels
+//@@use _FLO
+//@@use floatOffset
 //@@use patchFadeMaterial
 //@@use weebProgKey
 //@@use patchMediaMaterial
@@ -6059,7 +6145,19 @@ function ObjectPreview({ obj }) {
   else if (obj.type === "shape") inner = <ObjectPreviewShape obj={obj} fade={fade} />;
   else if (obj.type === "video") inner = <ObjectPreviewVideo obj={obj} fade={fade} />;
   else inner = obj.type === "image" ? <ObjectPreviewImage obj={obj} fade={fade} /> : <ObjectPreviewModel obj={obj} fade={fade} />;
-  return <FadeGroup obj={obj} fade={fade}>{inner}</FadeGroup>;
+  return <FadeGroup obj={obj} fade={fade}>{obj.float > 0 && obj.type !== "shape" ? <FloatWrap obj={obj}>{inner}</FloatWrap> : inner}</FadeGroup>;
+}
+/* "Flotar siempre" en el visor: se mece alrededor de su propio centro (y en el MP4 usa el tiempo del video). */
+function FloatWrap({ obj, children }) {
+  const outer = useRef(null);
+  const P = obj.position || [0, 0, 0];
+  useFrame((state) => {
+    const g = outer.current; if (!g) return;
+    const fl = floatOffset(obj, state.clock.elapsedTime);
+    g.position.set(P[0], P[1] + fl.dy, P[2]);
+    g.rotation.set(0, fl.ry, fl.rz);
+  });
+  return <group ref={outer} position={P}><group position={[-P[0], -P[1], -P[2]]}>{children}</group></group>;
 }
 
 /* Grilla tipo Blender: shader propio con líneas antialiasadas (fwidth), sin parpadeo.
@@ -6818,7 +6916,10 @@ const DOF_RANGE = ${postFx.dofRange ?? 8};
 const DOF_BLUR = ${postFx.dofBlur ?? 3};
 const DOF_BACK = ${postFx.dofBack === false ? "false" : "true"};
 const SCROLL_SPEED = ${postFx.scrollSpeed ?? 0};
-const SCROLL_MAX_PPS = ${postFx.scrollMaxPps ?? 1.5};`;
+const SCROLL_MAX_PPS = ${postFx.scrollMaxPps ?? 1.5};
+const SCROLL_SPEED_MOBILE = ${postFx.scrollSpeedMobile ?? 0};
+const TOUCH_INERTIA = ${postFx.touchInertia ?? 6};
+const MOBILE_SNAP = ${postFx.mobileSnap ? "true" : "false"};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -6963,6 +7064,8 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     litBase: ${fmtNum(o.litBase ?? 0.2)},
     shCast: ${o.shCast ? "true" : "false"},
     billboard: ${o.billboard ? "true" : "false"},
+    float: ${fmtNum(o.float || 0)},
+    floatSpeed: ${fmtNum(o.floatSpeed || 1)},
     keyframes: [
 ${kfLines}
     ],
@@ -6978,6 +7081,8 @@ ${kfLines}
     smokeAmb: ${F("smokeAmb", 0.5)}, smokeSun: ${F("smokeSun", 0.8)}, smokeSunAz: ${F("smokeSunAz", 35)}, smokeSunEl: ${F("smokeSunEl", 55)},
     smokeLMix: ${F("smokeLMix", 1)}, smokeG: ${F("smokeG", 0.35)}, smokeShadow: ${F("smokeShadow", 1.5)}, smokeQuality: ${F("smokeQuality", 2)},
     billboard: false,
+    float: ${fmtNum(o.float || 0)},
+    floatSpeed: ${fmtNum(o.floatSpeed || 1)},
     keyframes: [
 ${kfLines}
     ],
@@ -6995,6 +7100,8 @@ ${kfLines}
     lightDecay: ${fmtNum(o.lightDecay ?? 2)},
     lightShadow: ${o.lightShadow ? "true" : "false"},
     billboard: false,
+    float: ${fmtNum(o.float || 0)},
+    floatSpeed: ${fmtNum(o.floatSpeed || 1)},
     keyframes: [
 ${kfLines}
     ],
@@ -7018,6 +7125,8 @@ ${kfLines}
     litBase: ${fmtNum(o.litBase ?? 0.2)},
     shCast: ${o.shCast ? "true" : "false"},
     billboard: ${o.billboard ? "true" : "false"},
+    float: ${fmtNum(o.float || 0)},
+    floatSpeed: ${fmtNum(o.floatSpeed || 1)},
     keyframes: [
 ${kfLines}
     ],
@@ -7051,6 +7160,8 @@ ${kfLines}
     mat: ${JSON.stringify(o.mat || "plastic")},
     matColor: ${JSON.stringify(o.matColor || "")},
     matRough: ${o.matRough != null ? fmtNum(o.matRough) : "null"},
+    float: ${fmtNum(o.float || 0)},
+    floatSpeed: ${fmtNum(o.floatSpeed || 1)},
     keyframes: [
 ${kfLines}
     ],
@@ -7338,6 +7449,20 @@ function buildFullHtml(boneCode, scenesCode, movementCode, scrollLengthCode, obj
     tpl = swap(tpl, mk("SEO_BODY_START"), mk("SEO_BODY_END"), seoPack.body);
     tpl = tpl.replace('<html lang="es">', '<html lang="' + seoEsc(seoPack.lang) + '">');
   }
+  /* Pre-cargador: el "000" solo si el loader lo muestra. */
+  if (/"showNumber":\s*false/.test(loaderCode)) tpl = tpl.replace('<div id="pre-ldr"><span>000</span></div>', '<div id="pre-ldr"></div>');
+  /* El sitio sale ya compilado: el visitante no espera a que Babel traduzca todo el código en su navegador
+     (en un celular eran varios segundos de loader). Si algo fallara, queda la versión de siempre. */
+  try {
+    const open = '<script type="text/babel" data-type="module" data-presets="react">';
+    const i0 = tpl.indexOf(open), i1 = i0 >= 0 ? tpl.indexOf("</" + "script>", i0) : -1;
+    if (i0 >= 0 && i1 > i0 && typeof Babel !== "undefined") {
+      let out = Babel.transform(tpl.slice(i0 + open.length, i1), { presets: ["react"], sourceType: "module", compact: true, comments: false }).code;
+      out = out.replace(/<\/(script)/gi, "<\\/$1");
+      tpl = tpl.slice(0, i0) + '<script type="module">\n' + out + "\n" + tpl.slice(i1);
+      tpl = tpl.replace(/<script src="https:\/\/unpkg\.com\/@babel\/standalone@[^"]+"><\/script>\n?/, "");
+    }
+  } catch (e) { console.warn("No se pudo precompilar el sitio; se exporta como siempre.", e); }
   return tpl;
 }
 
@@ -7940,6 +8065,9 @@ function App() {
     dofBlur: 3,
     scrollSpeed: 0,
     scrollMaxPps: 1.5,
+    scrollSpeedMobile: 0,
+    touchInertia: 6,
+    mobileSnap: false,
   });
   /* Tocar cualquier valor "fino" marca el look como Personalizado (los dos controles maestros no). */
   const setPostFxField = (field, value) => setPostFx((prev) => ({ ...prev, [field]: value, ...(field === "naturalLight" || field === "exposure" || field === "lookPreset" ? {} : { lookPreset: "custom" }) }));
@@ -8186,6 +8314,7 @@ function App() {
   const [autoRotate, setAutoRotate] = useState(false);
   const [foundMap, setFoundMap] = useState({});
   const [copiedWhich, setCopiedWhich] = useState(null);
+  const [projectName, setProjectName] = useState("proyecto");   // nombre del proyecto: nombra los archivos que se guardan
   const [downloaded, setDownloaded] = useState(false);
 
   // Objetos de entorno (antes "Entorno" / un solo universo.glb). Ahora
@@ -8694,6 +8823,7 @@ function App() {
     kind: "weeb-scroll-project",
     version: 1,
     savedAt: new Date().toISOString(),
+    projectName,
     modelUrl,
     charScale,
     charCenterY,
@@ -8720,6 +8850,7 @@ function App() {
 
   const restoreProjectState = (p) => {
     if (!p || p.kind !== "weeb-scroll-project") throw new Error("no es un archivo de proyecto de esta herramienta");
+    if (typeof p.projectName === "string" && p.projectName.trim()) setProjectName(p.projectName);
     setModelUrl(p.modelUrl || DEFAULT_MODEL_URL);
     setCharScale(typeof p.charScale === "number" ? p.charScale : 1);
     setCharCenterY(typeof p.charCenterY === "number" ? p.charCenterY : 0);
@@ -8784,7 +8915,7 @@ function App() {
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "proyecto.json";
+    a.href = url; a.download = `${(projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto"}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -8797,7 +8928,9 @@ function App() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        restoreProjectState(JSON.parse(reader.result));
+        const parsed = JSON.parse(reader.result);
+        restoreProjectState(parsed);
+        if (!(typeof parsed.projectName === "string" && parsed.projectName.trim()) && file.name) setProjectName(file.name.replace(/\.json$/i, "").replace(/ \(\d+\)$/, ""));
         setProjectLoaded(true);
         setTimeout(() => setProjectLoaded(false), 2500);
       } catch (e) {
@@ -8813,8 +8946,7 @@ function App() {
      original) con tu progreso actual metido adentro en base64. Al
      abrir ese archivo de nuevo — doble clic, o subido a GitHub Pages
      con el nombre que quieras — arranca ya con todo cargado. */
-  const [projectName, setProjectName] = useState("proyecto");
-  const saveProjectAsEditor = () => {
+  const buildEditorHtml = () => {
     const project = buildProjectSnapshot();
     const json = JSON.stringify(project);
     const b64 = btoa(unescape(encodeURIComponent(json)));
@@ -8826,6 +8958,10 @@ function App() {
       /<script[^>]*id="embedded-project-b64"[^>]*>[\s\S]*?<\/script>/,
       `<script id="embedded-project-b64" type="text/plain">${b64}</scri` + `pt>`
     );
+    return html;
+  };
+  const saveProjectAsEditor = () => {
+    const html = buildEditorHtml();
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -8835,6 +8971,23 @@ function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+  /* Copia el editor (con el proyecto adentro) al portapapeles, para pegarlo directo en el archivo del repo de GitHub del proyecto. */
+  const copyEditorHtml = async () => {
+    const html = buildEditorHtml();
+    let ok = false;
+    try { await navigator.clipboard.writeText(html); ok = true; }
+    catch (e) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = html; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch (e2) { ok = false; }
+    }
+    if (ok) { setCopiedWhich("editor"); setTimeout(() => setCopiedWhich(null), 2200); }
+    else window.alert("El navegador no dejó copiar al portapapeles. Usá «Editor .html» para descargarlo.");
   };
 
   const startVideoExport = async () => {
@@ -9002,7 +9155,7 @@ function App() {
     .map((o) => ({ o, i: renderObjects.indexOf(o) }))
     .filter(({ o }) => labelMode === "all" || (labelMode === "visible" && !o.hidden && o.visible) || (selObj && o.id === selObj.id))
     .map(({ o, i }) => ({ id: o.id, label: o.label, color: colorOf(o, i), position: o.position, visible: o.visible, hidden: !!o.hidden }));
-  const toast = projectLoaded ? "Proyecto cargado" : downloaded ? "index.html descargado" : copiedWhich ? "Copiado" : null;
+  const toast = projectLoaded ? "Proyecto cargado" : downloaded ? "index.html descargado" : copiedWhich === "editor" ? "Editor copiado: pegalo en el archivo del repo" : copiedWhich ? "Copiado" : null;
   const fileName = (projectName || "proyecto").trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "proyecto";
 
   useEffect(() => {
@@ -9235,6 +9388,8 @@ function App() {
         )}
         {isModel && <Switch checked={o.shadows !== false} onChange={(v) => updateObject(o.id, { shadows: v })} label="Sombras (proyecta / recibe)" />}
         {!isModel && <Switch checked={!!o.billboard} onChange={(v) => updateObject(o.id, { billboard: v })} label="Billboard (mira a cámara)" />}
+        <Slider label="Flotar siempre (altura · 0 = no)" min={0} max={0.6} step={0.01} value={o.float || 0} onChange={(v) => updateObject(o.id, { float: v })} />
+        {(o.float || 0) > 0 && <Slider label="Ritmo de la flotación" min={0.2} max={3} step={0.05} value={o.floatSpeed ?? 1} onChange={(v) => updateObject(o.id, { floatSpeed: v })} />}
         {(isText || isImage || (isShape && !o.phys)) && <Switch checked={!!o.lit} onChange={(v) => updateObject(o.id, { lit: v })} label="Recibe luz (spots y luces de la escena)" />}
         {(isText || isImage || (isShape && !o.phys)) && o.lit && <Slider label="Brillo propio" min={0} max={1} step={0.01} value={o.litBase ?? 0.2} onChange={(v) => updateObject(o.id, { litBase: v })} />}
         {(isText || isImage || (isShape && !o.phys)) && o.lit && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Con esto el cartel se ve según la luz que le llega: oscuro donde no hay luz y brillante bajo los spots. «Brillo propio» es lo mínimo que se ve sin luz.</div>}
@@ -9827,6 +9982,10 @@ function App() {
                         <Switch label={`Velocidad automática (según el largo: ×${autoSpeed})`} checked={!(postFx.scrollSpeed > 0)} onChange={(v) => setSc({ scrollSpeed: v ? 0 : autoSpeed })} />
                         {postFx.scrollSpeed > 0 && <Slider label="Velocidad (×)" min={1} max={20} step={0.5} value={postFx.scrollSpeed} onChange={(v) => setSc({ scrollSpeed: v })} />}
                         <Slider label="Límite (poses por segundo, 0 = sin límite)" min={0} max={6} step={0.1} value={postFx.scrollMaxPps ?? 1.5} onChange={(v) => setSc({ scrollMaxPps: v })} />
+                        <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4, marginTop: 10 }}>Celular (pantalla táctil). No cambia nada en la PC.</div>
+                        <Switch label="Una pose por deslizamiento" checked={!!postFx.mobileSnap} onChange={(v) => setSc({ mobileSnap: v })} />
+                        {!postFx.mobileSnap && <Slider label={`Velocidad celular (0 = auto ×${Math.max(1, Math.round((postFx.scrollSpeed > 0 ? postFx.scrollSpeed : autoSpeed) * 0.4 * 2) / 2)})`} min={0} max={15} step={0.5} value={postFx.scrollSpeedMobile ?? 0} onChange={(v) => setSc({ scrollSpeedMobile: v })} />}
+                        {!postFx.mobileSnap && <Slider label="Inercia del dedo" min={0} max={20} step={1} value={postFx.touchInertia ?? 6} onChange={(v) => setSc({ touchInertia: v })} />}
                       </Group>
                     );
                   })()}
@@ -9894,7 +10053,9 @@ function App() {
                     </label>
                     <Btn icon="file" onClick={saveProject}>Guardar .json</Btn>
                     <Btn icon="file" onClick={saveProjectAsEditor}>Editor .html</Btn>
+                    <Btn icon="copy" onClick={copyEditorHtml}>Copiar editor .html</Btn>
                   </div>
+                  <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>«Editor .html» descarga (o «Copiar editor» copia) esta misma herramienta con tu proyecto adentro: pegalo en el archivo del repo de GitHub del proyecto y al abrirlo arranca con todo cargado, sin necesidad del .json. El nombre del proyecto nombra los archivos.</div>
                   <div className="tools"><Btn icon="trash" kind="danger" onClick={newProject}>Nuevo proyecto (vaciar)</Btn></div>
                   {projectLoadError && <div className="err">{projectLoadError}</div>}
                 </Group>
