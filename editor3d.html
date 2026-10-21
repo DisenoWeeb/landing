@@ -3628,7 +3628,18 @@ function getMatTex(kind, baseHex) {
 }
 const __svgTextCache = new Map();
 function fetchSvgText(url) {
-  if (!__svgTextCache.has(url)) __svgTextCache.set(url, fetch(url).then((r) => r.text()));
+  if (!__svgTextCache.has(url)) {
+    const p = fetch(url, { cache: "no-cache" }).then((r) => {
+      if (!r.ok) throw new Error("HTTP " + r.status + " " + url);
+      return r.text();
+    }).then((t) => {
+      if (!/<svg[\s>]/i.test(t)) throw new Error("No es un SVG: " + url);
+      return t;
+    });
+    /* un fallo (404, archivo todavía no subido) no se guarda: se reintenta la próxima vez */
+    p.catch(() => { if (__svgTextCache.get(url) === p) __svgTextCache.delete(url); });
+    __svgTextCache.set(url, p);
+  }
   return __svgTextCache.get(url);
 }
 /* Los cantos y el bisel se suavizan, pero las caras planas de adelante y atrás conservan su normal plana
@@ -3722,8 +3733,16 @@ function SvgExtrudeBody({ url, data, fade, hasFade, shadows }) {
   const gref = useRef(null);
   useEffect(() => {
     let off = false;
-    fetchSvgText(url).then((t) => { if (off) return; try { setBuilt((prev) => { if (prev) prev.parts.forEach((pt) => pt.geo.dispose()); return buildSvgExtrude(t, ext, bev, seg); }); } catch (e) { console.warn("No se pudo extruir el SVG:", e && e.message); } }).catch(() => {});
-    return () => { off = true; };
+    let tries = 0, timer = null;
+    const load = () => {
+      fetchSvgText(url).then((t) => { if (off) return; try { setBuilt((prev) => { if (prev) prev.parts.forEach((pt) => pt.geo.dispose()); return buildSvgExtrude(t, ext, bev, seg); }); } catch (e) { console.warn("No se pudo extruir el SVG:", e && e.message); } }).catch((e) => {
+        if (off) return;
+        console.warn("SVG no disponible, reintentando:", e && e.message);
+        if (++tries <= 6) timer = setTimeout(load, 2000 * tries);
+      });
+    };
+    load();
+    return () => { off = true; if (timer) clearTimeout(timer); };
   }, [url, ext, bev, seg]);
   const mats = useMemo(() => (built ? built.parts.map((pt) => makeSvgMat(data, pt.color)) : []), [built, data.mat, data.matColor, data.matRough]);
   useEffect(() => () => mats.forEach((m) => m.dispose()), [mats]);
@@ -8338,6 +8357,31 @@ function App() {
   const [labelMode, setLabelMode] = useState("visible");     // etiquetas del visor: all | visible | sel | none
   const [isolate, setIsolate] = useState(false);              // solo el objeto seleccionado y su grupo
   const [objSearch, setObjSearch] = useState("");
+  /* Archivos que el proyecto usa pero no están en la carpeta del sitio (al reabrir un proyecto, lo subido con «Subir archivo» no se conserva:
+     si el archivo tampoco está en el repo, el objeto no se ve). Se detecta y se avisa en vez de quedar en silencio. Solo con http(s). */
+  const [missingFiles, setMissingFiles] = useState([]);
+  const fileCheckRef = useRef({});
+  const objUrlKey = objects.map((o) => (o.previewUrl ? "" : (o.url || ""))).join("|");
+  useEffect(() => {
+    if (!/^https?:$/.test(window.location.protocol)) { setMissingFiles([]); return undefined; }
+    let off = false;
+    const t = setTimeout(async () => {
+      const miss = [];
+      for (const o of objects) {
+        const u = o.url || "";
+        if (!u || o.previewUrl || /^(blob:|data:)/.test(u) || ["text", "shape", "light", "smoke"].includes(o.type)) continue;
+        let ok = fileCheckRef.current[u];
+        if (ok === undefined) {
+          try { const r = await fetch(new URL(u, window.location.href).href, { method: "HEAD", cache: "no-store" }); ok = r.ok; } catch (e) { ok = false; }
+          fileCheckRef.current[u] = ok;
+        }
+        if (!ok) miss.push({ id: o.id, label: o.label, url: u });
+      }
+      if (!off) setMissingFiles(miss);
+    }, 700);
+    return () => { off = true; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objUrlKey]);
   const [showGrid, setShowGrid] = useState(true);
   const [showFx, setShowFx] = useState(true);
   const [showMobileFrame, setShowMobileFrame] = useState(true);
@@ -10021,12 +10065,17 @@ function App() {
                   <IBtn icon="pin" title="Fijar todos en todas las poses" disabled={!objects.length} onClick={applyAllObjectTransformsToAllStages} />
                 </div>
                 {objects.length > 3 && <Switch checked={objOnlyVisible} onChange={setObjOnlyVisible} label={`Solo los visibles en esta pose (${objects.filter(isVisibleHere).length} de ${objects.length})`} />}
+                {missingFiles.length > 0 && (
+                  <div className="err" style={{ fontSize: 11, lineHeight: 1.4, marginBottom: 6 }}>
+                    ⚠ {missingFiles.length === 1 ? "Falta 1 archivo" : `Faltan ${missingFiles.length} archivos`} en la carpeta del sitio, por eso {missingFiles.length === 1 ? "ese objeto no se ve" : "esos objetos no se ven"}: {missingFiles.slice(0, 6).map((m) => `${m.label} → ${m.url}`).join(" · ")}{missingFiles.length > 6 ? " …" : ""}. Subí esos archivos al repo (a la carpeta indicada) o usá «Subir archivo» en cada objeto para verlos ahora.
+                  </div>
+                )}
                 {objects.length > 6 && <input type="text" placeholder={`Buscar entre ${objects.length} objetos…`} value={objSearch} onChange={(e) => setObjSearch(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />}
                 <div className="outliner">
                   {objects.map((o, i) => (objOnlyVisible && !isVisibleHere(o) && !(selObj && selObj.id === o.id)) || (objSearch.trim() && !String(o.label).toLowerCase().includes(objSearch.trim().toLowerCase()) && !(selObj && selObj.id === o.id)) ? null : (
                     <div key={o.id} className={`orow ${selObj && selObj.id === o.id ? "sel" : ""} ${o.visible && !(objectTransformsByKf[o.id] && objectTransformsByKf[o.id][activeStage] && objectTransformsByKf[o.id][activeStage].hidden) ? "" : "off"}`} style={{ "--oc": colorOf(o, i) }} onClick={() => setSelectedObj(o.id)}>
                       <span className="oico"><Icon name={o.type === "text" ? "text" : o.type === "shape" ? "shape" : o.type === "light" ? "light" : o.type === "smoke" ? "smoke" : o.type === "image" ? "image" : o.type === "video" ? "video" : "cube"} size={15} /></span>
-                      <span className="oname">{o.parent && objects.some((q) => q.id === o.parent) ? "↳ " : ""}{o.label}{objects.some((q) => q.parent === o.id) ? " ⛓" : ""}</span>
+                      <span className="oname">{o.parent && objects.some((q) => q.id === o.parent) ? "↳ " : ""}{o.label}{objects.some((q) => q.parent === o.id) ? " ⛓" : ""}{missingFiles.some((m) => m.id === o.id) ? " ⚠" : ""}</span>
                       <button className="mini" title="Visible" onClick={(e) => { e.stopPropagation(); updateObject(o.id, { visible: !o.visible }); }}><Icon name={o.visible ? "eye" : "eyeoff"} size={14} /></button>
                       <button className="mini" title="Duplicar (usa el mismo archivo)" onClick={(e) => { e.stopPropagation(); duplicateObject(o.id); }}><Icon name="copy" size={14} /></button>
                       <button className="mini danger" title="Eliminar" onClick={(e) => { e.stopPropagation(); removeObject(o.id); }}><Icon name="trash" size={14} /></button>
