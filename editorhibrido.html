@@ -31,7 +31,7 @@
   .ldr__zoom { width: min(64vw, 420px, calc(46vh * var(--ar, 1))); aspect-ratio: var(--ar, 1); transform-origin: 50% 50%; }
   .ldr__zoom svg { display: block; width: 100%; height: 100%; overflow: visible; }
   .ldr__num { position: absolute; left: 0; right: 0; bottom: 10%; text-align: center; color: var(--ldr-line, #fff); user-select: none;
-    font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+    font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(60px, 8vw, 104px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
   .vp-trail { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; mix-blend-mode:screen; }
   .vp-rail { position:absolute; top:50%; transform:translateY(-50%); height:28%; width:2px; z-index:6; background:rgba(244,241,234,.15); border-radius:2px; overflow:hidden; pointer-events:none; }
   .pg-prev { position:absolute; inset:0; z-index:20; background:var(--bg0); display:flex; flex-direction:column; }
@@ -450,7 +450,7 @@
   /* Pantalla de carga inicial (antes de que arranque React): mismo fondo y mismo "000" que el loader */
   #pre-ldr { position: fixed; inset: 0; z-index: 99; background: var(--ldr-bg, #05070f); }
   #pre-ldr span { position: absolute; left: 0; right: 0; bottom: 10%; text-align: center; color: var(--ldr-line, #fff); font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif);
-    font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+    font-weight: 300; font-size: clamp(60px, 8vw, 104px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
   /* ---- Loader: SVG que se dibuja + contador 000 → 100 + zoom de salida ---- */
   .ldr { position: fixed; inset: 0; z-index: 100; touch-action: none; overflow: hidden; }
   .ldr--contained { position: absolute; z-index: 30; cursor: pointer; }
@@ -459,7 +459,7 @@
   .ldr__zoom { width: min(64vw, 420px, calc(46vh * var(--ar, 1))); aspect-ratio: var(--ar, 1); transform-origin: 50% 50%; }
   .ldr__zoom svg { display: block; width: 100%; height: 100%; overflow: visible; }
   .ldr__num { position: absolute; left: 0; right: 0; bottom: 10%; text-align: center; color: var(--ldr-line, #fff); user-select: none;
-    font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(80px, 20vw, 200px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+    font-family: var(--ldr-font, 'Space Grotesk', system-ui, sans-serif); font-weight: 300; font-size: clamp(60px, 8vw, 104px); line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 </style>
 <style id="ldr-vars">/*@GEN:LOADER_CSS_START*/:root { --ldr-bg: #05070f; --ldr-line: #ffffff; --ldr-font: 'Space Grotesk', sans-serif; }/*@GEN:LOADER_CSS_END*/</style>
 <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
@@ -4801,6 +4801,7 @@ const MENU_DEFAULTS = {
   color: "#ffffff", hoverColor: "", gap: 10, numbers: true,
   itemAnim: "mask", itemDelay: 0.06, itemDuration: 0.8, hover: "shift",
   footer: "", footerSize: 13,
+  logoUrl: "", logoLink: "", logoNewTab: false, logoPos: "auto", logoSize: 40, logoMobile: 0.8, logoX: 18, logoY: 18, logoOpacity: 1, logoShadow: false,
   signText: "", signUrl: "", signNewTab: true, signPos: "auto", signSize: 10, signLetter: 0.2, signOpacity: 0.7, signColor: "", signUpper: true, signArrow: true,
   items: [
     { label: "Inicio", type: "pose", pose: 1, href: "", newTab: false },
@@ -5004,6 +5005,23 @@ function SiteMenu({ cfg, contained }) {
   );
 }
 
+function SiteLogo({ cfg, contained }) {
+  const C = { ...MENU_DEFAULTS, ...(cfg || {}) };
+  if (!C.logoUrl) return null;
+  const side = C.panel === "right" || C.panel === "left";
+  const posCls = side ? (C.panel === "left" ? "l" : "r") : (C.position === "left" ? "l" : "r");
+  const pos = C.logoPos && C.logoPos !== "auto" ? C.logoPos : (posCls === "r" ? "tl" : "tr");
+  let href = String(C.logoLink || "").trim();
+  if (href && !/^(https?:|mailto:|tel:|\/|\.|#)/i.test(href)) href = "";
+  const vars = { "--lg-h": (C.logoSize || 40) + "px", "--lg-m": C.logoMobile == null ? 0.8 : C.logoMobile, "--lg-x": (C.logoX ?? 18) + "px", "--lg-y": (C.logoY ?? 18) + "px", "--lg-op": C.logoOpacity ?? 1 };
+  const img = <img src={s2dResolveImg(C.logoUrl)} alt="Logo" draggable={false} />;
+  return (
+    <div className={"sitelogo sitelogo--" + pos + (contained ? " sitelogo--contained" : "") + (C.logoShadow ? " sitelogo--sh" : "")} style={vars}>
+      <style>{`.sitelogo{position:fixed;z-index:29;pointer-events:none;opacity:var(--lg-op)}.sitelogo--contained{position:absolute}.sitelogo a,.sitelogo span{display:block;pointer-events:auto;line-height:0}.sitelogo span{pointer-events:none}.sitelogo img{display:block;height:calc(var(--lg-h) * var(--lg-m));width:auto;max-width:60vw;object-fit:contain;user-select:none}@media (min-width:641px){.sitelogo img{height:var(--lg-h)}}.sitelogo--sh img{filter:drop-shadow(0 2px 8px rgba(0,0,0,.45))}.sitelogo--tl{top:calc(var(--lg-y) + env(safe-area-inset-top,0px));left:var(--lg-x)}.sitelogo--tr{top:calc(var(--lg-y) + env(safe-area-inset-top,0px));right:var(--lg-x)}.sitelogo--bl{bottom:var(--lg-y);left:var(--lg-x)}.sitelogo--br{bottom:var(--lg-y);right:var(--lg-x)}.sitelogo--tc{top:calc(var(--lg-y) + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%)}.sitelogo--bc{bottom:var(--lg-y);left:50%;transform:translateX(-50%)}`}</style>
+      {href ? <a href={href} target={C.logoNewTab ? "_blank" : undefined} rel="noopener" aria-label="Logo">{img}</a> : <span>{img}</span>}
+    </div>
+  );
+}
 function BackToTop() {
   const ref = useRef(null);
   const fillRef = useRef(null);
@@ -5025,8 +5043,36 @@ function BackToTop() {
   }, []);
   const go = () => {
     const l = window.__lenis;
-    if (l && l.scrollTo) l.scrollTo(0, { duration: BACKTOP.duration || 1.8, easing: (t) => 1 - Math.pow(1 - t, 4) });
-    else window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!(l && l.scrollTo)) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    const tok = (window.__wsBT = (window.__wsBT || 0) + 1);
+    const alive = () => window.__wsBT === tok;
+    const cancel = () => { window.__wsBT = tok + 1; window.removeEventListener("wheel", cancel); window.removeEventListener("touchstart", cancel); window.removeEventListener("keydown", cancel); };
+    const dur0 = BACKTOP.duration || 1.8, ease = (t) => 1 - Math.pow(1 - t, 4), lin = (t) => t * (2 - t) * 0.5 + t * 0.5;
+    const top = window.__wsScrollTop, total = window.__wsScrollTotal, vh = window.innerHeight || 800;
+    const has3d = typeof top === "number" && total > 0;
+    const to = (y, duration, easing) => new Promise((res) => { l.scrollTo(y, { duration, easing, force: true, onComplete: res }); setTimeout(res, duration * 1000 + 400); });
+    /* espera a que el 3D termine de rebobinar (el progreso suavizado alcanza al scroll) */
+    const settle = () => new Promise((res) => {
+      const t0 = Date.now();
+      const iv = setInterval(() => {
+        const sp = useScrollStore.getState().smoothProgress;
+        if (!alive() || sp < 0.015 || Date.now() - t0 > 5000) { clearInterval(iv); res(); }
+      }, 60);
+    });
+    if (!has3d || window.scrollY <= top + 2 && top <= 2) { l.scrollTo(0, { duration: dur0, easing: ease }); return; }
+    window.addEventListener("wheel", cancel, { passive: true }); window.addEventListener("touchstart", cancel, { passive: true }); window.addEventListener("keydown", cancel);
+    (async () => {
+      const y = window.scrollY;
+      if (y > top + total + 2) { await to(top + total, Math.min(2.2, Math.max(0.9, (y - top - total) / vh * 0.25)), ease); if (!alive()) return; }
+      if (window.scrollY > top + 2) {
+        await to(top, Math.min(7, Math.max(dur0, total / vh * 0.4)), lin);
+        if (!alive()) return;
+        await settle();
+        if (!alive()) return;
+      }
+      if (top > 2) await to(0, Math.min(2.4, Math.max(1, top / vh * 0.5)), ease);
+      cancel();
+    })();
   };
   const sz = BACKTOP.size || 46;
   const custom = BACKTOP.color ? { "--bt-bg": BACKTOP.color, "--bt-bg-h": BACKTOP.color, "--bt-line": "transparent", "--bt-fg": "#0a0a0a", "--bt-accent": BACKTOP.color } : null;
@@ -5261,14 +5307,31 @@ function useReveal2D(ref, anim) {
     if (type === "none" || reduce || typeof IntersectionObserver === "undefined" || !el.animate) { el.classList.remove("rv-pre"); return undefined; }
     el.classList.add("rv-pre");
     const items = Array.from(el.querySelectorAll("[data-rv]"));
+    let shown = false, anims = [];
+    const stop = () => { anims.forEach((x) => { try { x.cancel(); } catch (e) { /* nada */ } }); anims = []; };
     const run = () => {
+      stop();
       const kf = s2dKeyframes(type), easing = s2dEase(a.ease), dur = Math.max(0.1, a.dur || 0.9) * 1000, st = Math.max(0, a.stagger == null ? 0.09 : a.stagger) * 1000;
-      items.forEach((n, i) => { try { n.animate(kf, { duration: dur, delay: i * st, easing, fill: "both" }); } catch (e) { /* sin animación */ } });
+      items.forEach((n, i) => {
+        n.style.willChange = "transform, opacity";
+        try {
+          const an = n.animate(kf, { duration: dur, delay: i * st, easing, fill: "both" });
+          anims.push(an);
+          an.onfinish = () => { try { an.cancel(); } catch (e) { /* nada */ } n.style.willChange = ""; };
+        } catch (e) { /* sin animación */ }
+      });
       el.classList.remove("rv-pre");
+      shown = true;
     };
-    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { run(); io.disconnect(); } }, { threshold: 0.12 });
+    const reset = () => { stop(); items.forEach((n) => { n.style.willChange = ""; }); el.classList.add("rv-pre"); shown = false; };
+    const io = new IntersectionObserver((es) => {
+      const e = es[es.length - 1];
+      const vh = window.innerHeight || 800;
+      if (e.isIntersecting && !shown && (e.intersectionRatio >= 0.12 || e.intersectionRect.height >= vh * 0.3)) run();
+      else if (!e.isIntersecting && shown) reset();
+    }, { threshold: [0, 0.12, 0.3, 0.6, 1] });
     io.observe(el);
-    return () => { io.disconnect(); el.classList.remove("rv-pre"); };
+    return () => { io.disconnect(); stop(); el.classList.remove("rv-pre"); };
   }, [type, a.ease, a.dur, a.stagger]);
 }
 /* Paralaje suave de imágenes (cada imagen con data-px = intensidad). */
@@ -5340,7 +5403,7 @@ function S2DHead({ s, h1 }) {
 function S2DFig({ s, src, alt, px }) {
   if (!src) return null;
   return (
-    <div className={"s2d-fig s2d-fig--" + (s.imageStyle || "round")} data-rv>
+    <div className={"s2d-fig s2d-fig--" + (s.imageStyle || "round") + (/\.svg([?#]|$)|^data:image\/svg/i.test(String(src)) ? " s2d-fig--vec" : "")} data-rv>
       <div className="s2d-px" data-px={px || 0}><img src={s2dResolveImg(src)} alt={alt || ""} loading="lazy" decoding="async" /></div>
     </div>
   );
@@ -5533,7 +5596,9 @@ const S2D_CSS = `
 .s2d-fig--circle{border-radius:999px;aspect-ratio:1/1}
 .s2d-fig--plain{border-radius:0}
 .s2d-px{width:100%;height:100%;will-change:transform}
-.s2d-px img{width:100%;height:100%;object-fit:cover}
+.s2d-px img{display:block;width:100%;height:100%;object-fit:cover}
+.s2d-fig--vec:not(.s2d-fig--circle) .s2d-px img{height:auto;aspect-ratio:auto 4/3;object-fit:contain}
+.s2d-fig--vec.s2d-fig--circle .s2d-px img{object-fit:contain}
 .s2d-fig--circle .s2d-px{height:100%}
 .s2d-split__in{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,6cqi,80px);align-items:center}
 .s2d-split__in.side-left .s2d-fig{order:-1}
@@ -5707,6 +5772,7 @@ function App() {
         </div>
       ) : <Block2D key={sec.id} s={sec} theme={SITE2D} />)}
       {BACKTOP.enabled && <BackToTop />}
+      {MENU.logoUrl && <SiteLogo cfg={MENU} />}
       {MENU.enabled && <SiteMenu cfg={MENU} />}
     </div>
   );
@@ -6228,6 +6294,7 @@ function FadeGroup({ obj, fade, children }) {
 //@@use MENU_CSS
 //@@use menuRgba
 //@@use SiteMenu
+//@@use SiteLogo
 //@@use lerpOrbit
 //@@use useAlphaDepth
 //@@use TexMaterial
@@ -10392,6 +10459,11 @@ function App() {
         )}
         {showMobileFrame && <MobileFrameOverlay box={phoneBox} />}
         {cursor.enabled && <CursorTrailPreview cfg={cursor} targetRef={viewportRef} />}
+        {menu.logoUrl && !exporting && (
+          <div style={{ position: "absolute", zIndex: 6, pointerEvents: "none", ...(phoneBox ? { left: phoneBox.left, top: phoneBox.top, width: phoneBox.w, height: phoneBox.h } : { inset: 0 }) }}>
+            <SiteLogo cfg={menu} contained />
+          </div>
+        )}
         {menu.enabled && !exporting && (
           <div style={{ position: "absolute", zIndex: 7, pointerEvents: "none", ...(phoneBox ? { left: phoneBox.left, top: phoneBox.top, width: phoneBox.w, height: phoneBox.h } : { inset: 0 }) }}>
             <SiteMenu cfg={menu} contained />
@@ -10520,6 +10592,30 @@ function App() {
                     {backTop.color && <button className="mini" onClick={() => setBackTopField("color", "")}>Quitar</button>}
                   </div>
                   <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Aparece en el sitio al avanzar el scroll y vuelve al principio con inercia. Con el vidrio oscuro o claro se ve bien sobre cualquier fondo; queda abajo, a un costado o al centro. No se ve en el visor, probalo en el sitio exportado.</div>
+                </Group>
+                <Group id="logo" title="Logo flotante" defaultOpen={false} toggle={{ checked: !!menu.logoUrl, onChange: (v) => setMenuField("logoUrl", v ? (menu.logoUrl || "./assets/img/logo.png") : "") }}>
+                  <S2DField f={["logoUrl", "Imagen (PNG/SVG)", "img"]} s={menu} set={(patch) => setMenu((prev) => ({ ...prev, ...patch }))} toast={showMsg} />
+                  <div className="row"><span className="lbl">Lugar</span>
+                    <select value={menu.logoPos || "auto"} onChange={(e) => setMenuField("logoPos", e.target.value)}>
+                      <option value="auto">Arriba, del lado opuesto al menú</option>
+                      <option value="tl">Arriba a la izquierda</option>
+                      <option value="tr">Arriba a la derecha</option>
+                      <option value="tc">Arriba al centro</option>
+                      <option value="bl">Abajo a la izquierda</option>
+                      <option value="br">Abajo a la derecha</option>
+                      <option value="bc">Abajo al centro</option>
+                    </select>
+                  </div>
+                  <Slider label="Tamaño (alto px)" min={16} max={220} step={1} value={menu.logoSize ?? 40} onChange={(v) => setMenuField("logoSize", v)} />
+                  <Slider label="Escala en celular" min={0.4} max={1.4} step={0.05} value={menu.logoMobile ?? 0.8} onChange={(v) => setMenuField("logoMobile", v)} />
+                  <Slider label="Margen horizontal" min={0} max={160} step={1} value={menu.logoX ?? 18} onChange={(v) => setMenuField("logoX", v)} />
+                  <Slider label="Margen vertical" min={0} max={160} step={1} value={menu.logoY ?? 18} onChange={(v) => setMenuField("logoY", v)} />
+                  <Slider label="Visibilidad" min={0.2} max={1} step={0.05} value={menu.logoOpacity ?? 1} onChange={(v) => setMenuField("logoOpacity", v)} />
+                  <Switch checked={!!menu.logoShadow} onChange={(v) => setMenuField("logoShadow", v)} label="Sombra suave (para fondos claros/mixtos)" />
+                  <div className="row"><span className="lbl">Link</span>
+                    <input type="text" style={{ flex: 1 }} value={menu.logoLink || ""} placeholder="Opcional: # o https://…" spellCheck={false} onChange={(e) => setMenuField("logoLink", e.target.value)} />
+                  </div>
+                  <Switch checked={!!menu.logoNewTab} onChange={(v) => setMenuField("logoNewTab", v)} label="Abrir en pestaña nueva" />
                 </Group>
                 <Group id="menu" title="Menú (hamburguesa)" defaultOpen={false} toggle={{ checked: menu.enabled, onChange: (v) => setMenuField("enabled", v) }}>
                   <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Botón de dos rayitas que se convierte en una cruz al abrir. Mirá y probalo en el visor (tocá el botón).</div>
