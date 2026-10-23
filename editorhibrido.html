@@ -1098,8 +1098,23 @@ function gateLenis() {
   const top = window.__wsScrollTop, total = window.__wsScrollTotal, y = window.scrollY;
   const pinned = typeof top === "number" && total > 0 && y >= top - 2 && y <= top + total + 2;
   const o = l.virtualScroll.options;
-  if (pinned) { o.wheelMultiplier = scrollSpeedEff(); o.touchMultiplier = IS_TOUCH_DEVICE ? (MOBILE_SNAP ? 0 : mobileSpeedEff()) : 1; }
-  else { o.wheelMultiplier = 1; o.touchMultiplier = 1; }
+  if (pinned) {
+    o.wheelMultiplier = scrollSpeedEff();
+    let tm = IS_TOUCH_DEVICE ? (MOBILE_SNAP ? 0 : mobileSpeedEff()) : 1;
+    /* Celular: la velocidad baja de a poco al acercarse a una página 2D (arriba o abajo del 3D), en vez de cortarse de golpe. */
+    if (IS_TOUCH_DEVICE && tm > 1) {
+      const vh = window.innerHeight || 800, ramp = vh * 0.8;
+      const hasBelow = document.documentElement.scrollHeight > top + total + vh + 4;
+      let f = 1;
+      if (top > 2) f = Math.min(f, (y - top) / ramp);
+      if (hasBelow) f = Math.min(f, (top + total - y) / ramp);
+      f = Math.max(0, Math.min(1, f)); f = f * f * (3 - 2 * f);
+      tm = 1 + (tm - 1) * f;
+    }
+    o.touchMultiplier = tm;
+  } else { o.wheelMultiplier = 1; o.touchMultiplier = 1; }
+  /* Celular: fuera del tramo 3D el deslizamiento es el nativo del teléfono (más fluido en gamas medias); Lenis solo manda dentro del 3D. */
+  if (IS_TOUCH_DEVICE && l.options) l.options.syncTouch = pinned;
 }
 function wsPinned() {
   const top = window.__wsScrollTop, total = window.__wsScrollTotal, y = window.scrollY;
@@ -1226,11 +1241,11 @@ function ScrollSmoother() {
     const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
     // al abrir la página ya scrolleada (recarga) se salta directo, sin "viajar" por todas las poses
     if (!started.current) { started.current = true; if (progress > 0) { setSmoothProgress(progress); return; } }
-    let next = damp(smoothProgress, progress, 4, delta);
+    let next = damp(smoothProgress, progress, IS_TOUCH_DEVICE ? 7 : 4, delta);   // en celular Lenis ya suaviza el dedo: menos doble suavizado = menos "arrastre"
     /* Límite de velocidad: una sacudida fuerte del dedo/rueda ya no hace pasar todo "volando". La imagen avanza como
        mucho SCROLL_MAX_PPS poses por segundo y alcanza al scroll real apenas se frena. 0 = sin límite. */
     if (SCROLL_MAX_PPS > 0) {
-      const maxStep = (SCROLL_MAX_PPS * Math.min(delta, 0.1)) / Math.max(1, scenes.length - 1);
+      const maxStep = (SCROLL_MAX_PPS * (IS_TOUCH_DEVICE ? 1.6 : 1) * Math.min(delta, 0.1)) / Math.max(1, scenes.length - 1);
       next = smoothProgress + Math.max(-maxStep, Math.min(maxStep, next - smoothProgress));
     }
     setSmoothProgress(next);
@@ -5707,7 +5722,7 @@ function App() {
   useEffect(() => {
     const el = spacerRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return undefined;
-    const io = new IntersectionObserver((es) => { setInView(es.some((e) => e.isIntersecting)); }, { rootMargin: "240px 0px" });
+    const io = new IntersectionObserver((es) => { setInView(es.some((e) => e.isIntersecting)); }, { rootMargin: IS_TOUCH_DEVICE ? "900px 0px" : "240px 0px" });
     io.observe(el);
     return () => io.disconnect();
   }, []);
