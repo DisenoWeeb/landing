@@ -1097,13 +1097,33 @@ function useScrollTuning() {
   }, []);
 }
 
+/* Tramos 3D: la MISMA escena puede aparecer en varios bloques de la página; cada bloque muestra un rango de poses (poseFrom → poseTo).
+   El largo de cada tramo es proporcional a las poses que recorre. Con un solo bloque que cubre todo, queda como siempre. */
+const BLOCKS3D = (() => {
+  const n = scenes.length, last = Math.max(0, n - 1);
+  return SECTIONS.filter((x) => x.type === "scene3d").map((sec, idx) => {
+    const full = !(+sec.poseFrom > 0) && !(+sec.poseTo > 0);
+    let a = Math.round(+sec.poseFrom || 1) - 1, b = Math.round(+sec.poseTo || n) - 1;
+    a = Math.max(0, Math.min(last, a)); b = Math.max(0, Math.min(last, b));
+    if (b < a) { const t = a; a = b; b = t; }
+    const mf = scenes[a].progress || 0;
+    const mt = scenes[b].progress == null ? 1 : scenes[b].progress;
+    const span = Math.max(0, mt - mf);
+    const vh = full ? SCROLL_LENGTH_VH : Math.max(140, span * (SCROLL_LENGTH_VH - 100) + 100);
+    return { id: sec.id, mf, mt: Math.max(mt, mf + 0.0001), vh, first: idx === 0 };
+  });
+})();
+function blk3d(sec) { return BLOCKS3D.find((b) => b.id === sec.id) || BLOCKS3D[0]; }
+/* Bloque 3D "activo" (el que lleva la escena): el fijado en pantalla o, si no hay, el más cercano. */
+function wsBlock() { const b = window.__wsBlocks; return b && b.length ? b[Math.min(b.length - 1, window.__wsActive || 0)] : null; }
+
 /* La velocidad de scroll del 3D (rueda / dedo) solo se aplica mientras la escena está fijada en pantalla; en las secciones 2D el
    scroll es el normal. */
 function gateLenis() {
   const l = window.__lenis;
   if (!l || !l.virtualScroll || !l.virtualScroll.options) return;
   const top = window.__wsScrollTop, total = window.__wsScrollTotal, y = window.scrollY;
-  const pinned = typeof top === "number" && total > 0 && y >= top - 2 && y <= top + total + 2;
+  const pinned = wsPinned();
   const o = l.virtualScroll.options;
   if (pinned) {
     o.wheelMultiplier = scrollSpeedEff();
@@ -1130,10 +1150,11 @@ function gateLenis() {
   }
 }
 function wsPinned() {
-  const top = window.__wsScrollTop, total = window.__wsScrollTotal, y = window.scrollY;
-  return typeof top === "number" && total > 0 && y >= top - 2 && y <= top + total + 2;
+  const y = window.scrollY, bl = window.__wsBlocks || [];
+  for (let i = 0; i < bl.length; i++) if (bl[i].total > 0 && y >= bl[i].top - 2 && y <= bl[i].top + bl[i].total + 2) return true;
+  return false;
 }
-function useScrollProgress(spacerRef) {
+function useScrollProgress() {
   useEffect(() => {
     // Alto "grande" del viewport (100lvh): no cambia cuando el navegador del celular esconde su barra al primer scroll.
     const probe = document.createElement("div");
@@ -1141,17 +1162,37 @@ function useScrollProgress(spacerRef) {
     document.body.appendChild(probe);
     const stableVh = () => probe.offsetHeight || window.innerHeight;
     const compute = () => {
-      const el = spacerRef.current;
-      if (!el) { gateLenis(); return; }   // sitio solo 2D: igual hay que dejar el scroll en velocidad normal
-      const asP = el.parentElement && el.parentElement.classList.contains("ovl-pair") && el === el.parentElement.firstElementChild;   // la sección de abajo se superpone: el 3D sigue fijo 100vh más
-      const total = el.offsetHeight - stableVh() - (asP ? stableVh() : 0);
-      const top = el.getBoundingClientRect().top + window.scrollY;   // el tramo 3D puede empezar más abajo (secciones 2D antes)
-      window.__wsScrollTotal = total;
-      window.__wsScrollTop = top;
-      const raw = total > 0 ? (window.scrollY - top) / total : 0;
-      const p = clamp(raw, 0, 1);
-      useScrollStore.getState().setProgress(p);
-      document.body.classList.toggle("app-root--scrolled", window.scrollY > top + 20);
+      const els = Array.from(document.querySelectorAll(".ws-3d"));
+      if (!els.length) { window.__wsBlocks = []; gateLenis(); return; }   // sitio solo 2D: igual hay que dejar el scroll en velocidad normal
+      const sv = stableVh(), y = window.scrollY, vh = window.innerHeight;
+      const blocks = els.map((el, i) => {
+        const B = BLOCKS3D[i] || BLOCKS3D[0];
+        const asP = el.parentElement && el.parentElement.classList.contains("ovl-pair") && el === el.parentElement.firstElementChild;   // la sección de abajo se superpone: el 3D sigue fijo 100vh más
+        const total = el.offsetHeight - sv - (asP ? sv : 0);
+        const top = el.getBoundingClientRect().top + y;   // el tramo 3D puede empezar más abajo (secciones 2D antes)
+        return { el, top, total, mf: B.mf, mt: B.mt };
+      });
+      window.__wsBlocks = blocks;
+      /* bloque activo: el fijado en pantalla; si ninguno, el más cercano a lo que se ve */
+      let k = 0, best = Infinity;
+      blocks.forEach((b, i) => {
+        const lo = b.top, hi = b.top + b.total + sv;
+        const pinned = b.total > 0 && y >= b.top - 2 && y <= b.top + b.total + 2;
+        const d = pinned ? -1 : (y + vh < lo ? lo - (y + vh) : y > hi ? y - hi : 0);
+        if (d < best) { best = d; k = i; }
+      });
+      const b = blocks[k];
+      if (window.__wsActive !== k) {
+        window.__wsActive = k;
+        window.__wsSnap = true;   // al cambiar de tramo la escena salta (sin animar) a la pose de ese tramo
+        const stage = document.querySelector(".canvas-stage");   // el 3D "viaja" al tramo activo (un solo lienzo WebGL)
+        if (stage && stage.parentElement !== b.el) b.el.appendChild(stage);
+      }
+      window.__wsScrollTotal = b.total;
+      window.__wsScrollTop = b.top;
+      const lp = clamp(b.total > 0 ? (y - b.top) / b.total : 0, 0, 1);
+      useScrollStore.getState().setProgress(b.mf + lp * (b.mt - b.mf));
+      document.body.classList.toggle("app-root--scrolled", y > blocks[0].top + 20);
       gateLenis();
     };
     compute();
@@ -1165,7 +1206,7 @@ function useScrollProgress(spacerRef) {
       if (ro) ro.disconnect();
       probe.remove();
     };
-  }, [spacerRef]);
+  }, []);
 }
 
 /* Celular: cada deslizamiento lleva exactamente a la pose siguiente (o la anterior) y la animación se ve completa.
@@ -1174,7 +1215,6 @@ function useMobileSnap() {
   useEffect(() => {
     if (!MOBILE_SNAP || !IS_TOUCH_DEVICE) return;
     let y0 = 0, x0 = 0, tracking = false, busyUntil = 0;
-    const marks = scenes.map((s) => s.progress);
     const onStart = (e) => {
       if (e.touches.length !== 1) { tracking = false; return; }
       const t = e.target;
@@ -1193,7 +1233,11 @@ function useMobileSnap() {
       if (Math.abs(dy) < 36 || Math.abs(dy) < Math.abs(dx)) return;
       const now = performance.now(); if (now < busyUntil) return;
       const total = window.__wsScrollTotal || 0; if (total <= 0) return;
-      const cur = useScrollStore.getState().progress;
+      const B = wsBlock() || { mf: 0, mt: 1 };
+      const bspan = Math.max(1e-6, B.mt - B.mf);
+      const marks = scenes.map((s) => s.progress).filter((m) => m >= B.mf - 1e-4 && m <= B.mt + 1e-4).map((m) => (m - B.mf) / bspan);
+      if (marks.length < 2) return;
+      const cur = (useScrollStore.getState().progress - B.mf) / bspan;
       let i = 0; let best = 1e9;
       marks.forEach((m, k) => { const d = Math.abs(m - cur); if (d < best) { best = d; i = k; } });
       const dir = dy < 0 ? 1 : -1;
@@ -1215,8 +1259,8 @@ function useMobileSnap() {
       }
       j = Math.max(0, Math.min(marks.length - 1, j));
       if (j === i && Math.abs(marks[i] - cur) < 0.002) return;
-      const span = Math.abs(marks[j] - cur) * SCROLL_LENGTH_VH;
-      const avg = SCROLL_LENGTH_VH / Math.max(1, marks.length - 1);
+      const span = Math.abs(marks[j] - cur) * bspan * SCROLL_LENGTH_VH;
+      const avg = bspan * SCROLL_LENGTH_VH / Math.max(1, marks.length - 1);
       const dur = Math.max(0.8, Math.min(2.6, 1.3 * span / avg));
       busyUntil = now + dur * 1000 * 0.85;
       const target = (window.__wsScrollTop || 0) + marks[j] * total;
@@ -1254,7 +1298,8 @@ function ScrollSmoother() {
   useFrame((_, delta) => {
     const { progress, smoothProgress, setSmoothProgress } = useScrollStore.getState();
     // al abrir la página ya scrolleada (recarga) se salta directo, sin "viajar" por todas las poses
-    if (!started.current) { started.current = true; if (progress > 0) { setSmoothProgress(progress); return; } }
+    if (!started.current) { started.current = true; if (progress > 0) { setSmoothProgress(progress); window.__wsSnap = false; return; } }
+    if (window.__wsSnap) { window.__wsSnap = false; if (Math.abs(progress - smoothProgress) > 0.0005) { setSmoothProgress(progress); return; } }
     let next = damp(smoothProgress, progress, IS_TOUCH_DEVICE ? 7 : 4, delta);   // en celular Lenis ya suaviza el dedo: menos doble suavizado = menos "arrastre"
     /* Límite de velocidad: una sacudida fuerte del dedo/rueda ya no hace pasar todo "volando". La imagen avanza como
        mucho SCROLL_MAX_PPS poses por segundo y alcanza al scroll real apenas se frena. 0 = sin límite. */
@@ -4984,7 +5029,8 @@ function SiteMenu({ cfg, contained }) {
         const l = window.__lenis;
         const topPx = window.__wsScrollTop, tot = window.__wsScrollTotal;
         const pp = Math.max(0, Math.min(1, it.p || 0));
-        const y = (typeof topPx === "number" && tot > 0) ? topPx + pp * tot : pp * Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        const bl = (window.__wsBlocks || []).find((b) => b.total > 0 && pp >= b.mf - 1e-4 && pp <= b.mt + 1e-4);   // el tramo 3D que contiene esa pose
+        const y = bl ? bl.top + ((pp - bl.mf) / Math.max(1e-6, bl.mt - bl.mf)) * bl.total : (typeof topPx === "number" && tot > 0) ? topPx + pp * tot : pp * Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
         if (l && l.scrollTo) l.scrollTo(y, { duration: 1.6, easing: (t) => 1 - Math.pow(1 - t, 4) });
         else window.scrollTo({ top: y, behavior: "smooth" });
       } else if (it.type === "section") {
@@ -5136,29 +5182,36 @@ function BackToTop() {
     const alive = () => window.__wsBT === tok;
     const cancel = () => { window.__wsBT = tok + 1; window.removeEventListener("wheel", cancel); window.removeEventListener("touchstart", cancel); window.removeEventListener("keydown", cancel); };
     const dur0 = BACKTOP.duration || 1.8, ease = (t) => 1 - Math.pow(1 - t, 4), lin = (t) => t * (2 - t) * 0.5 + t * 0.5;
-    const top = window.__wsScrollTop, total = window.__wsScrollTotal, vh = window.innerHeight || 800;
-    const has3d = typeof top === "number" && total > 0;
+    const vh = window.innerHeight || 800;
+    const blocks = (window.__wsBlocks || []).filter((x) => x.total > 0);
+    const has3d = blocks.length > 0;
     const to = (y, duration, easing) => new Promise((res) => { l.scrollTo(y, { duration, easing, force: true, onComplete: res }); setTimeout(res, duration * 1000 + 400); });
-    /* espera a que el 3D termine de rebobinar (el progreso suavizado alcanza al scroll) */
-    const settle = () => new Promise((res) => {
+    /* espera a que el 3D termine de rebobinar (el progreso suavizado alcanza a la pose de inicio del tramo) */
+    const settle = (mf) => new Promise((res) => {
       const t0 = Date.now();
       const iv = setInterval(() => {
         const sp = useScrollStore.getState().smoothProgress;
-        if (!alive() || sp < 0.015 || Date.now() - t0 > 5000) { clearInterval(iv); res(); }
+        if (!alive() || Math.abs(sp - mf) < 0.015 || Date.now() - t0 > 5000) { clearInterval(iv); res(); }
       }, 60);
     });
-    if (!has3d || window.scrollY <= top + 2 && top <= 2) { l.scrollTo(0, { duration: dur0, easing: ease }); return; }
+    const firstTop = has3d ? blocks[0].top : 0;
+    if (!has3d || window.scrollY <= firstTop + 2 && firstTop <= 2) { l.scrollTo(0, { duration: dur0, easing: ease }); return; }
     window.addEventListener("wheel", cancel, { passive: true }); window.addEventListener("touchstart", cancel, { passive: true }); window.addEventListener("keydown", cancel);
     (async () => {
-      const y = window.scrollY;
-      if (y > top + total + 2) { await to(top + total, Math.min(2.2, Math.max(0.9, (y - top - total) / vh * 0.25)), ease); if (!alive()) return; }
-      if (window.scrollY > top + 2) {
-        await to(top, Math.min(7, Math.max(dur0, total / vh * 0.4)), lin);
-        if (!alive()) return;
-        await settle();
-        if (!alive()) return;
+      /* de abajo hacia arriba, tramo por tramo: llega al final del tramo, lo rebobina y sigue con el de arriba */
+      for (let k = blocks.length - 1; k >= 0; k--) {
+        const bk = blocks[k], top = bk.top, total = bk.total;
+        const y = window.scrollY;
+        if (y <= top + 2) continue;
+        if (y > top + total + 2) { await to(top + total, Math.min(2.2, Math.max(0.9, (y - top - total) / vh * 0.25)), ease); if (!alive()) return; }
+        if (window.scrollY > top + 2) {
+          await to(top, Math.min(7, Math.max(dur0, total / vh * 0.4)), lin);
+          if (!alive()) return;
+          await settle(bk.mf);
+          if (!alive()) return;
+        }
       }
-      if (top > 2) await to(0, Math.min(2.4, Math.max(1, top / vh * 0.5)), ease);
+      if (firstTop > 2) await to(0, Math.min(2.4, Math.max(1, firstTop / vh * 0.5)), ease);
       cancel();
     })();
   };
@@ -5814,9 +5867,8 @@ function FrameGate({ active }) {
 }
 
 function App() {
-  const spacerRef = useRef(null);
   const stageRef = useRef(null);
-  useScrollProgress(spacerRef);
+  useScrollProgress();
   useScrollTuning();
   useMobileSnap();
   useArrowKeyScroll(140 * scrollSpeedEff());
@@ -5826,10 +5878,11 @@ function App() {
   const HAS_3D = SECTIONS.some((x) => x.type === "scene3d");
 
   useEffect(() => {
-    const el = spacerRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return undefined;
-    const io = new IntersectionObserver((es) => { setInView(es.some((e) => e.isIntersecting)); }, { rootMargin: IS_TOUCH_DEVICE ? "900px 0px" : "240px 0px" });
-    io.observe(el);
+    const els = Array.from(document.querySelectorAll(".ws-3d"));
+    if (!els.length || typeof IntersectionObserver === "undefined") return undefined;
+    const vis = new Set();
+    const io = new IntersectionObserver((es) => { es.forEach((e) => { if (e.isIntersecting) vis.add(e.target); else vis.delete(e.target); }); setInView(vis.size > 0); }, { rootMargin: IS_TOUCH_DEVICE ? "900px 0px" : "240px 0px" });
+    els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
 
@@ -5855,8 +5908,8 @@ function App() {
       {LOADER.enabled && <LoaderOverlay cfg={LOADER} />}
       {SECTIONS.some((x) => x.type !== "scene3d") && <style>{S2D_CSS}</style>}
       {ovlFold(SECTIONS.map((sec) => sec.type === "scene3d" ? (
-        <div key={sec.id} ref={spacerRef} id={sec.anchor || ("sec-" + sec.id)} className="scroll-spacer ws-3d" style={{ height: `${SCROLL_LENGTH_VH}vh`, "--sl": `${SCROLL_LENGTH_VH}vh` }}>
-      <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
+        <div key={sec.id} id={sec.anchor || ("sec-" + sec.id)} className="scroll-spacer ws-3d" style={{ height: `${blk3d(sec).vh}vh`, "--sl": `${blk3d(sec).vh}vh` }}>
+      {blk3d(sec).first && <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
         <div className="scene-canvas">
           <Canvas
             dpr={device.dpr}
@@ -5889,7 +5942,7 @@ function App() {
           <span>Scroll</span>
           <div className="scroll-hint__line" />
         </div>
-      </div>
+      </div>}
         </div>
       ) : <Block2D key={sec.id} s={sec} theme={SITE2D} />), SECTIONS)}
       {BACKTOP.enabled && <BackToTop />}
@@ -8124,8 +8177,21 @@ function s2dDefaults(type) {
     default: return base;
   }
 }
-function s2dLabel(s, nStages, totalVh) {
-  if (s.type === "scene3d") return "Escena 3D · " + nStages + " poses · " + Math.round(totalVh) + " vh de scroll";
+function s3dRange(s, nStages) {
+  const n = Math.max(1, nStages || 1);
+  let a = Math.round(+s.poseFrom || 1), b = Math.round(+s.poseTo || n);
+  a = Math.max(1, Math.min(n, a)); b = Math.max(1, Math.min(n, b));
+  return a <= b ? [a, b] : [b, a];
+}
+function s3dVh(s, nStages, durationsVh, totalVh) {
+  const [a, b] = s3dRange(s, nStages);
+  if (!(+s.poseFrom > 0) && !(+s.poseTo > 0)) return Math.round(totalVh);
+  const sp = (durationsVh || []).slice(a - 1, b - 1).reduce((x, y) => x + y, 0);
+  const tot = Math.max(1, (durationsVh || []).reduce((x, y) => x + y, 0));
+  return Math.round(Math.max(140, (sp / tot) * (totalVh - 100) + 100));
+}
+function s2dLabel(s, nStages, totalVh, durationsVh) {
+  if (s.type === "scene3d") { const [a, b] = s3dRange(s, nStages); const full = a === 1 && b === nStages; return "Escena 3D · " + (full ? nStages + " poses" : "poses " + a + " a " + b) + " · " + s3dVh(s, nStages, durationsVh, totalVh) + " vh de scroll"; }
   const t = (S2D_TYPES.find((x) => x[0] === s.type) || [])[1] || s.type;
   const sub = String(s.title || s.brand || "").trim();
   return t + (sub ? " · " + sub.slice(0, 28) : "");
@@ -8187,7 +8253,7 @@ function S2DField({ f, s, set, toast }) {
     </div>
   );
 }
-function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSec, nStages, totalVh, toast }) {
+function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSec, nStages, totalVh, durationsVh, toast }) {
   const sel = sections.find((x) => x.id === selSec) || null;
   const has3d = sections.some((x) => x.type === "scene3d");
   const [addType, setAddType] = useState("split");
@@ -8198,7 +8264,15 @@ function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSe
     return [...p.slice(0, at), obj, ...p.slice(at)];
   });
   const add = () => { const o = s2dDefaults(addType); insertAt(o); setSelSec(o.id); };
-  const add3d = () => { const o = { id: "s3d", type: "scene3d" }; insertAt(o); setSelSec(o.id); };
+  const add3d = () => {
+    const prev = sections.filter((x) => x.type === "scene3d");
+    const o = { id: prev.length ? s2dNewId() : "s3d", type: "scene3d" };
+    if (prev.length) {   // otro tramo de la misma escena: arranca donde terminó el anterior y llega hasta la última pose
+      const last = s3dRange(prev[prev.length - 1], nStages)[1];
+      o.poseFrom = Math.min(last, Math.max(1, nStages - 1)); o.poseTo = nStages;
+    }
+    insertAt(o); setSelSec(o.id);
+  };
   const move = (id, d) => setSections((p) => {
     const i = p.findIndex((x) => x.id === id), j = i + d;
     if (i < 0 || j < 0 || j >= p.length) return p;
@@ -8225,7 +8299,7 @@ function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSe
           {sections.map((s, i) => (
             <div key={s.id} className={"pg-row" + (s.id === selSec ? " on" : "") + (s.type === "scene3d" ? " is3d" : "")} onClick={() => setSelSec(s.id)}>
               <span className="pg-n">{i + 1}</span>
-              <span className="pg-t">{s2dLabel(s, nStages, totalVh)}</span>
+              <span className="pg-t">{s2dLabel(s, nStages, totalVh, durationsVh)}</span>
               <button className="mini" title="Subir" disabled={i === 0} onClick={(e) => { e.stopPropagation(); move(s.id, -1); }}>↑</button>
               <button className="mini" title="Bajar" disabled={i === sections.length - 1} onClick={(e) => { e.stopPropagation(); move(s.id, 1); }}>↓</button>
               {s.type !== "scene3d" && <button className="mini" title="Duplicar" onClick={(e) => { e.stopPropagation(); dup(s.id); }}>⧉</button>}
@@ -8237,7 +8311,7 @@ function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSe
           <select style={{ flex: 1 }} value={addType} onChange={(e) => setAddType(e.target.value)}>{S2D_TYPES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
           <Btn icon="plus" kind="acc" onClick={add}>Agregar bloque</Btn>
         </div>
-        {!has3d && <div className="tools"><Btn icon="cube" onClick={add3d}>Agregar la escena 3D</Btn></div>}
+        <div className="tools"><Btn icon="cube" onClick={add3d}>{has3d ? "Agregar otro tramo 3D (misma escena)" : "Agregar la escena 3D"}</Btn></div>
         <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.4 }}>El bloque nuevo se agrega debajo del seleccionado. Hacé clic en un bloque de la vista previa para editarlo.</div>
         {used.size > 0 && <div style={{ fontSize: 10.5, color: "#ffb454", lineHeight: 1.45 }}>Subí estas imágenes a assets/img/ de tu repo: {Array.from(used).join(", ")}</div>}
       </Group>
@@ -8274,11 +8348,23 @@ function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSe
           </Group>
         </>
       )}
-      {sel && sel.type === "scene3d" && (
-        <Group id="pg-3d" title="Escena 3D">
-          <div style={{ fontSize: 11, opacity: 0.8, lineHeight: 1.5 }}>El 3D queda fijo en pantalla mientras scrolleás sus {Math.round(totalVh)} vh ({nStages} poses) y después la página sigue con el bloque de abajo. Las poses, la cámara y la duración se editan en las otras pestañas.</div>
-        </Group>
-      )}
+      {sel && sel.type === "scene3d" && (() => {
+        const [pa, pb] = s3dRange(sel, nStages);
+        const n3 = sections.filter((x) => x.type === "scene3d").length;
+        const opts = Array.from({ length: nStages }, (_, k) => [String(k + 1), "Pose " + (k + 1)]);
+        const idx = sections.findIndex((x) => x.id === sel.id);
+        const adj = (idx > 0 && sections[idx - 1].type === "scene3d") || (idx < sections.length - 1 && sections[idx + 1].type === "scene3d");
+        return (
+          <Group id="pg-3d" title="Escena 3D">
+            <div style={{ fontSize: 11, opacity: 0.8, lineHeight: 1.5 }}>El 3D queda fijo en pantalla mientras scrolleás este tramo ({s3dVh(sel, nStages, durationsVh, totalVh)} vh) y después la página sigue con el bloque de abajo. Las poses, la cámara y la duración de cada pose se editan en las otras pestañas.</div>
+            <SelectRow label="Desde la pose" value={String(pa)} onChange={(v) => upd(sel.id, { poseFrom: +v, poseTo: Math.max(+v, pb) })} options={opts} />
+            <SelectRow label="Hasta la pose" value={String(pb)} onChange={(v) => upd(sel.id, { poseTo: +v, poseFrom: Math.min(+v, pa) })} options={opts} />
+            {n3 > 1 && <div style={{ fontSize: 10.5, opacity: 0.7, lineHeight: 1.5 }}>Es la misma escena en varios tramos: un tramo puede terminar en la pose donde empieza el siguiente (así no se nota el corte). Tiene {n3} tramos en la página.</div>}
+            {adj && <div style={{ fontSize: 10.5, color: "#ffb454", lineHeight: 1.5 }}>Dos tramos 3D seguidos pueden mostrar un hueco al pasar de uno al otro: poné entre ellos al menos una página 2D alta (de pantalla completa).</div>}
+            {(pa !== 1 || pb !== nStages) && <div className="tools"><button className="mini" onClick={() => upd(sel.id, { poseFrom: 0, poseTo: 0 })}>Usar todas las poses</button></div>}
+          </Group>
+        );
+      })()}
 
       {sel && sections.findIndex((x) => x.id === sel.id) > 0 && (
         <Group id="pg-ovl" title="Transición con la sección anterior" defaultOpen={false}>
@@ -8299,7 +8385,7 @@ function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSe
     </>
   );
 }
-function PagesPreview({ sections, theme, view, setView, replay, setReplay, selSec, setSelSec, nStages, totalVh }) {
+function PagesPreview({ sections, theme, view, setView, replay, setReplay, selSec, setSelSec, nStages, totalVh, durationsVh }) {
   const T = { ...DEFAULT_SITE2D, ...theme };
   return (
     <div className="pg-prev">
@@ -8315,7 +8401,7 @@ function PagesPreview({ sections, theme, view, setView, replay, setReplay, selSe
           {ovlFold(sections.map((s) => (
             <div key={s.id} className={"pg-blk" + (s.id === selSec ? " sel" : "")} onClick={() => setSelSec(s.id)}>
               {s.type === "scene3d"
-                ? <div className="s2d-3dph"><span>🎬 ESCENA 3D</span><span>{nStages} poses · {Math.round(totalVh)} vh de scroll</span></div>
+                ? <div className="s2d-3dph"><span>🎬 ESCENA 3D</span><span>{s2dLabel(s, nStages, totalVh, durationsVh).replace("Escena 3D · ", "")}</span></div>
                 : <Block2D key={s.id + ":" + replay} s={s} theme={T} />}
             </div>
           )), sections)}
@@ -10612,7 +10698,7 @@ function App() {
           </div>
         )}
         {loaderPreview > 0 && <LoaderOverlay key={loaderPreview} cfg={loader} simulate contained onClose={() => setLoaderPreview(0)} onDone={() => setLoaderPreview(0)} />}
-        {section === "pages" && <PagesPreview sections={sections} theme={site2d} view={pagesView} setView={setPagesView} replay={pgReplay} setReplay={setPgReplay} selSec={selSec} setSelSec={setSelSec} nStages={nStages} totalVh={totalVh} />}
+        {section === "pages" && <PagesPreview sections={sections} theme={site2d} view={pagesView} setView={setPagesView} replay={pgReplay} setReplay={setPgReplay} selSec={selSec} setSelSec={setSelSec} nStages={nStages} totalVh={totalVh} durationsVh={durationsVh} />}
         <div className="vp-hud">{isPreview ? `▶ ${scrub.toFixed(3)}` : `${currentStageLabel} · ${stageIndex + 1}/${nStages}`}</div>
       </div>
 
@@ -10824,7 +10910,7 @@ function App() {
                         </select>
                       </div>
                       {it.type === "section" ? (
-                        <SelectRow label="Sección" value={it.sec || ""} onChange={(v) => setMenuItem(i, { sec: v })} options={[["", "Elegí una sección…"], ...sections.map((x) => [x.type === "scene3d" ? "3d" : (x.anchor || "sec-" + x.id), s2dLabel(x, nStages, totalVh)])]} />
+                        <SelectRow label="Sección" value={it.sec || ""} onChange={(v) => setMenuItem(i, { sec: v })} options={[["", "Elegí una sección…"], ...sections.map((x) => [x.type === "scene3d" ? (x.anchor || (sections.find((y) => y.type === "scene3d").id === x.id ? "3d" : "sec-" + x.id)) : (x.anchor || "sec-" + x.id), s2dLabel(x, nStages, totalVh, durationsVh)])]} />
                       ) : it.type === "pose" ? (
                         <SelectRow label="Pose" value={String(it.pose || 1)} onChange={(v) => setMenuItem(i, { pose: Number(v) })} options={stagesComputed.map((st, k) => [String(k + 1), `${k + 1} · ${st.label || "Pose " + (k + 1)}`])} />
                       ) : (
@@ -11150,7 +11236,7 @@ function App() {
               <Slider label="Velocidad" min={0.1} max={3} step={0.05} value={playSpeed} onChange={setPlaySpeed} />
             )}
 
-            {section === "pages" && <PagesPanel sections={sections} setSections={setSections} site2d={site2d} setSite2d={setSite2d} selSec={selSec} setSelSec={setSelSec} nStages={nStages} totalVh={totalVh} toast={showMsg} />}
+            {section === "pages" && <PagesPanel sections={sections} setSections={setSections} site2d={site2d} setSite2d={setSite2d} selSec={selSec} setSelSec={setSelSec} nStages={nStages} totalVh={totalVh} durationsVh={durationsVh} toast={showMsg} />}
             {section === "seo" && <SeoPanel seo={seo} setSeoField={setSeoField} pack={seoPack} dock={dock} />}
             {section === "file" && (
               <>
