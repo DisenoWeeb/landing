@@ -364,6 +364,7 @@
   }
 
   /* ---- Botón "volver arriba": vidrio neutro, se ve sobre cualquier fondo ---- */
+  @media (pointer: coarse) { .backtop { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: var(--bt-bg, rgba(12,12,16,.78)) !important; } }
   .backtop { --bt-size: 46px; position: fixed; z-index: 9; bottom: calc(var(--bt-bottom, 24px) + env(safe-area-inset-bottom));
     width: var(--bt-size); height: var(--bt-size); margin: 0; padding: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
     color: var(--bt-fg, #fff); background: var(--bt-bg, rgba(12,12,16,.5)); border: 1px solid var(--bt-line, rgba(255,255,255,.26));
@@ -858,6 +859,10 @@ const SCROLL_MAX_PPS = 1.5;
 const SCROLL_SPEED_MOBILE = 0;
 const TOUCH_INERTIA = 6;
 const MOBILE_SNAP = false;
+const CAM_NEAR_CFG = 0.1;
+const MOBILE_LIGHTS = 6;
+const MOBILE_SMOOTH_ALL = true;
+const SCROLL_2D_NATIVE = true;
 /*@GEN:POSTFX_END*/
 
 /*@GEN:REFLECTION_START*/
@@ -1067,8 +1072,9 @@ function mobileSpeedEff() {
 function useScrollTuning() {
   useEffect(() => {
     const speed = scrollSpeedEff();
+    const HAS3D = SECTIONS.some((x) => x.type === "scene3d");   // sitio solo 2D: velocidad normal (1) e inercia normal del dedo
     if (typeof Lenis === "undefined" || !window.__lenis) return;
-    if (speed <= 1 && !IS_TOUCH_DEVICE) return;   // proyecto corto en PC: queda el comportamiento de siempre
+    if ((speed <= 1 || !HAS3D) && !IS_TOUCH_DEVICE) { gateLenis(); return; }   // proyecto corto o solo 2D en PC: queda el comportamiento de siempre
     try {
       const y = window.scrollY;
       const old = window.__lenis;
@@ -1079,14 +1085,15 @@ function useScrollTuning() {
         duration: 1.2,
         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
         smoothWheel: true,
-        wheelMultiplier: speed,
-        touchMultiplier: MOBILE_SNAP && IS_TOUCH_DEVICE ? 0 : mobileSpeedEff(),
+        wheelMultiplier: HAS3D ? speed : 1,
+        touchMultiplier: !HAS3D ? 1 : MOBILE_SNAP && IS_TOUCH_DEVICE ? 0 : mobileSpeedEff(),
         syncTouch: true,
         syncTouchLerp: 0.1,
-        touchInertiaMultiplier: Math.max(0, TOUCH_INERTIA),
+        touchInertiaMultiplier: HAS3D ? Math.max(0, TOUCH_INERTIA) : 35,
       });
       window.scrollTo(0, y);
     } catch (e) {}
+    gateLenis();
   }, []);
 }
 
@@ -1113,8 +1120,14 @@ function gateLenis() {
     }
     o.touchMultiplier = tm;
   } else { o.wheelMultiplier = 1; o.touchMultiplier = 1; }
-  /* Celular: fuera del tramo 3D el deslizamiento es el nativo del teléfono (más fluido en gamas medias); Lenis solo manda dentro del 3D. */
-  if (IS_TOUCH_DEVICE && l.options) l.options.syncTouch = pinned;
+  /* Celular: con MOBILE_SMOOTH_ALL (por defecto) todo el sitio, 2D y 3D, usa el mismo deslizamiento amortiguado de Lenis. Si no, fuera del 3D queda el scroll nativo del teléfono. */
+  /* Páginas 2D: scroll NATIVO del navegador (lo mueve el sistema, no nuestro código = lo más fluido). Lenis solo manda dentro del tramo 3D. */
+  if (l.options) l.options.smoothWheel = pinned || !SCROLL_2D_NATIVE;
+  if (IS_TOUCH_DEVICE && l.options) {
+    l.options.syncTouch = pinned || !SCROLL_2D_NATIVE;
+    /* La inercia corta del dedo (pensada para el 3D, donde cada pose es un tramo) deja el 2D "duro": ahí vale la inercia normal. */
+    l.options.touchInertiaMultiplier = pinned ? Math.max(0, TOUCH_INERTIA) : 35;
+  }
 }
 function wsPinned() {
   const top = window.__wsScrollTop, total = window.__wsScrollTotal, y = window.scrollY;
@@ -1129,8 +1142,9 @@ function useScrollProgress(spacerRef) {
     const stableVh = () => probe.offsetHeight || window.innerHeight;
     const compute = () => {
       const el = spacerRef.current;
-      if (!el) return;
-      const total = el.offsetHeight - stableVh();
+      if (!el) { gateLenis(); return; }   // sitio solo 2D: igual hay que dejar el scroll en velocidad normal
+      const asP = el.parentElement && el.parentElement.classList.contains("ovl-pair") && el === el.parentElement.firstElementChild;   // la sección de abajo se superpone: el 3D sigue fijo 100vh más
+      const total = el.offsetHeight - stableVh() - (asP ? stableVh() : 0);
       const top = el.getBoundingClientRect().top + window.scrollY;   // el tramo 3D puede empezar más abajo (secciones 2D antes)
       window.__wsScrollTotal = total;
       window.__wsScrollTop = top;
@@ -4239,7 +4253,7 @@ class ObjectBoundary extends React.Component {
 function SceneObjects() {
   return (
     <>
-      {OBJECTS.map((obj, i) => (
+      {OBJECTS.map((obj, i) => (obj.type === "light" && LIGHT_KEEP && !LIGHT_KEEP.has(i)) ? null : (
         <ObjectBoundary key={i}>
           <Suspense fallback={null}>
             <SceneObject data={obj} />
@@ -4256,13 +4270,31 @@ OBJECTS.forEach((obj) => {
 });
 
 const IS_MOBILE_VIEW = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+const IS_PHONE = IS_TOUCH_DEVICE || IS_MOBILE_VIEW;
+/* Celular: cada luz (aunque esté apagada en esa pose) se calcula en cada píxel. Con muchas luces el teléfono se arrastra, así que se
+   montan solo las MOBILE_LIGHTS más importantes (las más fuertes y las que más poses están prendidas). 0 = todas. */
+const LIGHT_KEEP = (() => {
+  try {
+    if (!IS_PHONE || !(MOBILE_LIGHTS > 0)) return null;
+    const ls = [];
+    OBJECTS.forEach((o, i) => { if (o.type === "light") ls.push(i); });
+    if (ls.length <= MOBILE_LIGHTS) return null;
+    const score = (i) => {
+      const o = OBJECTS[i], kfs = Array.isArray(o.keyframes) ? o.keyframes : [];
+      const on = kfs.length ? kfs.reduce((a, k) => a + Math.max(0, k && k.li != null ? k.li : 1), 0) : 1;
+      return (o.lightIntensity ?? 80) * on;
+    };
+    ls.sort((a, b) => score(b) - score(a));
+    return new Set(ls.slice(0, MOBILE_LIGHTS));
+  } catch (e) { return null; }
+})();
 /* Nivel de rendimiento (se ajusta solo): 2 = completo (escritorio) · 1 = celular/medio (sin AO, sin sombras ni sombra de contacto,
    reflejo del piso chico, sin cámara de reflejo) · 0 = mínimo (sin postproceso, sin piso espejo, sin partículas).
    Arranca en 1 en celular y en 2 en escritorio; si los cuadros por segundo caen, baja de a un nivel (nunca vuelve a subir, para no parpadear). */
 const PerfCtx = React.createContext({ tier: 2, safe: 0, off: {} });
 /* ?off=ref,bloom,ao,beam,part,contact,dpr  -> apaga SOLO esos efectos (para medir cuál pesa más en un celular). Sin eso no cambia nada. */
-/* near más alto = mucha más precisión de profundidad a distancia (evita parpadeos/manchas por z-fighting en bordes finos). ?near=0.1 vuelve al valor anterior. */
-const CAM_NEAR = (() => { try { const v = parseFloat(new URLSearchParams(window.location.search).get("near")); if (v > 0 && v < 5) return v; } catch (e) {} return 0.5; })();
+/* near más alto = más precisión de profundidad a distancia (menos parpadeos), pero la cámara "atraviesa" lo que está muy cerca. Se regula en el editor (Plano cercano); ?near=0.5 lo fuerza para probar. */
+const CAM_NEAR = (() => { try { const v = parseFloat(new URLSearchParams(window.location.search).get("near")); if (v > 0 && v < 5) return v; } catch (e) {} return CAM_NEAR_CFG; })();
 const AA_MODE = (() => { try { const v = new URLSearchParams(window.location.search).get("aa"); if (v === "msaa" || v === "smaa" || v === "both" || v === "off") return v; } catch (e) {} return IS_MOBILE_VIEW ? "smaa" : "msaa"; })();
 const OFF_FLAGS = (() => { try { const v = new URLSearchParams(window.location.search).get("off") || ""; const o = {}; v.split(",").forEach((k) => { if (k.trim()) o[k.trim()] = true; }); return o; } catch (e) { return {}; } })();
 /* Guardia de "pantalla negra": en algunas GPU de celular un efecto (oclusión ambiental, MSAA con postproceso, etc.) deja TODO lo 3D negro.
@@ -4405,14 +4437,14 @@ function Experience({ device }) {
   const charAnchorRef = useRef(null);
   // ?q=0|1|2 en la URL fuerza el nivel de calidad (útil para probar); sin eso arranca solo y baja si hace falta.
   const forcedQ = useMemo(() => { try { const q = new URLSearchParams(window.location.search).get("q"); return q === "0" || q === "1" || q === "2" ? Number(q) : null; } catch (e) { return null; } }, []);
-  const [tier, setTier] = useState(forcedQ != null ? forcedQ : 2);
+  const [tier, setTier] = useState(forcedQ != null ? forcedQ : IS_PHONE ? 1 : 2);   // celular arranca liviano (nivel 1); PC completo (2)
   // ?safe=0..3 fuerza un nivel de seguridad (0 = todo; 1 = sin oclusión; 2 = sin postproceso; 3 = además sin piso espejo). Sirve para diagnosticar.
   const forcedSafe = useMemo(() => { try { const q = new URLSearchParams(window.location.search).get("safe"); return q != null && /^[0-3]$/.test(q) ? Number(q) : null; } catch (e) { return null; } }, []);
   const [safe, setSafe] = useState(forcedSafe != null ? forcedSafe : 0);
-  const autoOn = useMemo(() => { try { return new URLSearchParams(window.location.search).has("auto"); } catch (e) { return false; } }, []);
+  const autoOn = useMemo(() => { try { const q = new URLSearchParams(window.location.search); return q.get("auto") === "0" ? false : (q.has("auto") || IS_PHONE); } catch (e) { return false; } }, []);
   const setDpr = useThree((st) => st.setDpr);
   useEffect(() => {
-    const cap = OFF_FLAGS.dpr ? 1 : tier >= 2 ? 1.5 : 1.25;
+    const cap = OFF_FLAGS.dpr ? 1 : tier >= 2 ? 1.5 : tier === 1 ? (IS_PHONE ? 1 : 1.25) : 0.8;
     setDpr(Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, cap));
   }, [tier, setDpr]);
   const perfValue = useMemo(() => ({ tier, safe, off: OFF_FLAGS }), [tier, safe]);
@@ -4443,7 +4475,13 @@ function Experience({ device }) {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [debugOn]);
-  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · near " + CAM_NEAR + " · aa " + (AA_MODE === "off" ? "apagado" : !(tier >= 1 && safe < 2) ? "apagado (sin postproceso)" : (AA_MODE === "msaa" || AA_MODE === "both") && tier < 2 && AA_MODE !== "both" ? "msaa NO activo (nivel " + tier + ")" : (AA_MODE === "msaa" || AA_MODE === "both" ? (tier >= 2 ? "MSAA 4x" : "") : "") + (AA_MODE === "both" ? " + " : "") + (AA_MODE === "smaa" || AA_MODE === "both" ? "SMAA" : "")); }, [tier, fpsNow, forcedQ, safe]);
+  const dbgScene = useThree((st) => st.scene);
+  const sceneStats = () => {
+    let meshes = 0, tris = 0, lights = 0; const mats = new Set();
+    try { dbgScene.traverseVisible((o) => { if (o.isLight && o.intensity > 0) lights++; if ((o.isMesh || o.isPoints || o.isLine) && o.geometry) { meshes++; const g = o.geometry; const n = g.index ? g.index.count : (g.attributes.position ? g.attributes.position.count : 0); tris += o.isMesh ? n / 3 : 0; if (o.material) mats.add(o.material.uuid || 0); } }); } catch (e) { /* sin datos */ }
+    return " · " + meshes + " mallas · " + Math.round(tris / 1000) + "k tri · " + mats.size + " mat · " + lights + " luces";
+  };
+  useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · near " + CAM_NEAR + " · aa " + (AA_MODE === "off" ? "apagado" : !(tier >= 1 && safe < 2) ? "apagado (sin postproceso)" : (AA_MODE === "msaa" || AA_MODE === "both") && tier < 2 && AA_MODE !== "both" ? "msaa NO activo (nivel " + tier + ")" : (AA_MODE === "msaa" || AA_MODE === "both" ? (tier >= 2 ? "MSAA 4x" : "") : "") + (AA_MODE === "both" ? " + " : "") + (AA_MODE === "smaa" || AA_MODE === "both" ? "SMAA" : "") + sceneStats()); }, [tier, fpsNow, forcedQ, safe]);
   return (
     <PerfCtx.Provider value={perfValue}>
       <BlackFrameGuard renderDirect={!(tier >= 1 && safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
@@ -5037,6 +5075,39 @@ function SiteLogo({ cfg, contained }) {
     </div>
   );
 }
+function OvlPair({ mode, shadow, children }) {
+  const ref = useRef(null);
+  React.useLayoutEffect(() => {
+    const w = ref.current;
+    if (!w) return undefined;
+    const P = w.firstElementChild;
+    if (!P || P.classList.contains("ws-3d")) return undefined;
+    const set = () => w.style.setProperty("--oh", P.offsetHeight + "px");
+    set();
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(set); ro.observe(P); }
+    window.addEventListener("resize", set);
+    return () => { if (ro) ro.disconnect(); window.removeEventListener("resize", set); };
+  }, []);
+  return <div ref={ref} className="ovl-pair" data-m={mode} style={{ "--osh": String(shadow) }}>{children}</div>;
+}
+/* Superposición ("cortina"): la sección anterior queda fija y la siguiente se desliza por encima. Puro CSS sticky: sin JS por scroll. */
+function ovlFold(nodes, secs) {
+  /* Cada cadena de secciones superpuestas se anida SOLO entre sí; las que siguen quedan como hermanas (si no, la sección "pegada" duraba toda la página) */
+  const chains = [];
+  nodes.forEach((n, i) => {
+    const ov = i > 0 && secs[i].overlap && secs[i].overlap !== "none";
+    if (ov && chains.length) chains[chains.length - 1].push(i); else chains.push([i]);
+  });
+  return chains.map((ch) => {
+    let acc = nodes[ch[ch.length - 1]];
+    for (let j = ch.length - 2; j >= 0; j--) {
+      const nx = secs[ch[j + 1]];
+      acc = <OvlPair key={"op-" + secs[ch[j]].id} mode={nx.overlap} shadow={nx.overlapShadow == null ? 0.5 : nx.overlapShadow}>{nodes[ch[j]]}{acc}</OvlPair>;
+    }
+    return <React.Fragment key={"f-" + secs[ch[0]].id}>{acc}</React.Fragment>;
+  });
+}
 function BackToTop() {
   const ref = useRef(null);
   const fillRef = useRef(null);
@@ -5049,12 +5120,14 @@ function BackToTop() {
       if (fillRef.current) fillRef.current.style.strokeDashoffset = String(C * (1 - Math.min(1, Math.max(0, p))));
       el.tabIndex = p > (BACKTOP.showAfter ?? 0.06) ? 0 : -1;
     };
-    const calc = () => upd(window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight));
-    calc();
+    let raf = 0;
+    const run = () => { raf = 0; upd(window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight)); };
+    const calc = () => { if (!raf) raf = requestAnimationFrame(run); };   // una vez por cuadro, no por cada evento de scroll
+    run();
     window.addEventListener("scroll", calc, { passive: true });
     window.addEventListener("resize", calc);
     el.style.setProperty("--bt-bottom", "24px");
-    return () => { window.removeEventListener("scroll", calc); window.removeEventListener("resize", calc); };
+    return () => { if (raf) cancelAnimationFrame(raf); window.removeEventListener("scroll", calc); window.removeEventListener("resize", calc); };
   }, []);
   const go = () => {
     const l = window.__lenis;
@@ -5301,10 +5374,10 @@ function s2dEase(name) {
 }
 function s2dKeyframes(type) {
   switch (type) {
-    case "up": return [{ opacity: 0, transform: "translateY(46px)" }, { opacity: 1, transform: "none" }];
-    case "down": return [{ opacity: 0, transform: "translateY(-46px)" }, { opacity: 1, transform: "none" }];
-    case "left": return [{ opacity: 0, transform: "translateX(-64px)" }, { opacity: 1, transform: "none" }];
-    case "right": return [{ opacity: 0, transform: "translateX(64px)" }, { opacity: 1, transform: "none" }];
+    case "up": return [{ opacity: 0, transform: "translateY(56px)" }, { opacity: 1, transform: "none" }];
+    case "down": return [{ opacity: 0, transform: "translateY(-56px)" }, { opacity: 1, transform: "none" }];
+    case "left": return [{ opacity: 0, transform: "translateX(-72px)" }, { opacity: 1, transform: "none" }];
+    case "right": return [{ opacity: 0, transform: "translateX(72px)" }, { opacity: 1, transform: "none" }];
     case "zoom": return [{ opacity: 0, transform: "scale(0.88)" }, { opacity: 1, transform: "none" }];
     case "blur": return [{ opacity: 0, filter: "blur(16px)", transform: "scale(1.04)" }, { opacity: 1, filter: "blur(0px)", transform: "none" }];
     case "mask": return [{ opacity: 0, clipPath: "inset(0 0 100% 0)", transform: "translateY(24px)" }, { opacity: 1, clipPath: "inset(0 0 0% 0)", transform: "none" }];
@@ -5312,42 +5385,54 @@ function s2dKeyframes(type) {
   }
 }
 /* Entrada animada: cada elemento marcado con data-rv aparece escalonado cuando la sección entra en pantalla. */
+/* Un solo par de observadores compartidos por TODAS las secciones (en vez de uno por sección). "near" dispara la entrada un poquito ANTES de que la
+   sección se vea (así el trabajo de armar la animación ocurre fuera de pantalla); "far" reinicia la sección recién cuando quedó lejos (más de una
+   pantalla), para que volver a pasar la vuelva a animar sin parpadeos al subir y bajar de a poco. */
+const RV = { near: null, far: null, map: new WeakMap() };
+function rvEnsure() {
+  if (RV.near) return;
+  RV.near = new IntersectionObserver((es) => { es.forEach((e) => { const h = RV.map.get(e.target); if (h && e.isIntersecting) h.show(); }); }, { rootMargin: "0px 0px 14% 0px", threshold: 0 });
+  RV.far = new IntersectionObserver((es) => { es.forEach((e) => { const h = RV.map.get(e.target); if (h && !e.isIntersecting) h.hide(); }); }, { rootMargin: "120% 0px 120% 0px", threshold: 0 });
+}
 function useReveal2D(ref, anim) {
   const a = anim || {};
   const type = a.type || "none";
+  const mode = a.mode === "items" ? "items" : "block";   // "block" (por defecto): todo el bloque entra junto = una sola capa, mucho más liviano
   React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
     const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (type === "none" || reduce || typeof IntersectionObserver === "undefined" || !el.animate) { el.classList.remove("rv-pre"); return undefined; }
+    if (type === "none" || reduce || typeof IntersectionObserver === "undefined" || !el.animate) { el.classList.remove("rv-pre", "rv-block"); return undefined; }
+    /* Navegadores con animaciones atadas al scroll (CSS puro, en la placa de video, sin JS): la entrada acompaña el scroll en ambos sentidos. */
+    let sd = false;
+    try { sd = !!(window.CSS && CSS.supports && CSS.supports("animation-timeline: view()")); } catch (e) { sd = false; }
+    if (sd) {
+      el.classList.remove("rv-pre", "rv-block");
+      el.classList.add("rv-sd");
+      el.classList.toggle("rv-items", mode === "items");
+      el.style.setProperty("--rv-name", "rv-" + type);
+      if (mode === "items") Array.from(el.querySelectorAll("[data-rv]")).forEach((n, i) => n.style.setProperty("--ri", String(Math.min(i, 10))));
+      return () => { el.classList.remove("rv-sd", "rv-items"); el.style.removeProperty("--rv-name"); };
+    }
+    rvEnsure();
     el.classList.add("rv-pre");
-    const items = Array.from(el.querySelectorAll("[data-rv]"));
+    el.classList.toggle("rv-block", mode === "block");
+    const items = mode === "block" ? Array.from(el.querySelectorAll(":scope > .s2d-in")) : Array.from(el.querySelectorAll("[data-rv]"));
     let shown = false, anims = [];
     const stop = () => { anims.forEach((x) => { try { x.cancel(); } catch (e) { /* nada */ } }); anims = []; };
-    const run = () => {
-      stop();
-      const kf = s2dKeyframes(type), easing = s2dEase(a.ease), dur = Math.max(0.1, a.dur || 0.9) * 1000, st = Math.max(0, a.stagger == null ? 0.09 : a.stagger) * 1000;
-      items.forEach((n, i) => {
-        n.style.willChange = "transform, opacity";
-        try {
-          const an = n.animate(kf, { duration: dur, delay: i * st, easing, fill: "both" });
-          anims.push(an);
-          an.onfinish = () => { try { an.cancel(); } catch (e) { /* nada */ } n.style.willChange = ""; };
-        } catch (e) { /* sin animación */ }
-      });
+    const show = () => {
+      if (shown) return;
+      const kf = s2dKeyframes(type), easing = s2dEase(a.ease), dur = Math.max(0.1, a.dur || 0.9) * 1000;
+      const st = mode === "block" ? 0 : Math.min(Math.max(0, a.stagger == null ? 0.09 : a.stagger) * 1000, 600 / Math.max(1, items.length));
+      items.forEach((n, i) => { try { anims.push(n.animate(kf, { duration: dur, delay: i * st, easing, fill: "both" })); } catch (e) { /* sin animación */ } });
       el.classList.remove("rv-pre");
       shown = true;
     };
-    const reset = () => { stop(); items.forEach((n) => { n.style.willChange = ""; }); el.classList.add("rv-pre"); shown = false; };
-    const io = new IntersectionObserver((es) => {
-      const e = es[es.length - 1];
-      const vh = window.innerHeight || 800;
-      if (e.isIntersecting && !shown && (e.intersectionRatio >= 0.12 || e.intersectionRect.height >= vh * 0.3)) run();
-      else if (!e.isIntersecting && shown) reset();
-    }, { threshold: [0, 0.12, 0.3, 0.6, 1] });
-    io.observe(el);
-    return () => { io.disconnect(); stop(); el.classList.remove("rv-pre"); };
-  }, [type, a.ease, a.dur, a.stagger]);
+    const hide = () => { if (!shown) return; stop(); el.classList.add("rv-pre"); shown = false; };
+    RV.map.set(el, { show, hide });
+    RV.near.observe(el); RV.far.observe(el);
+    return () => { RV.near.unobserve(el); RV.far.unobserve(el); RV.map.delete(el); stop(); el.classList.remove("rv-pre", "rv-block"); };
+  }, [type, mode, a.ease, a.dur, a.stagger]);
 }
 /* Paralaje suave de imágenes (cada imagen con data-px = intensidad). */
 function useParallax2D(ref) {
@@ -5591,7 +5676,28 @@ const S2D_CSS = `
 .s2d-in{position:relative;z-index:1;max-width:var(--max);margin:0 auto;padding:var(--py) clamp(20px,5cqi,48px)}
 .s2d.is-full{min-height:100svh;display:flex;align-items:center}
 .s2d.is-full>.s2d-in{width:100%}
-.rv-pre [data-rv]{opacity:0}
+.rv-pre:not(.rv-block) [data-rv]{opacity:0}
+@keyframes rv-fade{from{opacity:0}to{opacity:1}}
+@keyframes rv-up{from{opacity:0;transform:translateY(56px)}to{opacity:1;transform:none}}
+@keyframes rv-down{from{opacity:0;transform:translateY(-56px)}to{opacity:1;transform:none}}
+@keyframes rv-left{from{opacity:0;transform:translateX(-72px)}to{opacity:1;transform:none}}
+@keyframes rv-right{from{opacity:0;transform:translateX(72px)}to{opacity:1;transform:none}}
+@keyframes rv-zoom{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+@keyframes rv-blur{from{opacity:0;filter:blur(10px);transform:scale(1.03)}to{opacity:1;filter:blur(0);transform:none}}
+@keyframes rv-mask{from{opacity:0;clip-path:inset(0 0 100% 0);transform:translateY(20px)}to{opacity:1;clip-path:inset(0 0 0 0);transform:none}}
+@supports (animation-timeline: view()){
+.rv-sd:not(.rv-items)>.s2d-in{animation:var(--rv-name,rv-fade) auto cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover 0% cover 26%}
+.rv-sd.rv-items [data-rv]{animation:var(--rv-name,rv-fade) auto cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:cover calc(var(--ri,0)*2%) cover calc(24% + var(--ri,0)*2%)}
+}
+.rv-pre.rv-block>.s2d-in{opacity:0}
+.ovl-pair{position:relative}
+.ovl-pair>:first-child:not(.ws-3d){position:sticky;top:min(0px,calc(100lvh - var(--oh,0px)))}
+.pg-frame .ovl-pair>:first-child{top:min(0px,calc(100% - var(--oh,0px)))}
+.ovl-pair>:nth-child(2){position:relative;z-index:2}
+.ovl-pair[data-m="cover"]>:nth-child(2){box-shadow:0 -28px 70px -12px rgba(0,0,0,calc(.7*var(--osh,.5)))}
+.ovl-pair[data-m="cover"]>.s2d:nth-child(2),.ovl-pair[data-m="cover"]>.pg-blk:nth-child(2) .s2d,.ovl-pair[data-m="cover"]>.ovl-pair:nth-child(2)>:first-child{border-radius:26px 26px 0 0}
+.ovl-pair>.ws-3d:first-child{height:calc(var(--sl) + 100lvh)!important}
+.ovl-pair>.ws-3d:first-child+*{margin-top:-100lvh}
 .s2d-eyebrow{margin:0 0 .9em;font-size:.78rem;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--ac)}
 .s2d-h{margin:0 0 .5em;font-family:var(--font-head,var(--font-display,inherit));font-weight:var(--w-head,700);line-height:1.08;letter-spacing:-.01em;font-size:clamp(1.7rem,5.2cqi,3rem)}
 .sec-hero .s2d-h{font-size:clamp(2.1rem,7.4cqi,4.4rem)}
@@ -5748,8 +5854,8 @@ function App() {
     >
       {LOADER.enabled && <LoaderOverlay cfg={LOADER} />}
       {SECTIONS.some((x) => x.type !== "scene3d") && <style>{S2D_CSS}</style>}
-      {SECTIONS.map((sec) => sec.type === "scene3d" ? (
-        <div key={sec.id} ref={spacerRef} id={sec.anchor || ("sec-" + sec.id)} className="scroll-spacer ws-3d" style={{ height: `${SCROLL_LENGTH_VH}vh` }}>
+      {ovlFold(SECTIONS.map((sec) => sec.type === "scene3d" ? (
+        <div key={sec.id} ref={spacerRef} id={sec.anchor || ("sec-" + sec.id)} className="scroll-spacer ws-3d" style={{ height: `${SCROLL_LENGTH_VH}vh`, "--sl": `${SCROLL_LENGTH_VH}vh` }}>
       <div ref={stageRef} className={`canvas-stage ${ready ? "canvas-stage--ready" : ""}`}>
         <div className="scene-canvas">
           <Canvas
@@ -5776,7 +5882,7 @@ function App() {
             }}
           />
         )}
-        {CURSOR.enabled && <CursorTrail />}
+        {CURSOR.enabled && !IS_TOUCH_DEVICE && <CursorTrail />}
         <SceneText />
         <ProgressIndicator />
         <div className="scroll-hint" aria-hidden="true">
@@ -5785,7 +5891,7 @@ function App() {
         </div>
       </div>
         </div>
-      ) : <Block2D key={sec.id} s={sec} theme={SITE2D} />)}
+      ) : <Block2D key={sec.id} s={sec} theme={SITE2D} />), SECTIONS)}
       {BACKTOP.enabled && <BackToTop />}
       {MENU.logoUrl && <SiteLogo cfg={MENU} />}
       {MENU.enabled && <SiteMenu cfg={MENU} />}
@@ -6310,6 +6416,8 @@ function FadeGroup({ obj, fade, children }) {
 //@@use menuRgba
 //@@use SiteMenu
 //@@use SiteLogo
+//@@use OvlPair
+//@@use ovlFold
 //@@use lerpOrbit
 //@@use useAlphaDepth
 //@@use TexMaterial
@@ -7537,7 +7645,7 @@ const SCROLL_SPEED = ${postFx.scrollSpeed ?? 0};
 const SCROLL_MAX_PPS = ${postFx.scrollMaxPps ?? 1.5};
 const SCROLL_SPEED_MOBILE = ${postFx.scrollSpeedMobile ?? 0};
 const TOUCH_INERTIA = ${postFx.touchInertia ?? 6};
-const MOBILE_SNAP = ${postFx.mobileSnap ? "true" : "false"};`;
+const MOBILE_SNAP = ${postFx.mobileSnap ? "true" : "false"};\nconst CAM_NEAR_CFG = ${Math.min(2, Math.max(0.01, +postFx.camNear || 0.1))};\nconst MOBILE_LIGHTS = ${Math.max(0, Math.min(40, Math.round(postFx.mobileLights ?? 6)))};\nconst MOBILE_SMOOTH_ALL = ${postFx.mobileSmoothAll === false ? "false" : "true"};\nconst SCROLL_2D_NATIVE = ${postFx.scroll2d === "smooth" ? "false" : "true"};`;
 }
 
 /* Genera el bloque de configuración de la estela de brillo, con el
@@ -8158,7 +8266,8 @@ function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSe
                   </select>
                 </div>
                 <Slider label="Duración (s)" min={0.2} max={2.5} step={0.05} value={sel.anim.dur || 0.9} onChange={(v) => upd(sel.id, { anim: { ...sel.anim, dur: v } })} />
-                <Slider label="Escalonado (s)" min={0} max={0.4} step={0.01} value={sel.anim.stagger == null ? 0.09 : sel.anim.stagger} onChange={(v) => upd(sel.id, { anim: { ...sel.anim, stagger: v } })} />
+                <SelectRow label="Cómo entra" value={sel.anim.mode === "items" ? "items" : "block"} onChange={(v) => upd(sel.id, { anim: { ...sel.anim, mode: v } })} options={[["block", "Todo el bloque junto (liviano, recomendado)"], ["items", "Elemento por elemento, escalonado (más pesado)"]]} />
+                {sel.anim.mode === "items" && <Slider label="Escalonado (s)" min={0} max={0.4} step={0.01} value={sel.anim.stagger == null ? 0.09 : sel.anim.stagger} onChange={(v) => upd(sel.id, { anim: { ...sel.anim, stagger: v } })} />}
               </>
             )}
             <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.4 }}>Cada elemento del bloque (título, texto, botones, tarjetas, fotos) entra uno tras otro cuando aparece en pantalla. Usa las mismas curvas de tiempo que las poses del 3D. En la vista previa, el botón "Repetir animaciones" la reproduce de nuevo.</div>
@@ -8171,6 +8280,13 @@ function PagesPanel({ sections, setSections, site2d, setSite2d, selSec, setSelSe
         </Group>
       )}
 
+      {sel && sections.findIndex((x) => x.id === sel.id) > 0 && (
+        <Group id="pg-ovl" title="Transición con la sección anterior" defaultOpen={false}>
+          <SelectRow label="Efecto" value={sel.overlap || "none"} onChange={(v) => upd(sel.id, { overlap: v })} options={[["none", "Ninguno (una sección tras otra)"], ["cover", "Cortina: se desliza sobre la anterior (con sombra y bordes redondeados)"], ["flat", "Cortina plana (sin sombra ni bordes)"]]} />
+          {sel.overlap && sel.overlap !== "none" && sel.overlap !== "flat" && <Slider label="Sombra" min={0} max={1} step={0.05} value={sel.overlapShadow == null ? 0.5 : sel.overlapShadow} onChange={(v) => upd(sel.id, { overlapShadow: v })} />}
+          <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.45 }}>La sección anterior queda quieta y esta se desliza por encima (efecto parallax / cortina). Sirve también entre el 3D y el 2D: al salir del 3D la página 2D tapa la escena, y al entrar al 3D desde una página 2D la escena sube encima. Funciona con el scroll nativo, sin trabar el celular.</div>
+        </Group>
+      )}
       <Group id="pg-theme" title="Estilo general del sitio 2D" defaultOpen={false}>
         <ColorRow label="Fondo" value={T.bg} onChange={(v) => setT({ bg: v })} />
         <ColorRow label="Texto" value={T.text} onChange={(v) => setT({ text: v })} />
@@ -8196,13 +8312,13 @@ function PagesPreview({ sections, theme, view, setView, replay, setReplay, selSe
       <div className="pg-scroll">
         <div className={"pg-frame " + view} onClickCapture={(e) => { const a = e.target.closest && e.target.closest("a"); if (a) e.preventDefault(); }}>
           <style>{S2D_CSS}</style>
-          {sections.map((s) => (
+          {ovlFold(sections.map((s) => (
             <div key={s.id} className={"pg-blk" + (s.id === selSec ? " sel" : "")} onClick={() => setSelSec(s.id)}>
               {s.type === "scene3d"
                 ? <div className="s2d-3dph"><span>🎬 ESCENA 3D</span><span>{nStages} poses · {Math.round(totalVh)} vh de scroll</span></div>
                 : <Block2D key={s.id + ":" + replay} s={s} theme={T} />}
             </div>
-          ))}
+          )), sections)}
           {sections.length === 0 && <div className="s2d-3dph">Agregá un bloque desde el panel de la derecha</div>}
         </div>
       </div>
@@ -8859,6 +8975,11 @@ function paintVideoVignette(ctx, w, h, offset, darkness) {
   ctx.restore();
 }
 /* Vive dentro del <Canvas> del visor: avisa que "t" ya se dibujo y entrega el elemento canvas. */
+function CamNearSync({ near }) {
+  const camera = useThree((st) => st.camera);
+  useEffect(() => { if (camera && camera.near !== near) { camera.near = near; camera.updateProjectionMatrix(); } }, [camera, near]);
+  return null;
+}
 function VideoExportBridge({ tag, bridgeRef }) {
   const { gl } = useThree();
   useFrame(() => {
@@ -10462,9 +10583,10 @@ function App() {
           )}
         </div>
         <div className="scene-box" style={vidBox ? { position: "fixed", inset: "auto", left: 0, top: 0, width: vidBox.w, height: vidBox.h } : (section === "pages" ? { visibility: "hidden" } : undefined)}>
-        <Canvas key={canvasKey} onCreated={onCanvasCreated} shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35 }} dpr={exporting ? 1 : [1, 1.5]} gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}>
+        <Canvas key={canvasKey} onCreated={onCanvasCreated} shadows="soft" camera={{ position: [0, 0.3, 3.5], fov: 35, near: Math.min(2, Math.max(0.01, +postFx.camNear || 0.1)) }} dpr={exporting ? 1 : [1, 1.5]} gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}>
           <Scene pose={currentPose} onBonesFound={setFoundMap} cameraTarget={currentCamTarget} sceneCameraActive={sceneCameraActive} autoRotate={!exporting && autoRotate} movement={currentMovement} objects={exporting ? renderObjects : viewObjects} showObjects={exporting || showObjects} showGrid={!exporting && showGrid} fx={renderFx} showFx={exporting || showFx} orbitRef={orbitRef} liveCameraRef={liveCameraRef} modelUrl={modelUrl} postFx={postFx} charScale={charScale} charCenterY={charCenterY} charAnchorRef={charAnchorRef} trail={trail} reflection={reflection}
             markers={!exporting && section === "objects" && showObjects && labelMode !== "none" ? markers : (!exporting && section === "objects" && showObjects && selObj ? markers.filter((m) => m.id === selObj.id) : null)} selectedObjectId={selectedObj} onSelectObject={setSelectedObj} />
+          <CamNearSync near={Math.min(2, Math.max(0.01, +postFx.camNear || 0.1))} />
           <VideoExportBridge tag={exportT} bridgeRef={vidBridge} />
         </Canvas>
         </div>
@@ -10791,6 +10913,8 @@ function App() {
                 <Group id="lookmaster" title="Luz y exposición">
                   <Slider label="Luz natural" min={0} max={1} step={0.01} value={postFx.naturalLight ?? 0} onChange={(v) => setPostFxField("naturalLight", v)} />
                   <Slider label="Exposición" min={0.5} max={2} step={0.01} value={postFx.exposure ?? 1} onChange={(v) => setPostFxField("exposure", v)} />
+                  <Slider label="Plano cercano de la cámara" min={0.02} max={1} step={0.01} value={postFx.camNear ?? 0.1} onChange={(v) => setPostFxField("camNear", v)} />
+                  <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.4 }}>Si la cámara "atraviesa" paredes o objetos cercanos, bajalo (0.05–0.1). Si ves parpadeos en bordes lejanos, subilo. Vale igual en el editor y en el sitio exportado.</div>
                   <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4 }}>Luz natural: relleno suave y cálido desde arriba que aclara las sombras (no cambia el fondo ni el neón). Exposición: multiplica todas las luces a la vez. Salen igual en el index.html y en el MP4.</div>
                 </Group>
                 {lookMode === "manual" && (
@@ -10961,6 +11085,8 @@ function App() {
                         <Slider label="Límite (poses por segundo, 0 = sin límite)" min={0} max={6} step={0.1} value={postFx.scrollMaxPps ?? 1.5} onChange={(v) => setSc({ scrollMaxPps: v })} />
                         <div style={{ fontSize: 10.5, opacity: 0.65, lineHeight: 1.4, marginTop: 10 }}>Celular (pantalla táctil). No cambia nada en la PC.</div>
                         <Switch label="Una pose por deslizamiento" checked={!!postFx.mobileSnap} onChange={(v) => setSc({ mobileSnap: v })} />
+                        <SelectRow label="Scroll en las páginas 2D" value={postFx.scroll2d === "smooth" ? "smooth" : "native"} onChange={(v) => setSc({ scroll2d: v })} options={[["native", "Nativo del navegador (máxima fluidez, recomendado)"], ["smooth", "Amortiguado (como el 3D, más pesado)"]]} />
+                        <Slider label="Luces máximas en celular (0 = todas)" min={0} max={20} step={1} value={postFx.mobileLights ?? 6} onChange={(v) => setSc({ mobileLights: v })} />
                         {!postFx.mobileSnap && <Slider label={`Velocidad celular (0 = auto ×${Math.max(1, Math.round((postFx.scrollSpeed > 0 ? postFx.scrollSpeed : autoSpeed) * 0.4 * 2) / 2)})`} min={0} max={15} step={0.5} value={postFx.scrollSpeedMobile ?? 0} onChange={(v) => setSc({ scrollSpeedMobile: v })} />}
                         {!postFx.mobileSnap && <Slider label="Inercia del dedo" min={0} max={20} step={1} value={postFx.touchInertia ?? 6} onChange={(v) => setSc({ touchInertia: v })} />}
                       </Group>
