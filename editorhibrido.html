@@ -3654,6 +3654,7 @@ function SceneObjectModel({ data }) {
   const envTex = useStudioEnv();
   const envCfg = React.useContext(EnvSettingsCtx);
   const perf = React.useContext(PerfCtx);
+  const labRefl = useLab((st) => st.refl), labShadow = useLab((st) => st.shadow);
   useEffect(() => {
     applyScreenGlass(scene, data.glass || 0, data.glassMatch, (p) => { if (hasFade) patchFadeMaterial(p, fade); });
     applyStudioEnv(scene, envTex, envCfg.enabled, envCfg.intensity);
@@ -3663,8 +3664,8 @@ function SceneObjectModel({ data }) {
   return (
     <group ref={groupRef}>
       <primitive object={scene} />
-      <ReflectorFloors scene={scene} enabled={FLOOR_REFLECT && perf.tier >= 1 && perf.safe < 3 && !perf.off.ref} strength={FLOOR_REFLECT_STRENGTH}
-        mobile={perf.tier < 2} contact={CONTACT_SHADOW && perf.tier >= 2 && perf.safe < 3 && !perf.off.contact} contactOpacity={CONTACT_SHADOW_OPACITY} grade={gradeOf(data)} glow={data.glow || 0} />
+      <ReflectorFloors scene={scene} enabled={labRefl && perf.tier >= 1 && perf.safe < 3 && !perf.off.ref} strength={FLOOR_REFLECT_STRENGTH}
+        mobile={perf.tier < 2} contact={labShadow && perf.tier >= 2 && perf.safe < 3 && !perf.off.contact} contactOpacity={CONTACT_SHADOW_OPACITY} grade={gradeOf(data)} glow={data.glow || 0} />
     </group>
   );
 }
@@ -4283,7 +4284,7 @@ function SceneObjectLight({ data }) {
     L.position.set(kf.position[0], kf.position[1], kf.position[2]);
     const lt = kf.lt || [0, 0, 0];
     tgt.position.set(lt[0], lt[1], lt[2]);
-    L.intensity = (data.lightIntensity ?? 80) * Math.max(0, kf.li ?? 1);
+    L.intensity = (data.lightIntensity ?? 80) * Math.max(0, kf.li ?? 1) * labv("spots");
     weebLightSet(tgt.uuid, data, kf.position, lt, kf.li);
   });
   useEffect(() => () => { WEEB_LIGHTS.delete(tgt.uuid); }, [tgt]);
@@ -4362,6 +4363,75 @@ const PerfCtx = React.createContext({ tier: 2, safe: 0, off: {} });
 const CAM_NEAR = (() => { try { const v = parseFloat(new URLSearchParams(window.location.search).get("near")); if (v > 0 && v < 5) return v; } catch (e) {} return CAM_NEAR_CFG; })();
 const AA_MODE = (() => { try { const v = new URLSearchParams(window.location.search).get("aa"); if (v === "msaa" || v === "smaa" || v === "both" || v === "off") return v; } catch (e) {} return IS_MOBILE_VIEW ? "smaa" : "msaa"; })();
 const OFF_FLAGS = (() => { try { const v = new URLSearchParams(window.location.search).get("off") || ""; const o = {}; v.split(",").forEach((k) => { if (k.trim()) o[k.trim()] = true; }); return o; } catch (e) { return {}; } })();
+
+/* ?lab en la URL: panel para prender/apagar efectos y mover luces EN VIVO en el sitio (PC o celular) y copiar los valores que te gusten.
+   Sin ?lab no cambia nada: todo arranca con los valores del proyecto. */
+const LAB_ON = (() => { try { return new URLSearchParams(window.location.search).has("lab"); } catch (e) { return false; } })();
+const LAB_DEF = { post: true, vig: VIGNETTE_ENABLED, vigD: VIGNETTE_DARKNESS, vigO: VIGNETTE_OFFSET, bloom: BLOOM_ENABLED, bloomI: BLOOM_INTENSITY, bloomT: BLOOM_THRESHOLD, ao: AO_ENABLED, dof: DOF_ENABLED,
+  exp: EXPOSURE, nat: NATURAL_LIGHT, env: ENV_ENABLED, envI: ENV_INTENSITY, spots: 1, fog: true, trail: TRAIL_ENABLED, part: PART_ENABLED, beam: BEAM_ENABLED, refl: FLOOR_REFLECT, shadow: CONTACT_SHADOW, bright: 1, contrast: 1 };
+const useLab = create((set) => ({ ...LAB_DEF, put: (p) => set(p), reset: () => set({ ...LAB_DEF }) }));
+const labv = (k) => useLab.getState()[k];
+const LAB_ROWS = [
+  ["Luz", [["exp", "Exposición (luz general)", 0.2, 4, 0.05], ["nat", "Luz natural", 0, 1.5, 0.02], ["env", "Entorno / reflejos"], ["envI", "Fuerza del entorno", 0, 4, 0.05], ["spots", "Spots / luces de la escena (×)", 0, 3, 0.05]]],
+  ["Efectos de imagen", [["post", "Postproceso (todo junto)"], ["bloom", "Brillo (bloom)"], ["bloomI", "Intensidad bloom", 0, 2, 0.02], ["bloomT", "Umbral bloom", 0, 1, 0.02], ["vig", "Viñeta"], ["vigD", "Oscuridad viñeta", 0, 1, 0.02], ["vigO", "Tamaño viñeta", 0, 1, 0.02], ["ao", "Oclusión ambiental"], ["dof", "Desenfoque (DOF)"]]],
+  ["Ambiente", [["fog", "Niebla"], ["trail", "Estela de brillos"], ["part", "Partículas"], ["beam", "Rayo de luz"], ["refl", "Piso espejo"], ["shadow", "Sombra de contacto"]]],
+  ["Solo para probar la pantalla", [["bright", "Brillo de pantalla (×)", 0.6, 2.2, 0.02], ["contrast", "Contraste de pantalla (×)", 0.7, 1.8, 0.02]]],
+];
+const LAB_NAMES = { post: "Postproceso", vig: "Viñeta (activar)", vigD: "Viñeta · oscuridad", vigO: "Viñeta · tamaño", bloom: "Bloom (activar)", bloomI: "Bloom · intensidad", bloomT: "Bloom · umbral", ao: "Oclusión ambiental", dof: "DOF", exp: "Exposición", nat: "Luz natural", env: "Entorno (activar)", envI: "Entorno · fuerza", spots: "Spots / luces (multiplicador)", fog: "Niebla", trail: "Estela", part: "Partículas", beam: "Rayo de luz", refl: "Piso espejo", shadow: "Sombra de contacto", bright: "Brillo de pantalla (solo prueba)", contrast: "Contraste de pantalla (solo prueba)" };
+function LabPanel() {
+  const L = useLab();
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [out, setOut] = useState("");
+  useEffect(() => {
+    const c = document.querySelector(".scene-canvas");
+    if (c) c.style.filter = (L.bright !== 1 || L.contrast !== 1) ? "brightness(" + L.bright + ") contrast(" + L.contrast + ")" : "";
+  }, [L.bright, L.contrast]);
+  const changed = () => Object.keys(LAB_DEF).filter((k) => L[k] !== LAB_DEF[k]);
+  const fmt = (v) => (typeof v === "boolean" ? (v ? "SÍ" : "NO") : Math.round(v * 100) / 100);
+  const copy = () => {
+    const ks = changed();
+    const txt = ks.length ? "Cambios probados con ?lab (valor original → nuevo):\n" + ks.map((k) => "- " + LAB_NAMES[k] + ": " + fmt(LAB_DEF[k]) + " → " + fmt(L[k])).join("\n") : "Sin cambios respecto al proyecto.";
+    setOut(txt);
+    const done = (ok) => { setMsg(ok ? "Copiado ✓ (también abajo)" : "Copialo desde el cuadro de abajo"); setTimeout(() => setMsg(""), 2500); };
+    try { navigator.clipboard.writeText(txt).then(() => done(true), () => done(false)); } catch (e) { done(false); }
+    try { console.log(txt); } catch (e) { /* */ }
+  };
+  const bx = { background: "rgba(10,10,18,.92)", color: "#e8f6ff", font: "12px/1.35 system-ui,sans-serif", borderRadius: 12, border: "1px solid rgba(255,255,255,.18)" };
+  const btn = { background: "rgba(255,255,255,.12)", color: "#fff", border: "1px solid rgba(255,255,255,.25)", borderRadius: 8, padding: "7px 11px", font: "600 12px system-ui,sans-serif", cursor: "pointer" };
+  if (!open) return <button type="button" onClick={() => setOpen(true)} data-no-snap style={{ ...btn, position: "fixed", left: 8, bottom: 8, zIndex: 10000, background: "rgba(0,0,0,.7)" }}>🧪 LAB{changed().length ? " · " + changed().length : ""}</button>;
+  return (
+    <div data-no-snap data-lenis-prevent style={{ ...bx, position: "fixed", left: 8, bottom: 8, zIndex: 10000, width: "min(320px, calc(100vw - 16px))", maxHeight: "62vh", overflowY: "auto", padding: 10, WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+        <strong style={{ flex: 1 }}>🧪 LAB · probá en vivo</strong>
+        <button type="button" style={btn} onClick={copy}>Copiar</button>
+        <button type="button" style={btn} onClick={() => L.reset()}>Reset</button>
+        <button type="button" style={btn} onClick={() => setOpen(false)}>✕</button>
+      </div>
+      {msg && <div style={{ color: "#9f9", marginBottom: 4 }}>{msg}</div>}
+      {LAB_ROWS.map(([title, rows]) => (
+        <div key={title} style={{ marginBottom: 8 }}>
+          <div style={{ opacity: 0.7, textTransform: "uppercase", letterSpacing: ".08em", fontSize: 10, margin: "6px 0 3px" }}>{title}</div>
+          {rows.map(([k, label, mn, mx, st]) => (
+            typeof LAB_DEF[k] === "boolean" ? (
+              <label key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                <input type="checkbox" checked={!!L[k]} onChange={(e) => L.put({ [k]: e.target.checked })} style={{ width: 20, height: 20 }} />
+                <span style={{ flex: 1, color: L[k] !== LAB_DEF[k] ? "#ffd873" : undefined }}>{label}</span>
+              </label>
+            ) : (
+              <label key={k} style={{ display: "block", padding: "3px 0" }}>
+                <span style={{ display: "flex", justifyContent: "space-between", color: L[k] !== LAB_DEF[k] ? "#ffd873" : undefined }}><span>{label}</span><span>{fmt(L[k])}</span></span>
+                <input type="range" min={mn} max={mx} step={st} value={L[k]} onChange={(e) => L.put({ [k]: +e.target.value })} style={{ width: "100%" }} />
+              </label>
+            )
+          ))}
+        </div>
+      ))}
+      {out && <textarea readOnly value={out} rows={5} onFocus={(e) => e.target.select()} style={{ width: "100%", boxSizing: "border-box", background: "#000", color: "#9ff", font: "11px ui-monospace,monospace", border: "1px solid #444", borderRadius: 6 }} />}
+      <div style={{ opacity: 0.6, fontSize: 10.5 }}>Amarillo = distinto del proyecto. "Copiar" te deja la lista de cambios para pasarlos al editor. Brillo y contraste de pantalla son solo para probar cómo se ve al aire libre.</div>
+    </div>
+  );
+}
 /* Guardia de "pantalla negra": en algunas GPU de celular un efecto (oclusión ambiental, MSAA con postproceso, etc.) deja TODO lo 3D negro.
    Después de cargar, mira unos píxeles del canvas: si lo que se dibujó es casi negro, apaga de a un efecto por vez (primero la oclusión,
    después el postproceso entero, después el piso espejo) hasta que se ve bien. Si la imagen sale bien, no toca nada. */
@@ -4397,10 +4467,12 @@ function Lighting() {
   return LIGHT_RIG === "studio" ? <StudioLighting /> : <ClassicLighting />;
 }
 function StudioLighting() {
+  const labExp = useLab((st) => st.exp);
   const get = () => blendScenes(scenes, useScrollStore.getState().smoothProgress);
-  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={EXPOSURE} mobile={false} accent={ACCENT} />;
+  return <StudioRigLights getLight={() => get().light} getLookAt={() => get().camera.lookAt} getCamPos={() => get().camera.position} exposure={labExp} mobile={false} accent={ACCENT} />;
 }
 function ClassicLighting() {
+  const labNat = useLab((st) => st.nat), labExp = useLab((st) => st.exp);
   const keyRef = useRef(null);
   const rimRef = useRef(null);
   const dampedPos = useRef(new THREE.Vector3(...lightDirFromAngles(45, 35, 6)));
@@ -4410,7 +4482,7 @@ function ClassicLighting() {
   useFrame((_, delta) => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
-    const LL = lookLight(state.light, NATURAL_LIGHT, EXPOSURE);
+    const LL = lookLight(state.light, labv("nat"), labv("exp"));
     if (keyRef.current) {
       keyRef.current.color.set(state.light.color);
       keyRef.current.intensity = damp(keyRef.current.intensity, LL.key, 4, delta);
@@ -4448,7 +4520,7 @@ function ClassicLighting() {
       />
       <directionalLight position={[-3, 2, -2]} intensity={0.5} />
       <pointLight ref={rimRef} position={[-2.5, -1, -2]} intensity={1.4} distance={12} />
-      <NaturalFill intensity={NATURAL_LIGHT * 0.85 * EXPOSURE} />
+      <NaturalFill intensity={labNat * 0.85 * labExp} />
     </>
   );
 }
@@ -4464,7 +4536,7 @@ function SceneEnvironment() {
   useFrame(() => {
     const progress = useScrollStore.getState().smoothProgress;
     const state = blendScenes(scenes, progress);
-    if (state.fog.enabled) {
+    if (state.fog.enabled && labv("fog")) {
       scene.fog = fog.current;
       fog.current.color.set(state.fog.color);
       fog.current.density = 1 / Math.max(state.fog.far, 1);
@@ -4498,6 +4570,8 @@ function MenuFreeze() {
 }
 
 function Experience({ device }) {
+  const Lb = useLab();
+  const envCtx = useMemo(() => ({ enabled: Lb.env, intensity: Lb.envI * Lb.exp * (1 + 0.35 * Lb.nat), rig: LIGHT_RIG, accent: ACCENT }), [Lb.env, Lb.envI, Lb.exp, Lb.nat]);
   const mouse = useMouseParallax();
   const charAnchorRef = useRef(null);
   // ?q=0|1|2 en la URL fuerza el nivel de calidad (útil para probar); sin eso arranca solo y baja si hace falta.
@@ -4549,6 +4623,7 @@ function Experience({ device }) {
   };
   useEffect(() => { if (dbgRef.current) dbgRef.current.textContent = "nivel " + tier + (forcedQ != null ? " (forzado)" : "") + (safe ? " · seguro " + safe : "") + (Object.keys(OFF_FLAGS).length ? " · sin " + Object.keys(OFF_FLAGS).join(",") : "") + " · " + (fpsNow || "--") + " fps" + " · near " + CAM_NEAR + " · aa " + (AA_MODE === "off" ? "apagado" : !(tier >= 1 && safe < 2) ? "apagado (sin postproceso)" : (AA_MODE === "msaa" || AA_MODE === "both") && tier < 2 && AA_MODE !== "both" ? "msaa NO activo (nivel " + tier + ")" : (AA_MODE === "msaa" || AA_MODE === "both" ? (tier >= 2 ? "MSAA 4x" : "") : "") + (AA_MODE === "both" ? " + " : "") + (AA_MODE === "smaa" || AA_MODE === "both" ? "SMAA" : "") ); if (dbgRef.current) dbgRef.current.textContent += sceneStats() + scrollStats(); }, [tier, fpsNow, forcedQ, safe]);
   return (
+    <EnvSettingsCtx.Provider value={envCtx}>
     <PerfCtx.Provider value={perfValue}>
       <BlackFrameGuard renderDirect={!(tier >= 1 && safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
       {autoOn && monitorOn && forcedQ == null && <PerformanceMonitor ms={800} iterations={4} bounds={() => [22, 144]} onChange={({ fps }) => { if (debugOn) setFpsNow(Math.round(fps)); }} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} />}
@@ -4568,7 +4643,7 @@ function Experience({ device }) {
       </Suspense>
       <SparkleTrail
         anchorRef={charAnchorRef}
-        enabled={TRAIL_ENABLED}
+        enabled={Lb.trail}
         color={TRAIL_COLOR}
         size={TRAIL_SIZE}
         life={TRAIL_LIFE}
@@ -4583,10 +4658,10 @@ function Experience({ device }) {
         intensity={REFLECTION_INTENSITY}
       />
 
-      <LightBeam enabled={BEAM_ENABLED && BEAM_OPACITY > 0.02 && !OFF_FLAGS.beam} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
+      <LightBeam enabled={Lb.beam && BEAM_OPACITY > 0.02 && !OFF_FLAGS.beam} opacity={BEAM_OPACITY} width={BEAM_WIDTH} height={BEAM_HEIGHT} soft={BEAM_SOFT} glow={BEAM_GLOW} target={BEAM_TARGET} />
       <AmbientParticles
-        enabled={PART_ENABLED && !OFF_FLAGS.part} count={tier >= 2 ? PART_COUNT : tier >= 1 ? Math.min(PART_COUNT, 450) : Math.min(PART_COUNT, 120)} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
-        beam={BEAM_ENABLED ? PART_BEAM : 0} beamWidth={BEAM_WIDTH} beamHeight={BEAM_HEIGHT} beamTarget={BEAM_TARGET}
+        enabled={Lb.part && !OFF_FLAGS.part} count={tier >= 2 ? PART_COUNT : tier >= 1 ? Math.min(PART_COUNT, 450) : Math.min(PART_COUNT, 120)} size={PART_SIZE} opacity={PART_OPACITY} speed={PART_SPEED} blur={PART_BLUR} range={PART_RANGE}
+        beam={Lb.beam ? PART_BEAM : 0} beamWidth={BEAM_WIDTH} beamHeight={BEAM_HEIGHT} beamTarget={BEAM_TARGET}
         getLight={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).light}
         getLookAt={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt}
       />
@@ -4594,16 +4669,17 @@ function Experience({ device }) {
       {/* En celular (<=768 px): sin MSAA, AO en calidad baja, reflejo/sombras a menor resolución y
           dpr máx. 1.5 — se ve casi igual y no se traba. Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
           a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
-      {tier >= 1 && safe < 2 && (
+      {tier >= 1 && safe < 2 && Lb.post && (
         <EffectComposer multisampling={tier >= 2 && (AA_MODE === "msaa" || AA_MODE === "both") ? 4 : 0}>
-          {AO_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.ao && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
-          {DOF_ENABLED && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} back={DOF_BACK} />}
-          {BLOOM_ENABLED && BLOOM_INTENSITY > 0.01 && !OFF_FLAGS.bloom && <Bloom intensity={BLOOM_INTENSITY} luminanceThreshold={BLOOM_THRESHOLD} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+          {Lb.ao && tier >= 2 && safe < 1 && !OFF_FLAGS.ao && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
+          {Lb.dof && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} back={DOF_BACK} />}
+          {Lb.bloom && Lb.bloomI > 0.01 && !OFF_FLAGS.bloom && <Bloom intensity={Lb.bloomI} luminanceThreshold={Lb.bloomT} luminanceSmoothing={0.9} mipmapBlur height={240} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
           {(AA_MODE === "smaa" || AA_MODE === "both") && <SMAA />}
         </EffectComposer>
       )}
     </PerfCtx.Provider>
+    </EnvSettingsCtx.Provider>
   );
 }
 
@@ -5888,6 +5964,7 @@ function FrameGate({ active }) {
 }
 
 function App() {
+  const labVig = useLab((st) => st.vig), labVigD = useLab((st) => st.vigD), labVigO = useLab((st) => st.vigO);
   const stageRef = useRef(null);
   useScrollProgress();
   useScrollTuning();
@@ -5944,7 +6021,7 @@ function App() {
         </div>
         <BackgroundGradient stageRef={stageRef} />
         {HALO > 0 && <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", background: `radial-gradient(ellipse 75% 48% at 20% 0%, ${accentHalo(ACCENT, HALO)[0]} 0%, ${accentHalo(ACCENT, HALO)[1]} 42%, rgba(0,0,0,0) 74%)` }} />}
-        {VIGNETTE_ENABLED && (
+        {labVig && (
           <div
             aria-hidden="true"
             style={{
@@ -5952,7 +6029,7 @@ function App() {
               inset: 0,
               zIndex: 3,
               pointerEvents: "none",
-              background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - VIGNETTE_OFFSET) * 100}%, rgba(0,0,0,${VIGNETTE_DARKNESS}) 100%)`,
+              background: `radial-gradient(ellipse farthest-corner at center, transparent ${(1 - labVigO) * 100}%, rgba(0,0,0,${labVigD}) 100%)`,
             }}
           />
         )}
@@ -5969,6 +6046,7 @@ function App() {
       {BACKTOP.enabled && <BackToTop />}
       {MENU.logoUrl && <SiteLogo cfg={MENU} />}
       {MENU.enabled && <SiteMenu cfg={MENU} />}
+      {LAB_ON && <LabPanel />}
     </div>
   );
 }
