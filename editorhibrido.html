@@ -2175,48 +2175,10 @@ function patchFadeMaterial(mat, uniforms) {
   mat.customProgramCacheKey = () => weebProgKey(mat);
   mat.needsUpdate = true;
 }
-/* Transformación (armado por piezas): un .glb cuyas piezas guardan varios estados (atributos _P1, _P2, _P3 y _DD,
-   p. ej. punto → segmento → celda → figura final) se arma en el shader. uT (0..1) es el avance del armado y sale de la
-   pose ("Armado" en el panel); cada pieza tiene su propio momento (_DD.x arma, _DD.y pasa a la figura final). */
-function hasMorphGeo(geo) { return !!(geo && geo.attributes && geo.attributes._p1 && geo.attributes._p2 && geo.attributes._p3 && geo.attributes._dd); }
-function makeMorphUniforms() { return { uT: { value: 0 }, uLead: { value: 0.13 }, uWin: { value: 0.11 }, uWin2: { value: 0.05 } }; }
-function patchMorphMaterial(mat, U) {
-  if (!mat || !U) return;
-  if (Array.isArray(mat)) { mat.forEach((m) => patchMorphMaterial(m, U)); return; }
-  mat.userData = mat.userData || {};
-  const ex = mat.userData.weebMorph;
-  if (ex && typeof ex === "object") { if (ex.lead != null) U.uLead.value = +ex.lead; if (ex.win != null) U.uWin.value = +ex.win; if (ex.win2 != null) U.uWin2.value = +ex.win2; }
-  mat.userData.__mtU = U;
-  if (mat.userData.__mtPatched) { if (mat.userData.__mtShader) Object.assign(mat.userData.__mtShader.uniforms, U); return; }
-  mat.userData.__mtPatched = true;
-  const prev = mat.onBeforeCompile;
-  mat.onBeforeCompile = (shader, renderer) => {
-    if (prev) prev.call(mat, shader, renderer);
-    Object.assign(shader.uniforms, mat.userData.__mtU);
-    mat.userData.__mtShader = shader;
-    shader.vertexShader = shader.vertexShader.replace("#include <common>",
-      "#include <common>\nattribute vec3 _p1;\nattribute vec3 _p2;\nattribute vec3 _p3;\nattribute vec2 _dd;\nuniform float uT;\nuniform float uLead;\nuniform float uWin;\nuniform float uWin2;"
-    ).replace("#include <begin_vertex>",
-      "float mtA = clamp((uT - _dd.x + uLead) / uWin, 0., 1.) * 2.;\n float mtB = clamp((uT - _dd.y) / uWin2, 0., 1.);\n vec3 transformed = position;\n transformed = mix(transformed, _p1, smoothstep(0., 1., clamp(mtA, 0., 1.)));\n transformed = mix(transformed, _p2, smoothstep(0., 1., clamp(mtA - 1., 0., 1.)));\n transformed = mix(transformed, _p3, smoothstep(0., 1., mtB));"
-    );
-  };
-  mat.customProgramCacheKey = () => weebProgKey(mat);
-  mat.needsUpdate = true;
-}
-/* Prepara las piezas de un modelo con Transformación: sin recorte por cámara (las piezas viajan lejos de su caja) y sin sombra propia. */
-function applyMorph(scene, U) {
-  let any = false;
-  scene.traverse((child) => {
-    if (!child.isMesh || !hasMorphGeo(child.geometry)) return;
-    any = true; child.frustumCulled = false; child.castShadow = false;
-    patchMorphMaterial(child.material, U);
-  });
-  return any;
-}
 /* Llave de programa: cada combinación de parches (descartar transparentes, fade/revelado, esquinas y marco) compila su propio shader. */
 function weebProgKey(mat) {
   const u = mat.userData || {};
-  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f6" : "") + (u.__txaPatched ? "t1" : "") + (u.__mediaPatched ? "m1" : "") + (u.__txCrisp ? "c1" : "") + (u.__shpPatched ? (u.__shpRefl ? "s1r" : "s1") : "") + (u.__mtPatched ? "x1" : "");
+  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f6" : "") + (u.__txaPatched ? "t1" : "") + (u.__mediaPatched ? "m1" : "") + (u.__txCrisp ? "c1" : "") + (u.__shpPatched ? (u.__shpRefl ? "s1r" : "s1") : "");
 }
 /* Esquinas redondeadas y marco para imágenes y videos (máscara en el shader, no toca la textura). */
 function patchMediaMaterial(mat, o, aspect) {
@@ -2805,7 +2767,6 @@ function sampleObjectKeyframes(keyframes, progress) {
     lt: lerpVec3(a.lt || [0, 0, 0], b.lt || [0, 0, 0], t),
     li: lerp(a.li ?? 1, b.li ?? 1, t),
     bl: lerp(a.bl || 0, b.bl || 0, t),
-    mt: lerp(a.mt || 0, b.mt || 0, t),
     sm: a.sm || b.sm ? smokeLerp(a.sm, b.sm, t) : null,
     fade: fadeStateFor(a, b, t),
   };
@@ -3674,17 +3635,14 @@ function useClonedScene(src) {
 function SceneObjectModel({ data }) {
   const { scene: srcScene } = useGLTF(data.url);
   const scene = useClonedScene(srcScene);
-  const { groupRef, fade, hasFade, live } = useObjectTransformRef(data.keyframes, false, false, data);
-  const morphU = useMemo(() => makeMorphUniforms(), []);
-  const hasMt = useMemo(() => applyMorph(scene, morphU), [scene, morphU]);
-  useFrame(() => { if (hasMt) morphU.uT.value = (live.current && live.current.mt) || 0; });
+  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false, false, data);
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
         // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
-        child.castShadow = data.shadows !== false && !hasMorphGeo(child.geometry) && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
+        child.castShadow = data.shadows !== false && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
         child.receiveShadow = data.shadows !== false;
         (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
           if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
@@ -3852,56 +3810,7 @@ function projectUVs(g, tile) {
   }
   g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 }
-/* Redondea las esquinas filosas del contorno antes de extruir con bisel. El bisel de ExtrudeGeometry
-   desplaza cada punto según el ángulo de la esquina: en esquinas muy cerradas ese desplazamiento se cruza
-   con el contorno y aparecen "puntas". Con un redondeo del tamaño del bisel, el bisel siempre tiene lugar. */
-function roundPolyCorners(pts, r) {
-  const P = [];
-  pts.forEach((p) => { const q = P[P.length - 1]; if (!q || q.distanceTo(p) > r * 1e-3) P.push(p.clone()); });
-  if (P.length > 2 && P[0].distanceTo(P[P.length - 1]) <= r * 1e-3) P.pop();
-  const n = P.length;
-  if (n < 4 || !(r > 0)) return P;
-  const dir = (a, b) => b.clone().sub(a).normalize();
-  const turn = P.map((p, i) => { const d1 = dir(P[(i - 1 + n) % n], p), d2 = dir(p, P[(i + 1) % n]); return Math.acos(Math.max(-1, Math.min(1, d1.dot(d2)))); });
-  const corners = []; for (let i = 0; i < n; i++) if (turn[i] > 0.26) corners.push(i);   /* > ~15° */
-  if (!corners.length) return P;
-  const seg = P.map((p, i) => p.distanceTo(P[(i + 1) % n]));
-  const arcLen = (i, j) => { let s = 0; for (let k = i; k !== j; k = (k + 1) % n) s += seg[k]; return s; };
-  const walk = (i, dist, step) => {   /* punto a "dist" del vértice i, caminando adelante (+1) o atrás (-1) */
-    let k = i, left = dist;
-    for (let g = 0; g < n; g++) {
-      const k2 = (k + step + n) % n, L = step > 0 ? seg[k] : seg[k2];
-      if (L >= left) return { p: P[k].clone().lerp(P[k2], left / Math.max(L, 1e-12)), idx: k2 };
-      left -= L; k = k2;
-    }
-    return { p: P[k].clone(), idx: k };
-  };
-  const out = []; const nc = corners.length;
-  const cut = corners.map((c, ci) => {
-    const prev = corners[(ci - 1 + nc) % nc], next = corners[(ci + 1) % nc];
-    const lb = nc > 1 ? arcLen(prev, c) : arcLen((c + 1) % n, c), lf = nc > 1 ? arcLen(c, next) : arcLen(c, (c - 1 + n) % n);
-    const t = Math.min(r * Math.tan(Math.min(turn[c], 2.6) / 2) + r * 0.25, lb * 0.45, lf * 0.45);
-    return { a: walk(c, t, -1), b: walk(c, t, +1) };
-  });
-  for (let ci = 0; ci < nc; ci++) {
-    const c = corners[ci], A = cut[ci].a.p, B = cut[ci].b.p, C = P[c];
-    for (let s = 0; s <= 8; s++) { const u = s / 8, w = 1 - u; out.push(new THREE.Vector2(w * w * A.x + 2 * w * u * C.x + u * u * B.x, w * w * A.y + 2 * w * u * C.y + u * u * B.y)); }
-    const nb = cut[(ci + 1) % nc].a.idx; let k = cut[ci].b.idx, guard = 0;   /* puntos originales hasta la próxima esquina */
-    const stop = (nb + 1) % n;
-    while (k !== stop && guard++ < n) { out.push(P[k].clone()); k = (k + 1) % n; }
-  }
-  const clean = [];   /* sin puntos repetidos ni casi pegados: evitan triangulitos sueltos en la tapa */
-  out.forEach((p) => { const q = clean[clean.length - 1]; if (!q || q.distanceTo(p) > r * 0.03) clean.push(p); });
-  while (clean.length > 3 && clean[0].distanceTo(clean[clean.length - 1]) <= r * 0.03) clean.pop();
-  return clean;
-}
-function roundShapeCorners(sh, div, r) {
-  const ex = sh.extractPoints(div);
-  const s2 = new THREE.Shape(roundPolyCorners(ex.shape, r));
-  s2.holes = ex.holes.map((h) => new THREE.Path(roundPolyCorners(h, r)));
-  return s2;
-}
-function buildSvgExtrude(text, depthK, bevK, segK, lite) {
+function buildSvgExtrude(text, depthK, bevK, segK, lite, rev) {
   const data = new SVGLoader().parse(text);
   const parts = [];
   const box = new THREE.Box2();
@@ -3922,16 +3831,30 @@ function buildSvgExtrude(text, depthK, bevK, segK, lite) {
   const cx = (box.min.x + box.max.x) / 2, cy = (box.min.y + box.max.y) / 2;
   const depth = Math.max(0.002, depthK) * H;
   const b = Math.min(depth * 0.45, Math.max(0, bevK) * 0.05 * H);
+  if (rev) {   /* REVOLUCION: el perfil SVG (eje en el borde izquierdo, x=0) se gira sobre el eje vertical: esferas, conos, cilindros, torres, aros, perillas */
+    const nSeg = lite ? 24 : 56;
+    const out = [];
+    parts.forEach((pt) => {
+      pt.shapes.forEach((sh) => {
+        const pts = sh.getPoints(Math.max(6, Math.round(curveSeg * 1.2))).filter((v, i, a) => i === 0 || Math.abs(v.x - a[i - 1].x) + Math.abs(v.y - a[i - 1].y) > 1e-5);
+        const pr = pts.map((v) => new THREE.Vector2(Math.max(0, v.x), v.y - cy));
+        if (pr.length < 3) return;
+        const g = new THREE.LatheGeometry(pr, nSeg);
+        g.scale(1 / H, 1 / H, 1 / H);
+        const geo = toCreasedNormals(g, 0.7);
+        g.dispose();
+        projectUVs(geo, 1.6);
+        out.push({ shapes: [], color: pt.color, geo });
+      });
+    });
+    parts.length = 0; out.forEach((q) => parts.push(q));
+    return { parts, aspect: (box.max.x - box.min.x) / H, rev: true };
+  }
   parts.forEach((pt) => {
-    const shp = b > 0.0001 ? pt.shapes.map((sh) => roundShapeCorners(sh, curveSeg, b)) : pt.shapes;
-    const g = new THREE.ExtrudeGeometry(shp, { depth, curveSegments: curveSeg, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: lite ? 2 : 5 });
+    const g = new THREE.ExtrudeGeometry(pt.shapes, { depth, curveSegments: curveSeg, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: lite ? 2 : 5 });
     g.translate(-cx, -cy, -(depth / 2 + b));
-    /* El suavizado de normales (toCreasedNormals) agrupa vértices con precisión de 0,01: con el logo a escala 1
-       los puntos vecinos de una curva caen en la misma celda y aparecen rayas verticales en los cantos.
-       Se suaviza a escala 1000 y después se vuelve a escala 1. */
-    g.scale(1000 / H, 1000 / H, 1000 / H);
+    g.scale(1 / H, 1 / H, 1 / H);
     pt.geo = creaseSides(g);
-    pt.geo.scale(0.001, 0.001, 0.001);
     projectUVs(pt.geo, 1.6);
     g.dispose();
   });
@@ -3975,14 +3898,14 @@ function makeSvgMat(data, base, lite) {
 }
 function SvgExtrudeBody({ url, data, fade, hasFade, shadows }) {
   const [built, setBuilt] = useState(null);
-  const ext = data.ext || 0, bev = data.bev ?? 0.3, seg = data.seg || 0;
+  const ext = data.ext || 0, bev = data.bev ?? 0.3, seg = data.seg || 0, rev = !!data.rev;
   const lite = React.useContext(PerfCtx).tier < 2;
   const gref = useRef(null);
   useEffect(() => {
     let off = false;
     let tries = 0, timer = null;
     const load = () => {
-      fetchSvgText(url).then((t) => { if (off) return; try { setBuilt((prev) => { if (prev) prev.parts.forEach((pt) => pt.geo.dispose()); return buildSvgExtrude(t, ext, bev, seg, lite); }); } catch (e) { console.warn("No se pudo extruir el SVG:", e && e.message); } }).catch((e) => {
+      fetchSvgText(url).then((t) => { if (off) return; try { setBuilt((prev) => { if (prev) prev.parts.forEach((pt) => pt.geo.dispose()); return buildSvgExtrude(t, ext, bev, seg, lite, rev); }); } catch (e) { console.warn("No se pudo extruir el SVG:", e && e.message); } }).catch((e) => {
         if (off) return;
         console.warn("SVG no disponible, reintentando:", e && e.message);
         if (++tries <= 6) timer = setTimeout(load, 2000 * tries);
@@ -3990,7 +3913,7 @@ function SvgExtrudeBody({ url, data, fade, hasFade, shadows }) {
     };
     load();
     return () => { off = true; if (timer) clearTimeout(timer); };
-  }, [url, ext, bev, seg, lite]);
+  }, [url, ext, bev, seg, lite, rev]);
   const mats = useMemo(() => (built ? built.parts.map((pt) => makeSvgMat(data, pt.color, lite)) : []), [built, data.mat, data.matColor, data.matRough, lite]);
   useEffect(() => () => mats.forEach((m) => m.dispose()), [mats]);
   const envTex = useStudioEnv();
@@ -4799,7 +4722,6 @@ function DepthFocus({ getTarget, follow, offset, distance, range, blur, back }) 
   const skipDepth = (o) => {
     if (o.isPoints || o.isSprite || o.isLine) return true;
     if (!o.isMesh) return false;
-    if (o.geometry && o.geometry.attributes && o.geometry.attributes._p1) return true;   // piezas que se arman: su forma vive en el shader
     const ms = Array.isArray(o.material) ? o.material : [o.material];
     return ms.some((m) => m && (m.depthWrite === false || m.blending === THREE.AdditiveBlending || (m.transparent && m.opacity < 0.02)));
   };
@@ -6369,7 +6291,6 @@ function sampleObjectTransform(transformsByStage, progress, stages, easings) {
     lt: lerpVec3(ta.lt || [0, 0, 0], tb.lt || [0, 0, 0], t),
     li: lerp(ta.li ?? 1, tb.li ?? 1, t),
     bl: lerp(ta.bl || 0, tb.bl || 0, t),
-    mt: lerp(ta.mt || 0, tb.mt || 0, t),
     sm: ta.sm || tb.sm ? smokeLerp(ta.sm, tb.sm, t) : null,
   }, fadeStateFor(ta, tb, t));
 }
@@ -6584,10 +6505,6 @@ const FADE_SOFT = 1.0;
 //@@use _FLO
 //@@use floatOffset
 //@@use patchFadeMaterial
-//@@use hasMorphGeo
-//@@use makeMorphUniforms
-//@@use patchMorphMaterial
-//@@use applyMorph
 //@@use weebProgKey
 //@@use patchMediaMaterial
 //@@use TEXT_EFFECTS
@@ -6692,8 +6609,6 @@ function FadeGroup({ obj, fade, children }) {
 //@@use projectUVs
 //@@use __svgTextCache
 //@@use fetchSvgText
-//@@use roundPolyCorners
-//@@use roundShapeCorners
 //@@use buildSvgExtrude
 //@@use makeSvgMat
 //@@use SvgExtrudeBody
@@ -6781,15 +6696,12 @@ const EnvSettingsCtx = React.createContext({ enabled: false, intensity: 1, rig: 
 function ObjectPreviewModel({ obj, fade }) {
   const { scene: srcScene } = useGLTF(obj.previewUrl || obj.url);
   const scene = useClonedScene(srcScene);
-  const morphU = useMemo(() => makeMorphUniforms(), []);
-  useMemo(() => applyMorph(scene, morphU), [scene, morphU]);
-  morphU.uT.value = obj.mt || 0;
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
-        child.castShadow = obj.shadows !== false && !hasMorphGeo(child.geometry) && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
+        child.castShadow = obj.shadows !== false && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
         child.receiveShadow = obj.shadows !== false;
         (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
           if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
@@ -8028,7 +7940,7 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     const kfLines = stages.map((kf, idx) => {
       const t = transforms[kf.id] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" };
       const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
-      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.rz ? `, rz: ${fmtNum(t.rz)}` : ""}${t.rx ? `, rx: ${fmtNum(t.rx)}` : ""}${t.tk ? `, tk: ${fmtNum(t.tk)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${t.bl ? `, bl: ${fmtNum(t.bl)}` : ""}${t.mt ? `, mt: ${fmtNum(t.mt)}` : ""}${o.type === "smoke" ? `, sm: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultSmokeParams(), ...(t.sm || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 1000) / 1000 : v])))}` : ""}${o.type === "light" ? `, lt: ${fmtVec(t.lt || [0, 0, 0])}, li: ${fmtNum(t.li ?? 1)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
+      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.rz ? `, rz: ${fmtNum(t.rz)}` : ""}${t.rx ? `, rx: ${fmtNum(t.rx)}` : ""}${t.tk ? `, tk: ${fmtNum(t.tk)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${t.bl ? `, bl: ${fmtNum(t.bl)}` : ""}${o.type === "smoke" ? `, sm: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultSmokeParams(), ...(t.sm || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 1000) / 1000 : v])))}` : ""}${o.type === "light" ? `, lt: ${fmtVec(t.lt || [0, 0, 0])}, li: ${fmtNum(t.li ?? 1)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
     }).join("\n");
     if (o.type === "text") {
       return `  {
@@ -8142,6 +8054,7 @@ ${kfLines}
     ext: ${fmtNum(o.ext || 0)},
     bev: ${fmtNum(o.bev ?? 0.3)},
     seg: ${fmtNum(o.seg || 0)},
+    rev: ${o.rev ? "true" : "false"},
     mat: ${JSON.stringify(o.mat || "plastic")},
     matColor: ${JSON.stringify(o.matColor || "")},
     matRough: ${o.matRough != null ? fmtNum(o.matRough) : "null"},
@@ -10788,8 +10701,6 @@ function App() {
         {!isModel && <Slider label="Estirar ancho" min={0.05} max={6} step={0.01} value={t.sx ?? 1} onChange={(v) => setObjectTransform(o.id, "sx", null, v)} />}
         {!isModel && <Slider label="Desenfoque" min={0} max={30} step={0.1} value={t.bl || 0} onChange={(v) => setObjectTransform(o.id, "bl", null, v)} />}
         {!isModel && (t.bl || 0) > 0 && <div className="tools"><Btn title="Mismo desenfoque en todas las poses" onClick={() => setObjectAllStages(o.id, "bl", t.bl || 0)}>Desenfoque en todas las poses</Btn><Btn onClick={() => setObjectAllStages(o.id, "bl", 0)}>Quitar en todas</Btn></div>}
-        {isModel && <Slider label="Armado (transformación)" min={0} max={1} step={0.001} value={t.mt || 0} onChange={(v) => setObjectTransform(o.id, "mt", null, v)} />}
-        {isModel && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Solo para modelos con piezas que se arman (túnel de celdas, sala). 0 = piezas sueltas, 1 = figura completa; entre poses avanza con el scroll y al volver se desarma.</div>}
         {!isModel && <Slider label="Estirar alto" min={0.05} max={6} step={0.01} value={t.sy ?? 1} onChange={(v) => setObjectTransform(o.id, "sy", null, v)} />}
         <Vec3 label={o.parent ? "Posición (relativa a la madre)" : "Posición"} value={t.position} onChange={(a, v) => setObjectTransform(o.id, "position", a, v)} />
         {!(!isModel && o.billboard) && <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />}
