@@ -4625,8 +4625,8 @@ function Experience({ device }) {
   return (
     <EnvSettingsCtx.Provider value={envCtx}>
     <PerfCtx.Provider value={perfValue}>
-      <BlackFrameGuard renderDirect={!(tier >= 1 && safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
-      {autoOn && monitorOn && forcedQ == null && <PerformanceMonitor ms={800} iterations={4} bounds={() => [22, 144]} onChange={({ fps }) => { if (debugOn) setFpsNow(Math.round(fps)); }} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} />}
+      <BlackFrameGuard renderDirect={!(safe < 2)} active={forcedSafe == null && !assetsLoading} onBlack={() => setSafe((v) => Math.min(3, v + 1))} />
+      {autoOn && monitorOn && forcedQ == null && <PerformanceMonitor ms={800} iterations={4} bounds={() => [22, 55]} flipflops={3} onChange={({ fps }) => { if (debugOn) setFpsNow(Math.round(fps)); }} onDecline={() => { if (forcedQ == null) setTier((t) => Math.max(0, t - 1)); }} onIncline={() => { if (forcedQ == null) setTier((t) => Math.min(IS_PHONE ? 1 : 2, t + 1)); }} />}
       <ScrollSmoother />
       <MenuFreeze />
       <SceneEnvironment />
@@ -4669,13 +4669,13 @@ function Experience({ device }) {
       {/* En celular (<=768 px): sin MSAA, AO en calidad baja, reflejo/sombras a menor resolución y
           dpr máx. 1.5 — se ve casi igual y no se traba. Con EffectComposer three.js NO aplica el tone mapping del renderer (solo lo hace al dibujar directo
           a pantalla). Por eso el ToneMapping va siempre: sin él, con Bloom los colores se queman. */}
-      {tier >= 1 && safe < 2 && Lb.post && (
+      {safe < 2 && Lb.post && (   /* celular en nivel 0: igual queda el brillo (a baja resolución, muy barato) para que no se vea pálido */
         <EffectComposer multisampling={tier >= 2 && (AA_MODE === "msaa" || AA_MODE === "both") ? 4 : 0}>
           {Lb.ao && tier >= 2 && safe < 1 && !OFF_FLAGS.ao && <N8AO aoRadius={AO_RADIUS} intensity={AO_INTENSITY} distanceFalloff={0.6} halfRes quality={IS_MOBILE_VIEW ? "medium" : "high"} />}
           {Lb.dof && tier >= 2 && safe < 1 && !OFF_FLAGS.dof && <DepthFocus getTarget={() => blendScenes(scenes, useScrollStore.getState().smoothProgress).camera.lookAt} follow={DOF_FOLLOW} offset={DOF_OFFSET} distance={DOF_DISTANCE} range={DOF_RANGE} blur={DOF_BLUR} back={DOF_BACK} />}
-          {Lb.bloom && Lb.bloomI > 0.01 && !OFF_FLAGS.bloom && <Bloom intensity={Lb.bloomI} luminanceThreshold={Lb.bloomT} luminanceSmoothing={0.9} mipmapBlur height={240} />}
+          {Lb.bloom && Lb.bloomI > 0.01 && !OFF_FLAGS.bloom && <Bloom intensity={Lb.bloomI} luminanceThreshold={Lb.bloomT} luminanceSmoothing={0.9} mipmapBlur height={tier >= 1 ? 240 : 120} />}
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-          {(AA_MODE === "smaa" || AA_MODE === "both") && <SMAA />}
+          {(AA_MODE === "smaa" || AA_MODE === "both") && tier >= 1 && <SMAA />}
         </EffectComposer>
       )}
     </PerfCtx.Provider>
