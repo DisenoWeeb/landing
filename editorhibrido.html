@@ -849,6 +849,7 @@ const AO_INTENSITY = 2;
 const AO_RADIUS = 0.35;
 const DOF_ENABLED = false;
 const DOF_FOLLOW = true;
+const OBJ_TIGHT = false;
 const DOF_OFFSET = 1;
 const DOF_DISTANCE = 8;
 const DOF_RANGE = 8;
@@ -1343,12 +1344,12 @@ function CameraRig({ mouse, parallaxStrength = 0.18 }) {
     const mx = mouse.current?.x ?? 0;
     const my = mouse.current?.y ?? 0;
 
-    camera.position.x = damp(camera.position.x, px + mx * parallaxStrength, 6, delta);
-    camera.position.y = damp(camera.position.y, py - my * parallaxStrength * 0.6, 6, delta);
-    camera.position.z = damp(camera.position.z, pz, 6, delta);
+    camera.position.x = damp(camera.position.x, px + mx * parallaxStrength, OBJ_TIGHT ? 16 : 6, delta);
+    camera.position.y = damp(camera.position.y, py - my * parallaxStrength * 0.6, OBJ_TIGHT ? 16 : 6, delta);
+    camera.position.z = damp(camera.position.z, pz, OBJ_TIGHT ? 16 : 6, delta);
 
     lookAtTarget.current.set(lx + mx * 0.05, ly - my * 0.05, lz);
-    currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-6 * delta));
+    currentLookAt.current.lerp(lookAtTarget.current, 1 - Math.exp(-(OBJ_TIGHT ? 16 : 6) * delta));
     camera.up.set(0, 1, 0);
     camera.lookAt(currentLookAt.current);
 
@@ -2806,24 +2807,25 @@ function useObjectTransformRef(keyframes, billboard, own, data) {
     const kf = sampleObjectKeyframes(keyframes, progress);
     live.current = kf;
     const b = base.current;
-    b.x = damp(b.x, kf.position[0], 4, delta);
-    b.y = damp(b.y, kf.position[1], 4, delta);
-    b.z = damp(b.z, kf.position[2], 2.2, delta);
-    b.s = damp(b.s, kf.scale, 4, delta);
-    b.sx = damp(b.sx, kf.sx ?? 1, 4, delta);
-    b.sy = damp(b.sy, kf.sy ?? 1, 4, delta);
+    const dk = OBJ_TIGHT ? 40 : 4, dkz = OBJ_TIGHT ? 40 : 2.2;   // "movimiento exacto": el objeto sigue al scroll sin arrastre (golpes y choques sincronizados)
+    b.x = damp(b.x, kf.position[0], dk, delta);
+    b.y = damp(b.y, kf.position[1], dk, delta);
+    b.z = damp(b.z, kf.position[2], dkz, delta);
+    b.s = damp(b.s, kf.scale, dk, delta);
+    b.sx = damp(b.sx, kf.sx ?? 1, dk, delta);
+    b.sy = damp(b.sy, kf.sy ?? 1, dk, delta);
     const an = hasFadeOnly && !own ? animFor(kf.fade.dir, kf.fade.amt, kf.fade.out) : _ANIM_ID;
     const fl = floatOffset(data, state.clock.elapsedTime);
     g.position.set(b.x + an.dx, b.y + an.dy + fl.dy, b.z);
     g.scale.set(b.s * b.sx * an.s * an.sx, b.s * b.sy * an.s * an.sy, b.s * an.s);
     if (!billboard) {
       g.rotation.order = "YXZ";
-      g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180 + fl.ry, 4, delta);
-      g.rotation.x = damp(g.rotation.x, ((kf.rx || 0) * Math.PI) / 180, 4, delta);   // inclinación (acostar como piso)
+      g.rotation.y = damp(g.rotation.y, (kf.rotationY * Math.PI) / 180 + fl.ry, dk, delta);
+      g.rotation.x = damp(g.rotation.x, ((kf.rx || 0) * Math.PI) / 180, dk, delta);   // inclinación (acostar como piso)
     }
     if (hasFade) driveFade(g, state.camera, fade, kf.fade, own);
     fade.uBlr.value = hasBlur ? Math.max(0, kf.bl || 0) * 0.01 : 0;
-    if (zRef.current) zRef.current.rotation.z = damp(zRef.current.rotation.z, ((kf.rz || 0) * Math.PI) / 180 + fl.rz, 4, delta);
+    if (zRef.current) zRef.current.rotation.z = damp(zRef.current.rotation.z, ((kf.rz || 0) * Math.PI) / 180 + fl.rz, dk, delta);
   });
   return { groupRef, fade, hasFade, live, zRef };
 }
@@ -7807,6 +7809,7 @@ const AO_INTENSITY = ${postFx.aoIntensity ?? 2};
 const AO_RADIUS = ${postFx.aoRadius ?? 0.35};
 const DOF_ENABLED = ${postFx.dofEnabled ? "true" : "false"};
 const DOF_FOLLOW = ${postFx.dofFollow === false ? "false" : "true"};
+const OBJ_TIGHT = ${postFx.objTight ? "true" : "false"};
 const DOF_OFFSET = ${postFx.dofOffset ?? 1};
 const DOF_DISTANCE = ${postFx.dofDistance ?? 8};
 const DOF_RANGE = ${postFx.dofRange ?? 8};
