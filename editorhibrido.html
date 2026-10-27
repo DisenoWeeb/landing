@@ -3426,7 +3426,7 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile, acc
       spot.current.target = tgt;
       spot.current.color.set(L.color || "#ffffff");
       spot.current.intensity = rigDamp(spot.current.intensity, (L.intensity ?? 0.7) * STUDIO_KEY * e * k, 4, delta);
-      spot.current.shadow.normalBias = 0.02 * (d / 9);
+      spot.current.shadow.normalBias = 0.005 * (d / 9);   // normalBias bajo: las sombras de piezas finas (logo, teclas) quedan pegadas a su forma
     }
     // Perilla "Ambiente" de la luz principal: en este rig es un relleno parejo muy bajo (0.28 = el valor de siempre = 0.03); sube de forma progresiva.
     if (amb.current) amb.current.intensity = rigDamp(amb.current.intensity, 0.03 * Math.pow(Math.max(0, L.ambient ?? 0.28) / 0.28, 1.3) * e, 4, delta);
@@ -3440,7 +3440,7 @@ function StudioRigLights({ getLight, getLookAt, getCamPos, exposure, mobile, acc
   return (
     <>
       <spotLight ref={spot} angle={0.25} penumbra={1} decay={2} intensity={0} castShadow
-        shadow-mapSize={mobile ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0002} shadow-normalBias={0.02} />
+        shadow-mapSize={mobile ? [1024, 1024] : [2048, 2048]} shadow-bias={-0.0001} shadow-normalBias={0.005} />
       <pointLight ref={rim} decay={2} intensity={0} />
       <ambientLight ref={amb} intensity={0.03 * (exposure == null ? 1 : exposure)} />
     </>
