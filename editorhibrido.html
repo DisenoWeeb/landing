@@ -3852,6 +3852,55 @@ function projectUVs(g, tile) {
   }
   g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 }
+/* Redondea las esquinas filosas del contorno antes de extruir con bisel. El bisel de ExtrudeGeometry
+   desplaza cada punto según el ángulo de la esquina: en esquinas muy cerradas ese desplazamiento se cruza
+   con el contorno y aparecen "puntas". Con un redondeo del tamaño del bisel, el bisel siempre tiene lugar. */
+function roundPolyCorners(pts, r) {
+  const P = [];
+  pts.forEach((p) => { const q = P[P.length - 1]; if (!q || q.distanceTo(p) > r * 1e-3) P.push(p.clone()); });
+  if (P.length > 2 && P[0].distanceTo(P[P.length - 1]) <= r * 1e-3) P.pop();
+  const n = P.length;
+  if (n < 4 || !(r > 0)) return P;
+  const dir = (a, b) => b.clone().sub(a).normalize();
+  const turn = P.map((p, i) => { const d1 = dir(P[(i - 1 + n) % n], p), d2 = dir(p, P[(i + 1) % n]); return Math.acos(Math.max(-1, Math.min(1, d1.dot(d2)))); });
+  const corners = []; for (let i = 0; i < n; i++) if (turn[i] > 0.26) corners.push(i);   /* > ~15° */
+  if (!corners.length) return P;
+  const seg = P.map((p, i) => p.distanceTo(P[(i + 1) % n]));
+  const arcLen = (i, j) => { let s = 0; for (let k = i; k !== j; k = (k + 1) % n) s += seg[k]; return s; };
+  const walk = (i, dist, step) => {   /* punto a "dist" del vértice i, caminando adelante (+1) o atrás (-1) */
+    let k = i, left = dist;
+    for (let g = 0; g < n; g++) {
+      const k2 = (k + step + n) % n, L = step > 0 ? seg[k] : seg[k2];
+      if (L >= left) return { p: P[k].clone().lerp(P[k2], left / Math.max(L, 1e-12)), idx: k2 };
+      left -= L; k = k2;
+    }
+    return { p: P[k].clone(), idx: k };
+  };
+  const out = []; const nc = corners.length;
+  const cut = corners.map((c, ci) => {
+    const prev = corners[(ci - 1 + nc) % nc], next = corners[(ci + 1) % nc];
+    const lb = nc > 1 ? arcLen(prev, c) : arcLen((c + 1) % n, c), lf = nc > 1 ? arcLen(c, next) : arcLen(c, (c - 1 + n) % n);
+    const t = Math.min(r * Math.tan(Math.min(turn[c], 2.6) / 2) + r * 0.25, lb * 0.45, lf * 0.45);
+    return { a: walk(c, t, -1), b: walk(c, t, +1) };
+  });
+  for (let ci = 0; ci < nc; ci++) {
+    const c = corners[ci], A = cut[ci].a.p, B = cut[ci].b.p, C = P[c];
+    for (let s = 0; s <= 8; s++) { const u = s / 8, w = 1 - u; out.push(new THREE.Vector2(w * w * A.x + 2 * w * u * C.x + u * u * B.x, w * w * A.y + 2 * w * u * C.y + u * u * B.y)); }
+    const nb = cut[(ci + 1) % nc].a.idx; let k = cut[ci].b.idx, guard = 0;   /* puntos originales hasta la próxima esquina */
+    const stop = (nb + 1) % n;
+    while (k !== stop && guard++ < n) { out.push(P[k].clone()); k = (k + 1) % n; }
+  }
+  const clean = [];   /* sin puntos repetidos ni casi pegados: evitan triangulitos sueltos en la tapa */
+  out.forEach((p) => { const q = clean[clean.length - 1]; if (!q || q.distanceTo(p) > r * 0.03) clean.push(p); });
+  while (clean.length > 3 && clean[0].distanceTo(clean[clean.length - 1]) <= r * 0.03) clean.pop();
+  return clean;
+}
+function roundShapeCorners(sh, div, r) {
+  const ex = sh.extractPoints(div);
+  const s2 = new THREE.Shape(roundPolyCorners(ex.shape, r));
+  s2.holes = ex.holes.map((h) => new THREE.Path(roundPolyCorners(h, r)));
+  return s2;
+}
 function buildSvgExtrude(text, depthK, bevK, segK, lite) {
   const data = new SVGLoader().parse(text);
   const parts = [];
@@ -3874,7 +3923,8 @@ function buildSvgExtrude(text, depthK, bevK, segK, lite) {
   const depth = Math.max(0.002, depthK) * H;
   const b = Math.min(depth * 0.45, Math.max(0, bevK) * 0.05 * H);
   parts.forEach((pt) => {
-    const g = new THREE.ExtrudeGeometry(pt.shapes, { depth, curveSegments: curveSeg, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: lite ? 2 : 5 });
+    const shp = b > 0.0001 ? pt.shapes.map((sh) => roundShapeCorners(sh, curveSeg, b)) : pt.shapes;
+    const g = new THREE.ExtrudeGeometry(shp, { depth, curveSegments: curveSeg, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: lite ? 2 : 5 });
     g.translate(-cx, -cy, -(depth / 2 + b));
     /* El suavizado de normales (toCreasedNormals) agrupa vértices con precisión de 0,01: con el logo a escala 1
        los puntos vecinos de una curva caen en la misma celda y aparecen rayas verticales en los cantos.
@@ -6642,6 +6692,8 @@ function FadeGroup({ obj, fade, children }) {
 //@@use projectUVs
 //@@use __svgTextCache
 //@@use fetchSvgText
+//@@use roundPolyCorners
+//@@use roundShapeCorners
 //@@use buildSvgExtrude
 //@@use makeSvgMat
 //@@use SvgExtrudeBody
