@@ -3876,8 +3876,12 @@ function buildSvgExtrude(text, depthK, bevK, segK, lite) {
   parts.forEach((pt) => {
     const g = new THREE.ExtrudeGeometry(pt.shapes, { depth, curveSegments: curveSeg, bevelEnabled: b > 0.0001, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: lite ? 2 : 5 });
     g.translate(-cx, -cy, -(depth / 2 + b));
-    g.scale(1 / H, 1 / H, 1 / H);
+    /* El suavizado de normales (toCreasedNormals) agrupa vértices con precisión de 0,01: con el logo a escala 1
+       los puntos vecinos de una curva caen en la misma celda y aparecen rayas verticales en los cantos.
+       Se suaviza a escala 1000 y después se vuelve a escala 1. */
+    g.scale(1000 / H, 1000 / H, 1000 / H);
     pt.geo = creaseSides(g);
+    pt.geo.scale(0.001, 0.001, 0.001);
     projectUVs(pt.geo, 1.6);
     g.dispose();
   });
