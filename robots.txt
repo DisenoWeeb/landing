@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /editorhibrido.html
+Disallow: /editor3d.html
+Disallow: /in3d.html
+Disallow: /prueba1.html
+
+Sitemap: https://www.tuweeb.com/sitemap.xml
