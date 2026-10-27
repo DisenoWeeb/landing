@@ -2175,10 +2175,48 @@ function patchFadeMaterial(mat, uniforms) {
   mat.customProgramCacheKey = () => weebProgKey(mat);
   mat.needsUpdate = true;
 }
+/* Transformación (armado por piezas): un .glb cuyas piezas guardan varios estados (atributos _P1, _P2, _P3 y _DD,
+   p. ej. punto → segmento → celda → figura final) se arma en el shader. uT (0..1) es el avance del armado y sale de la
+   pose ("Armado" en el panel); cada pieza tiene su propio momento (_DD.x arma, _DD.y pasa a la figura final). */
+function hasMorphGeo(geo) { return !!(geo && geo.attributes && geo.attributes._p1 && geo.attributes._p2 && geo.attributes._p3 && geo.attributes._dd); }
+function makeMorphUniforms() { return { uT: { value: 0 }, uLead: { value: 0.13 }, uWin: { value: 0.11 }, uWin2: { value: 0.05 } }; }
+function patchMorphMaterial(mat, U) {
+  if (!mat || !U) return;
+  if (Array.isArray(mat)) { mat.forEach((m) => patchMorphMaterial(m, U)); return; }
+  mat.userData = mat.userData || {};
+  const ex = mat.userData.weebMorph;
+  if (ex && typeof ex === "object") { if (ex.lead != null) U.uLead.value = +ex.lead; if (ex.win != null) U.uWin.value = +ex.win; if (ex.win2 != null) U.uWin2.value = +ex.win2; }
+  mat.userData.__mtU = U;
+  if (mat.userData.__mtPatched) { if (mat.userData.__mtShader) Object.assign(mat.userData.__mtShader.uniforms, U); return; }
+  mat.userData.__mtPatched = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev.call(mat, shader, renderer);
+    Object.assign(shader.uniforms, mat.userData.__mtU);
+    mat.userData.__mtShader = shader;
+    shader.vertexShader = shader.vertexShader.replace("#include <common>",
+      "#include <common>\nattribute vec3 _p1;\nattribute vec3 _p2;\nattribute vec3 _p3;\nattribute vec2 _dd;\nuniform float uT;\nuniform float uLead;\nuniform float uWin;\nuniform float uWin2;"
+    ).replace("#include <begin_vertex>",
+      "float mtA = clamp((uT - _dd.x + uLead) / uWin, 0., 1.) * 2.;\n float mtB = clamp((uT - _dd.y) / uWin2, 0., 1.);\n vec3 transformed = position;\n transformed = mix(transformed, _p1, smoothstep(0., 1., clamp(mtA, 0., 1.)));\n transformed = mix(transformed, _p2, smoothstep(0., 1., clamp(mtA - 1., 0., 1.)));\n transformed = mix(transformed, _p3, smoothstep(0., 1., mtB));"
+    );
+  };
+  mat.customProgramCacheKey = () => weebProgKey(mat);
+  mat.needsUpdate = true;
+}
+/* Prepara las piezas de un modelo con Transformación: sin recorte por cámara (las piezas viajan lejos de su caja) y sin sombra propia. */
+function applyMorph(scene, U) {
+  let any = false;
+  scene.traverse((child) => {
+    if (!child.isMesh || !hasMorphGeo(child.geometry)) return;
+    any = true; child.frustumCulled = false; child.castShadow = false;
+    patchMorphMaterial(child.material, U);
+  });
+  return any;
+}
 /* Llave de programa: cada combinación de parches (descartar transparentes, fade/revelado, esquinas y marco) compila su propio shader. */
 function weebProgKey(mat) {
   const u = mat.userData || {};
-  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f6" : "") + (u.__txaPatched ? "t1" : "") + (u.__mediaPatched ? "m1" : "") + (u.__txCrisp ? "c1" : "") + (u.__shpPatched ? (u.__shpRefl ? "s1r" : "s1") : "");
+  return "weeb|" + (u.__discardClear ? "d" : "") + (u.__fadePatched ? "f6" : "") + (u.__txaPatched ? "t1" : "") + (u.__mediaPatched ? "m1" : "") + (u.__txCrisp ? "c1" : "") + (u.__shpPatched ? (u.__shpRefl ? "s1r" : "s1") : "") + (u.__mtPatched ? "x1" : "");
 }
 /* Esquinas redondeadas y marco para imágenes y videos (máscara en el shader, no toca la textura). */
 function patchMediaMaterial(mat, o, aspect) {
@@ -2767,6 +2805,7 @@ function sampleObjectKeyframes(keyframes, progress) {
     lt: lerpVec3(a.lt || [0, 0, 0], b.lt || [0, 0, 0], t),
     li: lerp(a.li ?? 1, b.li ?? 1, t),
     bl: lerp(a.bl || 0, b.bl || 0, t),
+    mt: lerp(a.mt || 0, b.mt || 0, t),
     sm: a.sm || b.sm ? smokeLerp(a.sm, b.sm, t) : null,
     fade: fadeStateFor(a, b, t),
   };
@@ -3635,14 +3674,17 @@ function useClonedScene(src) {
 function SceneObjectModel({ data }) {
   const { scene: srcScene } = useGLTF(data.url);
   const scene = useClonedScene(srcScene);
-  const { groupRef, fade, hasFade } = useObjectTransformRef(data.keyframes, false, false, data);
+  const { groupRef, fade, hasFade, live } = useObjectTransformRef(data.keyframes, false, false, data);
+  const morphU = useMemo(() => makeMorphUniforms(), []);
+  const hasMt = useMemo(() => applyMorph(scene, morphU), [scene, morphU]);
+  useFrame(() => { if (hasMt) morphU.uT.value = (live.current && live.current.mt) || 0; });
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
         // materiales con transparencia (pelo/mechones): reciben sombra pero no la proyectan (sus quads darían sombras rectangulares)
-        child.castShadow = data.shadows !== false && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
+        child.castShadow = data.shadows !== false && !hasMorphGeo(child.geometry) && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
         child.receiveShadow = data.shadows !== false;
         (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
           if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
@@ -4703,6 +4745,7 @@ function DepthFocus({ getTarget, follow, offset, distance, range, blur, back }) 
   const skipDepth = (o) => {
     if (o.isPoints || o.isSprite || o.isLine) return true;
     if (!o.isMesh) return false;
+    if (o.geometry && o.geometry.attributes && o.geometry.attributes._p1) return true;   // piezas que se arman: su forma vive en el shader
     const ms = Array.isArray(o.material) ? o.material : [o.material];
     return ms.some((m) => m && (m.depthWrite === false || m.blending === THREE.AdditiveBlending || (m.transparent && m.opacity < 0.02)));
   };
@@ -6272,6 +6315,7 @@ function sampleObjectTransform(transformsByStage, progress, stages, easings) {
     lt: lerpVec3(ta.lt || [0, 0, 0], tb.lt || [0, 0, 0], t),
     li: lerp(ta.li ?? 1, tb.li ?? 1, t),
     bl: lerp(ta.bl || 0, tb.bl || 0, t),
+    mt: lerp(ta.mt || 0, tb.mt || 0, t),
     sm: ta.sm || tb.sm ? smokeLerp(ta.sm, tb.sm, t) : null,
   }, fadeStateFor(ta, tb, t));
 }
@@ -6486,6 +6530,10 @@ const FADE_SOFT = 1.0;
 //@@use _FLO
 //@@use floatOffset
 //@@use patchFadeMaterial
+//@@use hasMorphGeo
+//@@use makeMorphUniforms
+//@@use patchMorphMaterial
+//@@use applyMorph
 //@@use weebProgKey
 //@@use patchMediaMaterial
 //@@use TEXT_EFFECTS
@@ -6677,12 +6725,15 @@ const EnvSettingsCtx = React.createContext({ enabled: false, intensity: 1, rig: 
 function ObjectPreviewModel({ obj, fade }) {
   const { scene: srcScene } = useGLTF(obj.previewUrl || obj.url);
   const scene = useClonedScene(srcScene);
+  const morphU = useMemo(() => makeMorphUniforms(), []);
+  useMemo(() => applyMorph(scene, morphU), [scene, morphU]);
+  morphU.uT.value = obj.mt || 0;
   useEffect(() => {
     scene.traverse((child) => {
       if (child.isMesh) {
         const mats0 = Array.isArray(child.material) ? child.material : [child.material];
         mats0.forEach((m) => { if (m && m.userData.__wasBlend === undefined) m.userData.__wasBlend = !!m.transparent; });
-        child.castShadow = obj.shadows !== false && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
+        child.castShadow = obj.shadows !== false && !hasMorphGeo(child.geometry) && !mats0.some((m) => m && (m.userData.__wasBlend || m.side === THREE.BackSide));   // un domo/esfera de fondo (se ve desde adentro) no proyecta sombra: taparía la luz del estudio
         child.receiveShadow = obj.shadows !== false;
         (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => {
           if (m && m.alphaTest > 0 && !m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; }
@@ -7921,7 +7972,7 @@ function generateObjectsCode(objects, transformsByKf, stages, easings) {
     const kfLines = stages.map((kf, idx) => {
       const t = transforms[kf.id] || { position: [0, 0, 0], scale: 1, rotationY: 0, hidden: false, fadeDir: "ltr" };
       const easing = idx === 0 ? "smooth" : (easings[idx - 1] || "smooth");
-      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.rz ? `, rz: ${fmtNum(t.rz)}` : ""}${t.rx ? `, rx: ${fmtNum(t.rx)}` : ""}${t.tk ? `, tk: ${fmtNum(t.tk)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${t.bl ? `, bl: ${fmtNum(t.bl)}` : ""}${o.type === "smoke" ? `, sm: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultSmokeParams(), ...(t.sm || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 1000) / 1000 : v])))}` : ""}${o.type === "light" ? `, lt: ${fmtVec(t.lt || [0, 0, 0])}, li: ${fmtNum(t.li ?? 1)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
+      return `      { progress: ${roundProgress(kf.progress)}, easing: "${easing}", position: ${fmtVec(t.position)}, scale: ${fmtNum(t.scale)}, rotationY: ${fmtNum(t.rotationY)}, hidden: ${t.hidden ? "true" : "false"}, fadeDir: "${t.fadeDir || "ltr"}"${t.sx != null && t.sx !== 1 ? `, sx: ${fmtNum(t.sx)}` : ""}${t.sy != null && t.sy !== 1 ? `, sy: ${fmtNum(t.sy)}` : ""}${t.rv != null && t.rv !== 1 ? `, rv: ${fmtNum(t.rv)}` : ""}${t.rz ? `, rz: ${fmtNum(t.rz)}` : ""}${t.rx ? `, rx: ${fmtNum(t.rx)}` : ""}${t.tk ? `, tk: ${fmtNum(t.tk)}` : ""}${t.lh ? `, lh: ${fmtNum(t.lh)}` : ""}${t.bl ? `, bl: ${fmtNum(t.bl)}` : ""}${t.mt ? `, mt: ${fmtNum(t.mt)}` : ""}${o.type === "smoke" ? `, sm: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultSmokeParams(), ...(t.sm || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 1000) / 1000 : v])))}` : ""}${o.type === "light" ? `, lt: ${fmtVec(t.lt || [0, 0, 0])}, li: ${fmtNum(t.li ?? 1)}` : ""}${o.type === "shape" ? `, sh: ${JSON.stringify(Object.fromEntries(Object.entries({ ...defaultShapeParams(), ...(t.sh || {}) }).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10000) / 10000 : v])))}` : ""} },`;
     }).join("\n");
     if (o.type === "text") {
       return `  {
@@ -10681,6 +10732,8 @@ function App() {
         {!isModel && <Slider label="Estirar ancho" min={0.05} max={6} step={0.01} value={t.sx ?? 1} onChange={(v) => setObjectTransform(o.id, "sx", null, v)} />}
         {!isModel && <Slider label="Desenfoque" min={0} max={30} step={0.1} value={t.bl || 0} onChange={(v) => setObjectTransform(o.id, "bl", null, v)} />}
         {!isModel && (t.bl || 0) > 0 && <div className="tools"><Btn title="Mismo desenfoque en todas las poses" onClick={() => setObjectAllStages(o.id, "bl", t.bl || 0)}>Desenfoque en todas las poses</Btn><Btn onClick={() => setObjectAllStages(o.id, "bl", 0)}>Quitar en todas</Btn></div>}
+        {isModel && <Slider label="Armado (transformación)" min={0} max={1} step={0.001} value={t.mt || 0} onChange={(v) => setObjectTransform(o.id, "mt", null, v)} />}
+        {isModel && <div style={{ fontSize: 10.5, opacity: 0.6, lineHeight: 1.35 }}>Solo para modelos con piezas que se arman (túnel de celdas, sala). 0 = piezas sueltas, 1 = figura completa; entre poses avanza con el scroll y al volver se desarma.</div>}
         {!isModel && <Slider label="Estirar alto" min={0.05} max={6} step={0.01} value={t.sy ?? 1} onChange={(v) => setObjectTransform(o.id, "sy", null, v)} />}
         <Vec3 label={o.parent ? "Posición (relativa a la madre)" : "Posición"} value={t.position} onChange={(a, v) => setObjectTransform(o.id, "position", a, v)} />
         {!(!isModel && o.billboard) && <Slider label="Giro Y" min={-180} max={180} step={0.1} value={t.rotationY} onChange={(v) => setObjectTransform(o.id, "rotationY", null, v)} />}
